@@ -12,8 +12,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/artifact-clean.ts");
+const TOOL = "artifact-clean";
 
 let workDir: string;
 let folder: string;
@@ -21,15 +22,8 @@ let folder: string;
 function runTool(args: string[], opts: { stdin?: string } = {}): { status: number; stdout: string; stderr: string; output: string } {
   // bats' $output combines stdout+stderr; mirror that so assertions match
   // the ported suite's semantics regardless of which stream a line uses.
-  // spawnSync (not execFileSync): exit-0 runs must still capture stderr.
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: opts.stdin ?? "",
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
+  const r = runHarness(TOOL, args, { stdin: opts.stdin });
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr, output: r.output };
 }
 
 beforeEach(() => {

@@ -55,6 +55,7 @@ const GIT_ENV = (): Record<string, string> => {
   return e;
 };
 
+import { runTool as runHarness } from "./harness/index.ts";
 // Run a tool with a gh stub dir PREPENDED to PATH (these suites read gh's
 // stdout; they never invoke editors, so prepending is safe here).
 function runWithStub(exe: string, args: string[], stubDir: string, env: Record<string, string | undefined> = {}): { status: number; stdout: string; stderr: string; out: string } {
@@ -64,6 +65,13 @@ function runWithStub(exe: string, args: string[], stubDir: string, env: Record<s
   for (const [k, v] of Object.entries(env)) {
     if (v === undefined) delete e[k];
     else e[k] = v;
+  }
+  // node invocations ride the harness (exe is "node" with a ts path in
+  // args); other executables keep their spawn shape.
+  if (exe === "node" && args[0]?.endsWith(".ts")) {
+    const name = args[0].replace(/\.ts$/, "").split("/").pop() ?? "unknown";
+    const r = runHarness(name, args.slice(1), { env: e });
+    return { status: r.status, stdout: r.stdout, stderr: r.stderr, out: r.output };
   }
   const r = spawnSync(exe, args, { encoding: "utf8", env: e });
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "", out: (r.stdout ?? "") + (r.stderr ?? "") };

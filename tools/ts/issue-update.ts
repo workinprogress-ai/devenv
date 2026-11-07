@@ -20,6 +20,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { resolveBodySource } from "../lib/core/body-source.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import {
   issuesExists,
@@ -231,14 +232,15 @@ async function main(argv: string[]): Promise<number> {
   if (newBody !== "") {
     hasUpdates = true;
   } else if (newBodyFile !== "") {
-    if (newBodyFile === "-") {
-      newBody = readFileSync(0, "utf8");
-    } else if (!existsSync(newBodyFile)) {
-      logError(`Body file not found: ${newBodyFile}`);
-      return EXIT_API_FAILURE;
-    } else {
-      newBody = readFileSync(newBodyFile, "utf8");
+    // The shared resolver owns the read and the uniform empty refusal
+    // (including the '-' leg — an empty pipe must never blank the body).
+    const resolved = resolveBodySource({ file: newBodyFile });
+    if (!resolved.ok) {
+      logError(resolved.error.message);
+      console.log("Use --help for usage information");
+      return resolved.error.code === "file-not-found" ? EXIT_API_FAILURE : EXIT_MISUSE;
     }
+    newBody = resolved.body;
     hasUpdates = true;
   }
   if (addLabels.length > 0 || removeLabels.length > 0) hasUpdates = true;
@@ -252,12 +254,13 @@ async function main(argv: string[]): Promise<number> {
 
   if (!hasUpdates && newState === "") {
     if (!process.stdin.isTTY) {
-      newBody = readFileSync(0, "utf8");
-      if (newBody.trim() === "") {
-        logError("Refusing empty stdin body");
+      const resolved = resolveBodySource({});
+      if (!resolved.ok) {
+        logError(resolved.error.message);
         console.log("Use --help for usage information");
         return EXIT_MISUSE;
       }
+      newBody = resolved.body;
       hasUpdates = true;
     } else {
       logError("No updates specified");

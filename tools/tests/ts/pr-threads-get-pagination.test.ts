@@ -10,6 +10,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -117,8 +118,10 @@ function callsContain(sub: string): boolean {
 }
 
 function runThreadsGet(args: string[], extraEnv: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync(SCRIPT, args, { cwd: TEST_REPO, encoding: "utf8", env: env(extraEnv) });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  // The suite drove the depth-1 stub; the harness runs the .ts source —
+  // the same execution path the stub resolves to.
+  const r = runHarness("pr-threads-get", args, { cwd: TEST_REPO, env: env(extraEnv) });
+  return { status: r.status, out: r.output };
 }
 
 function fillQueue(pages: string[]): void {

@@ -6,11 +6,15 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
+// The suite drove the depth-1 stub (bash → exec node); the harness runs the
+// .ts source directly — the same execution path the stub resolves to. The
+// stub itself stays bash: the syntax check below pins it.
 const SCRIPT = join(TOOLS, "pr-list");
 
 let TMP = "";
@@ -65,8 +69,7 @@ function runPrList(args: string[], ghStub?: string): { status: number; out: stri
     writeFileSync(join(TMP, "bin", "gh"), ghStub);
     spawnSync("chmod", ["+x", join(TMP, "bin", "gh")]);
   }
-  const r = spawnSync(SCRIPT, args, {
-    encoding: "utf8",
+  const r = runHarness("pr-list", args, {
     env: {
       ...procEnv,
       GH_CALL_LOG,
@@ -74,7 +77,7 @@ function runPrList(args: string[], ghStub?: string): { status: number; out: stri
       PATH: `${join(TMP, "bin")}:${procEnv.PATH ?? ""}`,
     },
   });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, out: r.output };
 }
 
 function firstListCall(): string {

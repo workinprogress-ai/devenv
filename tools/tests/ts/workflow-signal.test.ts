@@ -10,8 +10,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/workflow-signal.ts");
+const TOOL = "workflow-signal";
 const REAL_INTERNAL = join(fileURLToPath(new URL(".", import.meta.url)), "../../internal");
 const EVENTS_MODULE = join(
   fileURLToPath(new URL(".", import.meta.url)),
@@ -37,20 +38,12 @@ function makeFakeEvent(event: string, body?: string): void {
 // fake's events exist. Tests that need configured-listing run against the
 // real tree without the override.
 function runTool(args: string[]): { status: number; stdout: string; stderr: string; output: string } {
-  // spawnSync (not execFileSync): failure runs must still capture stderr.
   // The seam points at the directory holding the _on_*.sh entry points —
   // the internal/ dir itself, exactly as the bats harness sets it.
-  const env: Record<string, string> = { ...process.env } as Record<string, string>;
+  const env: Record<string, string> = {};
   if (entryDirOverridden) env["WORKFLOW_SIGNAL_TOOLS"] = fakeInternal;
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: "",
-    stdio: ["pipe", "pipe", "pipe"],
-    env,
-  });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
+  const r = runHarness(TOOL, args, { stdin: "", env });
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr, output: r.output };
 }
 
 function configuredEventNames(): string[] {
@@ -240,15 +233,11 @@ describe("interactive fallback (non-TTY contract)", () => {
   it("piped stdin does not become a selection (non-TTY never dispatches)", () => {
     // Any piped "menu input" is ignored on the non-TTY path — dispatch only
     // happens through explicit argv or a real interactive pick.
-    const env: Record<string, string> = { ...process.env } as Record<string, string>;
-    env["WORKFLOW_SIGNAL_TOOLS"] = fakeInternal;
-    const r = spawnSync("node", [TOOL], {
-      encoding: "utf8",
-      input: "2\n101 102\n",
-      stdio: ["pipe", "pipe", "pipe"],
-      env,
+    const r = runHarness(TOOL, [], {
+      stdin: "2\n101 102\n",
+      env: { WORKFLOW_SIGNAL_TOOLS: fakeInternal },
     });
-    expect(r.status ?? 1).toBe(0);
+    expect(r.status).toBe(0);
     expect(existsSync(logFile)).toBe(false);
   });
 });

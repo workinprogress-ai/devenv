@@ -9,7 +9,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/project-add-issue.ts");
+import { runTool as runHarness } from "./harness/index.ts";
+const TOOL = "project-add-issue";
 
 let stubDir = "";
 let sandbox = "";
@@ -35,22 +36,18 @@ function installGhStub(lines: string[]): void {
 }
 
 function runTool(args: string[]): { status: number; output: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: "",
+  const r = runHarness(TOOL, args, {
     cwd: sandbox,
     env: {
-      ...process.env,
       PATH: `${stubDir}:${process.env.PATH ?? ""}`,
       DEVENV_ROOT: sandbox,
       DEVENV_REPO: "the-owner/the-repo",
       GH_ORG: process.env.GH_ORG,
     },
   });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, output: stdout + stderr };
+  return { status: r.status, output: r.output };
 }
+
 
 describe("project-add-issue", () => {
   it("the issue URL is read from the resolved repo, not an org plus cwd guess", () => {

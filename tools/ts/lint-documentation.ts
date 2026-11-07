@@ -53,13 +53,20 @@ if (files.length === 0) {
     files.push(...lsFiles(targetRoot, "*.md"));
   } else {
     targetRoot = devenvRoot;
-    files.push(...lsFiles(targetRoot, "README.md", "docs/*.md", "docs/**/*.md"));
+    files.push(
+      ...lsFiles(targetRoot, "README.md", "docs/*.md", "docs/**/*.md", "copilot/skills/*.md", "copilot/skills/**/*.md"),
+    );
   }
 } else {
   targetRoot = gitRoot() ?? devenvRoot;
-  // For the devenv root, only README.md and docs/** are in scope.
+  // For the devenv root, README.md, docs/**, and copilot/skills/** are in scope.
   if (resolve(targetRoot) === resolve(devenvRoot)) {
-    const kept = files.filter((f) => f === "README.md" || f.startsWith("docs/"));
+    const kept = files.filter(
+      (f) =>
+        f === "README.md" ||
+        f.startsWith("docs/") ||
+        f.startsWith("copilot/skills/"),
+    );
     files.length = 0;
     files.push(...kept);
   }
@@ -67,6 +74,7 @@ if (files.length === 0) {
 
 // Session memory and plan files carry free-form AI content that does not
 // conform to doc lint rules.
+// TODO:DEVENV[Plan-skills-audit-remediation-001]: the Implementation_plan-*.md filename alias is legacy — see the sunset note in plan-parse.ts and drop all three carriers together.
 const filtered = files.filter((f) => {
   const b = basename(f);
   return !(b.startsWith("session_") && b.includes("memory")) && !/^Plan-.*\.md$/.test(b) && !/^Implementation_plan-.*\.md$/.test(b);
@@ -146,7 +154,9 @@ function anchorOfHeading(heading: string): string {
   h = h.replace(/^(?:>\s*)+/, ""); // strip blockquote markers
   h = h.toLowerCase();
   h = h.replace(/ /g, "-");
-  h = h.replace(/[`*_.,:;!?()[\]&/—–“”‘’#]/g, "");
+  // GitHub slug rules: keep word characters (letters, digits, underscore) and
+  // hyphens; strip other punctuation. Underscores are preserved in slugs.
+  h = h.replace(/[`*.,:;!?()[\]&/—–“”‘’#<>]/g, "");
   return h;
 }
 
@@ -158,7 +168,11 @@ for (const mdFile of files) {
   if (!existsSync(full)) continue;
   const fileRel = mdFile.replace(/^\.\//, "");
   const relDir = dirname(fileRel);
-  const content = readFileSync(full, "utf8");
+  let content = readFileSync(full, "utf8");
+  // Skip links inside fenced code blocks and inline code spans: those are
+  // teaching examples (template snippets, path conventions), not live links.
+  content = content.replace(/```[\s\S]*?```/g, "");
+  content = content.replace(/`[^`\n]*`/g, "");
   const links = [...new Set([...content.matchAll(/\]\(([^)\s]+\.md[^)]*)\)/g)].map((m) => m[1]!))].sort();
   for (const link of links) {
     const hash = link.indexOf("#");

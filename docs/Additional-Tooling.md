@@ -1,6 +1,6 @@
 # Additional Tooling
 
-This document provides comprehensive documentation for all additional tooling available in the development environment. These tools live in the `tools/scripts/` (bash) and `tools/ts/` (TypeScript) folders and are automatically added to the `PATH` when the development environment is set up.
+This document provides comprehensive documentation for all additional tooling available in the development environment. These tools live in the `tools/ts/` (TypeScript) folder, are surfaced through generated depth-1 `tools/` PATH stubs, and are automatically added to the `PATH` when the development environment is set up.
 
 ## Shared Bash Libraries
 
@@ -64,18 +64,19 @@ Tests: `tools/tests/ts/workflow-model.test.ts`,
 the dispatcher contract lives in
 `tools/tests/ts/on-event-dispatch.test.ts`.
 
-### `issue-graph.bash`
+### `lib/domain/issues/graph.ts` (issue hierarchy) + `issue-graph-link`
 
-All issue-hierarchy I/O behind helpers: native sub-issue graph plus body-text parent fallback.
+Issue-hierarchy I/O lives in the TS domain module `tools/lib/domain/issues/graph.ts`, consumed through the provider facade: native sub-issue graph with body-text parent fallback. Key exports: `parent(spec, issue)` (native `Issue.parent` first, `Part of #N` body-text fallback for pre-native issues) and `readStatus(...)` (first vocabulary-valid Status across the issue's projects; foreign-board values count as unreadable).
 
-Public functions:
+The user-facing verb is the `issue-graph-link` wrapper:
 
-- `issue_link_subissue <parent> <child>` — native `addSubIssue` linkage.
-- `issue_children <parent>` — native sub-issue numbers, one per line (first 50; deliberate limit).
-- `issue_parent <issue>` — native `Issue.parent` first, `Part of #N` body-text fallback for pre-native issues.
-- `issue_read_status <issue>` — first vocabulary-valid Status across the issue's projects; foreign-board values count as unreadable.
+```bash
+issue-graph-link PARENT CHILD [--unlink]
+```
 
-Test seam: `ISSUE_GRAPH_TOOLS` overrides where the board-reading script is found. Tests: `tools/tests/ts/provider-loading.test.ts`, `tools/tests/ts/workflow-model.test.ts`.
+Both IDs accept `N` or `owner/repo#N` (cross-repo parenting works — the sub-issue API takes global node IDs); idempotent add; removing an absent link is a no-op.
+
+Tests: `tools/tests/ts/provider-loading.test.ts`, `tools/tests/ts/workflow-model.test.ts`.
 
 ## Diagnostics
 
@@ -2700,7 +2701,7 @@ devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 
 ### Function-backed commands (function vs script)
 
-`key-update-provider`, `key-update-do`, and `key-update-tailscale` are **bash functions**: `key-update-do` and `key-update-tailscale` wrap `tools/scripts/_key-update-*.sh`, `key-update-provider` dispatches to the active provider's `tools/lib/providers/<name>/key-update.sh` (bootstrap also generates one `key-update-<provider>` command per provider that ships a script, for example `key-update-azure`, to rotate that provider's credential regardless of which is active), and all of them re-source `.runtime/env-vars.sh` afterward, so the current shell sees refreshed values. The underscore-prefixed scripts have no depth-1 `tools/` entry by design — always invoke the bare function name. (`repo-get` is the deliberate counter-example: its depth-1 stub has real value for non-interactive use, so it is a plain script plus stub.)
+`key-update-provider`, `key-update-do`, and `key-update-tailscale` are **bash functions** defined by bootstrap (`tools/ts/setup-steps/bash-functions.ts` emits the shell functions): `key-update-do` and `key-update-tailscale` wrap `tools/ts/_key-update-*.ts`, `key-update-provider` dispatches to the active provider's `tools/lib/providers/<name>/key-update.sh` (bootstrap also generates one `key-update-<provider>` command per provider that ships a script, for example `key-update-azure`, to rotate that provider's credential regardless of which is active), and all of them re-source `.runtime/env-vars.sh` afterward, so the current shell sees refreshed values. The underscore-prefixed scripts have no depth-1 `tools/` entry by design — always invoke the bare function name. (`repo-get` is the deliberate counter-example: its depth-1 stub has real value for non-interactive use, so it is a plain script plus stub.)
 
 ### `key-update-provider`
 
@@ -2839,14 +2840,14 @@ Per-repo Compose file (when a repo ships one at its root) for running developmen
 machinery itself (lifecycle event dispatch, git hooks) rather than by a person
 at a shell. The folder is the workspace's convention for "the user would
 generally not run this"; it answers the placement question that
-`tools/scripts/`, `tools/ts/`, `tools/fork/`, and `tools/custom/` do not:
-those four are the override chain for user-facing tools, while `tools/internal/` sits outside
+`tools/ts/`, `tools/fork/`, and `tools/custom/` do not:
+those three are the override chain for user-facing tools, while `tools/internal/` sits outside
 it entirely.
 
 **What belongs here:** scripts whose only caller is other tooling —
 githook backing scripts, CI-only checkers, lifecycle event entry points.
 **What does not:** anything a user might legitimately invoke (that belongs in
-`tools/scripts/` or `tools/ts/` and gets a `PATH` stub), and user-extensible machinery
+`tools/ts/` and gets a `PATH` stub), and user-extensible machinery
 (githooks themselves live in `.husky/` and delegate here).
 
 **Contract:**
@@ -2883,10 +2884,10 @@ githook backing scripts, CI-only checkers, lifecycle event entry points.
   by hand). Scratchpad-safe: observes and controls execution, never mutates
   the working tree.
 
-**When to add here vs `tools/scripts/`:** ask "who is the caller?" If the
+**When to add here vs `tools/ts/`:** ask "who is the caller?" If the
 caller is always machinery (a hook, CI, the event dispatcher), use
 `tools/internal/`. If a human might ever run it — even rarely — use
-`tools/scripts/` (bash) or `tools/ts/` (TypeScript) so it gets a `PATH` stub
+`tools/ts/` (TypeScript) so it gets a `PATH` stub
 and enters the override chain.
 Scripts that are runnable later but outside any daily workflow belong in
 `tools/special/` instead (see below).
@@ -3509,7 +3510,7 @@ The following environment variables should be configured for full functionality:
   - `read:org` (read org and team membership, read org projects)
   - `project` (full control of projects)
 - `DEVENV_ROOT`: Path to devenv root directory (auto-set)
-- `DEVENV_TOOLS`: Path to the `tools/` directory (auto-set; bash sources under `tools/scripts/`, TS tools under `tools/ts/`, libs under `tools/lib/`)
+- `DEVENV_TOOLS`: Path to the `tools/` directory (auto-set; TS tools under `tools/ts/`, libs under `tools/lib/`)
 - `DEVENV_REPO`: Canonical (and only) repo target for repo-scoped wrappers,
   `owner/repo` form. Skill sessions env-prefix every call with it (see the
   wrapper protocol reference); cwd fallback serves interactive human use. See

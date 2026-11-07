@@ -2,13 +2,12 @@
 // stubbed gh (GET existence + PATCH update logged): validation, source
 // rules, dry-run, and the update call shape.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-comment-update.ts");
+const TOOL = "issue-comment-update";
 
 let stubDir = "";
 let responses = "";
@@ -50,15 +49,11 @@ function setResponses(lines: string): void {
 }
 
 function runTool(args: string[], opts: { stdin?: string } = {}): { status: number; stdout: string; stderr: string; output: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: opts.stdin ?? "",
+  return runHarness(TOOL, args, {
+    env: { PATH: pathWithStubs(stubDir), DEVENV_REPO: "org/repo" },
+    stdin: opts.stdin,
     cwd: repoRoot,
-    env: { ...process.env, PATH: `${stubDir}:${process.env.PATH ?? ""}`, DEVENV_REPO: "org/repo" },
   });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
 }
 
 

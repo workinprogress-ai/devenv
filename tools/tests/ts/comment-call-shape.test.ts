@@ -59,6 +59,10 @@ function runCore(setup: string, call: string): { status: number; out: string } {
   const r = spawnSync("bash", ["-c", script], {
     input: "",
     encoding: "utf8",
+    // The call-shape lock drives the BASH provider core directly (it asserts
+    // the bash seam's argv shape, not the TS tools') — the tool-runner
+    // harness does not apply to this suite; only the stub/PATH boilerplate
+    // shares the harness conventions via stubCli where it fits.
     env: {
       ...procEnv,
       STUB_CALL_LOG: CALL_LOG,

@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -111,8 +112,10 @@ function env(extra: Record<string, string> = {}): Record<string, string> {
 }
 
 function runTool(tool: string, args: string[], extra: Record<string, string> = {}, input = ""): { status: number; out: string } {
-  const r = spawnSync(join(TOOLS, tool), args, { encoding: "utf8", input, env: env(extra) });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  // The suite drove the depth-1 stubs; the harness runs the .ts source —
+  // the same execution path the stub resolves to.
+  const r = runHarness(tool, args, { stdin: input, env: env(extra) });
+  return { status: r.status, out: r.output };
 }
 
 // Run a kube tool on a pseudo-terminal so confirm_or_fail takes its prompt

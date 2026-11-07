@@ -4,13 +4,12 @@
 // issue; with --create a stand-in `issue-create` records its arguments and
 // the body file's content.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-create-batch.ts");
+const TOOL = "issue-create-batch";
 
 let stubDir = "";
 let workDir = "";
@@ -40,20 +39,15 @@ interface RunOpts {
 }
 
 function runTool(opts: RunOpts): { status: number; stdout: string; stderr: string; output: string } {
-  const r = spawnSync("node", [TOOL, ...opts.args], {
-    encoding: "utf8",
+  return runHarness(TOOL, opts.args, {
     cwd: workDir,
     env: {
-      ...process.env,
-      PATH: `${stubDir}:${process.env.PATH ?? ""}`,
+      PATH: pathWithStubs(stubDir),
       DEVENV_REPO: "org/repo",
       ...(opts.createOut !== undefined ? { FAKE_CREATE_OUT: opts.createOut } : {}),
       ...(opts.issuesConfig !== undefined ? { ISSUES_CONFIG: opts.issuesConfig } : {}),
     },
   });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
 }
 
 /** Second preview row (index 0), temp path normalized. */

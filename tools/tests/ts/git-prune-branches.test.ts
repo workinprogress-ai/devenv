@@ -8,8 +8,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/git-prune-branches.ts");
+const TOOL = "git-prune-branches";
 
 let remote: string;
 let repo: string;
@@ -28,13 +29,12 @@ function commit(target: string, msg: string, file: string): void {
 }
 
 function runTool(args: string[], input: string): { status: number; out: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input,
+  const r = runHarness(TOOL, args, {
+    stdin: input,
     cwd: repo,
-    env: { ...process.env, GIT_ASKPASS: "echo", GIT_TERMINAL_PROMPT: "0" },
+    env: { GIT_ASKPASS: "echo", GIT_TERMINAL_PROMPT: "0" },
   });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, out: r.output };
 }
 
 function branchExists(name: string): boolean {

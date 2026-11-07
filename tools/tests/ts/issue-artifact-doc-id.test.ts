@@ -2,22 +2,13 @@
 // identity is byte-format-critical: every case here pins the exact string
 // the bash tool emitted (plus the misuse exit codes).
 import { describe, it, expect } from "vitest";
-import { spawnSync } from "node:child_process";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-artifact-doc-id.ts");
+const TOOL = "issue-artifact-doc-id";
 
 function runTool(args: string[], env: Record<string, string> = {}): { status: number; stdout: string; stderr: string; output: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: "",
-    env: { ...process.env, ...env },
-  });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
+  return runHarness(TOOL, args, { env: { ...env } });
 }
 
 describe("issue-artifact-doc-id", () => {
@@ -66,13 +57,12 @@ describe("issue-artifact-doc-id", () => {
   it("a missing repo resolves to nothing and fails defined without DEVENV_REPO", () => {
     // Resolution has a cwd leg now (org + git-root basename), so the
     // unresolvable case needs a cwd with no git root and cleared env legs.
-    const r = spawnSync("node", [TOOL, "--issue", "123", "--artifact-type", "spike", "--slug", "x"], {
-      encoding: "utf8",
+    const r = runHarness(TOOL, ["--issue", "123", "--artifact-type", "spike", "--slug", "x"], {
       cwd: tmpdir(),
-      env: { ...process.env, DEVENV_REPO: "", GH_REPO: "" },
+      env: { DEVENV_REPO: "", GH_REPO: "" },
     });
     expect(r.status).toBe(1);
-    expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("no repository target resolved");
+    expect(r.output).toContain("no repository target resolved");
   });
 
   it("DEVENV_REPO resolves the repo when --repo is absent", () => {

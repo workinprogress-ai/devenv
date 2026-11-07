@@ -34,6 +34,47 @@ function on_error() {
 
 trap on_error ERR
 
+# Desktop-integrating commands spawn a dbus-launch/gnome-keyring-d session pair
+# per invocation; when the invoking shell exits, the pair is orphaned and never
+# terminates, leaking ~2 PIDs each. Over a long-lived container this exhausts
+# the cgroup pid budget and blocks test gates. Reap the orphans (parent is PID 1
+# — the spawner is dead) on every container start; the live desktop session's
+# own dbus (parented by the session) is spared. Always returns 0 — a clean
+# sweep must not trip the ERR trap below.
+reap_orphan_desktop_sessions() {
+    local count=0
+    for pid in $(ps -eo pid=,ppid=,comm= | awk '$2 == 1 && ($3 == "dbus-launch" || $3 == "dbus-daemon" || $3 == "gnome-keyring-d") {print $1}'); do
+        kill "$pid" 2>/dev/null && count=$((count + 1))
+    done
+    if [ "$count" -gt 0 ]; then
+        echo "Reaped $count orphaned desktop-session processes"
+    fi
+    return 0
+}
+reap_orphan_desktop_sessions
+
+# Session-reaper watchdog. Containers can live for days or weeks and the
+# one-shot reap above only sweeps at container start; this singleton loop
+# keeps the leak bounded (~2 PIDs per desktop-integrating command) for the
+# container's whole lifetime. Watchdog mode is a self-reinvoke of this script
+# ("$0" --session-reaper-watchdog) so the pgrep guard can find it by command
+# line and never spawn a second copy; it dies with the container (restart =
+# fresh PID space), and an interrupted sleep exits the loop rather than
+# cascading into the bootstrap flow below (the ERR trap is disarmed in this
+# branch and the mode exits if the loop ever breaks).
+if [ "${1:-}" = "--session-reaper-watchdog" ]; then
+    trap - ERR
+    exec >> /tmp/session-reaper.log 2>&1
+    while :; do
+        sleep 3600
+        reap_orphan_desktop_sessions
+    done
+    exit 0
+fi
+if ! pgrep -f -- "--session-reaper-watchdog" >/dev/null 2>&1; then
+    ( bash "$(readlink -f "${BASH_SOURCE[0]}")" --session-reaper-watchdog </dev/null >/dev/null 2>&1 & )
+fi
+
 # Function to run bootstrap with proper locking
 run_bootstrap() {
     # shellcheck disable=SC2034

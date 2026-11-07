@@ -1,6 +1,7 @@
 // plan-parse — deterministic plan structure parsing.
 // Port of plan-parse.sh: extracts phases, tasks, completion state, and
 // file-path anchors from Plan-*.md (or Implementation_plan-*.md) as JSON.
+// TODO:DEVENV[Plan-skills-audit-remediation-001]: the Implementation_plan-*.md filename alias is legacy — drop it across plan-parse, markdown-plan-complete-task, and lint-documentation when no live .local-artifacts plan file carries that prefix (verify across workspace repos before removing).
 // Five modes: structure (default), anchors, census, summary, lint.
 // The parsers are regex ports of the bash awk engines; the 47-test bats
 // suite is the oracle (test_plan_parse.bats).

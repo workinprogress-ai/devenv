@@ -34,12 +34,16 @@
 	},
 
     "runArgs": [
-		// Parameters needed for ZeroTier
-		// "--cap-add=NET_ADMIN",
-		// "--cap-add=SYS_ADMIN",
-		// "--device=/dev/net/tun"
+                // PID ceiling for the container: the default (2048) is thin for a
+                // container hosting a desktop session + docker-in-docker + VS Code
+                // server + concurrent test-runner worker pools (cgroup v2 counts
+                // every thread); 4096 leaves headroom for a full vitest lane at peak.
+                "--pids-limit=4096"
+                // "--cap-add=NET_ADMIN",
+                // "--cap-add=SYS_ADMIN",
+                // "--device=/dev/net/tun"
         ],
-	
+
     "remoteUser": "vscode",
 	"postStartCommand": "/bin/bash .devcontainer/container-start.sh",
 

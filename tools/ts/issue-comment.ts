@@ -13,13 +13,14 @@
 
 import { parseArgs } from "node:util";
 import { basename, join } from "node:path";
-import { readFileSync, writeFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { resolveBodySource } from "../lib/core/body-source.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesComment } from "../lib/providers/facade/issues.ts";
 
@@ -172,39 +173,42 @@ async function main(argv: string[]): Promise<number> {
   }
 
   let body = "";
-  let bodyFile = args.bodyFile;
-  if (sources === 0) {
-    if (!process.stdin.isTTY) {
-      body = readFileSync(0, "utf8");
-      if (isWhitespaceOnly(body)) {
-        logError("Refusing empty stdin body");
-        console.log("Use --help for usage information");
-        return EXIT_MISUSE;
-      }
+  let bodyFile = "";
+  if (sources === 1) {
+    // Single explicit source: resolve through the shared resolver so the
+    // '-' and file legs carry the uniform empty refusal. --edit keeps its
+    // own editor leg below.
+    if (args.edit) {
+      body = composeInEditor();
     } else {
+      const resolved = resolveBodySource({
+        ...(args.body !== "" ? { text: args.body } : {}),
+        ...(args.bodyFile !== "" ? { file: args.bodyFile } : {}),
+      });
+      if (!resolved.ok) {
+        logError(resolved.error.message);
+        console.log("Use --help for usage information");
+        return resolved.error.code === "file-not-found" ? EXIT_API_FAILURE : EXIT_MISUSE;
+      }
+      body = resolved.body;
+    }
+  } else {
+    // No explicit source: piped stdin auto-reads; a TTY demands one.
+    if (process.stdin.isTTY) {
       logError("A comment source is required: --body, --body-file, or --edit");
       console.log("Use --help for usage information");
       return EXIT_MISUSE;
     }
+    const resolved = resolveBodySource({});
+    if (!resolved.ok) {
+      logError(resolved.error.message);
+      console.log("Use --help for usage information");
+      return EXIT_MISUSE;
+    }
+    body = resolved.body;
   }
 
   checkTargetRepo(args.devenv);
-
-  if (args.edit) {
-    body = composeInEditor();
-  } else if (bodyFile === "-") {
-    body = readFileSync(0, "utf8");
-    bodyFile = "";
-  } else if (bodyFile !== "") {
-    if (!existsSync(bodyFile)) {
-      logError(`File not found: ${bodyFile}`);
-      return EXIT_API_FAILURE;
-    }
-    body = readFileSync(bodyFile, "utf8");
-  } else if (body === "") {
-    // Plain --body: the flag value IS the body (the bash tool's COMMENT_BODY).
-    body = args.body;
-  }
 
   const repo = requireRepoTarget(providerRepoTarget(""), "issue-comment", "issues");
 
@@ -215,9 +219,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   try {
-    await issuesComment(repo, Number.parseInt(issueNumber, 10), {
-      ...(bodyFile !== "" && body === "" ? { bodyFile } : { body }),
-    });
+    await issuesComment(repo, Number.parseInt(issueNumber, 10), { body });
     logInfo(`Comment posted on issue #${issueNumber}`);
     return 0;
   } catch (err) {

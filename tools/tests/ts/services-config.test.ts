@@ -7,6 +7,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -21,8 +22,10 @@ beforeEach(() => {
 });
 
 function runTool(args: string[], extraEnv: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync(SCRIPT, args, { encoding: "utf8", env: { ...process.env, ...extraEnv } });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  // The suite drove the depth-1 bash stub; the harness runs the .ts source
+  // (same execution path) — the bash-syntax test below still pins the stub.
+  const r = runHarness("get-services-config", args, { env: { ...extraEnv } });
+  return { status: r.status, out: r.output };
 }
 
 function sourceHas(args: string[]): boolean {

@@ -1,13 +1,12 @@
 // Tests for issue-create.ts — body-source resolution, reference lines, ref
 // parsing, and the create flow through a stubbed gh with a call log.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-create.ts");
+const TOOL = "issue-create";
 
 let stubDir = "";
 let repoRoot = "";
@@ -67,22 +66,17 @@ interface RunOpts {
 }
 
 function runTool(opts: RunOpts): { status: number; stdout: string; stderr: string; output: string } {
-  const r = spawnSync("node", [TOOL, ...opts.args], {
-    encoding: "utf8",
-    input: opts.input ?? "",
+  return runHarness(TOOL, opts.args, {
+    stdin: opts.input,
     cwd: repoRoot,
     env: {
-      ...process.env,
-      PATH: `${stubDir}:${process.env.PATH ?? ""}`,
+      PATH: pathWithStubs(stubDir),
       DEVENV_REPO: "org/repo",
       WORKFLOW_CORE_TOOLS: "/nonexistent-workflow-tools",
       ...(opts.issuesConfig !== undefined ? { ISSUES_CONFIG: opts.issuesConfig } : {}),
       ...(opts.parentType !== undefined ? { PARENT_TYPE: opts.parentType } : {}),
     },
   });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
 }
 
 function writeTypesConfig(): string {

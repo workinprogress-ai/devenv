@@ -3,15 +3,15 @@
 // process, so in-process vi.mock cannot reach it). Cases pin the output
 // field set, the 0/1/many match contract, and the write-body behavior.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
 // The tool executes as a child process; resolve its path from this suite's
 // location (tests/ts/ → scripts/), the same derivation every sibling uses.
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-artifact-get.ts");
+const TOOL = "issue-artifact-get";
 
 let stubDir = "";
 let responses = "";
@@ -66,18 +66,9 @@ function comment(
 }
 
 function runTool(args: string[]): { status: number; stdout: string; stderr: string; output: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: "",
-    env: {
-      ...process.env,
-      PATH: `${stubDir}:${process.env.PATH ?? ""}`,
-      DEVENV_REPO: "org/repo",
-    },
-  });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
+  // Thin wrapper over the shared harness: the suite keeps its name and
+  // env shape; the spawn boilerplate lives in one place.
+  return runHarness(TOOL, args, { env: { PATH: pathWithStubs(stubDir), DEVENV_REPO: "org/repo" } });
 }
 
 describe("issue-artifact-get", () => {

@@ -10,6 +10,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -53,22 +54,17 @@ describe("scripts/project-triage-consumers", () => {
     spawnSync("chmod", ["+x", join(bin, "gh"), join(bin, "git")]);
     const triageLog = join(TMP, "gh-calls.log");
     writeFileSync(triageLog, "");
-    const r = spawnSync(
-      "node",
-      [join(TOOLS, "ts", "issue-triage.ts"), "42", "--milestone", "7"],
-      {
-        encoding: "utf8",
-        env: {
-          ...procEnv,
-          TRIAGE_LOG: triageLog,
-          TRIAGE_FAKE_TOP: TMP,
-          DEVENV_REPO: "my-proj/my-repo",
-          DEVENV_ROOT: join(TMP, "devenv-root"),
-          DEVENV_ROOT_SET: "1",
-          PATH: `${bin}:${procEnv.PATH ?? ""}`,
-        },
+    const r = runHarness("issue-triage", ["42", "--milestone", "7"], {
+      env: {
+        ...procEnv,
+        TRIAGE_LOG: triageLog,
+        TRIAGE_FAKE_TOP: TMP,
+        DEVENV_REPO: "my-proj/my-repo",
+        DEVENV_ROOT: join(TMP, "devenv-root"),
+        DEVENV_ROOT_SET: "1",
+        PATH: `${bin}:${procEnv.PATH ?? ""}`,
       },
-    );
+    });
     expect(r.status).toBe(0);
     const log = spawnSync("cat", [triageLog], { encoding: "utf8" }).stdout ?? "";
     expect(log).toContain("issue edit 42 -R my-proj/my-repo --milestone 7");

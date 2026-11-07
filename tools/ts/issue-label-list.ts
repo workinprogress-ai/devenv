@@ -13,6 +13,7 @@ import {} from "node:fs";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesLabelList } from "../lib/providers/facade/issues.ts";
 
@@ -29,12 +30,9 @@ Read-only — use before suggesting labels in triage so only existing labels
 are proposed. Create missing labels with issue-label-create.
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
+${usageCommonFlags()}
     -f, --format FORMAT         Output format: table (default), json, simple
     -s, --search TERM           Filter labels by substring (case-insensitive)
-    --devenv                    Safety override to list labels in devenv repo
 
 Examples:
     ${SCRIPT_NAME}
@@ -53,34 +51,27 @@ interface Label {
 async function main(argv: string[]): Promise<number> {
   let format = "table";
   let search = "";
-  let devenv = false;
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         format: { type: "string", short: "f", default: "table" },
         search: { type: "string", short: "s" },
-        devenv: { type: "boolean", default: false },
       },
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    format = values["format"] ?? "table";
-    search = values["search"] ?? "";
-    devenv = Boolean(values["devenv"]);
+    if (cli.common.help) showUsage();
+    // -v printed and exited inside toolCli.
+    format = (cli.values["format"] as string | undefined) ?? "table";
+    search = (cli.values["search"] as string | undefined) ?? "";
+
+    checkTargetRepo(cli.common.devenv);
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
-
-  checkTargetRepo(devenv);
 
   const repo = requireRepoTarget(providerRepoTarget(""), "issue-label-list", "issues");
 

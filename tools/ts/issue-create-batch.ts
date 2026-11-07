@@ -20,6 +20,7 @@ import { tmpdir } from "node:os";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logDebug, logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { issueNumberFromRef } from "../lib/domain/issues/refs.ts";
 import { spawnSync } from "node:child_process";
 
 assertNodeFloor();
@@ -391,12 +392,7 @@ interface Built {
 }
 
 /** Bare id (Azure shape) or the trailing number of an issue/work-item URL. */
-function issueNumberFromRef(ref: string): number | null {
-  const trimmed = ref.trim();
-  if (/^[0-9]+$/.test(trimmed)) return Number.parseInt(trimmed, 10);
-  const m = /^https?:\/\/[^?#]*\/([0-9]+)\/?([?#].*)?$/.exec(trimmed);
-  return m?.[1] !== undefined ? Number.parseInt(m[1], 10) : null;
-}
+// issueNumberFromRef lives in lib/domain/issues/refs.ts (shared with issue-create).
 
 /**
  * The one place an issue entry becomes an `issue-create` command, shared by

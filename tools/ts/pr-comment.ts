@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { resolveBodySource } from "../lib/core/body-source.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
 import { prsComment } from "../lib/providers/facade/prs.ts";
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
@@ -140,25 +141,10 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  if (sources === 0) {
-    if (stdinIsTty()) {
-      logError("One comment source is required: --body, --body-file, or --edit");
-      console.log("Use --help for usage information");
-      return EXIT_MISUSE;
-    }
-    // Piped stdin auto-reads; empty/whitespace-only stdin is refused (the
-    // body-source contract: silence is how caller bugs hide).
-    const content = readStdinSync();
-    if (content.replace(/\s/g, "") === "") {
-      logError("Refusing empty stdin body");
-      return EXIT_MISUSE;
-    }
-    bodyText = content;
-  }
-
-  if (bodyFile !== "" && bodyFile !== "-" && !existsSync(bodyFile)) {
-    logError(`File not found: ${bodyFile}`);
-    return EXIT_API_FAILURE;
+  if (sources === 0 && stdinIsTty()) {
+    logError("One comment source is required: --body, --body-file, or --edit");
+    console.log("Use --help for usage information");
+    return EXIT_MISUSE;
   }
 
   if (useEditor) {
@@ -178,6 +164,22 @@ async function main(argv: string[]): Promise<number> {
       return EXIT_GENERAL_ERROR;
     }
     bodyFile = "";
+  } else if (sources >= 1 || !stdinIsTty()) {
+    // Single explicit source or piped stdin: the shared resolver owns the
+    // uniform empty refusal (including the '-' leg). The resolved CONTENT
+    // posts as the body on every path — the facade's bodyFile passthrough
+    // (which read `-` as stdin lazily) is gone with it.
+    const resolved = resolveBodySource({
+      ...(bodyText !== "" ? { text: bodyText } : {}),
+      ...(bodyFile !== "" ? { file: bodyFile } : {}),
+    });
+    if (!resolved.ok) {
+      logError(resolved.error.message);
+      console.log("Use --help for usage information");
+      return resolved.error.code === "file-not-found" ? EXIT_API_FAILURE : EXIT_MISUSE;
+    }
+    bodyText = resolved.body;
+    bodyFile = "";
   }
 
   if (!(await authStatusOk())) {
@@ -190,26 +192,15 @@ async function main(argv: string[]): Promise<number> {
 
   if (dryRun) {
     logInfo(`[DRY RUN] Would post comment on PR #${prNumber}:`);
-    if (bodyFile !== "" && bodyFile !== "-") {
-      process.stdout.write(readFileSync(bodyFile, "utf8"));
-    } else if (bodyFile === "-") {
-      process.stdout.write(readStdinSync());
-    } else {
-      console.log(bodyText);
-    }
+    console.log(bodyText);
     return 0;
   }
 
   try {
-    // --body-file rides the facade's bodyFile option (github reads it here,
-    // including `-` for stdin; azure's verb reads it natively — the file
-    // PATH posted as the comment body is the old azure bug, fixed by both
-    // sides reading CONTENT). --body/--edit arrive as bodyText.
-    await prsComment(
-      "",
-      Number.parseInt(prNumber, 10),
-      bodyFile !== "" ? { bodyFile } : { body: bodyText },
-    );
+    // The body is already resolved CONTENT (the shared resolver read every
+    // leg, including `-`) — the file-path-posted-as-body failure mode is
+    // gone by construction.
+    await prsComment("", Number.parseInt(prNumber, 10), { body: bodyText });
     logInfo(`Comment posted on PR #${prNumber}`);
     return 0;
   } catch (err) {

@@ -9,6 +9,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -49,9 +50,10 @@ beforeEach(() => {
 
 const { DEVENV_REPO: _dr, ...procEnv } = process.env;
 
-function runTool(tool: string, args: string[]): { status: number; out: string } {
-  const r = spawnSync("node", [tool, ...args], {
-    encoding: "utf8",
+function runTool(toolPath: string, args: string[]): { status: number; out: string } {
+  // Callers pass a ts path; the harness takes the bare tool name.
+  const name = toolPath.replace(/\.ts$/, "").split("/").pop() ?? toolPath;
+  const r = runHarness(name, args, {
     env: {
       ...procEnv,
       ARGS_LOG,
@@ -61,7 +63,7 @@ function runTool(tool: string, args: string[]): { status: number; out: string } 
       PATH: `${join(TMP, "bin")}:${procEnv.PATH ?? ""}`,
     },
   });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, out: r.output };
 }
 
 describe("scripts/issue-repo-argument", () => {

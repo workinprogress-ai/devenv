@@ -10,6 +10,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -83,8 +84,7 @@ beforeEach(() => {
 const { DEVENV_REPO: _dr, ...procEnv } = process.env;
 
 function runScript(args: string[], extraEnv: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync("node", [SCRIPT, ...args], {
-    encoding: "utf8",
+  const r = runHarness("pr-create-for-review", args, {
     env: {
       ...procEnv,
       DEVENV_REPO: "acme/widgets",
@@ -92,7 +92,7 @@ function runScript(args: string[], extraEnv: Record<string, string> = {}): { sta
       ...extraEnv,
     },
   });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, out: r.output };
 }
 
 function remoteReviewBranches(): string[] {

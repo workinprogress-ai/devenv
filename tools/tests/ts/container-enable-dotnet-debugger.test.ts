@@ -7,20 +7,20 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync, chmodSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runTool as runHarness } from "./harness/index.ts";
 
-const TOOL = join(__dirname, "../../ts/container-enable-dotnet-debugger.ts");
+const TOOL = "container-enable-dotnet-debugger";
 
 let binDir: string;
 let dockerLog: string;
 let root: string;
 
 function runTool(...args: string[]): { status: number; out: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
+  const r = runHarness(TOOL, args, {
     cwd: root,
-    env: { ...process.env, PATH: `${binDir}:${process.env["PATH"]}` },
+    env: { PATH: `${binDir}:${process.env["PATH"]}` },
   });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, out: r.output };
 }
 
 beforeEach(() => {

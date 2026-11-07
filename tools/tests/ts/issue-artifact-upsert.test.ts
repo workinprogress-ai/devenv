@@ -3,13 +3,12 @@
 // (--issue > header > doc_id), mismatch refusals, stamping, dry-run,
 // update/create paths, and the conflict rule.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-artifact-upsert.ts");
+const TOOL = "issue-artifact-upsert";
 
 let stubDir = "";
 let responses = "";
@@ -83,14 +82,10 @@ function artifactBody(docId: string, opts: { issue?: number | "none" | null; sta
 }
 
 function runTool(args: string[], opts: { stdin?: string } = {}): { status: number; stdout: string; stderr: string; output: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: opts.stdin ?? "",
-    env: { ...process.env, PATH: `${stubDir}:${process.env.PATH ?? ""}`, DEVENV_REPO: "org/repo" },
+  return runHarness(TOOL, args, {
+    env: { PATH: pathWithStubs(stubDir), DEVENV_REPO: "org/repo" },
+    stdin: opts.stdin,
   });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
 }
 
 function ghCalls(): string[] {

@@ -233,10 +233,9 @@ main "$@"
 
 ## Where a tool lives
 
-A tool's source lives in one of four folders, and `.devcontainer/entry-stubs-sync.sh`
+A tool's source lives in one of three folders, and `.devcontainer/entry-stubs-sync.sh`
 generates the bare-name stub in `tools/` from the winning file:
 
-- `tools/scripts/` — the provided bash sources (the stay-bash set).
 - `tools/ts/` — the provided TypeScript tool bodies (the Node ≥ 23.6
   type-stripping sources the node stubs dispatch to).
 - `tools/fork/` — a fork's own or overriding tools (committed in the fork).
@@ -279,7 +278,7 @@ Source only what you use. All paths are `$DEVENV_TOOLS/lib/`.
 | `provider-loader.bash` | `ensure_gh_login`, `get_repo_spec`, `resolve_target_repo` | Any GitHub-facing tool (new work uses `tools/lib/providers/` — see the [provider abstraction](../tools/lib/providers/README.md)) |
 | `git-operations.bash` | `check_target_repo` (devenv-repo safety gate) | Tools operating on the cwd's repo; required by `resolve_target_repo` |
 | `issue-operations.bash` | Issue CRUD wrappers | Issue tools |
-| `body-source.bash` | `body_source_resolve`, `body_source_capture_stdin`, `body_source_stdin_is_tty` | Tools that accept markdown/text bodies |
+| `lib/core/body-source.ts` (TS) | `resolveBodySource` | Tools that accept markdown/text bodies — the shared resolver (the historical `body-source.bash` is retired) |
 | `fzf-selection.bash` | `fzf_select_single`, `check_fzf_installed` | Interactive pickers |
 | `artifact-operations.bash` | `artifact_header_field` | Reading `DEVENV_ARTIFACT_V1` headers |
 
@@ -330,7 +329,7 @@ piping keeps its contract.
 
 If your tool accepts a markdown/text body:
 
-- Source `body-source.bash`; never bare-`cat` stdin.
+- Import `resolveBodySource` from `tools/lib/core/body-source.ts`; never bare-`cat` stdin and never hand-roll the resolution.
 - Flags: `--body TEXT | --body-file FILE` (`-` = stdin); with no flag and a
   piped stdin, auto-read; with no flag and a TTY, either offer an interactive
   picker or error — never hang.
@@ -453,9 +452,8 @@ environment: `env -u DEVENV_REPO -u GH_REPO ...`).
 
 ## Static analysis
 
-`lint-scripts --dir tools/scripts` must report 0
-failures. Fix shellcheck errors; do not add disables without a comment
-explaining why.
+`lint-scripts` must report 0 failures. Fix
+shellcheck errors; do not add disables without a comment explaining why.
 
 ## Common mistakes this guide exists to prevent
 
