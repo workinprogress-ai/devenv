@@ -64,7 +64,9 @@ For each pass, produce a concise report:
    - What breaks first, observability gaps, rollback/migration concerns.
 4. **Sequencing and dependency stress**
    - Ordering hazards, hidden prerequisites, critical-path fragility.
-5. **Disposition per finding** — recommendations, not decisions.
+5. **Documentation drift**
+   - Do the plan's phases place first-time `Docs:` updates with the changes they document (the documentation doctrine), or does first-time documentation slide to a final phase? Do documented surfaces named in exploration have a phase that owns their update? Deferred docs carry explicit deferral notes?
+6. **Disposition per finding** — recommendations, not decisions.
    - `accept now`, `mitigate now`, `defer with trigger`, or `route upstream`.
    - The pass proposes these; the user disposes of them (see the disposition gate below).
 
