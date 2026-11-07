@@ -1,7 +1,7 @@
 // _key-update-do — rotate the Digital Ocean API token and reload the
 // environment. Port of _key-update-do.sh. Underscore-prefixed: no depth-1
 // stub by contract; the bootstrap-generated `key-update-do` shell function
-// invokes this file by absolute path (provision.bash re-pointed).
+// invokes this file by absolute path (written by the setup-steps bash-functions module).
 
 import { mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import { spawnSync } from "node:child_process";

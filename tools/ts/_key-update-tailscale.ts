@@ -1,7 +1,7 @@
 // _key-update-tailscale — rotate the Tailscale auth key and re-authenticate
 // the daemon. Port of _key-update-tailscale.sh. Underscore-prefixed: no
 // depth-1 stub by contract; the bootstrap-generated `key-update-tailscale`
-// shell function invokes this file by absolute path (provision.bash re-pointed).
+// shell function invokes this file by absolute path (written by the setup-steps bash-functions module).
 
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
