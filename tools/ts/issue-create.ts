@@ -20,13 +20,15 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logDebug, logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { resolveBodySource } from "../lib/core/body-source.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
 import { checkTargetRepo, requireRepoTarget, ghApiSync, providerRepoSplit, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesCreate, issuesSetType, issueGraphLink, issuesView } from "../lib/providers/facade/issues.ts";
+import { issueNumberFromRef, childOfMapFromConfig } from "../lib/domain/issues/refs.ts";
 
 assertNodeFloor();
 
@@ -84,74 +86,7 @@ Examples:
 
 // --- Target-repo guard (same contract as the other issue tools) -----------
 
-// --- Body-source resolution (shared markdown-body contract) ---------------
-
-function stdinIsTty(): boolean {
-  return Boolean(process.stdin.isTTY);
-}
-
-function readStdinSync(): string {
-  try {
-    return readFileSync(0, "utf8");
-  } catch {
-    return "";
-  }
-}
-
-function stdinIsBlank(text: string): boolean {
-  return text.replace(/\s/g, "") === "";
-}
-
-/**
- * Body-source precedence (D1): --body text > --body-file PATH ('-' = stdin) >
- * piped stdin auto-read > interactive (caller-driven). Empty or whitespace-only
- * stdin is a hard misuse error: an empty body is never valid, and silence is
- * how caller bugs hide. Returns the body text, or null for the interactive
- * outcome (no flags, TTY stdin — the caller offers its picker).
- */
-function resolveBody(opts: { text?: string | undefined; file?: string | undefined }): { body: string | null } {
-  if (opts.text !== undefined && opts.file !== undefined) {
-    logError("Only one body source may be specified");
-    process.exit(EXIT_MISUSE);
-  }
-  if (opts.text !== undefined) {
-    // --body "" is an explicit empty body — same refusal as empty stdin
-    // (an empty body is never valid; silence is how caller bugs hide).
-    if (opts.text.trim() === "") {
-      logError("Refusing empty --body");
-      process.exit(EXIT_MISUSE);
-    }
-    return { body: opts.text };
-  }
-  if (opts.file !== undefined) {
-    if (opts.file === "-") {
-      if (stdinIsTty()) {
-        logError("--body-file - requires piped stdin (refusing to read the terminal)");
-        process.exit(EXIT_MISUSE);
-      }
-      const content = readStdinSync();
-      if (stdinIsBlank(content)) {
-        logError("Refusing empty stdin body");
-        process.exit(EXIT_MISUSE);
-      }
-      return { body: content };
-    }
-    if (!existsSync(opts.file)) {
-      logError(`File not found: ${opts.file}`);
-      process.exit(EXIT_MISUSE);
-    }
-    return { body: readFileSync(opts.file, "utf8") };
-  }
-  if (!stdinIsTty()) {
-    const content = readStdinSync();
-    if (stdinIsBlank(content)) {
-      logError("Refusing empty stdin body");
-      process.exit(EXIT_MISUSE);
-    }
-    return { body: content };
-  }
-  return { body: null };
-}
+// --- Body-source resolution: the shared resolver (lib/core/body-source) ---
 
 // --- Issues-config: the type vocabulary -----------------------------------
 
@@ -162,51 +97,10 @@ function issuesConfigPath(): string {
 }
 
 /** The type -> allowed-parent-types map from issues-config.yml's child_of
- * keys (the org-convention hierarchy, 15.15). Missing key = no restriction. */
+ * keys (the org-convention hierarchy, 15.15). Missing key = no restriction.
+ * The parser lives in lib/domain/issues/refs.ts (shared with issue-create-batch). */
 function childOfMap(): Map<string, string[]> {
-  const path = issuesConfigPath();
-  const map = new Map<string, string[]>();
-  if (!existsSync(path)) return map;
-  let inTypes = false;
-  let current = "";
-  let inChildOf = false;
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (/^types:\s*$/.test(line)) {
-      inTypes = true;
-      continue;
-    }
-    if (inTypes && /^\S/.test(line) && !/^types:/.test(line)) {
-      inTypes = false;
-      inChildOf = false;
-    }
-    if (!inTypes) continue;
-    const name = /^\s*-\s*name:\s*(.+)$/.exec(line);
-    if (name?.[1] !== undefined) {
-      current = name[1].replace(/^["']|["']$/g, "").trim();
-      continue;
-    }
-    if (/^\s*child_of:\s*\[/.test(line)) {
-      const list = /\[(.*)\]/.exec(line)?.[1] ?? "";
-      map.set(
-        current,
-        list.split(",").map((x) => x.replace(/^["'\s]+|["'\s]+$/g, "")).filter((x) => x !== ""),
-      );
-      inChildOf = false;
-      continue;
-    }
-    if (/^\s*child_of:\s*$/.test(line)) {
-      inChildOf = true;
-      continue;
-    }
-    if (inChildOf && /^\s*-\s*\S/.test(line)) {
-      const item = map.get(current) ?? [];
-      item.push(line.replace(/^\s*-\s*/, "").replace(/^["']|["']$/g, "").trim());
-      map.set(current, item);
-      continue;
-    }
-    if (inChildOf && /^\s*\S/.test(line)) inChildOf = false;
-  }
-  return map;
+  return childOfMapFromConfig(issuesConfigPath());
 }
 
 /** 15.15 placement validation: when --parent is given, the parent's type
@@ -356,13 +250,6 @@ function parseParentRef(raw: string): ParentRef | null {
 }
 
 /** Bare id (Azure shape) or the trailing number of an issue/work-item URL. */
-function issueNumberFromRef(ref: string): number | null {
-  const trimmed = ref.trim();
-  if (/^[0-9]+$/.test(trimmed)) return Number.parseInt(trimmed, 10);
-  const m = /^https?:\/\/[^?#]*\/([0-9]+)\/?([?#].*)?$/.exec(trimmed);
-  return m?.[1] !== undefined ? Number.parseInt(m[1], 10) : null;
-}
-
 function checkAuth(): void {
   if (ghApiSync(["auth", "status"], { tolerateFailure: true }).status !== 0) {
     logError("Not authenticated with the active provider");
@@ -571,10 +458,18 @@ async function main(argv: string[]): Promise<number> {
   const useTemplate = values["template"] !== undefined || values["select-template"] === true;
 
   // --body / --body-file go through the shared body-source resolver (one
-  // implementation of "which source wins and what is an error").
+  // implementation of "which source wins and what is an error"). The
+  // interactive outcome is issue-create's own: no flags + TTY means the
+  // template picker (further down), never an auto-read.
   if (values["body"] !== undefined || values["body-file"] !== undefined) {
-    const resolved = resolveBody({ text: values["body"], file: values["body-file"] });
-    if (resolved.body !== null) body = resolved.body;
+    const resolved = resolveBodySource({ text: values["body"], file: values["body-file"] });
+    if (!resolved.ok) {
+      logError(resolved.error.message);
+      // A missing --body-file was always a usage error (exit 2) in this
+      // tool — preserved against the resolver's API-failure default.
+      return EXIT_MISUSE;
+    }
+    if (resolved.source !== "interactive") body = resolved.body;
   }
 
   if (!useEditor && title === "") {
@@ -640,14 +535,23 @@ async function main(argv: string[]): Promise<number> {
 
   // Piped-stdin capture happens BEFORE template work so a piped body is never
   // eaten by the editor. Precedence: --body/--body-file > template > stdin.
+  // Zero bytes + EOF reads as "no source" here (parallel runners,
+  // `</dev/null`): the empty-body refusal stays reserved for a pipe that
+  // delivered bytes — the same read/validate split the resolver's stdin
+  // leg performs, kept local because the no-vs-empty distinction is
+  // issue-create's (template precedence sits between them).
   let pipedStdinBody: string | null = null;
-  if (body === "" && !stdinIsTty()) {
-    const content = readStdinSync();
+  if (body === "" && !Boolean(process.stdin.isTTY)) {
+    let content = "";
+    try {
+      content = readFileSync(0, "utf8");
+    } catch {
+      content = "";
+    }
     if (content === "") {
-      // Zero bytes + EOF: no pipe was attached (parallel runners, `</dev/null`)
-      // — "no source", not an empty body. The capture is skipped entirely;
-      // the empty-body refusal stays reserved for a pipe that delivered bytes.
-    } else if (stdinIsBlank(content)) {
+      // Zero bytes + EOF: no pipe was attached — "no source", not an empty
+      // body. The capture is skipped entirely.
+    } else if (content.replace(/\s/g, "") === "") {
       logError("Refusing empty piped stdin body");
       console.log("Use --help for usage information");
       return EXIT_MISUSE;

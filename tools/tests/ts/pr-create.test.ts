@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, appendFileSync, readFileSync, rm
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
@@ -106,10 +107,11 @@ function writeGhStub(): void {
 }
 
 function prCreate(args: string[], extraEnv: Record<string, string> = {}, input = ""): { status: number; stdout: string; stderr: string; out: string } {
-  const r = spawnSync(TOOL, args, {
+  // The suite drove the depth-1 stub; the harness runs the .ts source —
+  // the same execution path the stub resolves to.
+  const r = runHarness("pr-create", args, {
     cwd: REPO_DIR,
-    input,
-    encoding: "utf8",
+    stdin: input,
     env: {
       ...GIT_ENV(),
       GH_CALL_LOG,
@@ -118,7 +120,7 @@ function prCreate(args: string[], extraEnv: Record<string, string> = {}, input =
       ...extraEnv,
     },
   });
-  return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "", out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr, out: r.output };
 }
 
 // at_fixture: a feature branch with a ready commit and a WIP tip, plus a

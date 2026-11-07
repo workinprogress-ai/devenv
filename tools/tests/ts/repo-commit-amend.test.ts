@@ -15,6 +15,7 @@ import {
   harnessSetEditorMode,
   type Harness,
 } from "./harness/repo-commit.ts";
+import { runTool as runHarness } from "./harness/index.ts";
 
 
 
@@ -42,12 +43,11 @@ function setEditorMode(mode: "save" | "empty" | "abort"): void {
 }
 
 function runTool(args: string[]): { status: number; out: string } {
-  const r = spawnSync("node", [h.tool, ...args], {
-    encoding: "utf8",
+  const r = runHarness("repo-commit", args, {
     cwd: h.repo,
-    env: { ...process.env, GIT_EDITOR: h.editorScript },
+    env: { GIT_EDITOR: h.editorScript },
   });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, out: r.output };
 }
 
 let h: Harness;

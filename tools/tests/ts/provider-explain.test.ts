@@ -10,19 +10,17 @@ import { fileURLToPath } from "node:url";
 import { githubExplain } from "../../lib/providers/github/explain.ts";
 import { azureExplain } from "../../lib/providers/azure/explain.ts";
 import type { ProviderExplain } from "../../lib/providers/explain.ts";
+import { runTool as runHarness } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/provider-explain.ts");
+const TOOL = "provider-explain";
 
 function runTool(args: string[], env: Record<string, string | undefined>): {
   status: number;
   stdout: string;
   stderr: string;
 } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    env: { ...process.env, ...env } as NodeJS.ProcessEnv,
-  });
-  return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+  const r = runHarness(TOOL, args, { env: { ...env } });
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
 function fixtureRoot(provider: string | null): string {

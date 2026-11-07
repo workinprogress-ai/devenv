@@ -13,6 +13,7 @@ import {
 import { readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { runTool as runHarness } from "./harness/index.ts";
 
 
 function git(...args: string[]): string {
@@ -52,12 +53,11 @@ function setCommitlintMode(mode: "pass" | "reject" | "absent"): void {
 }
 
 function runTool(args: string[]): { status: number; out: string } {
-  const r = spawnSync("node", [h.tool, ...args], {
-    encoding: "utf8",
+  const r = runHarness("repo-commit", args, {
     cwd: h.repo,
-    env: { ...process.env, GIT_EDITOR: h.editorScript },
+    env: { GIT_EDITOR: h.editorScript },
   });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, out: r.output };
 }
 
 const LONG_HEADER = "patch: this subject line is deliberately made far too long so it exceeds the one hundred character ceiling and must be rejected by commitlint";

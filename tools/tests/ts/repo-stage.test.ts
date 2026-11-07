@@ -12,6 +12,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
 const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/repo-stage.ts");
 
@@ -36,8 +37,8 @@ function manifest(name: string, body: string): string {
 }
 
 function runTool(args: string[]): { status: number; out: string } {
-  const r = spawnSync("node", [TOOL, ...args], { encoding: "utf8", cwd: repo, env: process.env });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  const r = runHarness("repo-stage", args, { cwd: repo });
+  return { status: r.status, out: r.output };
 }
 
 function status(): string {

@@ -2,13 +2,13 @@
 // stubbed gh (GraphQL response table): org resolution, formats, and the
 // empty/invalid refusals.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 import { fileURLToPath } from "node:url";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-types.ts");
+const TOOL = "issue-types";
 
 let stubDir = "";
 let responses = "";
@@ -47,20 +47,14 @@ const graphQlResponse = JSON.stringify({
 });
 
 function runTool(args: string[], env: Record<string, string> = {}): { status: number; stdout: string; stderr: string; output: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: "",
+  return runHarness(TOOL, args, {
     env: {
-      ...process.env,
-      PATH: `${stubDir}:${process.env.PATH ?? ""}`,
+      PATH: pathWithStubs(stubDir),
       DEVENV_ROOT: stubDir,
       DEVENV_REPO: "org/repo",
       ...env,
     },
   });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
 }
 
 describe("issue-types", () => {

@@ -11,6 +11,27 @@ Two lanes, one gate:
   stub-based fzf tests are vitest-portable like any other suite.
 - **vitest** — `tools/tests/ts/**/*.test.ts`, run by `pnpm test:ts`.
 
+### Shared vitest harness (`tools/tests/ts/harness/`)
+
+Black-box suites spawn tools and assert on status/output; the spawn/stub/
+tmp boilerplate is shared, not per-suite:
+
+- `runTool(tool, args, {env, stdin, cwd})` — spawn `tools/ts/<tool>.ts`
+  as a node child; returns `{status, stdout, stderr, output}`.
+- `stubCli(dir, name, script)` / `stubGh(dir, mode?)` / `stubGit(dir,
+  repoRoot, mode?)` — PATH-stub factories; every stub call logs one line
+  to `<dir>/calls.log` (`stubCalls(dir, name?)` reads it back) so
+  "destructive command NOT issued" assertions count invocations.
+- `pathWithStubs(dir)` — the PATH prefix value.
+- `tmpDir(prefix)` / `tmpToolboxRoot(prefix, org)` — throwaway fixture
+  roots (the latter writes a github-provider `devenv.config`); `rmrf`
+  cleans up.
+
+Import surface: `import { runTool, stubGh, ... } from "./harness/index.ts"`.
+A suite with behavioral stub modes passes the whole script body via
+`stubGh`/`stubGit`'s mode parameter — the factory owns only the
+boilerplate. `issue-comment-list.test.ts` is the reference migration.
+
 `bash tools/tests/run-devenv-tests.sh` runs the bats sweep and then the
 vitest lane — one command is the whole gate; `pnpm test` aliases it.
 

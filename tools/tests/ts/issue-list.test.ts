@@ -1,13 +1,13 @@
 // Tests for issue-list.ts — filter pass-through over a stubbed gh with a
 // call log: repo passed exactly once, filters after the repo, format paths.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-list.ts");
+const TOOL = "issue-list";
 
 let stubDir = "";
 let repoRoot = "";
@@ -45,15 +45,9 @@ function ghCalls(): string[] {
 }
 
 function runTool(args: string[]): { status: number; stdout: string; stderr: string; output: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: "",
-    cwd: repoRoot,
-    env: { ...process.env, PATH: `${stubDir}:${process.env.PATH ?? ""}`, DEVENV_REPO: "org/repo" },
-  });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
+  // Thin wrapper over the shared harness: the suite keeps its name and
+  // env shape; the spawn boilerplate lives in one place.
+  return runHarness(TOOL, args, { env: { PATH: pathWithStubs(stubDir), DEVENV_REPO: "org/repo" }, cwd: repoRoot });
 }
 
 describe("issue-list", () => {

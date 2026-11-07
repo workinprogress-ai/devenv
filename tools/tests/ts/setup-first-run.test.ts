@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, cpSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
+import { runTool as runHarness } from "./harness/index.ts";
 
 const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/setup.ts");
 const REPO_ROOT = join(dirname(fileURLToPath(new URL(".", import.meta.url))), "../..");
@@ -25,14 +26,8 @@ interface RunResult {
 }
 
 function runTool(args: string[]): RunResult {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: "",
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, stdout, stderr, output: stdout + stderr };
+  const r = runHarness("setup", args);
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr, output: r.output };
 }
 
 describe("setup (bootstrap handoff contract)", () => {
@@ -87,31 +82,48 @@ describe("setup (bootstrap handoff contract)", () => {
 
   it("--all runs every step in order and completes in this container", () => {
     // This container's toolbox (workspace root) has satisfied .setup seeds +
-    // provider auth, so the full sequence succeeds: all 16 steps report ok.
+    // provider auth, so the full sequence succeeds: all 23 steps report ok.
     // The dev clone itself is seedless — provisioning targets the toolbox,
     // so the test passes the chain's handoff env explicitly, exactly as the
     // bootstrap's run_setup_first_run does.
+    //
+    // npm's global prefix is redirected into a throwaway directory: the
+    // node-globals step's `npm install -g` reifies into the fixture, never
+    // the container's live global node tree. Without the redirect the step
+    // replaces the very pnpm installation the suite runs under (npm reify
+    // renames the running install aside mid-suite, leaving a broken
+    // fragment). Every step still executes for real; only the global-install
+    // landing zone is sandboxed.
     const toolbox = process.env.DEVENV_TOOLBOX_ROOT ?? "/workspaces/devenv";
     if (!existsSync(join(toolbox, ".setup", "email.txt"))) {
       // Seeds live in the real toolbox; a rebuilt container before first
       // `setup` would not have them. Skip rather than fail spuriously.
       return;
     }
-    const r = spawnSync("node", [TOOL, "--all", "--json"], {
-      encoding: "utf8",
-      input: "",
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, DEVENV_TOOLBOX_ROOT: toolbox },
-    });
-    const stdout = r.stdout ?? "";
-    const status = r.status ?? 1;
-    expect(status).toBe(0);
-    const results = JSON.parse(stdout) as { step: string; status: string }[];
-    expect(results.length).toBe(23);
-    expect(results.every((x) => x.status === "ok")).toBe(true);
-    expect(results[0]?.step).toBe("apt-packages");
-    expect(results[7]?.step).toBe("credentials");
-    expect(results[22]?.step).toBe("cleanup");
+    const npmPrefix = mkdtempSync(join(tmpdir(), "sfr-npm-prefix-"));
+    try {
+      const r = spawnSync("node", [TOOL, "--all", "--json"], {
+        encoding: "utf8",
+        input: "",
+        stdio: ["pipe", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          DEVENV_TOOLBOX_ROOT: toolbox,
+          NPM_CONFIG_PREFIX: npmPrefix,
+        },
+      });
+      const stdout = r.stdout ?? "";
+      const status = r.status ?? 1;
+      expect(status).toBe(0);
+      const results = JSON.parse(stdout) as { step: string; status: string }[];
+      expect(results.length).toBe(23);
+      expect(results.every((x) => x.status === "ok")).toBe(true);
+      expect(results[0]?.step).toBe("apt-packages");
+      expect(results[7]?.step).toBe("credentials");
+      expect(results[22]?.step).toBe("cleanup");
+    } finally {
+      rmSync(npmPrefix, { recursive: true, force: true });
+    }
   }, 240_000);
 });
 

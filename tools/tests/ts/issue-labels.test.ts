@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { runTool as runHarness } from "./harness/index.ts";
 
 function TMPDIR(): string {
   return tmpdir();
@@ -16,14 +17,16 @@ const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
 
 function runTool(tool: string, args: string[], via: "node" | "bash" | "direct" = "direct"): { status: number; out: string } {
-  const argv = via === "node" ? ["node", [join(TOOLS, "ts", `${tool}.ts`), ...args].join("\u0000")] : null;
+  // "node" (the ts source) rides the harness; the bash/direct lanes keep
+  // their spawn shapes — they pin the depth-1 stub path itself.
+  if (via === "node") {
+    const r = runHarness(tool, args);
+    return { status: r.status, out: r.output };
+  }
   const r =
-    via === "node"
-      ? spawnSync("node", [join(TOOLS, "ts", `${tool}.ts`), ...args], { encoding: "utf8" })
-      : via === "bash"
-        ? spawnSync("bash", [join(TOOLS, tool), ...args], { encoding: "utf8" })
-        : spawnSync(join(TOOLS, tool), args, { encoding: "utf8" });
-  void argv;
+    via === "bash"
+      ? spawnSync("bash", [join(TOOLS, tool), ...args], { encoding: "utf8" })
+      : spawnSync(join(TOOLS, tool), args, { encoding: "utf8" });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 

@@ -16,6 +16,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync, chmodSync, readFileSync, symlinkSync, existsSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runTool as runHarness } from "./harness/index.ts";
 
 const PROJECT_ROOT = join(__dirname, "../../..");
 const DO_TOOL = join(PROJECT_ROOT, "tools/ts/_key-update-do.ts");
@@ -33,18 +34,17 @@ function stub(name: string, body: string): void {
 }
 
 function runTool(tool: string, args: string[], input: string | null, usePathStubs = true): { status: number; out: string } {
-  const r = spawnSync("node", [tool, ...args], {
-    encoding: "utf8",
-    input: input ?? "",
+  // tool is a ts path; the harness takes the bare name.
+  const name = tool.replace(/\.ts$/, "").split("/").pop() ?? tool;
+  const r = runHarness(name, args, {
+    stdin: input ?? "",
     env: {
-      ...process.env,
       DEVENV_ROOT: devenvRoot,
       CALL_LOG: callLog,
       PATH: usePathStubs ? `${binDir}:${process.env["PATH"]}` : process.env["PATH"],
     },
-    timeout: 20_000,
   });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, out: r.output };
 }
 
 function readCalls(): string {

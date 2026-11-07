@@ -11,11 +11,11 @@
 
 import { parseArgs } from "node:util";
 import {basename} from "node:path";
-import { readFileSync, existsSync } from "node:fs";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { resolveBodySource } from "../lib/core/body-source.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesCommentGet, issuesCommentEdit } from "../lib/providers/facade/issues.ts";
 
@@ -125,30 +125,23 @@ async function main(argv: string[]): Promise<number> {
   }
 
   let body = "";
-  if (sources === 0) {
-    if (!process.stdin.isTTY) {
-      body = readFileSync(0, "utf8");
-      if (isWhitespaceOnly(body)) {
-        logError("Refusing empty stdin body");
-        console.log("Use --help for usage information");
-        return EXIT_MISUSE;
-      }
-    } else {
-      logError("A comment source is required: --body or --body-file");
-      console.log("Use --help for usage information");
-      return EXIT_MISUSE;
-    }
-  } else if (bodyFile !== "") {
-    if (bodyFile === "-") {
-      body = readFileSync(0, "utf8");
-    } else if (!existsSync(bodyFile)) {
-      logError(`File not found: ${bodyFile}`);
-      return EXIT_API_FAILURE;
-    } else {
-      body = readFileSync(bodyFile, "utf8");
-    }
+  if (sources === 0 && process.stdin.isTTY) {
+    logError("A comment source is required: --body or --body-file");
+    console.log("Use --help for usage information");
+    return EXIT_MISUSE;
   } else {
-    body = bodyText;
+    // Single source or piped stdin: the shared resolver owns the uniform
+    // empty refusal (including the '-' leg).
+    const resolved = resolveBodySource({
+      ...(bodyText !== "" ? { text: bodyText } : {}),
+      ...(bodyFile !== "" ? { file: bodyFile } : {}),
+    });
+    if (!resolved.ok) {
+      logError(resolved.error.message);
+      console.log("Use --help for usage information");
+      return resolved.error.code === "file-not-found" ? EXIT_API_FAILURE : EXIT_MISUSE;
+    }
+    body = resolved.body;
   }
 
   checkTargetRepo(devenv);

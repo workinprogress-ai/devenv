@@ -51,10 +51,8 @@ fi
 # shellcheck source=../lib/git-operations.bash
 # source "$DEVENV_TOOLS/lib/git-operations.bash"
 
-# Optional: body-source.bash for tools that accept markdown/text bodies
-# (never bare-cat stdin; see docs/Tooling-Standards.md)
-# shellcheck source=../lib/body-source.bash
-# source "$DEVENV_TOOLS/lib/body-source.bash"
+# Note: markdown body sources resolve through lib/core/body-source.ts (the
+# shared TS resolver) — never bare-cat stdin.
 
 # ============================================================================
 # Global Variables (avoid if possible, prefer function parameters)

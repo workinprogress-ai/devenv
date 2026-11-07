@@ -10,17 +10,14 @@ import { mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const TOOL = join(__dirname, "../../ts/devenv-add-env-vars.ts");
+const TOOL = "devenv-add-env-vars";
 
 let root: string;
 let envFile: string;
 
 function runTool(...args: string[]): { status: number; out: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    env: { ...process.env, DEVENV_ROOT: root },
-  });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  const r = runHarness(TOOL, args, { env: { DEVENV_ROOT: root } });
+  return { status: r.status, out: r.output };
 }
 
 // Print the value a fresh shell sees for NAME after sourcing the file.
@@ -100,6 +97,7 @@ describe("devenv-add-env-vars", () => {
 });
 
 import { existsSync, statSync } from "node:fs";
+import { runTool as runHarness } from "./harness/index.ts";
 function existsSyncQuiet(p: string): boolean {
   return existsSync(p);
 }

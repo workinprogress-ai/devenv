@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { runTool as runHarness } from "./harness/index.ts";
 import { fileURLToPath } from "node:url";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
@@ -163,11 +164,9 @@ describe("issue management family (behavioral port)", () => {
     spawnSync("chmod", ["+x", join(bin, "gh")]);
     const repo = join(TMP, "service.reqord.projects");
     spawnSync("git", ["init", "-q", repo]);
-    const r = spawnSync("node", [join(TOOLS, "ts", "issue-create.ts"), "--title", "t", "--body", "b", "--no-interactive"], {
+    const r = runHarness("issue-create", ["--title", "t", "--body", "b", "--no-interactive"], {
       cwd: repo,
-      encoding: "utf8",
       env: {
-        ...process.env,
         PATH: `${bin}:${process.env.PATH ?? ""}`,
         HOME: TMP,
         DEVENV_ROOT: TMP,
@@ -176,7 +175,7 @@ describe("issue management family (behavioral port)", () => {
       },
     });
     expect(r.status).not.toBe(0);
-    expect((r.stdout ?? "") + (r.stderr ?? "")).not.toMatch(/fzf/i);
+    expect(r.output).not.toMatch(/fzf/i);
   });
 
   it("deterministic: bogus DEVENV_REPO fails before the type prompt", () => {
@@ -334,10 +333,8 @@ describe("issue management family (behavioral port)", () => {
     writeFileSync(join(bin, "gh"), "#!/usr/bin/env bash\nexit 0\n");
     spawnSync("chmod", ["+x", join(bin, "gh")]);
     // Stdin closed (non-TTY): no body flag and no stdin body is a misuse failure.
-    const r = spawnSync("node", [join(TOOLS, "ts", "issue-comment.ts"), "42"], {
-      input: "",
-      encoding: "utf8",
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` },
+    const r = runHarness("issue-comment", ["42"], {
+      env: { PATH: `${bin}:${process.env.PATH ?? ""}` },
     });
     expect(r.status).not.toBe(0);
   });

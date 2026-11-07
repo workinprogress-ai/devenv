@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { resolveBodySource } from "../lib/core/body-source.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadReply } from "../lib/providers/facade/prs.ts";
@@ -163,28 +164,10 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  if (sources === 0) {
-    if (Boolean(process.stdin.isTTY)) {
-      logError("One reply source is required: --body, --body-file, or --edit");
-      console.log("Use --help for usage information");
-      return EXIT_MISUSE;
-    }
-    let content = "";
-    try {
-      content = readFileSync(0, "utf8");
-    } catch {
-      content = "";
-    }
-    if (content.replace(/\s/g, "") === "") {
-      logError("Refusing empty stdin body");
-      return EXIT_MISUSE;
-    }
-    bodyText = content;
-  }
-
-  if (bodyFile !== "" && bodyFile !== "-" && !existsSync(bodyFile)) {
-    logError(`File not found: ${bodyFile}`);
-    return EXIT_API_FAILURE;
+  if (sources === 0 && Boolean(process.stdin.isTTY)) {
+    logError("One reply source is required: --body, --body-file, or --edit");
+    console.log("Use --help for usage information");
+    return EXIT_MISUSE;
   }
 
   if (useEditor) {
@@ -204,6 +187,20 @@ async function main(argv: string[]): Promise<number> {
       return EXIT_GENERAL_ERROR;
     }
     bodyFile = "";
+  } else if (sources >= 1 || !Boolean(process.stdin.isTTY)) {
+    // Single explicit source or piped stdin: the shared resolver owns the
+    // uniform empty refusal (including the '-' leg).
+    const resolved = resolveBodySource({
+      ...(bodyText !== "" ? { text: bodyText } : {}),
+      ...(bodyFile !== "" ? { file: bodyFile } : {}),
+    });
+    if (!resolved.ok) {
+      logError(resolved.error.message);
+      console.log("Use --help for usage information");
+      return resolved.error.code === "file-not-found" ? EXIT_API_FAILURE : EXIT_MISUSE;
+    }
+    bodyText = resolved.body;
+    bodyFile = "";
   }
 
   checkTargetRepo(devenv);
@@ -222,17 +219,13 @@ async function main(argv: string[]): Promise<number> {
 
   if (dryRun) {
     logInfo(`[DRY RUN] Would reply to comment #${commentId} on PR #${prNumber}:`);
-    if (bodyFile !== "" && bodyFile !== "-") {
-      process.stdout.write(readFileSync(bodyFile, "utf8"));
-    } else {
-      console.log(bodyText);
-    }
+    console.log(bodyText);
     return 0;
   }
 
   let response: string;
   try {
-    const body = bodyFile === "-" ? readFileSync(0, "utf8") : bodyFile !== "" ? readFileSync(bodyFile, "utf8") : bodyText;
+    const body = bodyText;
     const r = await prsThreadReply(`${repo.owner}/${repo.name}`, Number.parseInt(prNumber, 10), Number.parseInt(commentId.split("/")[0] ?? "0", 10), body);
     response = r.stdout;
   } catch (err) {

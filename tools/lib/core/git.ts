@@ -332,3 +332,38 @@ export function isNestedDevenvClone(dir: string): boolean {
   }
   return false;
 }
+
+// ---------------------------------------------------------------------------
+// runner variants: the three spawn shapes the tools' local git() helpers
+// used, unified (the audit's F006 — one spawn discipline built on
+// core/spawn.ts). Callers map 1:1 from their retired local wrappers:
+//   gitCapture — {status, out(stdout+stderr)}  (git-wip, git-unwip shape)
+//   gitInherit — {ok, out(stdout)}             (pr-merge streaming shape)
+//   gitCheck   — {ok, out, err}                (repo-stage shape)
+// ---------------------------------------------------------------------------
+
+/** Captured git run: stdout+stderr merged (the bash `$(git …)` shape). */
+export function gitCapture(repo: string | null, args: string[]): { status: number; out: string } {
+  const argv = repo ? ["-C", repo, ...args] : args;
+  const r = spawnSync("git", argv, { encoding: "utf8" });
+  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+}
+
+/** Streaming git run (stdio inherited — output reaches the terminal live);
+ * returns only the boolean outcome and captured-stdout-if-any. */
+export function gitInherit(repo: string | null, args: string[]): { ok: boolean; out: string } {
+  const argv = repo ? ["-C", repo, ...args] : args;
+  const r = spawnSync("git", argv, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
+  });
+  return { ok: r.status === 0, out: (r.stdout ?? "").trim() };
+}
+
+/** Separated-output git run (stdout and stderr distinct — callers that log
+ * stderr only on failure). */
+export function gitCheck(repo: string | null, args: string[]): { ok: boolean; out: string; err: string } {
+  const argv = repo ? ["-C", repo, ...args] : args;
+  const r = spawnSync("git", argv, { encoding: "utf8" });
+  return { ok: r.status === 0, out: r.stdout ?? "", err: r.stderr ?? "" };
+}

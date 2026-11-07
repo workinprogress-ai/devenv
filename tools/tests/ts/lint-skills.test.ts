@@ -122,6 +122,56 @@ describe("lint-skills", () => {
     expect(runLint().status).toBe(0);
   });
 
+  it("SK010: a frontmatter trigger phrase missing from the registry row fails", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      '---\nname: devenv-alpha\ndescription: Does things. USE WHEN the user says "alpha trigger one" or "alpha trigger two". DO NOT USE FOR beta work (use `/devenv-beta`).\nuser-invocable: true\n---\n# devenv-alpha\n',
+    );
+    write(
+      "devenv-help/references/skills-registry.md",
+      "| `/devenv-alpha` | x | \"alpha trigger one\" | y |\n| `/devenv-beta` | x | x | x |\n| `/devenv-help` | x | x | x |\n",
+    );
+    write("_shared/docs/Skills.md", "| `/devenv-alpha` | x. Triggers: \"alpha trigger one\", \"alpha trigger two\" | a |\n| `/devenv-beta` | x | x |\n| `/devenv-help` | x | x |\n");
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK010");
+    expect(r.out).toContain("alpha trigger two");
+    expect(r.out).toContain("registry row");
+  });
+
+  it("SK010: a NOT-FOR sibling missing from docs/Skills.md fails", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      '---\nname: devenv-alpha\ndescription: Does things. USE WHEN the user says "alpha trigger one". DO NOT USE FOR beta work (use `/devenv-beta`).\nuser-invocable: true\n---\n# devenv-alpha\n',
+    );
+    write(
+      "devenv-help/references/skills-registry.md",
+      "| `/devenv-alpha` | x | \"alpha trigger one\" | beta work → `/devenv-beta` |\n| `/devenv-beta` | x | x | x |\n| `/devenv-help` | x | x | x |\n",
+    );
+    write("_shared/docs/Skills.md", "| `/devenv-alpha` | x. Triggers: \"alpha trigger one\" | a |\n| `/devenv-beta` | x | x |\n| `/devenv-help` | x | x |\n");
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK010");
+    expect(r.out).toContain("NOT-FOR sibling");
+    expect(r.out).toContain("Skills.md");
+  });
+
+  it("SK010: single-quoted YAML apostrophes unescape before matching", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      "---\nname: devenv-alpha\ndescription: 'Does things. USE WHEN the user says \"let''s alpha\".'\nuser-invocable: true\n---\n# devenv-alpha\n",
+    );
+    write(
+      "devenv-help/references/skills-registry.md",
+      '| `/devenv-alpha` | x | "let\'s alpha" | y |\n| `/devenv-beta` | x | x | x |\n| `/devenv-help` | x | x | x |\n',
+    );
+    write(
+      "_shared/docs/Skills.md",
+      '| `/devenv-alpha` | x. Triggers: "let\'s alpha" | a |\n| `/devenv-beta` | x | x |\n| `/devenv-help` | x | x |\n',
+    );
+    expect(runLint().status).toBe(0);
+  });
+
   it("SK009: a references/ file that nothing links to fails", () => {
     write("devenv-alpha/references/lonely.md", "# Lonely\n");
     const r = runLint();

@@ -317,7 +317,6 @@ same name in a higher folder replaces the one below it:
 | `tools/custom/` | one user, on one machine | no (gitignored) | highest |
 | `tools/fork/` | the fork, for everyone on it | yes | middle |
 | `tools/ts/` | the provided TypeScript tools (upstream) | yes | lower |
-| `tools/scripts/` | the provided bash tools (upstream) | yes | lowest |
 
 - **Add a tool:** put `my-tool.sh` in `tools/fork/` (for the whole fork) or
   `tools/custom/` (for you only). It gets a `my-tool` stub like any provided tool.
@@ -860,13 +859,13 @@ For the current shared-library catalog, see [Additional Tooling](./Additional-To
 
 ### Adding a new script
 
-Scripts live in `tools/scripts/<name>.sh` (bash) or `tools/ts/<name>.ts`
-(TypeScript). Depth-1 entries at `tools/<name>` (without the `.sh` extension) are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/scripts/` and `tools/ts/` script. Never hand-edit or hand-create a stub. (the test runner also runs stub generation up front, so CI only needs the checkout + bash — but if your CI invokes bats directly without the runner, add the stub-generation step first.) (the test runner also runs stub generation up front, so CI only needs the checkout + bash — but if your CI invokes bats directly without the runner, add the stub-generation step first.)
+Scripts live in `tools/ts/<name>.ts`
+(TypeScript). Depth-1 entries at `tools/<name>` are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/ts/` script. Never hand-edit or hand-create a stub. (the test runner also runs stub generation up front, so CI only needs the checkout + bash — but if your CI invokes bats directly without the runner, add the stub-generation step first.)
 
 Scripts that only the devenv or githook machinery invokes (never run by users) belong in `tools/internal/` instead — they get no stub, are not on `PATH`, and are not part of the custom-over-fork-over-provided override chain. See [Additional Tooling — Internal machinery scripts](./Additional-Tooling.md#internal-machinery-scripts-toolsinternal).
 
 1. **Start from the template**: `tooling-create-script <name>` scaffolds the file from `tools/templates/script-template.sh`.
-2. **File location**: `tools/scripts/<group>-<action>.sh` (bash) or `tools/ts/<group>-<action>.ts` (TypeScript), following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task`).
+2. **File location**: `tools/ts/<group>-<action>.ts` (TypeScript), following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task`).
 3. **Entry point**: none needed by hand — run `.devcontainer/entry-stubs-sync.sh` (or bootstrap) and the `tools/<name>` stub is generated automatically.
 
 4. **Standard structure** (in order):

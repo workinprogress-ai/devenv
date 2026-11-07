@@ -26,6 +26,10 @@ the file path.  At most one file may be given.  If no file is given, the first
 Plan-*.md (or Implementation_plan-*.md) found in .local-artifacts/ and then
 the current directory is used.
 
+TODO:DEVENV[Plan-skills-audit-remediation-001]: the Implementation_plan-*.md
+filename alias is legacy — see the sunset note in plan-parse.ts and drop all
+three carriers together.
+
 Options:
     -h, --help          Show this help message and exit
     -v, --version       Show version information and exit

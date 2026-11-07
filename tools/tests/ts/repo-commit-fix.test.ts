@@ -15,6 +15,7 @@ import {
   harnessSetEditorMode,
   type Harness,
 } from "./harness/repo-commit.ts";
+import { runTool as runHarness } from "./harness/index.ts";
 
 
 
@@ -38,12 +39,11 @@ function stageFile(name: string, content: string): void {
 }
 
 function runTool(args: string[], env: Record<string, string | undefined> = {}): { status: number; out: string } {
-  const r = spawnSync("node", [h.tool, ...args], {
-    encoding: "utf8",
+  const r = runHarness("repo-commit", args, {
     cwd: h.repo,
-    env: { ...process.env, GIT_SEQUENCE_EDITOR: ":", ...env },
+    env: { GIT_SEQUENCE_EDITOR: ":", ...env },
   });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, out: r.output };
 }
 
 let h: Harness;

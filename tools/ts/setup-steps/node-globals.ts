@@ -11,6 +11,7 @@
 // Non-interactive: CI=1 for npm/pnpm child processes.
 
 import { execFileSync } from "node:child_process";
+import { hasForeignOwnership } from "./ownership.ts";
 
 // PNPM_VERSION / TURBO_VERSION from tool-versions.bash (the setup
 // consistency test pins these constants to the bash exports).
@@ -26,20 +27,17 @@ function npm(args: string[]): void {
 
 npm(["install", "-g", "zx"]);
 
-// Reclaim a root-owned pnpm module left by a feature-era image build: npm
-// run as the current user cannot rename/replace it in place (EACCES).
-// Safe to call when no such directory exists.
+// Reclaim foreign-owned pnpm content before install: container creation can
+// leave nested root-owned subtrees under an otherwise user-owned pnpm/ (the
+// top-level stat cannot see them), and npm reify then fails EACCES renaming
+// the root-owned subtree. Walk the whole tree; chown only when something
+// foreign is actually there. Safe to call when no such directory exists.
 {
   const root = execFileSync("npm", ["root", "-g"], { encoding: "utf8" }).trim();
   const pnpmDir = `${root}/pnpm`;
-  try {
-    const stat = execFileSync("stat", ["-c", "%U", pnpmDir], { encoding: "utf8" }).trim();
-    const me = execFileSync("whoami", { encoding: "utf8" }).trim();
-    if (stat && stat !== me) {
-      execFileSync("sudo", ["chown", "-R", `${me}:${me}`, pnpmDir], { stdio: "inherit" });
-    }
-  } catch {
-    // no pnpm dir yet — nothing to reclaim
+  const me = execFileSync("whoami", { encoding: "utf8" }).trim();
+  if (hasForeignOwnership(pnpmDir, me)) {
+    execFileSync("sudo", ["chown", "-R", `${me}:${me}`, pnpmDir], { stdio: "inherit" });
   }
 }
 

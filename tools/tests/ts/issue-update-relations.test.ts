@@ -2,14 +2,14 @@
 // convention (pure functions) and issue-update's --add-blocked-by /
 // --remove-blocked-by flow over a stubbed provider.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { blockedByFrom, blockedByAdd, blockedByRemove } from "../../lib/domain/issues/relations.ts";
+import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/issue-update.ts");
+const TOOL = "issue-update";
 
 // ---------------------------------------------------------------------------
 // relations.ts (pure)
@@ -113,13 +113,9 @@ function installStubs(opts: { currentBody?: string } = {}): void {
 }
 
 function runTool(args: string[]): { status: number; stdout: string; stderr: string; output: string } {
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: "",
-    cwd: repoRoot,
-    env: { ...process.env, PATH: `${stubDir}:${process.env.PATH ?? ""}`, DEVENV_REPO: "org/repo" },
-  });
-  return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "", output: (r.stdout ?? "") + (r.stderr ?? "") };
+  // Thin wrapper over the shared harness: the suite keeps its name and
+  // env shape; the spawn boilerplate lives in one place.
+  return runHarness(TOOL, args, { env: { PATH: pathWithStubs(stubDir), DEVENV_REPO: "org/repo" }, cwd: repoRoot });
 }
 
 function writtenBodies(): string[] {

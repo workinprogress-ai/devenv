@@ -16,8 +16,8 @@ dispatcher — the authoritative guides live in `docs/`, this file routes.
 - `copilot/` — AI skills (`copilot/skills/`), conventions, knowledge and
   engineering imports
 - `tools/` — workspace wrappers (`issue-*`, `pr-*`, `repo-commit`,
-  `skill-orient`, …), their implementations in `tools/ts/` (TypeScript) and
-  `tools/scripts/` (stay-bash), libs, tests
+  `skill-orient`, …), their implementations in `tools/ts/` (TypeScript),
+  libs, tests
 - `docs/` — workflow and conventions documentation (see below)
 - `repos/` — cloned org repos, including the six `template.*` repos
 - `setup/`, `.devcontainer/` — container bootstrap

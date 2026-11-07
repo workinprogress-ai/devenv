@@ -52,6 +52,8 @@ Checks:
          missing from the working tree)
   SK008  cross-file markdown link anchors match a heading in the target
   SK009  every references/ file is linked from somewhere (no orphans)
+  SK010  catalog parity: frontmatter USE WHEN triggers and DO-NOT-USE-FOR
+         siblings findable (normalized) in the registry row and docs/Skills.md
 
 Exit 0 = clean (warnings allowed); exit 1 = any failure.`);
   process.exit(0);
@@ -165,6 +167,121 @@ if (existsSync(skillsDoc)) {
   const docText = readFileSync(skillsDoc, "utf8");
   for (const n of skillDirs()) {
     if (!docText.includes(n)) err(`SK004 skill listing: ${n} missing from docs/Skills.md`);
+  }
+}
+
+// --- SK010: catalog parity (frontmatter ↔ registry ↔ docs/Skills.md) -------------
+// Presence-based: each user-invocable skill's frontmatter USE WHEN trigger
+// phrases and DO-NOT-USE-FOR sibling mentions must be findable, normalized,
+// in both the registry row and the docs/Skills.md entry. Byte-equality is
+// deliberately not required — the surfaces serve different audiences. Fork
+// extension: registry rows for skills with no SKILL.md twin are exempt
+// (SK004 already fails ghosts; parity only constrains real skills).
+function normalizeForSearch(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function quotePhrases(text: string): string[] {
+  // Double-quoted phrases and backticked sibling names: the frontmatter
+  // convention for triggers (USE WHEN the user says "...") and NOT-FOR
+  // siblings (use `/devenv-x`).
+  return [...text.matchAll(/"([^"\n]+)"|`([^`\n]+)`/g)]
+    .map((m) => (m[1] ?? m[2])!.trim())
+    .filter((p) => p.length > 0);
+}
+
+function frontmatterDescription(file: string): string {
+  const fm = frontmatterOf(file);
+  const line = fm.split("\n").find((l) => l.startsWith("description:"));
+  if (!line) return "";
+  let v = line.slice("description:".length).trim();
+  // Single-quoted YAML value: strip the wrapping quotes and unescape '' -> '.
+  if (v.startsWith("'") && v.endsWith("'") && v.length >= 2) {
+    v = v.slice(1, -1).replace(/''/g, "'");
+  }
+  return v;
+}
+
+function catalogParityPhrases(descLine: string): { triggers: string[]; notFor: string[] } {
+  const originalIdx = descLine.toLowerCase().indexOf("do not use");
+  const useWhenIdx = descLine.toLowerCase().indexOf("use when");
+  const start = useWhenIdx === -1 ? 0 : useWhenIdx;
+  const end = originalIdx === -1 ? descLine.length : originalIdx;
+  return {
+    triggers: quotePhrases(descLine.slice(start, end)),
+    notFor: quotePhrases(descLine.slice(end)),
+  };
+}
+
+{
+  const registryParity = existsSync(registry) ? readFileSync(registry, "utf8") : "";
+  const docParity = existsSync(skillsDoc) ? readFileSync(skillsDoc, "utf8") : "";
+  const docHeading = /^#{2,4} .*$/gm;
+  const headings: Array<{ idx: number; text: string }> = [];
+  let hm: RegExpExecArray | null;
+  while ((hm = docHeading.exec(docParity)) !== null) {
+    headings.push({ idx: hm.index, text: hm[0]! });
+  }
+  for (const dir of skillDirs()) {
+    const skillPath = join(skillsDir, dir, "SKILL.md");
+    if (!existsSync(skillPath)) continue;
+    const desc = frontmatterDescription(skillPath);
+    if (!desc) continue; // SK001 already covers missing descriptions
+    const { triggers, notFor } = catalogParityPhrases(desc);
+    const rowRe = new RegExp(`^\\| ?\`/?${dir}\`.*$`, "m");
+    const rowMatch = registryParity.match(rowRe);
+    const rowText = rowMatch ? rowMatch[0] : "";
+    let docText = "";
+    // Prefer the skill's own quick-reference table row (| `/devenv-x` | …):
+    // prose mentions (decision trees, examples) appear both earlier and later
+    // than the row, so heading windows and first/last-mention heuristics both
+    // mis-anchor. The row is the entry.
+    const rowMatchDoc = docParity.match(new RegExp(`^\\| ?\`/?${dir}\`.*$`, "m"));
+    if (rowMatchDoc) {
+      docText = rowMatchDoc[0]!;
+    }
+    if (!docText) {
+      // Fallback for skills documented as ### sections rather than rows: the
+      // section heading window (last heading mentioning the skill wins).
+      let headingHit = -1;
+      for (let i = 0; i < headings.length; i++) {
+        if (headings[i]!.text.includes(dir)) headingHit = i;
+      }
+      if (headingHit !== -1) {
+        const nextIdx = headingHit + 1 < headings.length ? headings[headingHit + 1]!.idx : docParity.length;
+        docText = docParity.slice(headings[headingHit]!.idx, nextIdx);
+      }
+    }
+    if (!docText) {
+      const docIdx = docParity.lastIndexOf(dir);
+      if (docIdx !== -1) {
+        docText = docParity.slice(Math.max(0, docIdx - 100), docIdx + 400);
+      }
+    }
+    const rowN = normalizeForSearch(rowText);
+    const docN = normalizeForSearch(docText);
+    for (const t of triggers) {
+      if (rowText && !rowN.includes(normalizeForSearch(t))) {
+        err(`SK010 registry parity: /${dir} frontmatter trigger "${t}" missing from registry row`);
+      }
+      if (docText && !docN.includes(normalizeForSearch(t))) {
+        err(`SK010 catalog parity: /${dir} frontmatter trigger "${t}" missing from docs/Skills.md entry`);
+      }
+    }
+    for (const s of notFor) {
+      if (rowText && !rowN.includes(normalizeForSearch(s))) {
+        err(`SK010 registry parity: /${dir} NOT-FOR sibling "${s}" missing from registry row`);
+      }
+      if (docText && !docN.includes(normalizeForSearch(s))) {
+        err(`SK010 catalog parity: /${dir} NOT-FOR sibling "${s}" missing from docs/Skills.md entry`);
+      }
+    }
+    if (!rowText) warn(`SK010 registry parity: no table row found for ${dir} (fork-added or non-table mention)`);
   }
 }
 

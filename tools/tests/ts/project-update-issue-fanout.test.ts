@@ -12,7 +12,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/project-update-issue.ts");
+import { runTool as runHarness } from "./harness/index.ts";
+const TOOL = "project-update-issue";
 
 let stubDir = "";
 let sandbox = "";
@@ -112,21 +113,16 @@ afterEach(() => {
 
 function runTool(args: string[]): { status: number; output: string } {
   writeStub();
-  const r = spawnSync("node", [TOOL, ...args], {
-    encoding: "utf8",
-    input: "",
+  const r = runHarness(TOOL, args, {
     cwd: sandbox,
     env: {
-      ...process.env,
       PATH: `${stubDir}:${process.env.PATH ?? ""}`,
       DEVENV_ROOT: sandbox,
       DEVENV_REPO: "test-org/test-repo",
       GH_ORG: process.env.GH_ORG,
     },
   });
-  const stdout = r.stdout ?? "";
-  const stderr = r.stderr ?? "";
-  return { status: r.status ?? 1, output: stdout + stderr };
+  return { status: r.status, output: r.output };
 }
 
 describe("project-update-issue fan-out semantics", () => {

@@ -9,6 +9,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTool as runHarness } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -27,13 +28,14 @@ afterEach(() => {
 });
 
 function node(args: string[], extra: Record<string, string> = {}, cwd?: string, input = ""): { status: number; out: string } {
-  const r = spawnSync("node", [join(TS, ...args)], {
-    encoding: "utf8",
+  // args[0] is the ts file name; the harness takes the bare tool name.
+  const name = args[0]?.replace(/\.ts$/, "") ?? "unknown";
+  const r = runHarness(name, args.slice(1), {
     cwd,
-    input,
-    env: { ...process.env, ...extra },
+    stdin: input,
+    env: { ...extra },
   });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return { status: r.status, out: r.output };
 }
 
 function srcHas(rel: string, pattern: string): boolean {
