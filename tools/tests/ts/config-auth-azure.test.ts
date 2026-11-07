@@ -22,7 +22,7 @@ const CONFIG_READ = join(TOOLS, "config-read");
 const AZURE_SETUP = join(TOOLS, "lib", "providers", "azure", "azure-setup.sh");
 const PROVIDER_CORE = join(TOOLS, "lib", "providers", "provider-core.bash");
 const CLI_STUBS = join(TOOLS, "tests", "fixtures", "cli-stubs.bash");
-const PROVISION = join(TOOLS, "lib", "provision.bash");
+const NPMRC_STEP = join(TOOLS, "ts", "setup-steps", "npmrc.ts");
 
 let TMP = "";
 
@@ -333,15 +333,24 @@ describe("cli stub fixtures (bats port)", () => {
 
 describe("bootstrap auth (bats port)", () => {
   let HOME = "";
-  let NPMRC_SETUP = "";
+
+  let fixtureToolbox = "";
 
   beforeEach(() => {
     HOME = tmpPath(`auth-home-${Math.random().toString(36).slice(2)}`);
     mkdirSync(HOME, { recursive: true });
-    NPMRC_SETUP = runScript(CONFIG_READ, [], {}).status >= 0
-      ? spawnSync("bash", ["-c", `sed -n '/^configure_user_npmrc()/,/^}/p' '${PROVISION}'`], { encoding: "utf8" }).stdout
-      : "";
-    expect(NPMRC_SETUP, "configure_user_npmrc extraction failed").not.toBe("");
+    // The npmrc step resolves identity through a fixture devenv.config and
+    // its credential through the allowlisted-GH_TOKEN seam path (the bash
+    // test stubbed provider_secret_get; the TS seam's supported injection
+    // is the allowlist).
+    fixtureToolbox = tmpPath(`auth-fixture-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(fixtureToolbox, { recursive: true });
+    writeFileSync(
+      join(fixtureToolbox, "devenv.config"),
+      "[provider]\nname=github\n" +
+        "token_env_allowlist=npm-token-123\n\n" +
+        "[organization]\norg=the-org\nuser=the-user\n",
+    );
   });
 
   function gitHeader(provider: string, token: string): string {
@@ -355,21 +364,25 @@ describe("bootstrap auth (bats port)", () => {
   }
 
   function runNpmrcSetup(provider: string, npmToken: string): { status: number; out: string } {
-    const script = [
-      `source '${PROVIDER_CORE}'`,
-      `PROVIDER_NAME=${provider}`,
-      `provider_load bootstrap 2>/dev/null`,
-      NPMRC_SETUP,
-      `ensure_provider_seam() { :; }`,
-      `provider_secret_get() {`,
-      `  printf 'lookup\\n' >> "$HOME/token-lookups"`,
-      `  [ -n "${npmToken}" ] || return 1`,
-      `  printf '%s' "${npmToken}"`,
-      `}`,
-      `configure_user_npmrc`,
-    ].join("\n");
-    const r = runBashC(script, { HOME, PROVIDER_NAME: provider, DEVENV_ROOT: ROOT, DEVENV_ROOT_SET: "1" });
-    return { status: r.status, out: r.out };
+    // Per-call token (the bash stub's shape): the allowlist in the fixture
+    // config carries every synthetic token the tests inject, so each call's
+    // GH_TOKEN is honored under github and ignored under other providers.
+    if (npmToken !== "" && !/^npm-token/.test(npmToken)) {
+      const cfg = readFileSync(join(fixtureToolbox, "devenv.config"), "utf8");
+      if (!cfg.includes("token_env_allowlist=" + npmToken)) {
+        writeFileSync(join(fixtureToolbox, "devenv.config"), cfg.replace("token_env_allowlist=npm-token-123", "token_env_allowlist=npm-token-123 " + npmToken));
+      }
+    }
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+    Object.assign(env, {
+      HOME,
+      DEVENV_TOOLBOX_ROOT: fixtureToolbox,
+      DEVENV_ROOT: fixtureToolbox,
+      GH_TOKEN: provider === "github" && npmToken !== "" ? npmToken : undefined,
+    });
+    const r = spawnSync("node", [NPMRC_STEP], { encoding: "utf8", env });
+    return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
   }
 
   it("github scheme: x-access-token basic header", () => {

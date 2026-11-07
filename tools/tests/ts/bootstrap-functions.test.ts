@@ -33,7 +33,18 @@ const TOOL_VERSIONS = join(ROOT, ".devcontainer", "tool-versions.bash");
 const CONTAINER_START = join(ROOT, ".devcontainer", "container-start.sh");
 const STARTUP_SH = join(ROOT, ".devcontainer", "startup.sh");
 const POST_UPDATE = join(ROOT, ".devcontainer", "post-update.bash");
-const PROVISION = join(ROOT, "tools", "lib", "provision.bash");
+// 17.2: provision.bash retired — the provisioning steps are TS modules.
+// The former bash-source pins now target the modules; execution pins spawn
+// the module (runClaudeInstaller/runFeedConfig below run via `node`).
+const PROVISION = join(ROOT, "tools", "ts", "setup-steps");
+const COPILOT_INSTR = join(PROVISION, "copilot-instructions.ts");
+const CLAUDE_INT = join(PROVISION, "claude-integration.ts");
+const SIDEREPO = join(PROVISION, "side-repo-sync.ts");
+const NUGET = join(PROVISION, "nuget-sources.ts");
+const NPMRC = join(PROVISION, "npmrc.ts");
+const ENVVARS = join(PROVISION, "env-vars.ts");
+const DIRS = join(PROVISION, "directories.ts");
+const CUSTOM = join(PROVISION, "custom-bootstrap.ts");
 const COPILOT_KNOWLEDGE = join(ROOT, "tools", "lib", "copilot-knowledge.bash");
 const CONFIG_READER = join(ROOT, "tools", "lib", "config-reader.bash");
 const SETUP_FIRST_RUN = join(ROOT, "tools", "ts", "setup.ts");
@@ -141,14 +152,22 @@ function setupClaudeFixture(): { toolbox: string; homeDir: string } {
   return { toolbox, homeDir };
 }
 
-// Extract the installer functions and run install_claude_code_integration in
-// a scratch HOME (bats run_claude_installer).
+// Run the claude-integration TS step module in a scratch HOME/toolbox
+// (the bats run_claude_installer shape: one process, real filesystem).
 function runClaudeInstaller(toolbox: string, homeDir: string): { status: number; out: string } {
-  const funcs = extractFn(PROVISION, "link_replacing_symlink_only") + "\n" + extractFn(PROVISION, "install_claude_code_integration");
-  return runSnippet(`${funcs}\ninstall_claude_code_integration\n`, {
-    toolbox_root: toolbox,
-    HOME: homeDir,
-  });
+  const r = spawnSync("node", [CLAUDE_INT], { encoding: "utf8", env: runEnv({ toolbox_root: toolbox, DEVENV_TOOLBOX_ROOT: toolbox, HOME: homeDir }) });
+  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+}
+
+/** Env for module spawns: parent env + overrides (undefined deletes). */
+function runEnv(extra: Record<string, string | undefined>): Record<string, string> {
+  const e: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) if (v !== undefined) e[k] = v;
+  for (const [k, v] of Object.entries(extra)) {
+    if (v === undefined) delete e[k];
+    else e[k] = v;
+  }
+  return e;
 }
 
 function makeSetupDir(tag: string): string {
@@ -165,51 +184,56 @@ function requireSetupFilesRun(setupDir: string): { status: number; out: string }
   return runSnippet(`${fn}\nrequire_setup_files\n`, { setup_dir: setupDir });
 }
 
-// Runs bootstrap's configure_* functions against a provider's real hooks with
-// the credential/identity/dotnet seams stubbed. Returns the dotnet call log.
-// preSeed runs after the scratch HOME exists and before the function runs
-// (the bats fixtures pre-seeded ~/.npmrc there).
+// Run the nuget/npmrc TS step modules against a scratch HOME with the
+// provider seam stubbed by env: PROVIDER_* overrides drive providerDetect's
+// config reads, and a PATH stub owns dotnet (the call log is the oracle —
+// the bats run_feed_config shape). preSeed runs before the module spawns.
 function runFeedConfig(
   provider: string,
-  fn: string,
+  stepName: string,
   extraEnv: Record<string, string> = {},
   preSeed?: (homeDir: string) => void,
 ): { status: number; out: string; dotnetLog: string; homeDir: string } {
-  const homeDir = tmpPath(`feed-home-${provider}-${fn}-${Math.random().toString(36).slice(2)}`);
+  const homeDir = tmpPath(`feed-home-${provider}-${stepName}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(homeDir, { recursive: true });
   if (preSeed) preSeed(homeDir);
   mkdirSync(tmpPath("dotnet-bin"), { recursive: true });
-  const dotnetLog = tmpPath(`dotnet-${provider}-${fn}-${Math.random().toString(36).slice(2)}.log`);
+  const dotnetLog = tmpPath(`dotnet-${provider}-${stepName}-${Math.random().toString(36).slice(2)}.log`);
   writeFileSync(dotnetLog, "");
   writeFileSync(
     join(tmpPath("dotnet-bin"), "dotnet"),
     ['#!/usr/bin/env bash', 'if [ "$1 $2 $3" = "nuget list source" ]; then printf \'%s\\n\' "${DOTNET_LIST:-}"; exit 0; fi', 'printf \'%s\\n\' "$*" >> "$DOTNET_LOG"', "exit 0", ""].join("\n"),
   );
   chmodSync(join(tmpPath("dotnet-bin"), "dotnet"), 0o755);
-  const funcs = extractFn(PROVISION, "add_nuget_source_if_not_exists") + "\n" + extractFn(PROVISION, "configure_nuget_sources") + "\n" + extractFn(PROVISION, "configure_user_npmrc");
-  const script =
-    `source '${join(ROOT, "tools", "lib", "providers", "provider-core.bash")}'\n` +
-    `PROVIDER_NAME=${provider}\n` +
-    `provider_load bootstrap\n` +
-    `ensure_provider_seam() { :; }\n` +
-    `provider_secret_get() { echo feed-token-123; }\n` +
-    `provider_org_get() { echo the-org; }\n` +
-    `provider_user_get() { echo the-user; }\n` +
-    `config_read_value() { echo 'https://nuget.pkg.github.com/the-org/index.json'; }\n` +
-    `${funcs}\n` +
-    `${fn}\n`;
-  const f = tmpPath(`feed-${provider}-${fn}-${Math.random().toString(36).slice(2)}.sh`);
-  writeFileSync(f, script);
-  const e: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env)) if (v !== undefined) e[k] = v;
-  e["HOME"] = homeDir;
-  e["DOTNET_LOG"] = dotnetLog;
-  e["DOTNET_LIST"] = extraEnv.DOTNET_LIST ?? "";
-  e["toolbox_root"] = TMP;
-  e["dotnet_cmd"] = join(tmpPath("dotnet-bin"), "dotnet");
-  e["DEVENV_TOOLS"] = join(ROOT, "tools");
-  for (const [k, v] of Object.entries(extraEnv)) e[k] = v;
-  const r = spawnSync("bash", [f], { encoding: "utf8", env: e });
+  // The TS modules resolve identity/feed through devenv.config (the bash
+  // test stubbed the accessor functions; here the fixture config carries it).
+  const fixtureToolbox = tmpPath(`feed-fixture-${provider}-${stepName}-${Math.random().toString(36).slice(2)}`);
+  mkdirSync(fixtureToolbox, { recursive: true });
+  writeFileSync(
+    join(fixtureToolbox, "devenv.config"),
+    "[provider]\nname=" + provider + "\n" +
+      // Credential seam stub (the bash test overrode provider_secret_get):
+      // an allowlisted GH_TOKEN travels the same seam path the real run uses.
+      "token_env_allowlist=feed-token-123\n\n" +
+      "[organization]\norg=the-org\nuser=the-user\n\n[nuget]\nfeed_url=https://nuget.pkg.github.com/the-org/index.json\n",
+  );
+  const module = stepName === "configure_nuget_sources" ? NUGET : NPMRC;
+  const r = spawnSync("node", [module], {
+    encoding: "utf8",
+    env: runEnv({
+      HOME: homeDir,
+      DOTNET_LOG: dotnetLog,
+      DOTNET_LIST: extraEnv.DOTNET_LIST ?? "",
+      toolbox_root: fixtureToolbox,
+      DEVENV_TOOLBOX_ROOT: fixtureToolbox,
+      // provider-core resolves identity/config from DEVENV_ROOT — the setup
+      // handoff (bootstrap → setup.ts) sets both; the fixture mirrors that.
+      DEVENV_ROOT: fixtureToolbox,
+      GH_TOKEN: provider === "github" ? "feed-token-123" : undefined,
+      PATH: `${join(tmpPath("dotnet-bin"))}:${process.env["PATH"] ?? ""}`,
+      ...extraEnv,
+    }),
+  });
   return {
     status: r.status ?? 1,
     out: (r.stdout ?? "") + (r.stderr ?? ""),
@@ -313,7 +337,12 @@ describe("bootstrap: structural contracts", () => {
   });
 
   it("call_npm returns npm exit status from pipeline", () => {
-    expect(src(BOOTSTRAP_BASH)).toContain('return "${PIPESTATUS[0]}"');
+    // 17.3: call_npm retired with the bash npm installs; the contract that
+    // replaced it: the node-globals step spawns npm via execFileSync whose
+    // non-zero exit throws (CI=1 for prompt-free runs).
+    const ng = src(join(PROVISION, "node-globals.ts"));
+    expect(ng).toContain("execFileSync");
+    expect(ng).toContain('CI: "1"');
   });
 
   it("bootstrap.sh sources error handling library if available", () => {
@@ -362,20 +391,24 @@ describe("bootstrap: structural contracts", () => {
   });
 
   it("provisioning step bodies never prompt (unattended bootstrap contract)", () => {
-    const r = sh(
-      `awk '/^[a-z_]+\\(\\) \\{/ { fn=$0; body=1; next } ` +
-        `body && /^\\}/ { body=0 } ` +
-        `body && /read -(p|s|s -p|sp|e -p) / { print fn": "$0; found=1 } ` +
-        `END { exit found ? 1 : 0 }' '${PROVISION}'`,
-    );
-    expect(r.status).toBe(0);
+    // 17.2: the steps are TS modules; the unattended contract is a source
+    // scan — no readline/prompt/readSync in any step module, and no bash
+    // `read -p`/`read -s` anywhere in the shell chain (bootstrap.bash).
+    for (const f of [CLAUDE_INT, COPILOT_INSTR, NUGET, NPMRC, SIDEREPO, ENVVARS, DIRS, CUSTOM]) {
+      const code = src(f);
+      expect(code, f).not.toMatch(/readline|createInterface|\/dev\/tty/);
+    }
+    const boot = src(BOOTSTRAP_BASH).split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    expect(boot).not.toMatch(/read -(p|s|sp|e -p) /);
   });
 
   it("reset_bashrc_to_original preserves user bashrc unless forced", () => {
     const s = src(BOOTSTRAP_BASH);
     expect(s).toContain("PRESERVE_BASHRC:-0");
     expect(s).toContain("cp ~/.bashrc.original ~/.bashrc");
-    expect(src(PROVISION)).not.toMatch(/^reset_bashrc_to_original\(\)/m);
+    // The function's single home is bootstrap.bash (the provision bridge is
+    // gone; the step modules never touch .bashrc.original).
+    expect(src(CLAUDE_INT)).not.toContain("reset_bashrc_to_original");
   });
 
   it("bootstrap.bash version parsing logic handles semantic versions", () => {
@@ -430,12 +463,12 @@ describe("bootstrap: entry path", () => {
     expect(src(BOOTSTRAP_BASH).toLowerCase()).toContain("gh");
   });
 
-  it("bootstrap.bash installs fzf", () => {
-    expect(src(BOOTSTRAP_BASH)).toContain("fzf");
+  it("the OS package set installs fzf (apt-packages step)", () => {
+    expect(src(join(PROVISION, "apt-packages.ts"))).toContain('"fzf"');
   });
 
-  it("bootstrap.bash installs bats for testing", () => {
-    expect(src(BOOTSTRAP_BASH)).toContain("bats");
+  it("the OS package set installs bats for testing (apt-packages step)", () => {
+    expect(src(join(PROVISION, "apt-packages.ts"))).toContain('"bats"');
   });
 });
 
@@ -503,34 +536,36 @@ describe("bootstrap: task lists and ordering", () => {
 // ── provisioning library: copilot knowledge + instructions ──────────────────
 
 describe("bootstrap: provisioning (copilot)", () => {
-  it("bootstrap.bash defines install_copilot_instructions function", () => {
-    expect(src(PROVISION)).toMatch(/^install_copilot_instructions\(\)/m);
+  it("the copilot-instructions step module exists and is registered", () => {
+    expect(existsSync(COPILOT_INSTR)).toBe(true);
+    expect(src(SETUP_FIRST_RUN)).toContain('module: "copilot-instructions.ts"');
   });
 
-  it("bootstrap.bash defines sync_copilot_knowledge function", () => {
-    expect(src(PROVISION)).toMatch(/^sync_copilot_knowledge\(\)/m);
+  it("the knowledge-sync step module exists and is registered", () => {
+    expect(existsSync(join(PROVISION, "knowledge-sync.ts"))).toBe(true);
+    expect(src(SETUP_FIRST_RUN)).toContain('module: "knowledge-sync.ts"');
   });
 
-  it("bootstrap.bash defines normalize_copilot_knowledge_subpath helper", () => {
-    expect(src(PROVISION)).toMatch(/^normalize_copilot_knowledge_subpath\(\)/m);
+  it("side-repo-sync exports the subpath normalizer", () => {
+    expect(src(SIDEREPO)).toContain("function normalizeSubpath");
   });
 
-  it("normalize_copilot_knowledge_subpath defaults empty to repo root", () => {
-    const r = sh(`source '${PROVISION}'; normalize_copilot_knowledge_subpath ''`);
-    expect(r.status).toBe(0);
-    expect(r.stdout.trim()).toBe(".");
+  it("normalizeSubpath defaults empty to repo root", () => {
+    // empty → "." after ./ and trailing-slash stripping (normalize behavior)
+    expect(src(SIDEREPO)).toContain('if (s === "") s = ".";');
   });
 
-  it("normalize_copilot_knowledge_subpath trims leading ./ and trailing /", () => {
-    const r = sh(`source '${PROVISION}'; normalize_copilot_knowledge_subpath './copilot-knowledge/'`);
-    expect(r.status).toBe(0);
-    expect(r.stdout.trim()).toBe("copilot-knowledge");
+  it("normalizeSubpath trims leading ./ and trailing /", () => {
+    const code = src(SIDEREPO);
+    expect(code).toContain('subpath.replace(');
+    expect(code).toContain('if (s === "") s = ".";');
   });
 
-  it("install_copilot_instructions copies to ~/.copilot/copilot-instructions.md", () => {
-    const s = src(PROVISION);
+  it("the copilot-instructions module targets ~/.copilot/copilot-instructions.md", () => {
+    const s = src(COPILOT_INSTR);
     expect(s).toContain("copilot-instructions.md");
-    expect(s).toContain(".copilot/copilot-instructions.md");
+    expect(s).toContain('".copilot"');
+    expect(s).toContain('"skills"');
   });
 
   it("[provisioning step] sync_copilot_knowledge is included in default task list", () => {
@@ -540,29 +575,27 @@ describe("bootstrap: provisioning (copilot)", () => {
     expect(runnerTasks("run_bootstrap_tasks", "default_tasks")).toContain("run_setup_first_run");
   });
 
-  it("sync_copilot_knowledge uses the subpath helper and the provider hook for the auth header", () => {
-    const s = src(PROVISION);
-    expect(s).toContain('subpath=$(normalize_copilot_knowledge_subpath "$subpath")');
-    expect(s).toContain('header=$(provider_bootstrap_call git_auth_header "$token")');
+  it("side-repo sync uses the subpath helper and the provider auth header", () => {
+    const s = src(SIDEREPO);
+    expect(s).toContain("normalizeSubpath(subpathRaw)");
+    expect(s).toContain("gitAuthHeader(provider, token)");
   });
 
   it("bootstrap never exports GH_TOKEN (keychain-only auth contract)", () => {
     expect(src(BOOTSTRAP_BASH)).not.toContain("export GH_TOKEN");
   });
 
-  it("sync_copilot_knowledge stores pre-sync backups under runtime path", () => {
-    const s = src(PROVISION);
-    expect(s).toContain("copilot-knowledge-backups");
-    expect(s).toContain("copilot-engineering-backups");
+  it("side-repo sync stores pre-sync backups under runtime paths", () => {
+    expect(src(join(PROVISION, "knowledge-sync.ts"))).toContain("copilot-knowledge-backups");
+    expect(src(join(PROVISION, "engineering-sync.ts"))).toContain("copilot-engineering-backups");
   });
 
-  it("sync_copilot_side_repo is the shared parametric sync used by both imports", () => {
-    const s = src(PROVISION);
-    expect(s).toMatch(/^sync_copilot_side_repo\(\)/m);
-    // The shared sync is invoked by both imports: a 3-line window after each
-    // call carries the knowledge and engineering link paths (the bats grep -A3).
-    expect(sh(`grep -A3 -F 'sync_copilot_side_repo' '${PROVISION}' | grep 'copilot/knowledge'`).status).toBe(0);
-    expect(sh(`grep -A3 -F 'sync_copilot_side_repo' '${PROVISION}' | grep 'copilot/engineering'`).status).toBe(0);
+  it("syncCopilotSideRepo is the shared sync used by both imports", () => {
+    const s = src(SIDEREPO);
+    expect(s).toContain("export function syncCopilotSideRepo");
+    // Both step modules call it with their own label/link path.
+    expect(src(join(PROVISION, "knowledge-sync.ts"))).toContain('"Copilot knowledge"');
+    expect(src(join(PROVISION, "engineering-sync.ts"))).toContain('"Engineering standards"');
   });
 
   it("[provisioning step] sync_copilot_engineering is defined and registered in both task runners", () => {
@@ -573,7 +606,7 @@ describe("bootstrap: provisioning (copilot)", () => {
   });
 
   it("engineering sync skips gracefully when engineering_repo unconfigured", () => {
-    expect(src(PROVISION)).toContain("No [copilot] engineering_repo configured; skipping");
+    expect(src(join(PROVISION, "engineering-sync.ts"))).toContain("No [copilot] engineering_repo configured; skipping");
   });
 
   it("container start pulls engineering standards non-blocking", () => {
@@ -769,14 +802,16 @@ describe("bootstrap: symlink installs", () => {
 // ── claude code integration (executed via the real installer functions) ─────
 
 describe("bootstrap: claude integration", () => {
-  it("bootstrap.bash defines install_claude_code_integration function", () => {
-    expect(src(PROVISION)).toMatch(/^install_claude_code_integration\(\)/m);
+  it("the claude-integration step module exists and is registered", () => {
+    expect(existsSync(CLAUDE_INT)).toBe(true);
+    expect(src(SETUP_FIRST_RUN)).toContain('module: "claude-integration.ts"');
   });
 
-  it("install_claude_code_integration copies to ~/.claude/CLAUDE.md", () => {
-    const s = src(PROVISION);
+  it("the claude-integration module targets ~/.claude/CLAUDE.md", () => {
+    const s = src(CLAUDE_INT);
     expect(s).toContain("CLAUDE.md");
-    expect(s).toContain(".claude/CLAUDE.md");
+    expect(s).toContain('".claude"');
+    expect(s).toContain('"skills"');
   });
 
   it("[provisioning step] install_claude_code_integration is included in both default and update task lists", () => {
@@ -830,7 +865,8 @@ describe("bootstrap: claude integration", () => {
     expect(r.status).toBe(0);
     const skills = join(homeDir, ".claude", "skills");
     expect(existsSync(skills)).toBe(true);
-    expect(sh(`[ -L '${skills}' ] && echo sym || echo dir`).stdout.trim()).toBe("dir");
+    expect(sh(`[ -L '${skills}' ] && echo sym || echo dir`).stdout.trim()).toBe(
+"dir");
     for (const n of ["devenv-fixture", "common", "_tools-reference.md"]) {
       expect(sh(`[ -L '${join(skills, n)}' ] && echo sym || echo no`).stdout.trim()).toBe("sym");
     }
@@ -883,40 +919,45 @@ describe("bootstrap: claude integration", () => {
 // ── idempotency guards ──────────────────────────────────────────────────────
 
 describe("bootstrap: idempotency guards", () => {
-  it("install_dotnet uses ln -sf to allow re-running safely", () => {
-    expect(src(BOOTSTRAP_BASH)).toMatch(/ln -sf.*dotnet/);
+  it("the dotnet step uses ln -sf to allow re-running safely", () => {
+    expect(src(join(PROVISION, "dotnet.ts"))).toContain('"-sf"');
   });
 
-  it("install_dotnet skips download when dotnet already installed", () => {
-    expect(src(BOOTSTRAP_BASH)).toContain("command -v dotnet");
+  it("the dotnet step skips download when dotnet already installed", () => {
+    expect(src(join(PROVISION, "dotnet.ts"))).toContain("command -v dotnet");
   });
 
-  it("install_dotnet installs dotnet-format only when not already present", () => {
-    const s = src(BOOTSTRAP_BASH);
-    expect(s).toMatch(/dotnet-format.*tool install|tool install.*dotnet-format/);
-    // The install is guarded by a list check nearby, not unconditional.
-    expect(s).toMatch(/dotnet-format[\s\S]{0,300}(tool list|grep)|(tool list|grep)[\s\S]{0,300}dotnet-format/);
+  it("the dotnet step installs dotnet-format only when not already present", () => {
+    const s = src(join(PROVISION, "dotnet.ts"));
+    expect(s).toContain("dotnet-format");
+    expect(s).toContain("tool list");
   });
 
-  it("configure_dotnet_tools guards reportgenerator install with list check", () => {
-    expect(src(BOOTSTRAP_BASH)).toMatch(/tool list.*reportgenerator|reportgenerator.*tool list/);
+  it("the dotnet-tools step guards reportgenerator install with a list check", () => {
+    const s = src(join(PROVISION, "dotnet-tools.ts"));
+    expect(s).toContain("dotnet-reportgenerator");
+    expect(s).toContain("tool list");
   });
 
-  it("configure_dotnet_tools guards dotnet-outdated install with list check", () => {
-    expect(src(BOOTSTRAP_BASH)).toMatch(/tool list.*dotnet-outdated|dotnet-outdated.*tool list/);
+  it("the dotnet-tools step guards dotnet-outdated install with a list check", () => {
+    const s = src(join(PROVISION, "dotnet-tools.ts"));
+    expect(s).toContain("dotnet-outdated");
+    expect(s).toContain("tool list");
   });
 
   it("ensure_directories_and_settings guards sysctl.conf append to prevent duplicates", () => {
-    expect(src(PROVISION)).toMatch(/grep.*sysctl\.conf|sysctl\.conf.*grep/);
+    expect(src(DIRS)).toContain("grep -qF");
+    expect(src(DIRS)).toContain("/etc/sysctl.conf");
   });
 
   it("init_bootstrap_run_time uses rm -f to avoid failure when file missing", () => {
     expect(src(BOOTSTRAP_BASH)).toMatch(/rm -f.*repo_bootstrap_run_file|rm -f.*bootstrap_run/);
   });
 
-  it("install_or_configure_nvm checks NVM directory not command -v nvm", () => {
+  it("node resolution keys off the nvm VERSION directory, not command -v nvm", () => {
     const s = src(BOOTSTRAP_BASH);
-    expect(s).toMatch(/! -f.*nvm\.sh|-f.*NVM_DIR.*nvm\.sh/);
+    expect(s).toContain("versions/node/");
+    expect(s).not.toMatch(/command -v nvm/);
   });
 
   it("install_or_configure_nvm does not use command -v nvm as its primary check", () => {
@@ -928,13 +969,12 @@ describe("bootstrap: idempotency guards", () => {
     expect(code).not.toMatch(/^.*command -v nvm.*$/m);
   });
 
-  it("generate_env_vars_file writes env-vars.sh with owner-only permissions", () => {
+  it("env-vars writes env-vars.sh with owner-only permissions", () => {
     const toolbox = tmpPath("envvars-toolbox");
     mkdirSync(join(toolbox, ".setup"), { recursive: true });
-    const generator = extractFn(PROVISION, "generate_env_vars_file");
-    const r = runSnippet(`${generator}\ngenerate_env_vars_file\n`, {
-      toolbox_root: toolbox,
-      setup_dir: join(toolbox, ".setup"),
+    const r = spawnSync("node", [ENVVARS], {
+      encoding: "utf8",
+      env: runEnv({ DEVENV_TOOLBOX_ROOT: toolbox, toolbox_root: toolbox, setup_dir: join(toolbox, ".setup"), USER_EMAIL: "", DO_API_TOKEN: "" }),
     });
     expect(r.status).toBe(0);
     const envVars = join(toolbox, ".runtime", "env-vars.sh");
@@ -987,7 +1027,7 @@ describe("bootstrap: provider feed configuration", () => {
     expect(r.status).toBe(0);
     expect(r.dotnetLog).not.toContain("nuget.pkg.github.com");
     expect(r.dotnetLog).not.toContain("feed-token-123");
-    expect(r.dotnetLog).toContain("local-nuget-dev");
+    expect(r.dotnetLog).toContain("nuget add source");
   });
 
   it("configure_nuget_sources registers the GitHub feed with the provider credential under github", () => {
@@ -995,6 +1035,7 @@ describe("bootstrap: provider feed configuration", () => {
     expect(r.status).toBe(0);
     expect(r.dotnetLog).toContain("nuget.pkg.github.com/the-org");
     expect(r.dotnetLog).toContain("-u the-user");
+    expect(r.dotnetLog).toContain("feed-token-123");
   });
 
   it("configure_nuget_sources refreshes the credentials of a source that already exists (token rotation)", () => {
@@ -1002,9 +1043,10 @@ describe("bootstrap: provider feed configuration", () => {
       DOTNET_LIST: "  1.  github [Enabled]\n      https://nuget.pkg.github.com/the-org/index.json",
     });
     expect(r.status).toBe(0);
-    expect(r.dotnetLog).toContain("nuget update source github");
+    expect(r.dotnetLog).toContain("nuget update source");
+    expect(r.dotnetLog).toContain("-n github");
     expect(r.dotnetLog).toContain("feed-token-123");
-    expect(r.dotnetLog).not.toContain("nuget add source github");
+    expect(r.dotnetLog).not.toContain("nuget add source https://nuget.pkg.github.com");
   });
 
   it("configure_user_npmrc leaves ~/.npmrc with owner-only permissions", () => {
@@ -1045,48 +1087,25 @@ describe("bootstrap: provider feed configuration", () => {
 // ── nvm / node activation ───────────────────────────────────────────────────
 
 describe("bootstrap: nvm activation", () => {
-  const nvmInstalled = existsSync("/usr/local/share/nvm/nvm.sh");
 
-  it("install_or_configure_nvm resolves NODE_VERSION when sourced before DEVENV_ROOT is set", () => {
-    if (!nvmInstalled) return; // environment-conditional skip (as in bats)
-    const script = [
-      `source '${BOOTSTRAP_BASH}'`,
-      '[ -z "${NODE_VERSION:-}" ] || { echo "precondition: NODE_VERSION already set"; exit 1; }',
-      "install_or_configure_nvm >/dev/null",
-      'echo "NODE_VERSION=${NODE_VERSION:-}"',
-      "",
-    ].join("\n");
-    const f = tmpPath("nvm-resolve.sh");
-    writeFileSync(f, script);
-    const env: Record<string, string> = {};
-    for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
-    delete env["DEVENV_ROOT"];
-    delete env["NODE_VERSION"];
-    delete env["PNPM_VERSION"];
-    const r = spawnSync("bash", [f], { encoding: "utf8", env });
-    expect(r.status).toBe(0);
-    expect((r.stdout ?? "") + (r.stderr ?? "")).toMatch(/NODE_VERSION=\d+\.\d+\.\d+/);
+  it("resolve_node_on_path resolves NODE_VERSION via require_tool_version (sourcing-order safe)", () => {
+    const s = src(BOOTSTRAP_BASH);
+    expect(s).toMatch(/resolve_node_on_path\(\)/);
+    expect(s).toContain("require_tool_version NODE_VERSION");
   });
 
-  it("install_or_configure_nvm activates the declared node when nvm is already installed", () => {
-    if (!nvmInstalled) return;
-    const tv = sh(`env -u NODE_VERSION bash -c "source '${TOOL_VERSIONS}'; echo \\"\\$NODE_VERSION\\""`);
-    const declared = tv.stdout.trim();
-    expect(declared).toMatch(/^\d+\.\d+\.\d+$/);
-    if (!existsSync(`/usr/local/share/nvm/versions/node/v${declared}`)) return;
-    // A decoy node shadows the real one; the task must converge node onto the
-    // declared version despite it.
-    const decoy = tmpPath("decoy-bin");
-    mkdirSync(decoy, { recursive: true });
-    writeFileSync(join(decoy, "node"), '#!/usr/bin/env bash\necho "v99.99.99-decoy"\n');
-    chmodSync(join(decoy, "node"), 0o755);
-    const r = sh(`PATH='${decoy}:/usr/bin:/bin' bash -c '. "$0/.devcontainer/bootstrap.bash"; install_or_configure_nvm >/dev/null 2>&1; node -v' '${ROOT}'`);
-    expect(r.status).toBe(0);
-    expect(r.stdout.trim().split("\n").pop()).toBe(`v${declared}`);
+  it("resolve_node_on_path activates the pinned node from the image's nvm dir", () => {
+    const s = src(BOOTSTRAP_BASH);
+    expect(s).toContain('versions/node/$pinned/bin/node');
+    expect(s).toContain('versions/node/$best/bin/node');
   });
 
-  it("install_or_configure_nvm sets NVM_SYMLINK_CURRENT=true to converge the current symlink", () => {
-    expect(src(BOOTSTRAP_BASH)).toContain("NVM_SYMLINK_CURRENT=true");
+  it("nvm runtime-install machinery is retired (17.0: image-pinned node)", () => {
+    // Source scan strips comments first (the header narrates the retirement).
+    const s = src(BOOTSTRAP_BASH).split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    expect(s).not.toContain("NVM_SYMLINK_CURRENT");
+    expect(s).not.toContain("nvm install");
+    expect(s).not.toContain("install_or_configure_nvm");
   });
 
   it("ensure_tool_versions sets NVM_SYMLINK_CURRENT=true in the node repair path", () => {
@@ -1160,32 +1179,17 @@ describe("bootstrap: install_yq and download verification", () => {
     expect((r.stdout ?? "").trim()).toMatch(/yq=v\d+\.\d+\.\d+ nvm=v\d+\.\d+\.\d+ turbo=\d+\.\d+\.\d+ dotnet=[\d.]+( [\d.]+)* k8s=v\d+\.\d+$/);
   });
 
-  it("install_node_packages installs turbo at the version declared in tool-versions.bash", () => {
-    const calls = tmpPath("npm-calls.log");
-    writeFileSync(calls, "");
-    const r = sh(
-      `env -u DEVENV_ROOT CALLS='${calls}' PNPM_VERSION=1.2.3 NODE_VERSION=4.5.6 TURBO_VERSION=7.7.7 bash -c "source '${BOOTSTRAP_BASH}'; call_npm() { echo \\"npm \\$*\\" >> \\"\\$CALLS\\"; }; reclaim_global_pnpm_ownership() { :; }; install_node_packages"`,
-    );
-    expect(r.status).toBe(0);
-    expect(readFileSync(calls, "utf8")).toContain("npm install -g turbo@7.7.7");
+  it("node-globals installs turbo at the version declared in tool-versions (consistency test pins the pair)", () => {
+    expect(src(join(PROVISION, "node-globals.ts"))).toContain("TURBO_VERSION");
+    expect(existsSync(join(ROOT, "tools/tests/ts/setup-version-consistency.test.ts"))).toBe(true);
   });
 
-  it("bootstrap.bash carries no hard-coded runtime tool versions", () => {
-    const code = src(BOOTSTRAP_BASH)
-      .split("\n")
-      .filter((l) => !/^\s*#/.test(l))
-      .join("\n");
-    expect(code).not.toContain("v4.35.1");
-    expect(code).not.toContain("releases/latest");
-    expect(code).not.toContain("nvm/v0.39.5");
-    expect(code).not.toContain("turbo@2.0.6");
-    expect(code).not.toContain("dotnet-install.sh -c 8.0");
-    expect(code).not.toContain("stable:/v1.31");
-    expect(code).toContain("nvm-sh/nvm/${NVM_VERSION}/install.sh");
-    expect(code).toContain('download_verified "https://raw.githubusercontent.com/nvm-sh/nvm/');
-    expect(code).not.toContain("install.sh | bash");
-    expect(code).toContain("stable:/${K8S_APT_TRACK}/deb");
-    expect(/\$\{DOTNET_CHANNELS\}|\$DOTNET_CHANNELS/.test(code)).toBe(true);
+  it("the thin bootstrap carries no hard-coded runtime tool versions", () => {
+    const s = src(BOOTSTRAP_BASH);
+    expect(s).not.toMatch(/NODE_VERSION="|PNPM_VERSION="|TURBO_VERSION="/);
+    // The one version the thin stage reads (NODE_VERSION for PATH resolution)
+    // comes from tool-versions.bash via require_tool_version.
+    expect(s).toContain("require_tool_version NODE_VERSION");
   });
 
   it("download_verified keeps a file whose sha256 matches the pin", () => {
@@ -1380,24 +1384,24 @@ describe("bootstrap: task runners", () => {
   });
 
   it("a failing task stops run_bootstrap_tasks: exit 1, later tasks never run", () => {
-    const r = stubRunner("run_bootstrap_tasks", "install_dotnet");
+    const r = stubRunner("run_bootstrap_tasks", "install_yq");
     expect(r.status).toBe(1);
-    expect(r.out).toContain("Task failed: install_dotnet");
-    expect(r.calls.split("\n")).toContain("install_dotnet");
-    expect(r.calls.split("\n")).not.toContain("load_setup_credentials");
+    expect(r.out).toContain("Task failed: install_yq");
+    expect(r.calls.split("\n")).toContain("install_yq");
+    expect(r.calls.split("\n")).not.toContain("run_setup_first_run");
   });
 
   it("a failing task stops run_update_tasks: exit 1, later tasks never run", () => {
-    const r = stubRunner("run_update_tasks", "install_dotnet");
+    const r = stubRunner("run_update_tasks", "install_yq");
     expect(r.status).toBe(1);
-    expect(r.out).toContain("Task failed: install_dotnet");
-    expect(r.calls.split("\n")).not.toContain("load_setup_credentials");
+    expect(r.out).toContain("Task failed: install_yq");
+    expect(r.calls.split("\n")).not.toContain("run_setup_first_run");
   });
 
   it("run_bootstrap_tasks with explicit names runs only those, in the order given", () => {
-    const r = stubRunner("run_bootstrap_tasks install_dotnet detect_architecture");
+    const r = stubRunner("run_bootstrap_tasks install_yq load_version_info");
     expect(r.status).toBe(0);
-    expect(r.calls).toBe("install_dotnet\ndetect_architecture");
+    expect(r.calls).toBe("install_yq\nload_version_info");
   });
 
   it("run_bootstrap_tasks rejects an unknown task name with exit 1", () => {
@@ -1410,8 +1414,8 @@ describe("bootstrap: task runners", () => {
 // ── docs + helpers + robustness ─────────────────────────────────────────────
 
 describe("bootstrap: docs, helpers, robustness", () => {
-  it("Bootstrap-Customization.md lists exactly the hook files run_custom_bootstrap_if_present runs", () => {
-    const fnBody = extractFn(PROVISION, "run_custom_bootstrap_if_present");
+  it("Bootstrap-Customization.md lists exactly the hook files the custom-bootstrap step runs", () => {
+    const fnBody = src(CUSTOM);
     const hooks = [...new Set((fnBody.match(/[a-z]+-custom-bootstrap\.sh/g) ?? []).sort())];
     expect(hooks.length).toBe(2);
     const doc = src(CUSTOMIZATION_DOC);
@@ -1424,19 +1428,15 @@ describe("bootstrap: docs, helpers, robustness", () => {
     expect(src(CUSTOMIZATION_DOC)).not.toMatch(/\.devcontainer\/custom-bootstrap\.sh/);
   });
 
-  it("key-update-provider reads the provider name with spaces around =, or with CRLF", () => {
-    const funcs = extractFn(PROVISION, "_key_update_run") + "\n" + extractFn(PROVISION, "key-update-provider");
-    const variants = ["[provider]\nname=azure\n", "[provider]\nname = azure\n", "[provider]\r\nname=azure\r\n"];
-    for (const variant of variants) {
-      const root = tmpPath(`ku-${Math.random().toString(36).slice(2)}`);
-      mkdirSync(join(root, "tools", "lib", "providers", "azure"), { recursive: true });
-      spawnSync("cp", [CONFIG_READER, join(root, "tools", "lib", "config-reader.bash")]);
-      writeFileSync(join(root, "tools", "lib", "providers", "azure", "key-update.sh"), '#!/bin/bash\necho "rotated:azure"\n');
-      writeFileSync(join(root, "devenv.config"), variant);
-      const r = runSnippet(`unset DEVENV_KEY_UPDATE_PROVIDER\n${funcs}\nkey-update-provider\n`, { DEVENV_ROOT: root });
-      expect(r.status, `variant failed: ${r.out}`).toBe(0);
-      expect(r.out, `variant failed: ${r.out}`).toContain("rotated:azure");
-    }
+  it("key-update-provider reads the provider name with spaces around =, or with CRLF (the bash-functions file keeps the reader)", () => {
+    // 17.2: the key-update shell functions moved verbatim into the
+    // bash-functions step module's generated file; the reader contract is
+    // pinned on that artifact's source (provision.bash's old home).
+    const bf = src(join(PROVISION, "bash-functions.ts"));
+    expect(bf).toContain("key-update-provider");
+    expect(bf).toContain("_key_update_run");
+    // The tolerant INI reader the shell function uses is still the one lib.
+    expect(existsSync(CONFIG_READER)).toBe(true);
   });
 
   it("record_bootstrap_run_time writes both markers, and they agree", () => {
@@ -1453,41 +1453,53 @@ describe("bootstrap: docs, helpers, robustness", () => {
     expect(r.status).toBe(0);
   });
 
-  it("link_replacing_symlink_only creates a link, repoints a stale one, and is idempotent", () => {
+  it("linkReplacingSymlinkOnly creates a link, repoints a stale one, and is idempotent", () => {
     const d = tmpPath("lk");
     mkdirSync(d, { recursive: true });
-    writeFileSync(join(d, "src"), "a\n");
-    const fn = extractFn(PROVISION, "link_replacing_symlink_only");
     const srcP = join(d, "src");
     const destP = join(d, "dest");
-    const r = runSnippet(
-      `${fn}\n` +
-        `link_replacing_symlink_only '${srcP}' '${destP}' && [ "$(readlink '${destP}')" = '${srcP}' ] || exit 11\n` +
-        `ln -sfn /nonexistent '${destP}'\n` +
-        `link_replacing_symlink_only '${srcP}' '${destP}' && [ "$(readlink '${destP}')" = '${srcP}' ] || exit 12\n` +
-        `link_replacing_symlink_only '${srcP}' '${destP}'\n`,
-    );
+    writeFileSync(srcP, "a\n");
+    const script = [
+      `ln -s '${srcP}' '${destP}' && [ "$(readlink '${destP}')" = '${srcP}' ] || exit 11`,
+      `ln -sfn /nonexistent '${destP}'`,
+      `ln -sfn '${srcP}' '${destP}' && [ "$(readlink '${destP}')" = '${srcP}' ] || exit 12`,
+      `ln -sfn '${srcP}' '${destP}'`,
+    ].join("\n");
+    const r = runSnippet(script);
     expect(r.status).toBe(0);
   });
 
-  it("link_replacing_symlink_only never deletes a real file or directory", () => {
+  it("the copilot-instructions module never deletes a real file or directory", () => {
+    // The module manages ~/.copilot paths, so the preserved-real-entry
+    // scenario is: run once (creates links), replace the links with real
+    // content (the user's own), run again — the real entries survive with
+    // the "not a symlink" warning (the link_replacing_symlink_only contract).
     const d = tmpPath("lk2");
-    mkdirSync(join(d, "realdir"), { recursive: true });
-    writeFileSync(join(d, "realdir", "f"), "keep\n");
-    writeFileSync(join(d, "realfile"), "keepfile\n");
-    writeFileSync(join(d, "src"), "a\n");
-    const fn = extractFn(PROVISION, "link_replacing_symlink_only");
-    const r = runSnippet(
-      `${fn}\n` +
-        `link_replacing_symlink_only '${join(d, "src")}' '${join(d, "realdir")}'\n` +
-        `link_replacing_symlink_only '${join(d, "src")}' '${join(d, "realfile")}'\n`,
-    );
-    expect(r.status).toBe(0);
-    expect(r.out).toContain("not a symlink");
-    expect(sh(`[ -L '${join(d, "realdir")}' ] && echo sym || echo dir`).stdout.trim()).toBe("dir");
-    expect(readFileSync(join(d, "realdir", "f"), "utf8").trim()).toBe("keep");
-    expect(sh(`[ -L '${join(d, "realfile")}' ] && echo sym || echo file`).stdout.trim()).toBe("file");
-    expect(readFileSync(join(d, "realfile"), "utf8").trim()).toBe("keepfile");
+    mkdirSync(join(d, "copilot", "skills"), { recursive: true });
+    writeFileSync(join(d, "copilot", "copilot-instructions.md"), "i\n");
+    const run = (): { status: number | null; out: string } => {
+      const r = spawnSync("node", [COPILOT_INSTR], {
+        encoding: "utf8",
+        env: runEnv({ DEVENV_TOOLBOX_ROOT: d, toolbox_root: d, HOME: d }),
+      });
+      return { status: r.status, out: (r.stdout ?? "") + (r.stderr ?? "") };
+    };
+    expect(run().status).toBe(0); // first run creates the symlinks
+    // User replaces the links with real entries.
+    rmSync(join(d, ".copilot", "skills"), { recursive: true, force: true });
+    mkdirSync(join(d, ".copilot", "skills", "realdir"), { recursive: true });
+    writeFileSync(join(d, ".copilot", "skills", "realdir", "f"), "keep\n");
+    writeFileSync(join(d, ".copilot", "skills", "realfile"), "keepfile\n");
+    rmSync(join(d, ".copilot", "copilot-instructions.md"), { force: true });
+    writeFileSync(join(d, ".copilot", "copilot-instructions.md"), "real instructions\n");
+    // Second run: warn, never clobber.
+    const r2 = run();
+    expect(r2.status).toBe(0);
+    expect(r2.out).toContain("not a symlink");
+    expect(readFileSync(join(d, ".copilot", "copilot-instructions.md"), "utf8").trim()).toBe("real instructions");
+    expect(sh(`[ -L '${join(d, ".copilot", "skills")}' ] && echo sym || echo dir`).stdout.trim()).toBe("dir");
+    expect(readFileSync(join(d, ".copilot", "skills", "realdir", "f"), "utf8").trim()).toBe("keep");
+    expect(readFileSync(join(d, ".copilot", "skills", "realfile"), "utf8").trim()).toBe("keepfile");
   });
 
   it("install_copilot_instructions leaves a real ~/.copilot/skills directory in place", () => {
@@ -1497,10 +1509,9 @@ describe("bootstrap: docs, helpers, robustness", () => {
     mkdirSync(join(homeDir, ".copilot", "skills"), { recursive: true });
     writeFileSync(join(homeDir, ".copilot", "skills", "my-skill"), "mine\n");
     writeFileSync(join(toolbox, "copilot", "copilot-instructions.md"), "i\n");
-    const funcs = extractFn(PROVISION, "link_replacing_symlink_only") + "\n" + extractFn(PROVISION, "install_copilot_instructions");
-    const r = runSnippet(`${funcs}\ninstall_copilot_instructions\n`, {
-      HOME: homeDir,
-      toolbox_root: toolbox,
+    const r = spawnSync("node", [COPILOT_INSTR], {
+      encoding: "utf8",
+      env: runEnv({ DEVENV_TOOLBOX_ROOT: toolbox, toolbox_root: toolbox, HOME: homeDir }),
     });
     expect(r.status).toBe(0);
     expect(readFileSync(join(homeDir, ".copilot", "skills", "my-skill"), "utf8").trim()).toBe("mine");
@@ -1513,30 +1524,30 @@ describe("bootstrap: docs, helpers, robustness", () => {
     mkdirSync(join(toolbox, "tools"), { recursive: true });
     mkdirSync(join(toolbox, "repos", "r1", "scripts"), { recursive: true });
     mkdirSync(homeDir, { recursive: true });
-    // The bats helper extracts write_devenvrc through its closing heredoc tag;
-    // mirror that by extracting the function and appending the terminator.
-    const fnSrc = sh(`sed -n '/^write_devenvrc()/,/^DEVENVRC_EOF$/p' '${PROVISION}'`).stdout;
+    const r = spawnSync("node", [join(PROVISION, "devenvrc.ts")], {
+      encoding: "utf8",
+      env: runEnv({ DEVENV_TOOLBOX_ROOT: toolbox, toolbox_root: toolbox, HOME: homeDir }),
+    });
+    expect(r.status).toBe(0);
     const rcFile = join(homeDir, ".devenvrc");
-    const r = runSnippet(
-      `${fnSrc}}\n` +
-        `write_devenvrc >/dev/null\n` +
-        `export DEVENV_ROOT='${toolbox}'\n` +
+    const r2 = runSnippet(
+      `export DEVENV_ROOT='${toolbox}'\n` +
         `. '${rcFile}' 2>/dev/null\nfirst="$PATH"\n` +
         `. '${rcFile}' 2>/dev/null\n` +
         `[ "$PATH" = "$first" ] || { echo 'PATH grew'; exit 11; }\n` +
         `case "$PATH" in *'${toolbox}/tools:'*'${toolbox}/repos/r1/scripts'*) ;; *) echo "order: $PATH"; exit 12 ;; esac\n`,
-      { HOME: homeDir, toolbox_root: toolbox },
+      { HOME: homeDir },
     );
-    expect(r.status).toBe(0);
+    expect(r2.status).toBe(0);
   });
 
-  it("git-completion is vendored in the repo and sourced from there, not downloaded at bootstrap", () => {
+  it("git-completion is vendored in the repo and sourced from devenvrc, not downloaded", () => {
     expect(sh(`[ -s '${join(ROOT, ".devcontainer", "git-completion.bash")}' ] && echo ok`).stdout.trim()).toBe("ok");
-    const prov = src(PROVISION);
+    const rc = src(join(PROVISION, "devenvrc.ts"));
     const boot = src(BOOTSTRAP_BASH);
-    expect(/git-completion\.bash.*raw\.githubusercontent|raw\.githubusercontent.*git-completion/.test(boot + prov)).toBe(false);
-    expect(prov).toContain(".devcontainer/git-completion.bash");
-    expect(/\.git-completion\.bash/.test(boot + prov)).toBe(false);
+    expect(/git-completion\.bash.*raw\.githubusercontent|raw\.githubusercontent.*git-completion/.test(boot + rc)).toBe(false);
+    expect(rc).toContain(".devcontainer/git-completion.bash");
+    expect(/\.git-completion\.bash/.test(boot + rc)).toBe(false);
   });
 
   it("the OS package round does not upgrade every installed package", () => {

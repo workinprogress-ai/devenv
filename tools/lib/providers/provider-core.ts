@@ -431,6 +431,36 @@ function ghAuthProbe(): boolean {
   }
 }
 
+/** The provider's stored token (provider_auth_token_impl parity): github
+ * shells `gh auth token` with the env tokens scrubbed (gh would hand back
+ * an env token the allowlist refused); azure reads the az CLI token.
+ * Returns "" when the provider has no token. Secrets are never logged —
+ * callers treat the return value as credential material. */
+export function providerAuthToken(): string {
+  const name = providerDetect();
+  if (name === "github") {
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) {
+      if (v !== undefined && k !== "GH_TOKEN" && k !== "GITHUB_TOKEN") env[k] = v;
+    }
+    try {
+      const out = execFileSync("gh", ["auth", "token"], { encoding: "utf8", env });
+      return out.trim();
+    } catch {
+      return "";
+    }
+  }
+  if (name === "azure") {
+    try {
+      const out = execFileSync("bash", ["-c", "az account get-access-token --query accessToken -o tsv 2>/dev/null"], { encoding: "utf8" });
+      return out.trim();
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
 /** azure auth probe — mirrors azure/auth.bash's `provider_auth_status_impl`:
  * a resolvable token with sane file mode means the provider can operate.
  * Never reads the token's value into this process beyond existence. */
