@@ -49,9 +49,11 @@ If any exist:
 1. **Warn the user.** These are working files; their content should live in the associated issue, not in the commit history.
 2. **Determine whether the plan is already in the issue.** If a parent issue is detectable (from branch name, plan body, etc.), fetch it via `issue-get <N> --pretty` and check whether the plan content is there.
 3. **Offer to save it.** If the plan is not in the issue, offer to post it as a comment:
+
    ```
    issue-comment <N> --body-file <plan-file>
    ```
+
 4. **Offer cleanup (optional).** Ask whether to remove the local file(s) now. Deletion is never required and never blocks `pr-create` — if the user keeps them, continue.
 
 The plan can still be *read* by this skill to build the PR draft (step 1 below). Its presence has no effect on PR submission.
@@ -70,13 +72,13 @@ Assemble the PR draft from, in order:
 Format: `<type>(<scope>): <short description>` or `<type>: <short description>`.
 
 - `<type>` must be a conventional-commit type and should match the actual work:
-   - `feat` for new user-facing capability or workflow
-   - `fix` for bug fixes or regressions
-   - `docs` for documentation-only changes
-   - `test` for test-only changes
-   - `refactor` for structural changes without behavior change
-   - `chore` for maintenance, tooling, or repository housekeeping
-   - `build` / `ci` / `perf` / `style` / `revert` when those are the dominant change
+  - `feat` for new user-facing capability or workflow
+  - `fix` for bug fixes or regressions
+  - `docs` for documentation-only changes
+  - `test` for test-only changes
+  - `refactor` for structural changes without behavior change
+  - `chore` for maintenance, tooling, or repository housekeeping
+  - `build` / `ci` / `perf` / `style` / `revert` when those are the dominant change
 - Use a scope only when it is obvious from the work and would make the title clearer; otherwise omit it.
 - Keep the title under 72 chars. If the phase name is long, summarize the outcome instead of copying it.
 - Do **not** put `refs #N` / `closes #N` in the title. Put issue links in the **Related** section of the body instead.
@@ -123,6 +125,7 @@ set.
 Before showing the draft, review `git log <default-branch>..HEAD` for atomic
 mergeability — under rebase, each commit merges on its own ([Commit
 Conventions](../../../docs/Commit-Conventions.md)):
+
 - every type is true relative to master, not to sibling commits;
 - no introduce-then-reverse breaking pairs — if found, suggest the restructure
   (squash/reframe the pair); the **user runs any history mutation** — surface

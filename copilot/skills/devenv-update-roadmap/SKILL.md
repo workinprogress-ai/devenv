@@ -89,6 +89,7 @@ issue-get <issue-number> --pretty
 `issue-get` returns the issue's open/closed state and labels — **not** merge state or linked PRs. Get merge state from `pr-get <PR_NUMBER>` (`mergeStateStatus`, `state`) after locating candidate PRs: list them with `pr-list --state all`, then `pr-get <PR_NUMBER>` each candidate and scan PR bodies for `Closes #N` / `Fixes #N` references (that is where closing keywords live — not in issue comments; `pr-list` does not return bodies).
 
 Capture for each:
+
 - `state`: open | closed
 - `closedViaMerge`: true | false (only meaningful if closed)
 - `labels`: list of label names
@@ -119,11 +120,13 @@ After computing both diffs (status changes + missing issues), surface them to th
 > "Found 4 status changes and 2 steps without issues:
 >
 > Status changes:
+>
 > - STEP-01: ⬜ → 🟡 (PR #145 opened)
 > - STEP-02: ⬜ → ✅ (closed via merge)
 > - STEP-04: ⬜ → ⏸️ (blocked label added)
 >
 > Missing issues:
+>
 > - STEP-05, STEP-06
 >
 > "Apply status changes? Create issues for missing steps? Both? Neither?" — ask via the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections): present the four combinations as selectable options with freeform input.
@@ -176,5 +179,7 @@ Do **not** invent new commands. If a needed capability isn't in tooling, surface
 - Appending revision-history entries — the issue comment's edit history records when; the artifact carries target state only
 - Marking a step ✅ when the linked PR is open but the issue happens to be closed for an unrelated reason — always require closed via merge
 - Skipping the `blocked` / `paused` label override
+
+## Sibling skills
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

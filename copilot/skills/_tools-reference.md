@@ -14,7 +14,7 @@ roster). If an operation is not covered by any wrapper, surface it as a tooling
 gap — the raw CLI is not a fallback. Wrappers are the workspace's abstraction layer;
 the backing CLI is an implementation detail that may change.
 
-**Common flags available on all tools (not repeated per-entry):**
+**Common flags (most tools — check a tool's `--help` for its exact set; known exceptions: `issue-list` defines `-n` as `--limit`, and `plan-parse` has no dry-run):**
 
 - `-n, --dry-run` — show what would happen without executing
 - `-V, --verbose` — enable debug output
@@ -29,7 +29,7 @@ the backing CLI is an implementation detail that may change.
 - Repo targeting for issue/artifact wrappers — env-prefix or cwd resolution;
   see the protocol reference for the resolution order.
 
-Tools that ingest a markdown body (`issue-artifact-upsert`, `issue-comment`, `issue-comment-update`, `issue-create`, `issue-update`, `pr-comment`, `pr-thread-reply`) share one source-resolution contract, implemented in `tools/lib/body-source.bash`:
+Tools that ingest a markdown body (`issue-artifact-upsert`, `issue-comment`, `issue-comment-update`, `issue-create`, `issue-update`, `pr-comment`, `pr-thread-reply`) resolve their body through ONE shared implementation: `resolveBodySource` in `tools/lib/core/body-source.ts` (the per-tool local copies and the historical `tools/lib/body-source.bash` are retired):
 
 - **Source flags:** `--body TEXT` or `--body-file FILE` — exactly one. Giving both is an error.
 - **stdin via `-`:** `--body-file -` reads the body from stdin (decision: a literal file named `-` is unreachable through this flag; use `--body` for such content).
@@ -41,9 +41,37 @@ Per-tool entries below reference this section instead of restating the semantics
 
 ## Repository inspection & plan tooling (provider-neutral)
 
+### Git history & branch utilities (user-facing family)
+
+- `git-graph [git-log-args…]` — decorated one-line graphical commit history (`git log --decorate --oneline --graph` + pass-through args).
+- `git-graph-all [git-log-args…]` — same view across **all** branches and remotes.
+- `git-prune-branches [--force]` — delete local branches whose upstream is gone (run after `git fetch -p`); `--force` skips confirmation.
+- `git-repo` (`repo-get` shape) — `--select` lists the org's uncloned repos, `--all` clones everything missing, a name/URL clones that repo into `repos/`.
+
+### Kubernetes pod utilities (user-facing family)
+
+Interactive-first kubectl wrappers; every selector auto-picks a single match and offers a menu on several:
+
+- `kube-set-context [FILTER]` — switch context (case-insensitive filter).
+- `kube-list-pods [-n NS] [FILTER]` — pod names, one per line.
+- `kube-pod-select [-n NS] [FILTER] [HEADER]` — pick a pod; prints its name.
+- `kube-deployment-select [FILTER] [HEADER] [-n NS]` — pick a deployment; prints its name.
+- `kube-pod-exec <pod-name-part> [-n NS] <command>…` — run a command inside the matching pod (args forwarded verbatim).
+- `kube-pod-console <pod-name-part> [-n NS] [command…]` — interactive shell (default `/bin/bash`) on the first matching pod.
+
+### Versioning & test runner
+
+- `repo-bump-version <patch|minor|major> [repos…]` — forces an empty commit per named repo to trigger semantic-release version bumps.
+- `repo-calc-version` — prints the repo's next calculated version.
+- `run-devenv-tests [--jobs N] [--sequential]` — the workspace test suite runner (bats + vitest lanes); default parallelism `nproc` capped at 8.
+
+### Network
+
+- `tunnel-ports [-p <ssh port>] [-i <key>] <user@target> <port:destination>…` — open SSH port forwards (repeatable port:destination pairs).
+
 ### lint-skills
 
-Deterministic contract checker for the `copilot/skills` tree. Checks (named `SK001`–`SK009`): frontmatter validity (`name:`/`description:`/`user-invocable:`), frontmatter-name/directory match, description length limits (warn > 1200, fail > 2000), registry ↔ filesystem bidirectional match (ghosts and orphans), catalog presence, relative-link resolution, retired-name reintroduction, and stale backticked path references (a `(docs|copilot|tools|setup)/…` path present in the repo's git history but missing from the working tree — renamed/moved without a reference sweep; paths never present in history are unverifiable and skipped); cross-file markdown anchors (`SK008`: a `file.md#anchor` link must match a heading slug in the target — same-file anchors and fenced examples are skipped); and orphaned references (`SK009`: every file under a `references/` folder must be mentioned by file name somewhere else in the skill tree or `docs/`). The "catalog presence" check now verifies `docs/Skills.md` lists every skill (the catalog file is a pointer). Accepts a repo root or a direct skills directory; defaults to its own repo.
+Deterministic contract checker for the `copilot/skills` tree. Checks (named `SK001`–`SK010`): frontmatter validity (`name:`/`description:`/`user-invocable:`), frontmatter-name/directory match, description length limits (warn > 1200, fail > 2000), registry ↔ filesystem bidirectional match (ghosts and orphans), catalog presence, relative-link resolution, retired-name reintroduction, and stale backticked path references (a `(docs|copilot|tools|setup)/…` path present in the repo's git history but missing from the working tree — renamed/moved without a reference sweep; paths never present in history are unverifiable and skipped); cross-file markdown anchors (`SK008`: a `file.md#anchor` link must match a heading slug in the target — same-file anchors and fenced examples are skipped); orphaned references (`SK009`: every file under a `references/` folder must be mentioned by file name somewhere else in the skill tree or `docs/`); and catalog parity (`SK010`: each skill's frontmatter `USE WHEN` trigger phrases and `DO-NOT-USE-FOR` sibling mentions must be findable — normalized, not byte-equal — in both its registry table row and its `docs/Skills.md` entry; single-quoted YAML apostrophe escaping is unescaped before matching, and registry rows for fork-added skills with no `SKILL.md` twin are exempt by construction since parity only constrains real skills). The "catalog presence" check now verifies `docs/Skills.md` lists every skill (the catalog file is a pointer). Accepts a repo root or a direct skills directory; defaults to its own repo.
 
 ```
 lint-skills [<repo-root-or-skills-dir>]

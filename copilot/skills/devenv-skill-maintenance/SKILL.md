@@ -108,20 +108,22 @@ A devenv issue describing a skill-system problem is a first-class intake: fetch 
    waived by the user, with reasons).
 2. Restate the problem set in one short summary.
 3. Parse diagnostic input and map each finding to one or more concrete files.
-  - If diagnostics are pasted in chat, parse the pasted content.
-  - If the user provides a file path, read that file and parse its contents.
-  - If both are provided, use the file as canonical and treat pasted content as supplemental unless the user says otherwise.
-  - For `IMPROVEMENT_REPORT.md` input, validate every candidate against the evidence bar before mapping to files; rejected candidates are surfaced to the user with reasons, not silently dropped or applied.
+
+- If diagnostics are pasted in chat, parse the pasted content.
+- If the user provides a file path, read that file and parse its contents.
+- If both are provided, use the file as canonical and treat pasted content as supplemental unless the user says otherwise.
+- For `IMPROVEMENT_REPORT.md` input, validate every candidate against the evidence bar before mapping to files; rejected candidates are surfaced to the user with reasons, not silently dropped or applied.
+
 4. Decide whether the fix is local to one skill or affects multiple skills plus shared routing/docs. For bulk edits across many skills (e.g., adding a new standard reference, updating a shared protocol), use a systematic batch operation rather than many individual edits.
 5. Make the smallest patch that resolves the reported problems. If the pattern affects many skills (> 3), write a batch script or clearly documented find-replace rule; surface the pattern to the user for validation before applying.
 6. Keep wording consistent with existing skill language and current workspace conventions.
 7. Update linked governance docs as needed in the same change:
-	- `docs/Skills.md` for user-facing catalog alignment.
-	- `docs/Workflow.md` only when principles, flow semantics, or methodology wording are affected.
-	- `copilot/skills/devenv-help/references/skills-registry.md` when discoverability/routing metadata changes.
-	- `copilot/skills/devenv-help/SKILL.md` when routing logic or shortcut examples must change.
-	- `copilot/skills/common/references/skills-catalog.md` when shared catalog wording must stay in sync.
-7. Do not refactor unrelated skills or rewrite healthy guidance just to make docs look nicer.
+   - `docs/Skills.md` for user-facing catalog alignment.
+   - `docs/Workflow.md` only when principles, flow semantics, or methodology wording are affected.
+   - `copilot/skills/devenv-help/references/skills-registry.md` when discoverability/routing metadata changes.
+   - `copilot/skills/devenv-help/SKILL.md` when routing logic or shortcut examples must change.
+   - `copilot/skills/common/references/skills-catalog.md` when shared catalog wording must stay in sync.
+8. Do not refactor unrelated skills or rewrite healthy guidance just to make docs look nicer.
 
 ## Standard bulk-edit patterns
 
@@ -167,3 +169,7 @@ When the fixes are done, summarize:
 - Any remaining ambiguity the user should resolve before the skill is considered final.
 
 If the user has more issues to fix, continue with the next smallest repair rather than widening scope.
+
+## Sibling skills
+
+See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

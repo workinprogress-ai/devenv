@@ -134,7 +134,7 @@ Identify upfront: **symptom** (what is observed), **suspected area** (optional),
 
 ---
 
-# Verify mode — The Hunt
+## Verify mode — The Hunt
 
 ### Phase V1 — Oracle intake
 
@@ -148,7 +148,7 @@ Identify upfront: **symptom** (what is observed), **suspected area** (optional),
 
 3. **Initial aggression forecast.** State what the hunt is likely to need. If deeper aggression is anticipated, ask consent now (`⚠️` + `🔶`); otherwise defer to just-in-time consent.
 
-### Phase V2 — Hypothesis enumeration
+#### Phase V2 — Hypothesis enumeration
 
 List candidate causes BEFORE testing any. Include:
 
@@ -158,7 +158,7 @@ List candidate causes BEFORE testing any. Include:
 
 Present the list. The user may add or remove candidates. Then hunt.
 
-### Phase V3 — Investigation loop
+#### Phase V3 — Investigation loop
 
 For each hypothesis, in order of promise:
 
@@ -216,7 +216,7 @@ Write the report to the target repo's `.local-artifacts/` folder (the [standard 
 
 On NOT-FOUND / INCONCLUSIVE, the engagement ends: the report is the deliverable, with recommended next steps.
 
-### Phase V5 — Cleanup (after any verdict, before continuation)
+#### Phase V5 — Cleanup (after any verdict, before continuation)
 
 1. **Decide test fate first.** Any tests worth keeping permanent? User decides before restore (`🔶`): keep (commit-worthy) / temporary (dies with the reset) / promote to the repo's suite now.
 2. **Remove instrumentation by deletion.** `devenv-marker-check --marker 'DEVENV\[bug-hunt\]' <target-repo>` must pass (zero matches). Deletion is always safe; git is never the cleanup tool.
@@ -224,7 +224,7 @@ On NOT-FOUND / INCONCLUSIVE, the engagement ends: the report is the deliverable,
 
 ---
 
-# Diagnose mode — Root cause
+## Diagnose mode — Root cause
 
 ### Phase D1 — Investigation protocol (read-oriented)
 
@@ -248,7 +248,7 @@ Trace the symptom to a root cause. Document every step briefly so the user can f
 > `→ Found: JwtBuilder.Sign does not validate expiry < now before signing`
 > `→ Checking tests to confirm expected behaviour`
 
-### Phase D2 — Findings report
+#### Phase D2 — Findings report
 
 ```
 🏁 Bug Findings — <one-line summary>

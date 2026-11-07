@@ -40,7 +40,6 @@ policy as follows:
   several declared units, and a unit may span a phase boundary, closing at its
   end wherever that lands.
 
-
 ## Hard rules
 
 1. **Phase 1 is always: Baseline establishment** — understand and verify what exists before changing it. For code work (the default declaration) this is **Discovery & test scaffolding**:

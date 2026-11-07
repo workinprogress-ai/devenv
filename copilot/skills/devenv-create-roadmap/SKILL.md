@@ -68,6 +68,7 @@ Use `session_memory-roadmap.md` in the target repo's `.local-artifacts/` folder 
 ## Output Artifact
 
 Produce a `Roadmap-<system>-NNN` artifact where:
+
 - `<system>` matches the blueprint's system name
 - `NNN` is a zero-padded numeric suffix
 
@@ -86,11 +87,13 @@ See [roadmap-template.md](./references/roadmap-template.md) for the document str
 ### 1. Load and parse the inputs
 
 **If a blueprint is provided**, read it and extract:
+
 - Per-component delta entries (from §4 *Architecture* component entries) — every entry becomes a candidate step
 - Service dependencies (from §4.2 Context Map; also §4.3 Communication Patterns)
 - Operations and the services they participate in
 
 **If a specifications doc is provided**, read it and extract:
+
 - Every `SPEC-NNN` and its `Dependencies:` line (including cross-doc edges of the form `AUTH-003 (Specifications-auth-001.md)`)
 - Priority groups (`GROUP-NN`) — used to inform phase ordering and the MVP boundary
 - For specifications-only mode, each specification item becomes a candidate step (with the component field deferred to user input in step 2)
@@ -133,6 +136,7 @@ When running in specifications-only mode, batch the component questions: present
 ### 3. Build the dependency graph
 
 Map step → step dependencies based on:
+
 - Producer/consumer relationships (a service that consumes an event needs the producer first)
 - Sync API consumers need the API to exist first
 - New-component steps typically depend on the existing components they integrate with
@@ -142,6 +146,7 @@ Surface cycles as architectural problems — don't paper over them.
 ### 4. Propose phases
 
 Group steps into `PHASE-01`, `PHASE-02`, ... where:
+
 - Phase 1 contains steps with **no dependencies** (foundational)
 - Each subsequent phase contains steps whose dependencies all sit in earlier phases
 - Within a phase, steps may proceed in parallel
@@ -150,6 +155,7 @@ Group steps into `PHASE-01`, `PHASE-02`, ... where:
 **Trade-off conversation with the user:**
 
 > "Two ways to organise this:
+>
 > - **Dependency-first**: PHASE-01 = foundation libraries; PHASE-02 = inventory service; PHASE-03 = order service; PHASE-04 = orchestrator. Strict dependency order, slower visible progress.
 > - **Capability-slice**: each phase delivers a thinner end-to-end slice — minimum viable inventory + minimum viable order, then full inventory + full order. Faster visible progress, more rework risk.
 >
@@ -158,6 +164,7 @@ Group steps into `PHASE-01`, `PHASE-02`, ... where:
 ### 5. Draft the roadmap in chat
 
 Use [roadmap-template.md](./references/roadmap-template.md). Each step gets:
+
 - A linkable heading with the step ID (e.g. `STEP-03`)
 - The component(s) it touches
 - A link back to the relevant blueprint section(s)
@@ -181,6 +188,7 @@ Once approved:
 Ask, verbatim:
 
 > "Create child issues in the affected component repos? This will:
+>
 > - Create one child issue per roadmap step in the appropriate component repo
 > - Link each roadmap step in the artifact to its issue
 > - Update the epic task list
@@ -285,5 +293,7 @@ After the roadmap is created and issues exist:
 - Putting child issues in the planning repo (they belong in component repos)
 - Putting the parent epic in a component repo (it belongs in the planning repo)
 - Editing a roadmap as the entry point for an upstream change — upstream changes enter through the refine skills and the upstream-impact queue, never by editing a roadmap first
+
+## Sibling skills
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

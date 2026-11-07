@@ -57,8 +57,10 @@ If non-surgical:
 1. Stop direct edit flow.
 2. Explain why: this is discovery/decision work, not direct refinement.
 3. Route based on scope:
-  - **Bounded option-weighing** for a specific design choice → [`/devenv-design`](../devenv-design/SKILL.md)
-  - **Foundational redesign** across the blueprint → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
+
+- **Bounded option-weighing** for a specific design choice → [`/devenv-design`](../devenv-design/SKILL.md)
+- **Foundational redesign** across the blueprint → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
+
 4. Offer one explicit confirmation gate: continue anyway with direct edits, or switch now.
 
 If surgical, continue with the workflow below.
@@ -159,5 +161,7 @@ After writing, list what may need follow-up:
 - Forgetting to surface roadmap and plan impact after the edit
 - Keeping superseded sections as tombstone text — delete them clean; an ADR holds the why when it matters
 - Parking future ideas in the blueprint — the blueprint is a technical description of the system; uncommitted concepts belong in the tracker as issues labeled `future-idea`
+
+## Sibling skills
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

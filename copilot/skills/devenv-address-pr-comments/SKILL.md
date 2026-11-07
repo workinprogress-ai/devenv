@@ -28,6 +28,7 @@ PR comments are not tasks in a plan. They are messages from another human and ea
 A reply and a code change can go together, but neither implies the other. And resolving a thread closes the conversation — which is wrong when the reviewer is expecting more back.
 
 **Default resolution policy:**
+
 - Code change applied → resolve after applying (unless the comment also has open questions)
 - Reply to question → **leave open** by default (reviewer may respond)
 - Pushback reply → **leave open** (this is a conversation, not a fix)
@@ -124,6 +125,7 @@ Larger-than-micro thread work (multi-file fixes, design changes, anything past t
 With the go-ahead, apply all threads in the "fix automatically" list. This is a **batch** — no per-thread `y` prompt. The single go-ahead at Phase 1 is the consent.
 
 For each thread in order:
+
 1. Read the relevant file section.
 2. Apply the change.
 3. **PR mode only:** mark resolved via `pr-thread-resolve <THREAD_ID>` using the GraphQL node ID from `pr-threads-get`. **Document mode:** skip this step — nothing to resolve.
@@ -212,6 +214,7 @@ Done — 11 threads
 ```
 
 Then:
+
 - If any code was changed → "Run `/devenv-commit` before pushing."
 - **PR mode:** if threads are left open → list each with a one-line reminder of what's pending. **Document mode:** list findings not addressed with what remains instead (there is no open/closed state).
 - If a plan was offered → remind the user to follow up with `/devenv-plan`.
@@ -230,11 +233,13 @@ Under rebase merges each commit lands individually, so a fix-up of PR feedback
 must stand alone on master, not reference "the previous commit".
 
 **If changes are small and cohesive** (e.g. all nits): suggest a single commit:
+
 ```
 style: address nits from PR review
 ```
 
 **If changes are mixed or one is significantly larger than the rest**, suggest separate commits — list each one:
+
 ```
 Suggested commits (in order):
 

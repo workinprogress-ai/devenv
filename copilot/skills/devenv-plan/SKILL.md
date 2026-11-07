@@ -40,10 +40,12 @@ Exception: direct-plan mode is valid when the user intentionally wants to create
 ## Inputs the Skill Collects
 
 1. **Source material** (one or more of):
-  - Issue (number or URL) — fetch with `issue-get N --pretty` and `issue-comment-list N --full`; use both the issue body and comments as source material
-  - Pasted user story / specifications text
-  - Complete spec / RFC / design doc / issue body
-   - Linked design docs or files in `planning.*` repos
+
+- Issue (number or URL) — fetch with `issue-get N --pretty` and `issue-comment-list N --full`; use both the issue body and comments as source material
+- Pasted user story / specifications text
+- Complete spec / RFC / design doc / issue body
+- Linked design docs or files in `planning.*` repos
+
 2. **Related code** — read-only exploration via the `Explore` subagent
 3. **Repo conventions** — `copilot/copilot-instructions.md`, `AGENTS.md`, and any `planning.*` repo in the workspace
 4. **Acceptance criteria, scope boundaries, non-goals, risks** — gathered via interview
@@ -104,6 +106,7 @@ Use `vscode_askQuestions` to confirm/fill gaps. Every interview in this skill fo
 Once the above is gathered, **draft the phase structure — names and one-line deliverable descriptions only — plus the verification declaration, and discuss both before writing any task details.** Phase objectives and the verification approach should be agreed before the task list is written; tasks do not need to be discussed in detail. Present the phase outline like:
 
 > *"Here's how I'd divide this work:*
+>
 > - *Phase 1 — Discovery & test scaffolding: read existing code, inspect existing coverage, add/adjust tests only where needed to lock current observable behaviour (including stub/default behaviour where applicable), and end fully green*
 > - *Phase 2 — Contracts & boundaries: define or tighten interfaces, request/response shapes, message schemas, extension points, or other contracts that later phases implement against; use temporary coverage exclusions only when unavoidable and always pair them with FIXME:DEVENV[plan-key]: markers*
 > - *Phase 3 — [Name]: [deliverable]*
