@@ -484,6 +484,7 @@ Stop and surface to the user when hitting:
 
 **Don't stop for:**
 
+- Context budget pressure alone — run the [context pressure ladder](../_conventions.md#context-pressure-ladder-shared): economize, advise in one line, checkpoint durable state (notes-to-future-self into the session coordination file), keep going; only degradation beyond artifact recovery stops the run.
 - Mechanical choices that match existing style or have clear codebase precedent.
 - Minor decisions where the correct path is evident — handle them and note them in the phase completion handback instead.
 
@@ -580,6 +581,8 @@ Default output shape:
 | `wall` | the 🛑 blocker format |
 
 Every handback and abort names its trigger; a report without a **Stop trigger** line is malformed. When the trigger is a weak one (a criterion that fired on a technicality), say so explicitly — the user can waive the criterion and direct a continue.
+
+Context-pressure ladder tiers are never stop-trigger values — a Tier-3 checkpoint is a write, not a wait: flush durable state mid-phase and **continue**; the boundary close remains agenda-scheduled ([context pressure ladder](../_conventions.md#context-pressure-ladder-shared)).
 
 Keep this concise by default (5-8 lines). Expand only when drift is meaningful or the user asks for detail.
 

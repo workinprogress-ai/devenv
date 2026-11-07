@@ -495,6 +495,18 @@ Validation guidance:
 - Marker removal is necessary but never sufficient when the task calls for artifact cleanup.
 - If temporary artifact remains, keep task open and record the remaining work explicitly.
 
+## Context pressure ladder (shared)
+
+Context pressure — the host's budget warnings, degraded recall of early turns, elided tool outputs — is managed in tiers, and **budget pressure is never by itself a reason to hand back control**: compaction is survivable in-session because the durable artifacts (plan file, session coordination file) are kept current. Budget pressure is a checkpointing instruction; only degradation beyond artifact recovery is a stopping instruction.
+
+1. **Economize — keep going.** Spend less without changing behavior: offload stateless work to subagents (exploration, review computation — fresh contexts instead of this one); targeted reads over wholesale (line ranges, grep-first; filter tool outputs with head/tail/grep rather than letting them land whole); re-read durable state (plan section, session `agenda:`/status lines) instead of trusting recall; write confirmed findings into Phase Notes **at confirmation time** — unwritten findings are the only thing compaction can destroy.
+2. **Advise — keep going.** One line at the next natural beat (task ping or boundary report): *"⚠️ context pressure — economizing (lean reads, subagent offload); artifacts current; continuing."* No wait, no control transfer. The pair-like window means the user may interject to close early if they prefer; nothing forces it.
+3. **Checkpoint deliberately — still no stop.** When pressure is high: finish the current task or reach a safe sub-point, then flush all durable state — ticks, Phase Notes, session status line — and continue. **Write anything the run's future self must not forget into the session coordination file** (the local-only-context and knowledge lines are the notes-to-future-self channel: partial intent, unresolved hunches, environment facts, rationale the plan does not carry). With artifacts current, compaction landing at any moment is fine: the in-session resume path (re-read skill + plan + session file) is as good as a fresh session started from the same files.
+
+**The stop trigger is degradation, not budget:** re-deriving what the session already established, contradicting a turn's recorded decision, losing rationale the artifacts don't carry — the thread has become noise, and continuing degrades the work product. That is a legitimate stop (and the one case where recommending a fresh session beats in-session resume). Budget arithmetic alone never is.
+
+**Applicability — any long-running, semi-autonomous session, not just executors.** The ladder binds research, hunt, and audit sessions too. Each flushes to its own durable artifact under the **deliverable-as-working-state rule**: the session's deliverable doubles as its working state, written progressively — not reconstructed from thread memory at the end. Research appends observations/commands/outputs to the findings doc as they're captured; hunt updates its ledger (live state included) at each elimination; audit flushes findings per module as subagent reports land. Where that rule holds, Tier 3 has somewhere to flush to and compaction insurance is free.
+
 ## Stop protocol (shared)
 
 Applies to every execution skill (`devenv-delegate`, `devenv-pair`) when the user issues a hard stop — "stop here", "let's work together", any instruction to end the working turn before a phase boundary. A stop instruction ends *execution*; it never suspends plan-stewardship duties. Before (or as part of) honoring the stop:

@@ -23,7 +23,7 @@ user-invocable: true
 
 Work *with* the user, not *for* them. Start from goals, context, phase intent, and acceptance criteria; keep the task list condensed but authoritative so it always reflects done work and immediate next work. The same currency applies to confirmed discovery findings: anything that passes the reproduction test — what an agent redoing this work from scratch would need — goes into the plan's Phase Notes when confirmed, not held for phase close.
 
-**Context objective:** keep shared context continuously usable for both partners — what changed, what is now true, what is uncertain, and what we do next.
+**Context objective:** keep shared context continuously usable for both partners — what changed, what is now true, what is uncertain, and what we do next. Under context pressure, run the shared [context pressure ladder](../_conventions.md#context-pressure-ladder-shared): economize and checkpoint rather than stopping — and write anything the session's future self must not forget into the session coordination file's local-only-context lines; only degradation beyond artifact recovery is a stop.
 
 ## When to Use
 
