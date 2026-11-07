@@ -189,4 +189,6 @@ Never create an issue or post a comment without explicit "yes" confirmation.
 - **Do not mix Flow A and Flow B.** If the argument was an issue number, use Flow A (post to existing issue). If it was a repo path, use Flow B (offer to create a new issue). Never create a new issue when the user provided an issue number.
 - **Do not audit the entire repo when a focus area was given and skip the focus entirely.** A focus area narrows depth, not breadth — still read the full architecture, but concentrate Phase 2 findings on the named area.
 
+## Sibling skills
+
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

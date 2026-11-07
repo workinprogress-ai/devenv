@@ -81,6 +81,7 @@ Derive the suggestion from the staged diff, in the target repo's convention:
 by rebase — every commit lands on master as its own unit ([Commit
 Conventions](../../../docs/Commit-Conventions.md)). Before proposing the message,
 assess the commit as if it were merging to master now:
+
 - **Type is true relative to master** — `fix` means "fixes something on master",
   not "fixes the previous commit on this branch"; a commit that only exists to
   patch a sibling isn't mergeable and shouldn't be proposed as-is.
@@ -120,7 +121,7 @@ repo-commit "<message>"             # short messages only — long argv strings 
 
 **`--file` is the default shape for anything longer than a one-line subject**: write the suggested message to a temp file and pass the path — the file content becomes the editor's pre-load verbatim, immune to quoting/terminal mangling.
 
-**WIP lane** (`repo-commit --wip [--file <file>] [--staged-only] [--message-words…]`): chosen explicitly by the user — their own words (`wip this`), the WIP-predecessor interview, or an accepted low-value-verdict suggestion. It delegates to `git-wip` — stages everything (unless `--staged-only`), bypasses hooks (the documented WIP exception), prefixes `WIP: `, pushes, and records `refs/wip/last`. The message produced has no conventional-commit prefix by design. There is no editor step on this lane — the user's explicit choice of the WIP lane IS the confirmation, so make sure the choice is unambiguous before invoking.
+**WIP lane** (`repo-commit --wip [--file <file>] [--staged-only] [--message-words…]`): chosen explicitly by the user — their own words (`wip this`), the WIP-predecessor interview, or an accepted low-value-verdict suggestion. It delegates to `git-wip` — stages everything (unless `--staged-only`), bypasses hooks (the documented WIP exception), prefixes `WIP:`, pushes, and records `refs/wip/last`. The message produced has no conventional-commit prefix by design. There is no editor step on this lane — the user's explicit choice of the WIP lane IS the confirmation, so make sure the choice is unambiguous before invoking.
 
 Contract of the tool (enforced by the tool, not just this skill):
 

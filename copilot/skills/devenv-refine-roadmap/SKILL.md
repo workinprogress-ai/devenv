@@ -88,6 +88,7 @@ For any change where a future implementer would ask *why* (a superseded step, a 
 For every new step added in this revision, ask:
 
 > "Create issues for the new steps?
+>
 > - STEP-15 → <owner>/<component-repo-a>
 > - STEP-16 → <owner>/<component-repo-b>
 >
@@ -98,6 +99,7 @@ If yes, follow the same `issue-create` procedure documented in [`/devenv-create-
 For deleted steps with linked issues, do **not** auto-close them — surface a list and let the user decide:
 
 > "These deleted steps still have open linked issues. Close them? Comment first?
+>
 > - STEP-07 → #412 (superseded by STEP-15, STEP-16)
 > - STEP-12 → #418 (withdrawn)"
 

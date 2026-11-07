@@ -1,6 +1,6 @@
 ---
 name: devenv-research
-description: Run a timeboxed exploratory investigation of an open question — throwaway by design: a structured findings + recommendation doc, and a prototype under playground/devenv-research-<topic>-<date>/ if code is needed to answer the question. All artifacts are NOT FOR PRODUCTION; the skill ends at the findings handback (next steps route to /devenv-plan). Empowered like /devenv-hunt: may create code to prove something and run destructive-class experiments with just-in-time user permission (user-run git reset as recovery). USE WHEN the user says "research X", "spike on X", "investigate whether we can Y", "explore the feasibility of Z", "do a quick proof-of-concept", or hands off an open question that needs research before any plan exists. Input: a free-form question or an issue number. Produces a research-NNN-<topic>.md findings doc and a chat summary; optionally offers a draft issue. DO NOT USE for writing production code (use /devenv-pair or /devenv-delegate), for executing an approved plan (use /devenv-pair or /devenv-delegate), for verifying a specific suspected bug (use /devenv-hunt), or for work intended to ship — if it should survive into production, it is not research.
+description: Run a timeboxed exploratory investigation of an open question — throwaway by design: a structured findings + recommendation doc, and a prototype under playground/devenv-research-<topic>-<YYYY-MM-DD>/ if code is needed to answer the question. All artifacts are NOT FOR PRODUCTION; the skill ends at the findings handback (next steps route to /devenv-plan). Empowered like /devenv-hunt: may create code to prove something and run destructive-class experiments with just-in-time user permission (user-run git reset as recovery). USE WHEN the user says "research X", "spike on X", "investigate whether we can Y", "explore the feasibility of Z", "do a quick proof-of-concept", or hands off an open question that needs research before any plan exists. Input: a free-form question or issue number. Produces a research-NNN-<topic>.md findings doc and a chat summary; optionally a draft issue. DO NOT USE for writing production code (use /devenv-pair or /devenv-delegate), for executing an approved plan (use /devenv-pair or /devenv-delegate), for verifying a specific suspected bug (use /devenv-hunt), or for work intended to ship — if it should survive into production, it is not research.
 argument-hint: A question / problem statement to investigate, OR an issue number containing the question
 user-invocable: true
 ---
@@ -103,7 +103,7 @@ Write `research-NNN-<topic>.md` under the target repo's `.local-artifacts/` fold
 
 **Date**: YYYY-MM-DD
 **Source**: free-form question (or `issue #42`)
-**Prototype**: `playground/devenv-research-<topic>-<date>/` (if applicable)
+**Prototype**: `playground/devenv-research-<topic>-<YYYY-MM-DD>/` (if applicable)
 
 ## Question
 
@@ -158,6 +158,7 @@ If yes:
    - `Research: <one-line topic> — <YYYY-MM-DD>`
 
 3. **Draft the issue body** (placeholder only — findings go in the comment):
+
    ```
    Research findings are in a comment identified by artifact doc_id.
 

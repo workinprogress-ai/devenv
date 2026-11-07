@@ -11,6 +11,8 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
+## Sibling skills
+
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.
 
 Produce a documentation artefact for an existing system or component. The output format, audience, and depth are determined through an upfront interview. This skill reads existing documentation as its primary source, falls back to code only where docs are absent or insufficient, and maintains a session log so large multi-component documentation tasks can span multiple sessions.
@@ -58,6 +60,7 @@ Documentation tasks often span multiple sessions. Maintain a `session_memory-doc
 **At session start:** create it if it doesn't exist, or load and summarise it to the user if it does.
 
 Track:
+
 - Scope decided in Phase 0 (components, audience, output format, output location)
 - Session plan and which components have been covered
 - **Open questions log** — tracked as `Q-001`, `Q-002`, etc. (see format below)
@@ -112,6 +115,7 @@ Record answers in `session_memory-document.md`. Do not proceed until scope, audi
 **2. Identify gaps.** For each component, note what is undocumented or where docs contradict what you observed. Log these as `Q-NNN` entries.
 
 **3. Assess code reading needs.** For each gap:
+
 - State the specific question that requires code reading
 - Recommend a depth level: **surface** (entry points, exports, folder structure only), **medium** (key implementation files, config, tests), or **deep** (follow call chains as needed)
 - Flag your reasoning: e.g. "surface is enough to document the API contract; no need to read internals"
@@ -164,6 +168,7 @@ Work through the approved plan component by component.
 **Cross-component pass** (when multiple repos are in scope):
 
 After per-component passes, explicitly investigate the *relationships* between components:
+
 - Shared data contracts (types, schemas, event envelopes)
 - Communication channels (HTTP, message queues, shared storage, direct calls)
 - Dependency direction and coupling
@@ -223,6 +228,7 @@ Ask the user to approve the structure. They may add, remove, or rename sections.
 Write the documentation according to the approved skeleton.
 
 Rules:
+
 - Stay within the agreed scope and audience
 - Use the audience's natural language — technical for engineers, plain for stakeholders, terse and fact-dense for AI
 - Cite sources inline where helpful (`<!-- Source: src/foo.ts:42 -->` or a brief parenthetical)

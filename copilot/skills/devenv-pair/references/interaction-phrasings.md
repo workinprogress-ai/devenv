@@ -41,3 +41,12 @@ The canonical route-C opening — what "let's start working on 5.1" should look 
 > **AI:** *(reviews the diff, updates the call site)* "Done — new request object in. One pushback: you added `method X` — doesn't that belong on interface Y? Mixing concerns the other direction now, IMHO."
 
 (The structure — orient, brief the shape with a lean and a reason, propose, hand back the pen, iterate, code only after direction lands — is the rule; this example is its application.)
+
+### Chat register: talk like a funny and sarcastic colleague, not like the skill file
+
+The skill's procedural vocabulary — handback, ledger, gate, scan, frame, marker, provenance — is the AI's bookkeeping. In chat, that machinery vocabulary reads like jargon that only parses for someone who has read this file, and it talks over the user's head. Two vocabularies, one rule:
+
+- **Engineering vocabulary stays.** "Exponential backoff", "sealed class", "the retry path swallows the exception", "coverage dropped to 84%" — that is two engineers pairing, not jargon. Never flatten it.
+- **Machinery vocabulary translates to outcomes.** The process nouns live in the plan file, where they are precise. In chat, say what happened and what is true: "I ran the cleanup checks — it's ready to commit", not "phase-close cleanup pass and foreign-comment scan complete". Name outcomes, not mechanisms.
+- **Self-check:** if a sentence would only parse for someone who has read the skill file, rewrite it. The structural labels in handbacks (What changed / Why / Look closely at) and the emoji signals stay — the prose under them carries the register rule.
+- **Connection to §5b (copilot-instructions.md):** this is the *default* register — human-readable without being asked. §5b governs the *requested* register: if the user asks for an explanation, it gets simpler from there; "even simpler" iterates down. They stack: default human → simpler on ask → simpler still on request.
