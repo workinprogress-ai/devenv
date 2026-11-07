@@ -86,6 +86,10 @@ function checkMessageFile(file: string): void {
   const content = readFileSync(file, "utf8");
   const subject = content.split("\n", 1)[0] ?? "";
   if (subject.startsWith("WIP:")) process.exit(0);
+  // fixup!/squash! messages are machine-written by git and consumed by an
+  // autosquash fold — they never reach master, so a trailer on them would be
+  // both unwriteable and meaningless (commitlint carries the same exemption).
+  if (/^(fixup!|squash!) /.test(subject)) process.exit(0);
 
   // Subject-presence guard (commit-msg hook only): prepare-commit-msg
   // pre-fills trailers into the editor buffer. If the author closes the
@@ -146,6 +150,9 @@ function checkRange(base: string, head: string): void {
       failures++;
       continue;
     }
+    // fixup!/squash! commits are fold intermediates; the range check (CI and
+    // fold verification) must not demand a trailer the fold will delete.
+    if (/^(fixup!|squash!) /.test(subject)) continue;
     if (!hasValidTrailer(message)) {
       process.stderr.write(`${sha.slice(0, 12)} ${subject} — missing or invalid Devenv-Action trailer\n`);
       failures++;
