@@ -34,7 +34,9 @@ function die(...lines: string[]): never {
 
 function git(args: string[], opts: { cwd?: string } = {}): { status: number; out: string } {
   const r = spawnSync("git", args, { encoding: "utf8", ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}) });
-  return { status: r.status ?? 1, out: r.stdout ?? "" };
+  // stdout AND stderr: hook failures (the commit gates) write to stderr, so
+  // an out.trim() built from stdout alone reports an empty diagnostic.
+  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
 // --- The fold-window boundary: master-reachability, not remote-ref presence.
@@ -529,8 +531,11 @@ if (fixLane) {
   }
 
   // Backup branch: the recovery point, reported with a one-line recipe.
+  // Force-create: a same-named branch can only come from a previous attempt
+  // at this same HEAD (the name encodes it) — a stale backup must not block
+  // the retry, and overwriting re-points it at the identical commit.
   const backup = `backup/pre-fixup-${oldHeadShort}`;
-  const bk = git(["branch", backup, oldHead]);
+  const bk = git(["branch", "-f", backup, oldHead]);
   if (bk.status !== 0) die(`failed to create backup branch ${backup}: ${bk.out.trim()}`);
   console.log(`repo-commit: backup branch ${backup} (recovery: git reset --hard ${backup})`);
 
@@ -637,8 +642,11 @@ if (rewordLane) {
   // permission gate, so a non-interactive editor must refuse pre-backup.
   resolveEditor();
 
+  // Force-create: same rationale as the fix lane — a same-named backup can
+  // only come from a previous attempt at this same HEAD (the name encodes
+  // it); a stale backup must not block the retry.
   const backup = `backup/pre-reword-${oldHeadShort}`;
-  const bk = git(["branch", backup, oldHead]);
+  const bk = git(["branch", "-f", backup, oldHead]);
   if (bk.status !== 0) die(`failed to create backup branch ${backup}: ${bk.out.trim()}`);
   console.log(`repo-commit: backup branch ${backup} (recovery: git reset --hard ${backup})`);
 
@@ -821,10 +829,16 @@ const headShort = git(["log", "-1", "--format=%h %s"]).out.trim();
 // msgfile is a temp file for the editor session — removed afterwards.
 const tmpDir = mkdtempSync(join(tmpdir(), "repo-commit-msg-"));
 const msgfile = join(tmpDir, "message");
-// Order matters: validate the RAW message first (a too-long header must die
-// here, not be laundered into a folded "legal" header by the wrap), then
-// wrap the body for the editor view — argv-crafted messages only.
-validateWithCommitlint(suggested);
+// Order matters: wrap FIRST, then validate the FINAL composed message —
+// still before git runs, so a rejection costs no test time. The header
+// (line 0) is never wrapped, so it is byte-identical in raw and final form:
+// a too-long subject dies at commitlint exactly as it would on the raw
+// message, never laundered into a folded "legal" header. The body IS
+// wrapped, so validating the raw form would wrongly reject wrap-solvable
+// over-length — a 160-char bullet is legal once folded to 72 columns
+// (body-max-line-length fired before the wrap could run).
+const finalMessage = wrapEligible ? wrapBodyAt72(suggested) : suggested;
+validateWithCommitlint(finalMessage);
 // Context banner: what this commit lands on, so a stale prefill is visible
 // against its neighbor. # comments are stripped by --cleanup=strip.
 const contextBanner = [
@@ -833,7 +847,7 @@ const contextBanner = [
     ? ["# WARNING: this message is identical to the commit above — abort or edit unless a verbatim duplicate is intended.", ""]
     : [""]),
 ].join("\n");
-writeFileSync(msgfile, `${contextBanner}${wrapEligible ? wrapBodyAt72(suggested) : suggested}\n`);
+writeFileSync(msgfile, `${contextBanner}${finalMessage}\n`);
 
 // GIT_EDITOR must win over any config for this invocation; export explicitly.
 // --edit forces the editor open on the supplied message; without it git skips
