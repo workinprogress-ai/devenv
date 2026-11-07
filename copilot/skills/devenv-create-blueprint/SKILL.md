@@ -49,6 +49,7 @@ The filename includes the skill suffix (`-blueprint`) so it can coexist with oth
 **At session start**: create it if it doesn't exist; load and summarise it to the user if it does.
 
 Track:
+
 - Current phase and what has been completed
 - Key architectural decisions and their rationale
 - Components surveyed (for brownfield) and what was found
@@ -62,10 +63,12 @@ Track:
 ## Output File
 
 Produce `Blueprint-<system>-NNN.md` where:
+
 - `<system>` is a short kebab-case name agreed with the user (e.g. `order-fulfillment`, `auth-revamp`)
 - `NNN` is a zero-padded numeric suffix (`001`, `002`, …; resolve via `next-id --pattern 'Blueprint-<system>-{N}.md' --width 3`) so multiple blueprints for the same system can coexist
 
 **Location:**
+
 - If the target repo name starts with `planning.` → write to `docs/Architecture/` (create the folder if needed)
 - Otherwise → ask the user where to put it
 
@@ -133,6 +136,7 @@ Skip for greenfield.
 **STOP.** Present the context summary. Say:
 
 > "Here's what I understand about the problem, specifications basis, and existing landscape. Please review:
+>
 > - Is the problem framing correct?
 > - Are the QoS / constraints accurately captured?
 > - (Brownfield) Are the surveyed components correct? Any I missed or shouldn't have included?
@@ -183,6 +187,7 @@ Record agreed terms in §3 of the blueprint file before proceeding.
 #### Step 3: Define domains
 
 For each candidate domain, propose it with:
+
 - **Proposed boundary** — what's in, what's out
 - **Why this is a natural boundary** — one sentence
 - **Alternative** — what would change if this were split differently or merged with another domain
@@ -197,6 +202,7 @@ Avoid technical layers like "persistence domain" or "API domain" — those aren'
 A Bounded Context is a model boundary. Within it, all terms have a single precise meaning, and the domain model is internally consistent. A domain may contain one BC (simple case) or several (when distinct internal vocabularies, teams, or models exist within it).
 
 For each domain, propose candidate BCs with:
+
 - **The BC name and one-sentence purpose**
 - **Ubiquitous language** — terms specific to this BC, which may refine or specialise the global vocabulary from §3
 - **Aggregates** — named roots with their consistency boundary and key invariants
@@ -209,6 +215,7 @@ Confirm with the user before recording; never impose BC definitions. Update the 
 A component is a deployable unit — a runnable process, a service, an API gateway, a background worker, a batch processor, etc. In most cases a BC maps 1:1 to a component. One BC may contain multiple components when deployment or scaling reasons require it.
 
 For each BC, propose the component(s) with:
+
 - **Component name** (kebab-case, following the repo naming convention)
 - **Type** — `new | existing | extended`
 - **Purpose** — one sentence, business-focused
@@ -234,6 +241,7 @@ Update the file (§4.1 operations/events under each component) before proceeding
 #### Step 7: Build the Context Map
 
 For each cross-BC dependency identified in Steps 4–6, propose a relationship type and explain the implication:
+
 - **Customer/Supplier** — downstream depends on upstream; upstream should consider downstream's needs
 - **Conformist** — downstream blindly adopts upstream's model; no negotiation possible
 - **Anti-Corruption Layer (ACL)** — downstream wraps upstream's model via an explicit adapter; insulates from upstream changes
@@ -263,6 +271,7 @@ If a `Pattern_Library` exists in the workspace, reference relevant patterns by f
 > "The draft blueprint is at `[file path]`. Please review it there — it's easier to read in markdown than in chat.
 >
 > Check:
+>
 > - Shared vocabulary (§3) — any missing or mischaracterised terms?
 > - Domain boundaries (§4.1) — do they feel right?
 > - Bounded context definitions — vocabulary and aggregates correct?
@@ -353,5 +362,7 @@ Once written, surface the next-step options to the user:
 - Inventing pattern references just to look architectural
 - Treating `repo-cache-update` output as authoritative without user confirmation of relevance
 - Forgetting to update `session_memory-blueprint.md` between sessions
+
+## Sibling skills
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

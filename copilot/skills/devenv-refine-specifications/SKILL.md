@@ -109,6 +109,7 @@ If the user provides communications artifacts, summarise each one separately (pr
 - **Rewrite acceptance criteria in place as current truth.** Updated criteria keep the specification item's ID; the document never carries prior-state narrative. Prior wording lives in git history and, when significant, an ADR.
 - **Dependency links must stay valid.** If a specification item is superseded, walk every other specification item's `Dependencies:` line and update the link to point at the replacement (or remove the link). Verify with `spec-dependency-check <doc>` after the edit — it flags unknown references and cycles deterministically.
 - **Priority groupings can be re-ordered freely** — they are stakeholder priority, not delivery sequencing. New specification items need to be placed into a group.
+
 ### 4. Internal consistency review
 
 After applying all changes, run `spec-dependency-check <doc>` for the deterministic layer (unknown references, dependency cycles, group-order violations, broken SPEC-ID links), then scan the full updated specification set for semantic consistency. This step is especially important because refinements often introduce new tensions between new and existing specifications that weren't present in the original document.
@@ -138,7 +139,7 @@ If an `Episodes-<topic>-NNN.md` companion file exists, check whether any changed
 
 4. Surface the stale episodes to the user:
 
-   > *"Episodes 2 and 4 illustrate specification items that changed in this refinement ([SPEC-014](#spec-014), [SPEC-019](#spec-019)). I've marked them stale. Would you like me to update them now, or batch that for a later session?"*
+   > *"Episodes 2 and 4 illustrate specification items that changed in this refinement *([SPEC-014] and [SPEC-019] — in the sample phrasing below, these are item-ID references into the specifications document being refined, not markdown links)*. I've marked them stale. Would you like me to update them now, or batch that for a later session?"*
 
 **Rewriting episodes is deliberate, not automatic.** Batch updates until specification items are stable. When rewriting: keep character names, places, and tone — only change what is now factually wrong.
 
@@ -157,6 +158,7 @@ After writing, list what may need follow-up:
 - **Blueprint impact**: a new specification item may require new components or revised deltas → suggest [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md)
 - **Roadmap impact**: a new specification item, or a moved priority group, may require new or re-sequenced roadmap steps → suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md)
 - **Plan impact**: existing plans may now reference superseded specification items → suggest [`/devenv-refine-plan`](../devenv-refine-plan/SKILL.md) for affected plans
+
 ### 8. Offer a stability audit
 
 If the user signals the specifications are approaching final form (incremental refinements, statements like "I think we're almost done", or a series of sessions producing diminishing structural changes), offer a stability audit:
@@ -164,6 +166,7 @@ If the user signals the specifications are approaching final form (incremental r
 > *"This refinement looks incremental — we might be approaching a stable doc. Would you like to run a stability audit? It's a top-to-bottom scan, typically 1–4 rounds, that ends with an explicit stability declaration. Worth doing before this feeds into planning or implementation."*
 
 See the stability audit protocol in [`/devenv-write-specifications` § Stability Audit](../devenv-write-specifications/SKILL.md#stability-audit-final-convergence-review).
+
 ## Anti-patterns
 
 - Silently overwriting acceptance criteria

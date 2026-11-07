@@ -201,15 +201,15 @@ When creating child issues from grooming (user-gated):
 
 - Run `issue-create` once per approved attack-plan row.
 - Prefer `issue-create-batch` when creating 3+ child issues in one pass:
-	- fast mode first: repeat `--issue "Title|type=..."`, then add `--create` after preview.
-	- use `--file <manifest>` only when per-row fields are too heterogeneous for fast mode.
+  - fast mode first: repeat `--issue "Title|type=..."`, then add `--create` after preview.
+  - use `--file <manifest>` only when per-row fields are too heterogeneous for fast mode.
 - Do not generate ad-hoc shell orchestration (for example helper functions, inline mini-frameworks, or procedural wrappers) when direct `issue-create`/`issue-create-batch` calls are sufficient.
 - Use workspace issue wrappers for this flow (`issue-create`, `issue-create-batch`). Do not execute raw provider-CLI issue-create commands in grooming child-issue creation.
 - Do not inspect wrapper source (for example `command -v issue-create` followed by `sed/cat` on the script path) during normal child-issue creation.
 - Exception: if wrapper execution fails unexpectedly, perform minimal diagnostics to unblock the run, then resume wrapper-based execution.
 - Use deterministic, non-interactive invocation (no template/editor prompts):
-	- `issue-create --title "<title>" --type "<type>" --body-file <path> --no-template`
-	- add optional flags as needed (`--parent`, `--label`, `--assignee`, `--milestone`, `--project`, `--blocked-by`).
+  - `issue-create --title "<title>" --type "<type>" --body-file <path> --no-template`
+  - add optional flags as needed (`--parent`, `--label`, `--assignee`, `--milestone`, `--project`, `--blocked-by`).
 - `--parent` resolution scope: a bare `N` resolves in the TARGET repo (the
   repo the child is created in); `owner/repo#N` resolves in the named repo —
   cross-repo sub-issue parenting works (the sub-issue API takes global node
@@ -219,8 +219,8 @@ When creating child issues from grooming (user-gated):
   `issue-graph-link PARENT CHILD [--unlink]` (same reference forms,
   idempotent add; removing an absent link is a no-op).
 - Type value source is explicit:
-	- if the grooming row already has an approved issue type, pass that exact value to `--type`.
-        - if type is not approved yet, list the allowed issue types (see the [deterministic issue creation recipe](../_shared/references/protocol-common.md#deterministic-issue-creation)), present the allowed list, and ask the user to choose one before running `issue-create`. The **parent's type is part of that presentation** — name it alongside the allowed list so the placement rule above (Feature/Bug parents take Task children) can be applied with the choice, not after it.
+  - if the grooming row already has an approved issue type, pass that exact value to `--type`.
+    - if type is not approved yet, list the allowed issue types (see the [deterministic issue creation recipe](../_shared/references/protocol-common.md#deterministic-issue-creation)), present the allowed list, and ask the user to choose one before running `issue-create`. The **parent's type is part of that presentation** — name it alongside the allowed list so the placement rule above (Feature/Bug parents take Task children) can be applied with the choice, not after it.
 - Do not run `issue-create --help` or the raw provider CLI's issue-create help during child-issue creation flow. If command shape guidance is needed, use this section and `copilot/skills/_tools-reference.md` as the source of truth and proceed with the deterministic forms above.
 - Extract the created issue number from command output and update the matching attack-plan row.
 - Keep `TBD` for any row not created in the current session.
@@ -356,21 +356,26 @@ If no grooming document exists yet, create it before recording the first confirm
 When iterating on a returned plan, update the grooming document **only in the affected parts**. Never rewrite unrelated decisions or questions.
 
 For each resolved decision:
+
 - Move the row from `Pending` → `Confirmed` with the chosen option, rationale, and date.
 - Leave all other `Pending` rows untouched.
 
 For each deferred decision:
+
 - Move the row from `Pending` → `Deferred` with a reason and a revisit trigger.
 
 For each resolved question:
+
 - Update its status to `[resolved]` with the resolution text inline.
 
 For each semantic decision or question clarification, treat the change as one decision package and reconcile all parts before closing:
+
 - update the decision row (`Confirmed`/`Pending`/`Deferred` as appropriate),
 - update the matching question entry/state, and
 - add/update one revision-history reason describing the semantic delta.
 
 Run a parity check across decision row and matching question text for:
+
 - lifecycle lane coverage,
 - ownership boundary,
 - failure mode, and
@@ -458,16 +463,16 @@ Linked plans: N
 Suggested issue attack plan:
 
 1. [Feature] <title>
-	Repo: <repo>
-	Size: <S|M|L>
-	Independent production target: yes/no (if no, split further)
-	Planned plan issue/artifact: TBD (or #<issue-number> after creation)
+ Repo: <repo>
+ Size: <S|M|L>
+ Independent production target: yes/no (if no, split further)
+ Planned plan issue/artifact: TBD (or #<issue-number> after creation)
 
 2. [Fix] <title>
-	Repo: <repo>
-	Size: <S|M|L>
-	Independent production target: yes/no
-	Planned plan issue/artifact: TBD (or #<issue-number> after creation)
+ Repo: <repo>
+ Size: <S|M|L>
+ Independent production target: yes/no
+ Planned plan issue/artifact: TBD (or #<issue-number> after creation)
 ```
 
 **Per-decision facilitation** (one at a time):
@@ -498,12 +503,12 @@ Your call: choose A/B(/C) or defer.
 
 ### Decision changes
 - <ID/title>: Pending -> Confirmed | Pending -> Deferred | Confirmed -> revised
-	- Why: <one-line rationale>
-	- Semantic delta: <lane semantics | ownership boundary | failure mode | scope exclusions>
+ - Why: <one-line rationale>
+ - Semantic delta: <lane semantics | ownership boundary | failure mode | scope exclusions>
 
 ### Question changes
 - <Q-ID/title>: open -> resolved | resolved -> revised | still open
-	- Resolution/remaining blocker: <one line>
+ - Resolution/remaining blocker: <one line>
 
 ### Non-goals and exclusions
 - <what was added/changed>

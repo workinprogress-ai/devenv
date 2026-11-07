@@ -5,6 +5,8 @@ argument-hint: An issue number, list of issue numbers, or pasted issue text to t
 user-invocable: true
 ---
 
+# Triage
+
 Take a fresh / untriaged issue and produce a structured triage recommendation in two layers:
 
 1. **Workflow routing** — where does this issue sit in the delivery workflow, and which skill should pick it up?

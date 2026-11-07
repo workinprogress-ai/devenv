@@ -84,6 +84,7 @@ For each repo that needs fresh orientation:
 6. Scan `docs/` and `adr/` (if present) for any architectural decision records or design notes.
 
 After orientation, write a brief summary to `/memories/session/chat-with-code-<repo-slug>.md` with:
+
 - Stack and primary purpose
 - Major modules and their roles
 - Key entry points
@@ -169,5 +170,7 @@ Sibling skill routing:
 - **Do not re-orient if a valid session cache exists.** Re-reading what's already known is noise.
 - **Do not use "I don't know. I am sad." prematurely.** It's the last resort after a genuine search, not a default for hard questions.
 - **Do not make edits in docs-first mode either.** This skill is read-only for both code and markdown repositories.
+
+## Sibling skills
 
 See the [Skills catalog](../common/references/skills-catalog.md) for the full list and decision tree.

@@ -1,8 +1,8 @@
-## Specification Item Episodes
+# Specification Item Episodes
 
 Episodes are a companion document — separate from the specifications file and designed to be *interesting*. Their purpose is to help anyone who reads the specifications (product owner, engineers, testers, stakeholders) emotionally internalise the system. A reader who has met Helen and watched her struggle with the current process will relate every dry specification item back to that experience.
 
-### When to write episodes
+## When to write episodes
 
 Offer to write episodes at Phase 3 approval, once the specification set is stable enough to tell coherent narratives:
 
@@ -10,7 +10,7 @@ Offer to write episodes at Phase 3 approval, once the specification set is stabl
 
 Do not write episodes earlier — they'll be stale before the interview is done.
 
-### What good episodes look like
+## What good episodes look like
 
 - **Specific names and places.** Real names for characters (Helen, Marcus, Priya), real-feeling places (Northgate Distribution Centre, the Bluebell Café), real-feeling company names (Foxton Logistics, Thornwood & Associates). No "User A" or "the company."
 - **Narrative arc.** Follow a character through a situation — a day, a task, a problem and its resolution.
@@ -19,7 +19,7 @@ Do not write episodes earlier — they'll be stale before the interview is done.
 - **Showing, not telling.** Don't say "the system was easy to use." Show Helen completing the task in two minutes despite never having used it before.
 - **User perspective only.** Episodes describe what happens, never how. No databases, APIs, or implementation details.
 
-### Voice and tone of episodes
+## Voice and tone of episodes
 
 Episodes are the one place in the specifications process where the writing has a voice. The interview is neutral; the episodes are not.
 
@@ -30,17 +30,19 @@ Episodes are the one place in the specifications process where the writing has a
 Outright jokes are allowed. Use them sparingly. A character's internal monologue is often the right place: *Marcus had requested this report every month for two years. Forty-three clicks. He'd counted.* That's a joke. It doesn't announce itself as one.
 
 **Tone calibration:**
+
 - Warm and observational, not satirical. The target is knowing recognition, not mockery of anyone's product or company.
 - Dry over broad. Understatement beats exclamation marks.
 - Vary the register. A frustrated character's section reads differently from a triumphant one. Use this.
 - Never funny at a character's expense in a mean way. Funny *with* Helen, not *at* her.
 
 **What to avoid:**
+
 - Humor that obscures what the specification item actually does — the joke has to serve the illustration, not replace it.
 - Forcing a funny moment when the scenario doesn't have one — a quiet, well-observed scene is better than a strained joke.
 - Starting every episode with the same structure. Vary the opening — in media res, a snippet of dialogue, an observation, a problem already in progress.
 
-### What episodes are NOT for
+## What episodes are NOT for
 
 Edge cases and exception handling stay in SPEC-NNN. Episodes can acknowledge that something went wrong, but they don't dwell on exception paths — that's what the specifications are for. Episodes also don't need to cover every specification item. They illustrate *clusters* of specification items in context. The goal is that a reader can think *"I see how SPEC-019 relates to what happened to Marcus"* even if SPEC-019 isn't called out explicitly in that episode.
 
@@ -48,10 +50,11 @@ Edge cases and exception handling stay in SPEC-NNN. Episodes can acknowledge tha
 
 Keep the episode text clean and narrative. Two reference mechanisms:
 
-1. **Inline markdown links** at natural sentence breaks where a specification item is directly illustrated — *(see [SPEC-014](#spec-014-title))* — not mid-sentence, not cluttering every line.
+1. **Inline markdown links** at natural sentence breaks where a specification item is directly illustrated — *(see `SPEC-014`)*, linked to that item's heading in the specifications document — not mid-sentence, not cluttering every line.
 2. **"Specification Items illustrated" footer** at the end of each episode — a concise list of primarily illustrated specification items with markdown links.
 
 Footer format:
+
 ```markdown
 ---
 **Specification Items illustrated:** [SPEC-002](#spec-002), [SPEC-007](#spec-007), [SPEC-014](#spec-014), [SPEC-019](#spec-019)
@@ -85,4 +88,3 @@ Episodes live in `Episodes-<topic>-NNN.md` in the same folder as the specificati
 Let scope drive the count. A single-epic doc covering 10–15 specification items might need 2–3 episodes. A large doc with 30+ specification items might need 5–7. The goal isn't exhaustive coverage — it's enough episodes that a reader can mentally map the full specification set to at least one human situation they've encountered.
 
 ---
-

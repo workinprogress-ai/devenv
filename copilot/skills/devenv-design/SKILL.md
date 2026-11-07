@@ -92,6 +92,7 @@ Senior staff engineer with strong opinions. Pushes back when warranted; defers w
 Maintain `session_memory-design.md` in the target repo's `.local-artifacts/` folder (see the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)) for sessions that span more than one sitting. Same protocol as the other planning skills.
 
 Track:
+
 - Problem framing as it firms up
 - Forces identified
 - Options under active consideration (with running consequences/risks)
@@ -130,10 +131,12 @@ Solution proposal expectations:
 - Tone is strictly professional and concise; no conversational sarcasm or humor in the artifact.
 
 Write `Solution_Proposal_<topic>-NNN.md` where:
+
 - `<topic>` is a short snake_case name agreed with the user (e.g. `event_routing`, `actor_model_split`, `retry_strategy`)
 - `NNN` is a zero-padded numeric suffix (resolve via `next-id --pattern 'Solution_Proposal_<topic>-{N}.md'`) so multiple proposals for the same topic can coexist
 
 **Location:**
+
 - Default: the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts); create it if missing).
 - If the user provides a target directory, write there.
 
@@ -208,6 +211,7 @@ Maintain a running list of open questions as they arise. Use the discussion to r
 Forces are the conflicting pressures that make the decision non-trivial. If there are no forces, there's no decision — just pick the obvious one and move on.
 
 Help the user name forces like:
+
 - Cost vs. capability
 - Simplicity vs. flexibility
 - Speed-to-market vs. long-term maintainability
@@ -280,6 +284,7 @@ Any open question not explicitly kept open by the user should be converted into 
 > "Quick recap: problem was X; forces were Y and Z; we looked at A/B/C; recommendation is B because ..."
 
 **Then** offer next-step skills:
+
 - Approach needs a feasibility check first → [`/devenv-research`](../devenv-research/SKILL.md)
 - Discussion settled at the system level (no blueprint yet) → [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Settled systemic decisions against an existing blueprint → [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md) — apply the deltas; in-session application is legitimate when this session entered from a refine/refine-adjacent context

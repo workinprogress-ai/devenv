@@ -67,7 +67,7 @@ Use these headings, in this order, omitting any that don't apply. Keep section t
 
 Progress is **computed, never stored**. Ground truth lives in task checkboxes, issue state, linked PRs, labels, and git. A stored percentage is a cache with no invalidation discipline; a parallel progress-report artifact duplicates ground truth and becomes curated noise. Reporting skills derive their numbers at query time (`plan-parse --summary` / `--census`), and executor skills never hand-count.
 
-- **Canonical roll-up chain is issue → plans (direct + descendants).** A parent issue's plan set is its direct plans plus all descendant issues' plans (via `--parent` linkage). Roadmap step status is a separate derived view over issues — never combine the two aggregates (double-counting guard).
+- **Canonical roll-up chain is issue → plans (direct + descendants).** A parent issue's plan set is its direct plans plus all descendant issues' plans (children found via the `--parent` link set at issue creation, plus task-list references). Roadmap step status is a separate derived view over issues — never combine the two aggregates (double-counting guard).
 - **The only durable progress narrative is the `Progress:` snapshot line** that devenv-pair and devenv-delegate append to the existing wrap-up status comment:
 
   ```
@@ -323,6 +323,7 @@ Required behavior before any `issue-*` / `pr-*` / `project-*` / artifact call:
 5. If the target repo cannot be resolved confidently, ask one direct clarification question before running the call.
 
 Anti-pattern: running `issue-*` from the workspace root with no `DEVENV_REPO`, then "fixing" the refusal with `--devenv` — the call now queries the wrong repo and the answer is silently misleading (issue not found, empty artifact lists).
+
 ### Working-directory guard (required)
 
 Before running any repo-scoped command (wrappers, `gh`, build/test, or scripts), ensure the terminal is in the correct target repo root.
@@ -356,7 +357,7 @@ Wrapper inventory (as of authoring):
 
 Whenever a wrapper is added, renamed, or its call pattern changes, update all of these in the same effort:
 
-1. The script usage/help text in `tools/scripts/<name>.sh`
+1. The script usage/help text in `tools/ts/<name>.ts`
 2. The shared skill-facing reference in [`_tools-reference.md`](./_tools-reference.md)
 3. Any shared wrapper inventory in this file
 4. Any skill docs or shared references that show concrete invocation examples
@@ -370,7 +371,7 @@ For recurring policy text, use short references to shared snippets rather than r
 
 Recommended snippet references (paths shown as they appear **inside a skill folder** — they resolve after pasting, not in place; as literal text on this line they are examples, not live links):
 
-- **Tool help policy**: "Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`_tools-reference.md`](../_tools-reference.md) instead of running ad-hoc `--help` during execution."
+- **Tool help policy**: use the snippet `Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [_tools-reference.md](../_tools-reference.md) instead of running ad-hoc --help during execution.` — shown as inline code; paste into a skill body to make the links live there.
 - **Catalog pointer**: "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
 - **Diagnostic mode**: "When the user requests diagnostics for undesirable output/action, follow the shared [Diagnostic Mode Protocol](common/references/diagnostic-mode-protocol.md) and write `DIAGNOSTIC_REPORT.md` under `.local-artifacts/` at the active project root."
 - **Skill feedback**: "When the user asks how a skill could be improved with no defect alleged, follow the shared [Skill Feedback Protocol](common/references/skill-feedback-protocol.md) and write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root. Zero findings is a valid result."
@@ -573,7 +574,7 @@ Each skill should link to:
 - Its **alternatives** (e.g. `devenv-delegate` links to `devenv-pair` for high-impact work).
 - Its **successors** where natural (e.g. a phase-complete skill linking to `devenv-open-pr`).
 
-Use relative paths (as they appear inside a skill folder): `[/devenv-pair](../devenv-pair/SKILL.md)`.
+Use relative paths (as they appear inside a skill folder), shown here as inline code so it stays an example rather than a live link: `[/devenv-pair](../devenv-pair/SKILL.md)`.
 
 Also add a one-liner to each `SKILL.md` — usually in the Sibling skills section (the fleet-standard position): "See the [Skills catalog](./common/references/skills-catalog.md) for the full list and decision tree."
 
@@ -583,7 +584,7 @@ Skills maintain GitHub Project issue status as a side effect of their lifecycle 
 
 - **Skills know only the event name and the issue number.** Never read `tools/config/skill-events.yml`, never name projects, never contain Status vocabulary (hyphenated tokens like `To-Groom` live only in config and the wrappers). Skill PROSE that names states (board's grooming-candidate logic and similar) illustrates the default `[workflows]` vocabulary — after a rename, read those names as the corresponding states; the skill bodies stay concrete on purpose.
 - **Invocation:** `bash tools/internal/_on_<event>.sh <issue-number>` — thin exec shims over the TS dispatcher. Underscore-prefixed and machinery-invoked: no depth-1 stub, so the bare event name is not on PATH — invoke by path (or via `workflow-signal` for interactive/batch firing).
-- **Events** (begin/end pairs per lifecycle phase): `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`.
+- **Events** (begin/end pairs per lifecycle phase, plus deploy and intake events): `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`, `_on_staging_deploy`, `_on_production_deploy`, `_on_triage_complete`.
 - **Best-effort guarantee:** event scripts always exit 0 for skill flows; failures print warnings and never block skill work. Transitions are idempotent — a later signal repairs drift.
 - **Visible, not gated:** the event signal is a side effect of a boundary the user already approved (opening the PR, completing the merge, closing the plan) — it never prompts for its own permission. But it is not silent: skills state the signal in their normal output (one line, e.g. `→ signalled _on_begin_review for #43`).
 - **Placement rule:** invoke at existing lifecycle boundaries (intake confirmation, phase handoffs, wrap-up) — do not create new interactive gates for status updates.

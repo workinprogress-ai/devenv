@@ -21,6 +21,7 @@ If unambiguous: give the recommendation directly with a one-line rationale.
 Skip Q1–Q4.
 
 Bug-routing shortcut:
+
 - Broad/class/focus-area bug hunting (no single known bug) → `/devenv-audit`.
 - One specific known bug to root-cause or fix → `/devenv-hunt` (diagnose mode).
 - Suspected but unconfirmed bug (specific observation + expected behavior) → `/devenv-hunt` (verify mode).
@@ -55,6 +56,7 @@ it. At most four questions, one at a time; most sessions need two or three.
 **Q1 — Work stage** (ask if not already clear):
 
 > "What are you trying to do right now?"
+>
 > - 🔍 Explore / think something through
 > - 📝 Define specifications for a system or feature
 > - 🏛️ Architect a system / produce a blueprint or roadmap
@@ -66,6 +68,7 @@ it. At most four questions, one at a time; most sessions need two or three.
 **Q2 — Architecture intent** (only if stage is "Architect"):
 
 > "Which architecture outcome do you want right now?"
+>
 > - Weigh options and get a recommendation first → `/devenv-design`
 > - Groom component-level design direction → `/devenv-groom`
 > - Produce system-level architecture → `/devenv-create-blueprint` (or
@@ -74,12 +77,14 @@ it. At most four questions, one at a time; most sessions need two or three.
 **Q3 — Plan exists?** (only if stage is "Build"):
 
 > "Does a plan file or GitHub issue with a task list already exist for this work?"
+>
 > - Yes — plan file or issue
 > - No — working ad-hoc
 
 **Q4 — Autonomy span + impact?** (only if "Build" AND plan exists):
 
 > "How do you want to run this work?"
+>
 > - Task-by-task with me reviewing each chunk — high-impact work (public APIs,
 >   data shape, security, novel architecture) belongs here regardless
 > - A longer mechanical run the AI executes autonomously, phase by phase

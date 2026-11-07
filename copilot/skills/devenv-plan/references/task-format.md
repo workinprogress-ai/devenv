@@ -36,6 +36,7 @@ Task lists should be compact and current-state friendly:
 - Keep any extra detail under `Additional context:` for that task instead of creating separate context sections.
 
 If a task description needs multiple implementation bullets to be understandable, split it into separate tasks or move the extra detail into linked additional context.
+
 ### `Files:` bullet
 
 List every file the task **reads or modifies** (including test files), using paths relative to the **workspace root** (the top-level folder open in VS Code). Example:

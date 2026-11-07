@@ -1038,6 +1038,50 @@ project-update-issue "Sprint 5" 123 --field "Priority=High"
 
 ---
 
+### project-list-for-issue
+
+List the projects containing an issue, with the issue's Status in each — the read-side companion to `project-add-issue`/`project-update-issue` (board's linkage audits and status-drift checks start here).
+
+```
+project-list-for-issue ISSUE_NUMBER [--devenv]
+```
+
+Output (one line per project): `<project-title>\t<project-number>\t<status-or-dash>`.
+
+Examples:
+
+```bash
+project-list-for-issue 42
+DEVENV_REPO=myorg/myrepo project-list-for-issue 42
+```
+
+---
+
+### roadmap-parse
+
+Emit per-STEP JSON for a roadmap markdown file. Each step object contains `step`, `phase`, `title`, `status`, `issues[]`, `progress {done,total,pct}|null`, `dependencies[]`, and `plan_file` (when plan data matched). `status` is the step's **Status** line passed through unchanged — the tool does not compute or recompute it (reconciling status with issue/PR state is `/devenv-update-roadmap`'s job).
+
+```
+roadmap-parse ROADMAP_FILE [--plan-dir DIR] [--plan-file FILE]... [--org ORG] [--repo REPO]
+```
+
+Key flags:
+
+- `--plan-dir DIR` — directory of plan files (`.local-artifacts`) scanned for STEP-NN backlinks in their headers
+- `--plan-file FILE` — specific plan file to match (repeatable)
+- `--org ORG` / `--repo REPO` — defaults for bare/repo-relative issue refs
+
+Exit codes: 0 parsed OK; 2 invalid arguments / unreadable roadmap.
+
+Examples:
+
+```bash
+roadmap-parse roadmap.md --plan-dir .local-artifacts
+roadmap-parse roadmap.md --org myorg --repo planning.reqord
+```
+
+---
+
 ### `_on_<event>` (skill event signals)
 
 Skill lifecycle event signals — a tooling class, not CRUD wrappers. Each event
