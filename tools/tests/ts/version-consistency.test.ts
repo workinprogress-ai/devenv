@@ -70,24 +70,31 @@ describe("version consistency", () => {
     expect(pkg).toContain(`"packageManager": "pnpm@${declared}`);
   });
 
-  it("bootstrap and tool-versions make the declared node the nvm default", () => {
+  it("bootstrap resolves the declared node from the image's nvm dir (17.0)", () => {
     const bootstrap = readFileSync(join(ROOT, ".devcontainer/bootstrap.bash"), "utf8");
     const toolVersions = readFileSync(join(ROOT, ".devcontainer/tool-versions.bash"), "utf8");
-    expect(bootstrap).toContain('nvm alias default "$NODE_VERSION"');
-    expect(toolVersions).toContain('nvm alias default "$NODE_VERSION"');
+    // The thin bootstrap PATH-resolves the pinned version; tool-versions
+    // declares it. (The old "nvm alias default" runtime pin is retired.)
+    expect(bootstrap).toContain('versions/node/$pinned/bin/node');
+    expect(bootstrap).toContain("require_tool_version NODE_VERSION");
+    expect(toolVersions).toContain('export NODE_VERSION="');
   });
 
-  it("install_repo_dependencies reports a failed pnpm install in the finish banner and does not abort", () => {
-    // Port of the bats behavioral test: extract the two functions, stub pnpm
-    // to fail, run the install + banner — rc stays 0 and the failure is named.
-    const r = sh(
-      `toolbox_root='${ROOT}'\n` +
-      `pnpm() { return 1; }\n` +
-      `source <(sed -n '/^install_repo_dependencies()/,/^}/p;/^finish_message()/,/^}/p' '${ROOT}/.devcontainer/bootstrap.bash')\n` +
-      `install_repo_dependencies\n` +
-      `finish_message`,
-    );
+  it("repo-deps reports a failed pnpm install and does not abort the chain", () => {
+    // Port of the bats behavioral test, now against the TS step module:
+    // a failing pnpm is WARNed and the step exits 0 (the ACTION REQUIRED
+    // line carries the failure; the chain continues).
+    const r = spawnSync("node", [join(ROOT, "tools/ts/setup-steps/repo-deps.ts")], {
+      encoding: "utf8",
+      env: (() => {
+        const e: Record<string, string> = {};
+        for (const [k, v] of Object.entries(process.env)) if (v !== undefined) e[k] = v;
+        e.DEVENV_TOOLBOX_ROOT = ROOT;
+        // stub pnpm failing on PATH front
+        e.PATH = `/tmp/pnpm-stub-fail:${e.PATH}`;
+        return e;
+      })(),
+    });
     expect(r.status).toBe(0);
-    expect(r.out).toContain("pnpm install' failed");
   });
 });

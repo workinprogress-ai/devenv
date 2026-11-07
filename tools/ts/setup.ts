@@ -6,24 +6,22 @@
 // individually callable, and strictly non-interactive; `--all` runs them in
 // the bootstrap order. Fork bootstraps and CI run this unattended.
 //
-// Two registries, one surface:
+// One registry, two lanes (17.2: the provision bridge retired — every step
+// is a TS module under tools/ts/setup-steps/; tools/lib/provision.bash is
+// deleted):
 //   PROVISION_STEPS — the configure-half steps (credentials, shell files,
-//     integrations, package sources). These bridge tools/lib/provision.bash
-//     (the provisioning library): this tool orchestrates, it does not
-//     re-implement. Function-by-function the library retires as steps port to
-//     TS step modules (issue-72 Phase 17.2).
-//   INSTALL_STEPS — the post-node install stage (system packages, toolchains,
-//     node globals, repo deps), ported from the bash bootstrap's install
-//     functions. TS-native; each module re-exports a `run` that throws on
-//     failure. The provider token gate stays bash-invoked upstream of the
-//     handoff (providers' bootstrap-side bash modules are the Phase 3
-//     non-goal), so install steps never prompt.
+//     integrations, package sources).
+//   INSTALL_STEPS — the post-node install stage (system packages,
+//     toolchains, node globals, repo deps).
+// The provider token resolution each credential-needing step uses lives in
+// setup-steps/provider-seam.ts (env-allowlist + provider token impl — the
+// provider credential store stays the single secret source).
 //
 // Degraded path: when node itself is absent the slim bootstrap prints the
 // manual recovery instructions — this tool never runs in that world.
 
 import { parseArgs } from "node:util";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,7 +34,6 @@ assertNodeFloor();
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TOOLS = dirname(HERE);
 const ROOT = dirname(TOOLS);
-const PROVISION_LIB = join(TOOLS, "lib", "provision.bash");
 const STEP_MODULES_DIR = join(HERE, "setup-steps");
 
 /** The toolbox root the steps operate on. Defaults to this checkout (the
@@ -50,43 +47,39 @@ const toolboxRoot = process.env.DEVENV_TOOLBOX_ROOT || ROOT;
  * NODE_VERSION export — the setup-consistency test enforces the pair. */
 export const NODE_VERSION = "24.18.0";
 
-interface ProvisionStep {
-  kind: "provision";
+/** A setup step: every step is a TS module under tools/ts/setup-steps/
+ * (executed by runModuleStep); `kind` tags the lane for --list display and
+ * ordering only. */
+interface StepImpl {
+  kind: "provision" | "install";
   name: string;
   description: string;
-  /** The bash function invoked via the bridge library (single source of truth). */
-  fn: string;
-}
-
-interface InstallStep {
-  kind: "install";
-  name: string;
-  description: string;
-  /** The TS step module under tools/ts/setup-steps/ (re-exports run). */
   module: string;
 }
 
-export type Step = ProvisionStep | InstallStep;
+export type Step = StepImpl;
+export type ProvisionStep = StepImpl;
+export type InstallStep = StepImpl;
 
 // The provisioning steps, in the historical bootstrap order (the slim chain's
 // task list after the TS-side minimum). Each is idempotent in the bridge lib.
 const PROVISION_STEPS: ProvisionStep[] = [
-  { kind: "provision", name: "credentials", description: "load .setup credentials into the provider credential store", fn: "load_setup_credentials" },
-  { kind: "provision", name: "bash-functions", description: "write the shared bash functions file (shell aliases + helpers)", fn: "write_bash_functions_file" },
-  { kind: "provision", name: "env-vars", description: "generate env-vars.sh from .setup configuration", fn: "generate_env_vars_file" },
-  { kind: "provision", name: "tool-symlinks", description: "create depth-1 tool entry symlinks", fn: "create_tool_symlinks" },
-  { kind: "provision", name: "devenvrc", description: "write the shared ~/.devenvrc", fn: "write_devenvrc" },
-  { kind: "provision", name: "bashrc", description: "append devenv sourcing to ~/.bashrc", fn: "append_bashrc" },
-  { kind: "provision", name: "git-config", description: "configure git identity and hooks", fn: "configure_git" },
-  { kind: "provision", name: "copilot-instructions", description: "install copilot instructions into ~/.copilot", fn: "install_copilot_instructions" },
-  { kind: "provision", name: "claude-integration", description: "install Claude Code integration into ~/.claude", fn: "install_claude_code_integration" },
-  { kind: "provision", name: "knowledge-sync", description: "sync the copilot knowledge side-repo", fn: "sync_copilot_knowledge" },
-  { kind: "provision", name: "engineering-sync", description: "sync the engineering standards side-repo", fn: "sync_copilot_engineering" },
-  { kind: "provision", name: "directories", description: "ensure runtime directories and settings exist", fn: "ensure_directories_and_settings" },
-  { kind: "provision", name: "nuget-sources", description: "configure NuGet package sources", fn: "configure_nuget_sources" },
-  { kind: "provision", name: "npmrc", description: "configure the user npmrc with provider credentials", fn: "configure_user_npmrc" },
-  { kind: "provision", name: "custom-bootstrap", description: "run fork/user custom bootstrap hooks if present", fn: "run_custom_bootstrap_if_present" },
-  { kind: "provision", name: "cleanup", description: "clean up package caches from the install", fn: "cleanup_packages" },
+  { kind: "provision", name: "credentials", description: "load .setup credentials into the provider credential store", module: "credentials.ts" },
+  { kind: "provision", name: "bash-functions", description: "write the shared bash functions file (shell aliases + helpers)", module: "bash-functions.ts" },
+  { kind: "provision", name: "env-vars", description: "generate env-vars.sh from .setup configuration", module: "env-vars.ts" },
+  { kind: "provision", name: "tool-symlinks", description: "create depth-1 tool entry symlinks", module: "tool-symlinks.ts" },
+  { kind: "provision", name: "devenvrc", description: "write the shared ~/.devenvrc", module: "devenvrc.ts" },
+  { kind: "provision", name: "bashrc", description: "append devenv sourcing to ~/.bashrc", module: "bashrc.ts" },
+  { kind: "provision", name: "git-config", description: "configure git identity and hooks", module: "git-config.ts" },
+  { kind: "provision", name: "copilot-instructions", description: "install copilot instructions into ~/.copilot", module: "copilot-instructions.ts" },
+  { kind: "provision", name: "claude-integration", description: "install Claude Code integration into ~/.claude", module: "claude-integration.ts" },
+  { kind: "provision", name: "knowledge-sync", description: "sync the copilot knowledge side-repo", module: "knowledge-sync.ts" },
+  { kind: "provision", name: "engineering-sync", description: "sync the engineering standards side-repo", module: "engineering-sync.ts" },
+  { kind: "provision", name: "directories", description: "ensure runtime directories and settings exist", module: "directories.ts" },
+  { kind: "provision", name: "nuget-sources", description: "configure NuGet package sources", module: "nuget-sources.ts" },
+  { kind: "provision", name: "npmrc", description: "configure the user npmrc with provider credentials", module: "npmrc.ts" },
+  { kind: "provision", name: "custom-bootstrap", description: "run fork/user custom bootstrap hooks if present", module: "custom-bootstrap.ts" },
+  { kind: "provision", name: "cleanup", description: "clean up package caches from the install", module: "cleanup.ts" },
 ];
 
 // The install-stage steps, in the historical bootstrap order. Ordering
@@ -132,50 +125,11 @@ Exit codes:
   process.exit(0);
 }
 
-/** Bootstrap-owned globals the provision step functions consume. The
- * bootstrap's initialize_paths sets these as plain shell globals (never
- * exported), so this tool reproduces them explicitly — without them, steps
- * like credentials silently no-op (`cat: ''`) while reporting success. */
-function stepPrelude(toolboxRoot: string): string {
-  return [
-    `toolbox_root='${toolboxRoot}'`,
-    `devenv='${toolboxRoot}'`,
-    `setup_dir='${toolboxRoot}/.setup'`,
-    `name_file='${toolboxRoot}/.setup/name.txt'`,
-    `email_file='${toolboxRoot}/.setup/email.txt'`,
-    `config_file='${toolboxRoot}/devenv.config'`,
-    "dotnet_cmd=\"$(command -v dotnet || echo /usr/bin/dotnet)\"",
-    `export DEVENV_ROOT='${toolboxRoot}'`,
-    `export DEVENV_TOOLS='${toolboxRoot}/tools'`,
-  ].join("\n");
-}
-
-/** One bash session runs the invocation's provision steps, in order: the
- * bridge library's step functions exchange state through shell globals
- * (credentials sets HUMAN_NAME/USER_EMAIL; git-config consumes them), which
- * only survives if they share a shell — the historical bootstrap behavior. */
-function runProvisionStepsInSession(steps: ProvisionStep[], toolboxRoot: string, quiet: boolean): void {
-  const body = steps
-    .map((s) => `echo "[step] ${s.fn}"; ${s.fn}`)
-    .join("\n");
-  const script = [
-    "set -e",
-    `source '${PROVISION_LIB}'`,
-    stepPrelude(toolboxRoot),
-    body,
-  ].join("\n");
-  execFileSync("bash", ["-c", script], {
-    cwd: toolboxRoot,
-    stdio: quiet ? "pipe" : "inherit",
-    env: { ...process.env, toolbox_root: toolboxRoot },
-  });
-}
-
-/** Run one TS install step: spawn its module so a crash exits this process
- * tree the way a bash step failure does. Stdio: inherited for live output in
- * normal mode; piped under --json so the step's chatter (apt lines, npm
- * progress) cannot corrupt the JSON document on stdout. */
-function runInstallStep(step: InstallStep, quiet: boolean): void {
+/** Run one TS step module: spawn it so a crash exits this process tree the
+ * way a bash step failure does. Stdio: inherited for live output in normal
+ * mode; piped under --json so the step's chatter (apt lines, npm progress)
+ * cannot corrupt the JSON document on stdout. */
+function runModuleStep(step: StepImpl, quiet: boolean): void {
   const modulePath = join(STEP_MODULES_DIR, step.module);
   const r = spawnSync(process.execPath, [modulePath], {
     stdio: quiet ? ["pipe", "pipe", "pipe"] : "inherit",
@@ -260,31 +214,16 @@ async function main(argv: string[]): Promise<number> {
     // Historical bootstrap order: the install stage precedes the configure
     // half (nuget-sources/npmrc need dotnet; repo-deps provides pnpm for the
     // provision lane's cleanup). Execution follows two lane rules, always in
-    // STEPS order: install steps spawn one module each; provision steps run
-    // in ONE bash session — consecutive provision steps are batched into a
-    // single session call so cross-step shell state survives (credentials
-    // seeds HUMAN_NAME/USER_EMAIL; git-config consumes it).
-    const session: ProvisionStep[] = [];
-    const flush = (): void => {
-      if (session.length === 0) return;
-      runProvisionStepsInSession(session, toolboxRoot, json);
-      for (const s of session) {
-        logInfo(`[setup] ${s.name}: ${s.description}`);
-        results.push({ step: s.name, status: "ok" });
-      }
-      session.length = 0;
-    };
+    // STEPS order: every step spawns its module — one process per step, so
+    // a crash exits that step's tree exactly as a bash task failure did.
+    // Cross-step state travels by file (the .setup seeds), not shell
+    // globals: git-config resolves identity from the seeds the credentials
+    // step read (the single source of truth).
     for (const s of selected) {
-      if (s.kind === "install") {
-        flush();
-        runInstallStep(s, json);
-        logInfo(`[setup] ${s.name}: ${s.description}`);
-        results.push({ step: s.name, status: "ok" });
-      } else {
-        session.push(s);
-      }
+      runModuleStep(s, json);
+      logInfo(`[setup] ${s.name}: ${s.description}`);
+      results.push({ step: s.name, status: "ok" });
     }
-    flush();
   } catch (err) {
     // Attribute the failure to the first step that has not yet been reported
     // ok. bash -e stops at the failing function; install-step failures throw
@@ -303,7 +242,7 @@ async function main(argv: string[]): Promise<number> {
       (err instanceof Error ? err.message.match(/install step (\S+) failed/)?.[1] : undefined) || "";
     const failedIdx = Math.max(
       0,
-      selected.findIndex((s) => (s.kind === "provision" ? s.fn : s.name) === failName),
+      selected.findIndex((s) => s.name === failName),
     );
     for (let i = 0; i < selected.length; i++) {
       const step: Step = selected[i] as Step;
