@@ -163,6 +163,12 @@ The final documentation/cleanup phase keeps its job but is **re-scoped**: polish
 - [ ] Surface docs for this phase's documented-surface changes are written (each change task carried its `Docs:` line, or the deferral is noted in the phase per the documentation doctrine)
 - [ ] Any temporary scaffolding code added is either still needed, or scheduled for removal in a later phase's task list
 
+## Drafting checklist (use while writing the plan — before approval)
+
+- [ ] For each phase: does it touch a documented surface (public API, tool flag, config format, user-facing behavior, `docs/` guide)? → its change tasks carry `Docs:` lines naming the files, in that phase
+- [ ] Any first-time docs deferred to the final phase are the doctrine's sanctioned late content only (integration, polish, cross-phase overview, stale sweep) — each carries the explicit one-line deferral note naming the completing phase; anything else deferred is a doctrine deviation and needs the user's explicit approval at the phase-structure confirmation
+- [ ] No sibling-plan precedent substitutes for the two checks above — the doctrine governs; a precedent plan that deferred its docs is a shape to re-derive from, not to anchor on
+
 ## Anti-patterns
 
 - A "Phase 0: setup" that just does config — fold it into Phase 1.

@@ -39,6 +39,41 @@ The enum is the conventional types plus the explicit bump types:
 `build` · `chore` · `ci` · `docs` · `feat` · `fix` · `perf` · `refactor` ·
 `revert` · `style` · `test` · `major` · `minor` · `patch`
 
+## Body format: bullets are changes made
+
+**No body is the default.** For a small commit whose title alone is sufficient —
+the common case — there are no bullets at all; a subject-only commit is a correct
+outcome, never a deficiency. Bullets exist only when the title cannot carry the
+record on its own.
+
+The commit body's bullets are a **list of changes made** — the concrete edits that
+break down what the title is saying (added X, removed Y, renamed Z→W, moved A to
+B, updated dependency D to version V). They are not a description of how things
+now function: post-change state narration ("the service now validates…",
+"users can now…") belongs to release notes and living docs, not the commit body —
+git history carries the chronology of what changed, in the same changes-made
+tense as the subject.
+
+Two mechanical tests catch functional drift inside a nominally changes-made
+bullet:
+
+1. **Lead with a change verb, imperative mood** — `change`, `add`, `remove`,
+   `rename`, `move`, `widen`, `align`, `update` — matching the subject's mood. A
+   bullet that opens with a noun phrase ("one tree per root task with enforced
+   single-parent…") is state description wearing a bullet; rewrite it as the
+   edit ("align one tree per root task with enforced single-parent/acyclicity")
+   or cut it.
+2. **No post-change behavior narration riding inside a bullet** — "delete
+   preserves child promotion", "typed errors at creation", "users can now…":
+   a bullet names the edit, not how the system behaves after it. Behavior the
+   change implies belongs to the diff, tests, and living docs — or, when a very
+   important functional change needs recording, to the consulted prose after
+   the bullets (below), never smuggled into one.
+
+A short functional description (a few sentences, placed **after** the bullets) is
+included only when a very important functional change genuinely needs documenting
+in the commit itself.
+
 ## Docs-first repos
 
 In a docs-first repo — specs, ADRs, plans, conventions: the content is the
