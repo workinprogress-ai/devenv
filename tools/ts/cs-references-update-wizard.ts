@@ -7,6 +7,7 @@
 // tools — never raw gh.
 
 import { spawnSync } from "node:child_process";
+import { requireCommandOrExit } from "../lib/core/commands.ts";
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, basename } from "node:path";
@@ -85,14 +86,6 @@ function promptYesNo(question: string): boolean {
     if (/^[Yy]/.test(a)) return true;
     if (/^[Nn]/.test(a)) return false;
     console.log("    Please answer y or n.");
-  }
-}
-
-function requireCommand(cmd: string): void {
-  const r = spawnSync("bash", ["-c", `command -v ${cmd}`], { stdio: "ignore" });
-  if (r.status !== 0) {
-    logError(`required command not found: ${cmd}`);
-    process.exit(EXIT_GENERAL_ERROR);
   }
 }
 
@@ -180,8 +173,8 @@ function detectMajorBumps(before: Snapshot, after: Snapshot): { hasMajor: boolea
 // ── Main ─────────────────────────────────────────────────────────────────
 
 function main(): void {
-  requireCommand("git");
-  requireCommand("dotnet");
+  requireCommandOrExit("git", undefined, EXIT_GENERAL_ERROR);
+  requireCommandOrExit("dotnet", undefined, EXIT_GENERAL_ERROR);
 
   const argv = process.argv.slice(2);
   let repoDir = "";

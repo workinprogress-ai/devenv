@@ -10,7 +10,6 @@
 // invocation sequences are preserved exactly from the bash tool — no
 // "improvements".
 
-import { parseArgs } from "node:util";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -18,7 +17,8 @@ import { spawnSync } from "node:child_process";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
+import { toolCli } from "../lib/core/cli.ts";
+import { checkTargetRepo, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsList, prsMerge, prsView } from "../lib/providers/facade/prs.ts";
 import { prWebUrl } from "../lib/providers/facade/urls.ts";
 import { signalPrEvents } from "../lib/domain/events.ts";
@@ -151,11 +151,15 @@ async function main(argv: string[]): Promise<number> {
   let force = false;
   let keepBranch = false;
   let help = false;
+  let devenvFlag = false;
 
-  // `--` separates options from the message (parseArgs handles it).
+  // `--` separates options from the message (toolCli handles it).
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
         help: { type: "boolean", default: false },
         version: { type: "boolean", default: false },
@@ -169,29 +173,25 @@ async function main(argv: string[]): Promise<number> {
         force: { type: "boolean", default: false },
         "keep-branch": { type: "boolean", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    help = values["help"] === true;
+    help = cli.values["help"] === true;
     if (help) usage(0);
-    if (values["version"] === true) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    issueNumber = values["issue"] ?? "";
-    selectIssue = values["select"] === true;
-    noIssueId = values["no-issue-id"] === true;
-    mergeMethod = values["method"] ?? "rebase";
-    targetBranch = values["base"] ?? "";
-    if (values["repo-dir"] !== undefined) repoDir = values["repo-dir"];
-    sourceBranch = values["branch"] ?? "";
-    force = values["force"] === true;
-    keepBranch = values["keep-branch"] === true;
-    if (positionals.length > 1) {
-      logError(`pr-merge takes at most one commit message (got ${positionals.length} arguments); quote a message that contains spaces.`);
+    issueNumber = ((cli.values["issue"] as string | undefined) ?? "");
+    selectIssue = cli.values["select"] === true;
+    noIssueId = cli.values["no-issue-id"] === true;
+    mergeMethod = ((cli.values["method"] as string | undefined) ?? "rebase");
+    targetBranch = ((cli.values["base"] as string | undefined) ?? "");
+    const repoDirValue = cli.values["repo-dir"];
+    if (repoDirValue !== undefined) repoDir = String(repoDirValue);
+    sourceBranch = ((cli.values["branch"] as string | undefined) ?? "");
+    force = cli.values["force"] === true;
+    keepBranch = cli.values["keep-branch"] === true;
+    devenvFlag = cli.common.devenv;
+    if (cli.positionals.length > 1) {
+      logError(`pr-merge takes at most one commit message (got ${cli.positionals.length} arguments); quote a message that contains spaces.`);
       return EXIT_MISUSE;
     }
-    commitMessage = positionals[0] ?? "";
+    commitMessage = cli.positionals[0] ?? "";
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     usage(EXIT_MISUSE);
@@ -261,6 +261,10 @@ async function main(argv: string[]): Promise<number> {
     logError(`Target branch origin/${targetBranch} not found.`);
     return EXIT_API_FAILURE;
   }
+
+  // The house --devenv flag gates devenv-repo operations (the safety
+  // override has real meaning here: pr-merge can push-adjacent state).
+  checkTargetRepo(devenvFlag);
 
   const repo = requireRepoTarget(providerRepoTarget(""), "pr-merge", "pr");
 

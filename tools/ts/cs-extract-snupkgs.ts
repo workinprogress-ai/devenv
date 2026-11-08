@@ -2,12 +2,13 @@
 // Port of cs-extract-snupkgs.sh: unzip the package into
 // <output-root>/<name-without-extension>/.
 
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
+import { requireCommandOrExit } from "../lib/core/commands.ts";
 
 assertNodeFloor();
 
@@ -22,18 +23,9 @@ Options:
   process.exit(exitCode);
 }
 
-function requireCommand(cmd: string, message: string): void {
-  try {
-    execFileSync("bash", ["-c", `command -v ${cmd}`], { stdio: "ignore" });
-  } catch {
-    logError(message);
-    process.exit(EXIT_API_FAILURE);
-  }
-}
-
 if (process.argv.slice(2).some((a) => a === "-h" || a === "--help")) usage();
 
-requireCommand("unzip", "unzip is required to extract snupkgs");
+requireCommandOrExit("unzip", "unzip is required to extract snupkgs", EXIT_API_FAILURE);
 
 const args = process.argv.slice(2).filter((a) => !a.startsWith("-"));
 if (args.length < 1) {

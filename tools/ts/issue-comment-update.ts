@@ -9,12 +9,12 @@
 // The comment is validated (GET through the facade's comment_get verb)
 // before the update; dry-run skips the existence check (no network).
 
-import { parseArgs } from "node:util";
-import {basename} from "node:path";
+import { basename } from "node:path";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesCommentGet, issuesCommentEdit } from "../lib/providers/facade/issues.ts";
@@ -38,11 +38,7 @@ Arguments:
     COMMENT_ID                  Numeric comment ID to update
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
-    -n, --dry-run               Show what would be sent without calling the API
-    --devenv                    Safety override to update comments in devenv repo
+${usageCommonFlags()}
     --repo OWNER/REPO           Override the target repository
 
 Comment Source (one required):
@@ -70,26 +66,24 @@ async function main(argv: string[]): Promise<number> {
   let devenv = false;
   let repoOverride = "";
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         "dry-run": { type: "boolean", short: "n", default: false },
-        devenv: { type: "boolean", default: false },
         body: { type: "string", short: "b" },
         "body-file": { type: "string", short: "f" },
         repo: { type: "string" },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    dryRun = Boolean(values["dry-run"]);
-    devenv = Boolean(values["devenv"]);
-    bodyText = values["body"] ?? "";
-    bodyFile = values["body-file"] ?? "";
-    repoOverride = values["repo"] ?? "";
-    for (const p of positionals) {
+    if (cli.common.help) showUsage();
+    dryRun = cli.common.dryRun;
+    devenv = cli.common.devenv;
+    bodyText = ((cli.values["body"] as string | undefined) ?? "");
+    bodyFile = ((cli.values["body-file"] as string | undefined) ?? "");
+    repoOverride = ((cli.values["repo"] as string | undefined) ?? "");
+    for (const p of cli.positionals) {
       if (commentId === "") {
         // The comment ref is provider-opaque: any non-empty, non-flag token.
         commentId = p;
@@ -103,12 +97,6 @@ async function main(argv: string[]): Promise<number> {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
-  }
-
-  if (argv.includes("-h") || argv.includes("--help")) showUsage();
-  if (argv.includes("-v") || argv.includes("--version")) {
-    console.log(SCRIPT_VERSION);
-    return 0;
   }
 
   if (commentId === "") {

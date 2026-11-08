@@ -11,12 +11,12 @@
 // live 2026-10-28). --unlink removes the relation; an absent link is a
 // no-op success, a duplicate link is a no-op success (idempotent add).
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issueGraphLink, issueGraphUnlink, issuesExists } from "../lib/providers/facade/issues.ts";
 
@@ -52,10 +52,7 @@ Arguments:
 
 Options:
     --unlink                    Remove the relation instead of adding it
-    --devenv                    Safety override for the devenv repo (target-
-                                repo references only)
-    -h, --help                  Show this help and exit
-    -v, --version               Show version information and exit
+${usageCommonFlags({ noDryRun: true })}
 
 Cross-repo references (owner/repo#N) are supported on both sides: the
 sub-issue API takes global node IDs. References without a repo resolve
@@ -72,35 +69,27 @@ Examples:
 async function main(argv: string[]): Promise<number> {
   let unlink = false;
   let devenv = false;
+  let refs: string[] = [];
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         unlink: { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    unlink = Boolean(values["unlink"]);
-    devenv = Boolean(values["devenv"]);
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
+    if (cli.common.help) showUsage();
+    unlink = Boolean(cli.values["unlink"]);
+    devenv = cli.common.devenv;
+    refs = cli.positionals;
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
-  // Positional extraction (after flag filtering by parseArgs above via a
-  // second pass: bare numbers and owner/repo#N forms).
-  const positionalLike = (a: string): boolean => !a.startsWith("-");
-  const refs = argv.filter(positionalLike);
   if (refs.length !== 2) {
     logError("Parent and child references are required: issue-graph-link PARENT CHILD [--unlink]");
     console.log("Use --help for usage information");

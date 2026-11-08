@@ -11,13 +11,12 @@
 // exit 1 when selection is cancelled or nothing matched. Non-TTY runs
 // fail defined (the picker cannot render).
 
-import { parseArgs } from "node:util";
-import {basename} from "node:path";
-import {} from "node:fs";
+import { basename } from "node:path";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { normalizeIssueType } from "../lib/domain/issues/types.ts";
 import { issuesList, issuesView } from "../lib/providers/facade/issues.ts";
@@ -42,7 +41,7 @@ Filters:
 Selection:
     -M, --multi                 Enable multi-select mode
     -f, --format FORMAT         Output format: number, url, or json (default: number)
-    --devenv                    Safety override to select issues in devenv repo
+${usageCommonFlags({ noDryRun: true })}
 
 Output:
     Prints selected issue number(s) to stdout, one per line.
@@ -68,28 +67,25 @@ async function main(argv: string[]): Promise<number> {
   let format = "number";
   let devenv = false;
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
+      allowPositionals: false,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         state: { type: "string", short: "s", default: "open" },
         type: { type: "string", short: "t" },
         milestone: { type: "string", short: "m" },
         label: { type: "string", short: "l" },
         multi: { type: "boolean", short: "M", default: false },
         format: { type: "string", short: "f", default: "number" },
-        devenv: { type: "boolean", default: false },
       },
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    state = values["state"] ?? "open";
-    type = values["type"] ?? "";
+    if (cli.common.help) showUsage();
+    const values = cli.values as Record<string, string | boolean | undefined>;
+    state = (values["state"] as string | undefined) ?? "open";
+    type = (values["type"] as string | undefined) ?? "";
     if (type !== "") {
       const normalized = normalizeIssueType(type);
       if (normalized === null) {
@@ -98,11 +94,11 @@ async function main(argv: string[]): Promise<number> {
       }
       type = normalized;
     }
-    milestone = values["milestone"] ?? "";
-    label = values["label"] ?? "";
+    milestone = (values["milestone"] as string | undefined) ?? "";
+    label = (values["label"] as string | undefined) ?? "";
     multi = Boolean(values["multi"]);
-    format = values["format"] ?? "number";
-    devenv = Boolean(values["devenv"]);
+    format = (values["format"] as string | undefined) ?? "number";
+    devenv = cli.common.devenv;
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");

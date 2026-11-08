@@ -11,7 +11,6 @@
 // writing. The seed path reads labels-config.yml through yq (same engine
 // the bash tool used).
 
-import { parseArgs } from "node:util";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
@@ -21,6 +20,7 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesLabelList, issuesLabelCreate, issuesLabelUpdate } from "../lib/providers/facade/issues.ts";
 
@@ -38,17 +38,13 @@ description are updated.
 Arguments:
     NAME                        Label name to create
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
-    -n, --dry-run               Show what would be done without creating
+${usageCommonFlags()}
     -c, --color HEX             Label color as 6-digit hex, no '#' (e.g. d73a4a)
     -d, --description TEXT      Label description
     --update                    If the label exists, update color/description
                                 instead of skipping
     --seed                      Create the standard triage vocabulary from
                                 tools/config/labels-config.yml (ignores NAME)
-    --devenv                    Safety override to create labels in devenv repo
 
 Examples:
     ${SCRIPT_NAME} "area/auth" --color 1d76db --description "Authentication area"
@@ -67,28 +63,26 @@ async function main(argv: string[]): Promise<number> {
   let seed = false;
   let devenv = false;
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         "dry-run": { type: "boolean", short: "n", default: false },
         color: { type: "string", short: "c" },
         description: { type: "string", short: "d" },
         update: { type: "boolean", default: false },
         seed: { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    dryRun = Boolean(values["dry-run"]);
-    update = Boolean(values["update"]);
-    seed = Boolean(values["seed"]);
-    devenv = Boolean(values["devenv"]);
-    color = values["color"] ?? "";
-    description = values["description"] ?? "";
-    for (const p of positionals) {
+    if (cli.common.help) showUsage();
+    dryRun = cli.common.dryRun;
+    update = cli.values["update"] === true;
+    seed = cli.values["seed"] === true;
+    devenv = cli.common.devenv;
+    color = ((cli.values["color"] as string | undefined) ?? "");
+    description = ((cli.values["description"] as string | undefined) ?? "");
+    for (const p of cli.positionals) {
       if (labelName === "") {
         labelName = p;
       } else {
@@ -101,12 +95,6 @@ async function main(argv: string[]): Promise<number> {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
-  }
-
-  if (argv.includes("-h") || argv.includes("--help")) showUsage();
-  if (argv.includes("-v") || argv.includes("--version")) {
-    console.log(SCRIPT_VERSION);
-    return 0;
   }
 
   if (seed === false && labelName === "") {

@@ -5,12 +5,12 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
 import { prsThreadResolve } from "../lib/providers/facade/prs.ts";
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
@@ -34,13 +34,10 @@ Arguments:
     THREAD_ID                   Opaque thread reference (from pr-threads-get)
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
-    -n, --dry-run               Show what would be done without resolving
+${usageCommonFlags()}
 
 Environment Variables:
-    DEVENV_REPO                 Repository in format owner/repo (not needed —
+${usageEnvBlock()} (not needed —
                                 thread IDs are globally unique)
 
 Examples:
@@ -60,26 +57,18 @@ async function main(argv: string[]): Promise<number> {
   let dryRun = false;
   let devenv = false;
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         "dry-run": { type: "boolean", short: "n", default: false },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    dryRun = values["dry-run"] === true;
-    devenv = values["devenv"] === true;
-    threadId = positionals[0] ?? "";
+    if (cli.common.help) showUsage();
+    dryRun = cli.common.dryRun;
+    devenv = cli.common.devenv;
+    threadId = cli.positionals[0] ?? "";
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");

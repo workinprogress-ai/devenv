@@ -13,13 +13,13 @@
 // separately from the field edit. Type normalization follows the config
 // vocabulary (issues-config.yml; case-insensitive).
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import {
@@ -66,8 +66,7 @@ Options:
                                 section; Azure: predecessor links.
     --remove-blocked-by N       Un-record N (repeatable; removing an absent
                                 link is a no-op)
-    -n, --dry-run               Show what would be done without updating
-    --devenv                    Safety override to update issues in devenv repo
+${usageCommonFlags()}
 
 Examples:
     ${SCRIPT_NAME} 123 --title "Updated title"
@@ -111,11 +110,12 @@ async function main(argv: string[]): Promise<number> {
   }
 
   try {
-    const { values } = parseArgs({
-      args: rest,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv: rest,
+      allowPositionals: false,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         "dry-run": { type: "boolean", short: "n", default: false },
         title: { type: "string", short: "t" },
         body: { type: "string", short: "b" },
@@ -130,18 +130,17 @@ async function main(argv: string[]): Promise<number> {
         "remove-blocked-by": { type: "string" },
         milestone: { type: "string", short: "m" },
         state: { type: "string", short: "s" },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: false,
-      strict: true,
     });
-    dryRun = Boolean(values["dry-run"]);
-    devenv = Boolean(values["devenv"]);
-    newTitle = values["title"] ?? "";
-    newBody = values["body"] ?? "";
-    newBodyFile = values["body-file"] ?? "";
-    newType = values["type"] ?? "";
-    removeType = Boolean(values["remove-type"]);
+    if (cli.common.help) showUsage();
+    const values = cli.values as Record<string, string | boolean | string[] | undefined>;
+    dryRun = cli.common.dryRun;
+    devenv = cli.common.devenv;
+    newTitle = ((values["title"] as string | undefined) ?? "");
+    newBody = ((values["body"] as string | undefined) ?? "");
+    newBodyFile = ((values["body-file"] as string | undefined) ?? "");
+    newType = ((values["type"] as string | undefined) ?? "");
+    removeType = values["remove-type"] === true;
     const pull = (k: "add-label" | "remove-label" | "add-assignee" | "remove-assignee" | "add-blocked-by" | "remove-blocked-by"): string[] => {
       const v = values[k];
       if (v === undefined) return [];
@@ -153,18 +152,12 @@ async function main(argv: string[]): Promise<number> {
     removeAssignees.push(...pull("remove-assignee"));
     addBlockedBy.push(...pull("add-blocked-by"));
     removeBlockedBy.push(...pull("remove-blocked-by"));
-    newMilestone = values["milestone"] ?? "";
-    newState = values["state"] ?? "";
+    newMilestone = ((values["milestone"] as string | undefined) ?? "");
+    newState = ((values["state"] as string | undefined) ?? "");
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
-  }
-
-  if (argv.includes("-h") || argv.includes("--help")) showUsage();
-  if (argv.includes("-v") || argv.includes("--version")) {
-    console.log(SCRIPT_VERSION);
-    return 0;
   }
 
   if (issueNumber === "") {

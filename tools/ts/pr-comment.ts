@@ -7,7 +7,6 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 
 import { existsSync, readFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -18,6 +17,7 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
 import { prsComment } from "../lib/providers/facade/prs.ts";
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
@@ -40,11 +40,7 @@ Arguments:
     PR_NUMBER                   PR number to comment on
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
-    -n, --dry-run               Show what would be done without posting
-    --devenv                    Safety override to comment on devenv repo PRs
+${usageCommonFlags()}
 
 Comment Source (one required):
     -b, --body TEXT             Comment text (inline)
@@ -53,7 +49,7 @@ Comment Source (one required):
     -e, --edit                  Open \\$EDITOR to compose comment
 
 Environment Variables:
-    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
+${usageEnvBlock()}
     EDITOR                      Editor to use with --edit (default: nano)
 
 Examples:
@@ -85,32 +81,24 @@ async function main(argv: string[]): Promise<number> {
   let dryRun = false;
   let devenv = false;
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         "dry-run": { type: "boolean", short: "n", default: false },
-        devenv: { type: "boolean", default: false },
         body: { type: "string", short: "b" },
         "body-file": { type: "string", short: "f" },
         edit: { type: "boolean", short: "e", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    dryRun = values["dry-run"] === true;
-    devenv = values["devenv"] === true;
-    useEditor = values["edit"] === true;
-    bodyText = values["body"] ?? "";
-    bodyFile = values["body-file"] ?? "";
-    for (const p of positionals) {
+    if (cli.common.help) showUsage();
+    dryRun = cli.common.dryRun;
+    devenv = cli.common.devenv;
+    useEditor = cli.values["edit"] === true;
+    bodyText = ((cli.values["body"] as string | undefined) ?? "");
+    bodyFile = ((cli.values["body-file"] as string | undefined) ?? "");
+    for (const p of cli.positionals) {
       if (!/^[0-9]+$/.test(p)) {
         logError(`Invalid PR number: ${p} (must be numeric)`);
         return EXIT_MISUSE;

@@ -1,9 +1,8 @@
-// Characterization tests: body-source resolution across the seven tools that
-// hand-roll it. These lock CURRENT observable behavior before the
-// lib/core/body-source.ts extraction — including the known defect that
-// `--body-file -` reads stdin without the empty-refusal the piped-stdin leg
-// has (audit F007). Defect assertions are marked and FLIP in the body-source
-// adoption phase when the shared resolver imposes the uniform refusal.
+// Characterization tests: body-source resolution across the body-source
+// tools. These lock the CURRENT observable behavior of the shared
+// lib/core/body-source.ts resolver — the historical per-tool drift in the
+// '-' leg's empty-refusal was closed by the adoption; the uniform refusal
+// is now the contract these tests pin.
 //
 // Tools covered: issue-comment, pr-comment, issue-comment-update,
 // pr-thread-reply, issue-update, issue-create, pr-create-for-review.
@@ -110,7 +109,7 @@ describe("issue-comment body source (current behavior)", () => {
     expect(r.output).toContain("Refusing empty stdin body");
   });
 
-  it("--body-file - reads stdin; EMPTY stdin is REFUSED (uniform F007 fix via the shared resolver)", () => {
+  it("--body-file - reads stdin; EMPTY stdin is REFUSED (uniform empty-refusal contract of the shared resolver)", () => {
     const r = run("issue-comment", ["123", "--body-file", "-"], { stdin: "  \n" });
     expect(r.status).toBe(2);
     expect(r.output).toContain("Refusing empty stdin body");
@@ -141,11 +140,11 @@ describe("pr-comment body source (current behavior)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// issue-comment-update — the second F007-affected tool
+// issue-comment-update — the second historically divergent tool
 // ---------------------------------------------------------------------------
 
 describe("issue-comment-update body source (current behavior)", () => {
-  it("--body-file - with EMPTY stdin is REFUSED (uniform F007 fix via the shared resolver)", () => {
+  it("--body-file - with EMPTY stdin is REFUSED (uniform empty-refusal contract of the shared resolver)", () => {
     const r = run("issue-comment-update", ["999", "--body-file", "-"], { stdin: " \n" });
     expect(r.status).toBe(2);
     expect(r.output).toContain("Refusing empty stdin body");
@@ -168,7 +167,7 @@ describe("pr-thread-reply body source (current behavior)", () => {
     expect(r.status).toBe(0);
   });
 
-  it("--body-file - with EMPTY stdin is REFUSED (uniform F007 fix via the shared resolver)", () => {
+  it("--body-file - with EMPTY stdin is REFUSED (uniform empty-refusal contract of the shared resolver)", () => {
     const r = run("pr-thread-reply", ["7", "--comment-id", "55", "--body-file", "-"], { stdin: "" });
     expect(r.status).toBe(2);
     expect(r.output).toContain("Refusing empty stdin body");
@@ -185,7 +184,7 @@ describe("issue-update body source (current behavior)", () => {
     expect(r.status).toBe(0);
   });
 
-  it("--body-file - with EMPTY stdin is REFUSED (uniform F007 fix via the shared resolver)", () => {
+  it("--body-file - with EMPTY stdin is REFUSED (uniform empty-refusal contract of the shared resolver)", () => {
     const r = run("issue-update", ["5", "--body-file", "-"], { stdin: "" });
     expect(r.status).toBe(2);
     expect(r.output).toContain("Refusing empty stdin body");

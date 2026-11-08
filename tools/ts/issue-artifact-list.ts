@@ -10,7 +10,7 @@
 // when a `doc_id: ` line appears in its first 256 chars. Fields mirror the
 // bash tool exactly (title = first `# ` heading line; updatedAt-desc sort).
 
-import { parseArgs } from "node:util";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { basename } from "node:path";
 
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -39,9 +39,7 @@ Options:
     --full                        Return full body as "body" (default: bodyPreview only)
     --pretty                      Pretty-print JSON output
     --repo OWNER/REPO             Repository override (defaults to DEVENV_REPO)
-    -V, --verbose                 Enable verbose logs
-    -h, --help                    Show help and exit
-    -v, --version                 Show version and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Output:
     [
@@ -79,12 +77,13 @@ interface Parsed {
 
 function parseCliArgs(argv: string[]): Parsed {
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
+      allowPositionals: false,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         full: { type: "boolean", default: false },
         pretty: { type: "boolean", default: false },
         issue: { type: "string" },
@@ -94,18 +93,18 @@ function parseCliArgs(argv: string[]): Parsed {
         "artifact_type": { type: "string" },
         repo: { type: "string" },
       },
-      allowPositionals: false,
-      strict: true,
     });
+    if (cli.common.help) showUsage();
+    const v = cli.values as Record<string, string | boolean | undefined>;
     return {
-      help: Boolean(values["help"]),
-      version: Boolean(values["version"]),
-      verbose: Boolean(values["verbose"]),
-      full: Boolean(values["full"]),
-      pretty: Boolean(values["pretty"]),
-      issue: values["issue"] ?? values["issue-number"] ?? values["issue_number"] ?? "",
-      artifactType: values["artifact-type"] ?? values["artifact_type"] ?? "",
-      repo: values["repo"] ?? "",
+      help: cli.common.help,
+      version: cli.common.version,
+      verbose: cli.common.verbose,
+      full: v["full"] === true,
+      pretty: v["pretty"] === true,
+      issue: ((v["issue"] as string | undefined) ?? (v["issue-number"] as string | undefined) ?? (v["issue_number"] as string | undefined) ?? ""),
+      artifactType: ((v["artifact-type"] as string | undefined) ?? (v["artifact_type"] as string | undefined) ?? ""),
+      repo: ((v["repo"] as string | undefined) ?? ""),
     };
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));

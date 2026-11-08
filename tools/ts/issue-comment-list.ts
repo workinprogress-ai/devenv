@@ -10,13 +10,13 @@
 // (--pretty). bodyPreview truncates at 256 chars with an ellipsis; --full
 // swaps it for the complete body.
 
-import { parseArgs } from "node:util";
-import {basename} from "node:path";
+import { basename } from "node:path";
 import {} from "node:fs";
 
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesComments } from "../lib/providers/facade/issues.ts";
 
@@ -36,13 +36,10 @@ Arguments:
     ISSUE_NUMBER                Issue number to list comments for
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
+${usageCommonFlags({ noDryRun: true })}
     --pretty                    Pretty-print as a JSON array (default: one object per line)
     --full                      Return complete body as "body" field instead of the
                                 256-character "bodyPreview" truncation
-    --devenv                    Safety override to read issues in devenv repo
     --repo OWNER/REPO           Override the target repository
 
 Output Fields (per comment):
@@ -68,24 +65,23 @@ async function main(argv: string[]): Promise<number> {
   let devenv = false;
   let repoOverride = "";
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         pretty: { type: "boolean", default: false },
         full: { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
         repo: { type: "string" },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    pretty = Boolean(values["pretty"]);
-    full = Boolean(values["full"]);
-    devenv = Boolean(values["devenv"]);
-    repoOverride = values["repo"] ?? "";
-    for (const p of positionals) {
+    if (cli.common.help) showUsage();
+    pretty = cli.values["pretty"] === true;
+    full = cli.values["full"] === true;
+    devenv = cli.common.devenv;
+    repoOverride = ((cli.values["repo"] as string | undefined) ?? "");
+    for (const p of cli.positionals) {
       if (issueNumber === "") {
         if (!/^[0-9]+$/.test(p)) {
           logError(`Invalid issue number: ${p}`);
@@ -102,12 +98,6 @@ async function main(argv: string[]): Promise<number> {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");
     return EXIT_GENERAL_ERROR;
-  }
-
-  if (valuesHelp(argv)) showUsage();
-  if (versionFlag(argv)) {
-    console.log(SCRIPT_VERSION);
-    return 0;
   }
 
   if (issueNumber === "") {
@@ -167,13 +157,6 @@ async function main(argv: string[]): Promise<number> {
     for (const item of shaped) console.log(JSON.stringify(item));
   }
   return 0;
-}
-
-function valuesHelp(argv: string[]): boolean {
-  return argv.includes("-h") || argv.includes("--help");
-}
-function versionFlag(argv: string[]): boolean {
-  return argv.includes("-v") || argv.includes("--version");
 }
 
 main(process.argv.slice(2)).then(

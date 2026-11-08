@@ -5,13 +5,13 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsDiff } from "../lib/providers/facade/prs.ts";
 
@@ -35,14 +35,11 @@ Ref mode (local, via git):
     --head HEAD_REF             Head ref
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
+${usageCommonFlags({ noDryRun: true })}
     --name-only                 List changed file paths only (no diff content)
-    --devenv                    Safety override for devenv repo
 
 Environment Variables:
-    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
+${usageEnvBlock()}
 
 Examples:
     ${SCRIPT_NAME} 123
@@ -81,30 +78,23 @@ async function main(argv: string[]): Promise<number> {
   let nameOnly = false;
   let devenv = false;
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         "name-only": { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
         base: { type: "string" },
         head: { type: "string" },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    nameOnly = values["name-only"] === true;
-    devenv = values["devenv"] === true;
-    baseRef = values["base"] ?? "";
-    headRef = values["head"] ?? "";
-    if (positionals.length > 0) prNumber = positionals[0] ?? "";
+    if (cli.common.help) showUsage();
+    nameOnly = cli.values["name-only"] === true;
+    devenv = cli.common.devenv;
+    baseRef = ((cli.values["base"] as string | undefined) ?? "");
+    headRef = ((cli.values["head"] as string | undefined) ?? "");
+    if (cli.positionals.length > 0) prNumber = cli.positionals[0] ?? "";
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");

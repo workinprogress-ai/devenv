@@ -14,7 +14,6 @@
 //   deferred to the interactive polish pass — this port implements the
 //   scripted surface and refuses the wizard without a TTY.
 
-import { parseArgs } from "node:util";
 import { basename, join } from "node:path";
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -23,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesEdit } from "../lib/providers/facade/issues.ts";
 
@@ -38,10 +38,8 @@ function showUsage(): never {
 Interactive issue triage wizard to manage backlog and prepare issues for sprints.
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
+${usageCommonFlags({ noDryRun: true })}
     -m, --milestone NAME        Filter by milestone
-    --devenv                    Safety override to groom issues in devenv repo
 
 CLI Apply Mode:
     ${SCRIPT_NAME} <ISSUE>... [BUNDLE-OPTIONS]
@@ -118,9 +116,11 @@ async function applyIssueBundle(
 async function main(argv: string[]): Promise<number> {
   // Tokenize first: numeric tokens are issues, bare words are misuses, and a
   // flag token unknown to the bundle set is reported as a named error before
-  // parseArgs' generic strictness could reject it.
+  // toolCli's generic strictness could reject it. The house flags (-h/-v/-V,
+  // --devenv) are toolCli's — they belong here so the named-error path and
+  // the shared parser accept the same surface.
   const knownFlags = new Set([
-    "-h", "--help", "-v", "--version", "-m", "--milestone",
+    "-h", "--help", "-v", "--version", "-V", "--verbose", "-m", "--milestone",
     "--title", "--body-file", "--assignee", "--label", "--triage-complete", "--devenv",
   ]);
   for (const tok of argv) {
@@ -135,27 +135,27 @@ async function main(argv: string[]): Promise<number> {
   let milestone = "";
   let devenv = false;
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         milestone: { type: "string", short: "m" },
         title: { type: "string" },
         "body-file": { type: "string" },
         assignee: { type: "string" },
         label: { type: "string", multiple: true },
         "triage-complete": { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    milestone = values["milestone"] ?? "";
-    devenv = Boolean(values["devenv"]);
-    bundle.title = values["title"] === undefined ? undefined : values["title"];
-    bundle.bodyFile = values["body-file"] === undefined ? undefined : values["body-file"];
-    bundle.assignee = values["assignee"] === undefined ? undefined : values["assignee"];
+    if (cli.common.help) showUsage();
+    const values = cli.values as Record<string, string | boolean | string[] | undefined>;
+    milestone = (values["milestone"] as string | undefined) ?? "";
+    devenv = cli.common.devenv;
+    bundle.title = values["title"] === undefined ? undefined : (values["title"] as string);
+    bundle.bodyFile = values["body-file"] === undefined ? undefined : (values["body-file"] as string);
+    bundle.assignee = values["assignee"] === undefined ? undefined : (values["assignee"] as string);
     bundle.triageComplete = Boolean(values["triage-complete"]);
     if (milestone !== "") bundle.milestone = milestone;
     const lv = values["label"];
@@ -163,7 +163,7 @@ async function main(argv: string[]): Promise<number> {
       if (Array.isArray(lv)) bundle.labels.push(...lv.map(String));
       else bundle.labels.push(String(lv));
     }
-    for (const p of positionals) {
+    for (const p of cli.positionals) {
       if (!/^[0-9]+$/.test(p)) {
         logError(`Unknown option: ${p}`);
         console.log("Use --help for usage information");
@@ -175,12 +175,6 @@ async function main(argv: string[]): Promise<number> {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
-  }
-
-  if (argv.includes("-h") || argv.includes("--help")) showUsage();
-  if (argv.includes("-v") || argv.includes("--version")) {
-    console.log(SCRIPT_VERSION);
-    return 0;
   }
 
   checkTargetRepo(devenv);

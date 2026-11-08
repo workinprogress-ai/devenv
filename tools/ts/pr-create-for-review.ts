@@ -14,6 +14,7 @@ import { spawnSync, execFileSync } from "node:child_process";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli } from "../lib/core/cli.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsCreate } from "../lib/providers/facade/prs.ts";
 import { extractUrl } from "../lib/providers/facade/urls.ts";
@@ -63,27 +64,30 @@ async function main(argv: string[]): Promise<number> {
   let repoDirArg = "";
   let firstCommit = "";
   let finalCommit = "";
-  let help = false;
-  let version = false;
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i] ?? "";
-    if (a === "-h" || a === "--help") {
-      help = true;
-    } else if (a === "-v" || a === "--version") {
-      version = true;
-    } else if (description === "") description = a;
-    else if (repoDirArg === "") repoDirArg = a;
-    else if (firstCommit === "") firstCommit = a;
-    else if (finalCommit === "") finalCommit = a;
-    else {
-      console.error(`Error: unexpected argument: ${a}`);
+  try {
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
+      noVersionExit: true,
+    });
+    if (cli.common.help) showUsage();
+    if (cli.values["version"] === true) {
+      console.log(SCRIPT_VERSION);
+      return 0;
+    }
+    if (cli.positionals.length > 4) {
+      console.error(`Error: unexpected argument: ${cli.positionals[4] ?? ""}`);
       return EXIT_MISUSE;
     }
-  }
-  if (help) showUsage();
-  if (version) {
-    console.log(SCRIPT_VERSION);
-    return 0;
+    description = cli.positionals[0] ?? "";
+    repoDirArg = cli.positionals[1] ?? "";
+    firstCommit = cli.positionals[2] ?? "";
+    finalCommit = cli.positionals[3] ?? "";
+  } catch (err) {
+    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    return EXIT_MISUSE;
   }
 
   if (description === "") {

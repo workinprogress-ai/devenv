@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { repoCacheDir } from "../lib/domain/cs/dependency-graph.ts";
 
 assertNodeFloor();
@@ -26,8 +27,7 @@ Options:
     --repo <name>       Repository name in the cache (required)
     --depth N           Deepen history to N commits per branch (default: ${DEFAULT_DEPTH})
     --branch <b>        Fetch branch <b> as a remote ref (repeatable)
-    -h, --help          Show this help message and exit
-    -v, --version       Show version information and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Exit Codes:
     0   Success
@@ -44,40 +44,31 @@ Examples:
 }
 
 const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-if (argv.includes("-v") || argv.includes("--version")) {
-  console.log("1.0.0");
-  process.exit(0);
-}
-
 let repo = "";
 let depth = String(DEFAULT_DEPTH);
 const branches: string[] = [];
-
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  if (a === "--repo") {
-    const v = argv[i + 1];
-    if (v === undefined) { logError("--repo requires a value"); process.exit(EXIT_MISUSE); }
-    repo = v as string;
-    i++;
-  } else if (a.startsWith("--repo=")) repo = a.slice("--repo=".length);
-  else if (a === "--depth") {
-    const v = argv[i + 1];
-    if (v === undefined) { logError("--depth requires a value"); process.exit(EXIT_MISUSE); }
-    depth = v as string;
-    i++;
-  } else if (a.startsWith("--depth=")) depth = a.slice("--depth=".length);
-  else if (a === "--branch") {
-    const v = argv[i + 1];
-    if (v === undefined) { logError("--branch requires a value"); process.exit(EXIT_MISUSE); }
-    branches.push(v as string);
-    i++;
-  } else if (a.startsWith("--branch=")) branches.push(a.slice("--branch=".length));
-  else {
-    logError(`Unknown argument: ${a}. Use --help for usage information.`);
-    process.exit(EXIT_MISUSE);
-  }
+try {
+  const cli = toolCli({
+    name: "repo-cache-deepen",
+    version: "1.0.0",
+    argv,
+    noDryRun: true,
+    options: {
+      repo: { type: "string" },
+      depth: { type: "string" },
+      branch: { type: "string", multiple: true },
+    },
+    allowPositionals: false,
+  });
+  if (cli.common.help) usage();
+  const v = cli.values as Record<string, string | boolean | string[] | undefined>;
+  repo = ((v["repo"] as string | undefined) ?? "");
+  depth = ((v["depth"] as string | undefined) ?? String(DEFAULT_DEPTH));
+  branches.push(...((v["branch"] ?? []) as string[]));
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (repo === "") { logError("--repo is required"); process.exit(EXIT_MISUSE); }

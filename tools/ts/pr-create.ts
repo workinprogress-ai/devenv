@@ -9,7 +9,6 @@
 // --at merge-branch dance, push) are preserved exactly — no "improvements".
 // Scratchpad guard retained.
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -17,7 +16,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { providerRepoTarget, requireRepoTarget, ghApi } from "../lib/providers/provider-core.ts";
+import { toolCli } from "../lib/core/cli.ts";
+import { checkTargetRepo, providerRepoTarget, requireRepoTarget, ghApi } from "../lib/providers/provider-core.ts";
 import { prsCreate, prsList } from "../lib/providers/facade/prs.ts";
 import { issuesView, issuesLabelEnsure } from "../lib/providers/facade/issues.ts";
 import { extractUrl, remoteToSpec } from "../lib/providers/facade/urls.ts";
@@ -95,13 +95,15 @@ async function main(argv: string[]): Promise<number> {
   const reviewers: string[] = [];
   const assignees: string[] = ["@me"];
   const labels: string[] = [];
+  let devenvFlag = false;
 
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         issue: { type: "string" },
         "no-issue": { type: "boolean", default: false },
         "repo-dir": { type: "string" },
@@ -115,34 +117,31 @@ async function main(argv: string[]): Promise<number> {
         label: { type: "string", multiple: true },
         at: { type: "string" },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    issueNumber = values["issue"] ?? "";
+    const values = cli.values as Record<string, string | boolean | string[] | undefined>;
+    issueNumber = ((values["issue"] as string | undefined) ?? "");
     noIssue = values["no-issue"] === true;
-    if (values["repo-dir"] !== undefined) repoDir = values["repo-dir"];
-    sourceBranch = values["branch"] ?? "";
-    targetBranch = values["base"] ?? "";
-    prBody = values["body"] ?? "";
-    bodyFile = values["body-file"] ?? "";
+    const repoDirValue = values["repo-dir"];
+    if (repoDirValue !== undefined) repoDir = String(repoDirValue);
+    sourceBranch = ((values["branch"] as string | undefined) ?? "");
+    targetBranch = ((values["base"] as string | undefined) ?? "");
+    prBody = ((values["body"] as string | undefined) ?? "");
+    bodyFile = ((values["body-file"] as string | undefined) ?? "");
     draft = values["draft"] === true;
-    reviewers.push(...(values["reviewer"] ?? []));
+    reviewers.push(...((values["reviewer"] ?? []) as string[]));
     // Bash parity: --assignee APPENDS to the @me default (ASSIGNEES+=("$2")),
     // so an extra assignee never drops the author from the assignment.
-    assignees.push(...(values["assignee"] ?? []));
-    labels.push(...(values["label"] ?? []));
-    atCommit = values["at"] ?? "";
-    if (positionals.length > 1) {
-      logError(`Unexpected extra arguments: ${positionals.join(" ")}`);
+    assignees.push(...((values["assignee"] ?? []) as string[]));
+    labels.push(...((values["label"] ?? []) as string[]));
+    atCommit = ((values["at"] as string | undefined) ?? "");
+    if (cli.positionals.length > 1) {
+      logError(`Unexpected extra arguments: ${cli.positionals.join(" ")}`);
       return EXIT_MISUSE;
     }
-    prTitle = positionals[0] ?? "";
-    if (values["help"] === true) {
+    prTitle = cli.positionals[0] ?? "";
+    devenvFlag = cli.common.devenv;
+    if (cli.common.help) {
       usage();
-    }
-    if (values["version"] === true) {
-      console.log(SCRIPT_VERSION);
-      process.exit(0);
     }
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
@@ -197,7 +196,9 @@ async function main(argv: string[]): Promise<number> {
   }
 
   // Repo spec: origin remote through the provider URL seam, else the
-  // provider resolver.
+  // provider resolver. The house --devenv flag gates devenv-repo operations
+  // (pr-create pushes branches; the safety override must have real meaning).
+  checkTargetRepo(devenvFlag);
   const originUrl = spawnSync("git", ["-C", repoDir, "remote", "get-url", "origin"], { encoding: "utf8" });
   let repoSpec = originUrl.status === 0 ? ((await remoteToSpec((originUrl.stdout ?? "").trim())) ?? "") : "";
   if (repoSpec === "") repoSpec = requireRepoTarget(providerRepoTarget(""), "pr-create", "pr");

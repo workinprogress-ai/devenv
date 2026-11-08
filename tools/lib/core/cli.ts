@@ -55,11 +55,22 @@ export interface ToolCliOptions {
   /** Caller option table entries; merged over the house table. A caller
    * entry with the same key as a house flag replaces it (tools with
    * tool-specific semantics for a name keep their behavior). */
-  options?: Record<string, { type: "string" | "boolean"; short?: string; default?: string | boolean }>;
+  options?: Record<string, { type: "string" | "boolean"; short?: string; default?: string | boolean; multiple?: boolean }>;
   /** Skip the built-in version printing (a tool with a richer banner). */
   noVersionExit?: boolean;
+  /** Drop the house dry-run flag entirely — for tools whose own -n short
+   * belongs to a non-dry-run flag (e.g. issue-list/issue-search --limit -n).
+   * Without this, two entries claiming -n would make `-n 5` set dry-run
+   * and swallow the value into a positional. */
+  noDryRun?: boolean;
   /** parseArgs strict setting; defaults true like every existing tool. */
   strict?: boolean;
+  /** Whether positional arguments are accepted; defaults true. Tools that
+   * previously parsed with allowPositionals:false must opt out here — a
+   * forced true silently converts their exit-2 stray-argument error into
+   * silent acceptance (a stray flag-like value from a quoting bug would
+   * proceed instead of failing fast). */
+  allowPositionals?: boolean;
   /** Extra argv (defaults to process.argv.slice(2)). */
   argv?: string[];
 }
@@ -76,14 +87,15 @@ export interface ToolCliResult {
  * Side effects: -V wires setLogLevel(LOG_LEVEL_DEBUG); -v prints the
  * version and exits 0 (unless noVersionExit). */
 export function toolCli(opts: ToolCliOptions): ToolCliResult {
-  const merged: Record<string, { type: "string" | "boolean"; short?: string; default?: string | boolean }> = {};
+  const merged: Record<string, { type: "string" | "boolean"; short?: string; default?: string | boolean; multiple?: boolean }> = {};
   for (const [k, v] of Object.entries(HOUSE_OPTIONS)) merged[k] = { ...v };
+  if (opts.noDryRun) delete merged["dry-run"];
   for (const [k, v] of Object.entries(opts.options ?? {})) merged[k] = v;
 
   const { values, positionals } = parseArgs({
     args: opts.argv ?? process.argv.slice(2),
     options: merged,
-    allowPositionals: true,
+    allowPositionals: opts.allowPositionals ?? true,
     strict: opts.strict ?? true,
   });
 
@@ -110,13 +122,27 @@ export function toolCli(opts: ToolCliOptions): ToolCliResult {
 // ---------------------------------------------------------------------------
 
 /** The house Options block: the five common flags, rendered in the
- * suite-wide wording. Tools embed this in their usage text. */
-export function usageCommonFlags(): string {
+ * suite-wide wording. Tools embed this in their usage text. Options:
+ * - `noDryRunShort` renders the dry-run line long-only (the tool carries
+ *   dry-run but its own flag owns the -n short).
+ * - `noDryRun` omits the dry-run line entirely — used together with the
+ *   toolCli noDryRun option: a tool without the flag must not advertise it
+ *   (the advertised flag must parse; an advertised-but-absent flag is a
+ *   usage lie in both the erroring and the silently-ignoring direction).
+ * - `noDevenv` omits the --devenv line (the tool runs no devenv-repo gate;
+ *   advertising the override for a nonexistent gate is decoration — the
+ *   same advertised-must-mean-something rule). */
+export function usageCommonFlags(opts?: { noDryRunShort?: boolean; noDryRun?: boolean; noDevenv?: boolean }): string {
+  const dryRunLine = opts?.noDryRun
+    ? null
+    : opts?.noDryRunShort
+      ? "    --dry-run                   Show what would be done without acting"
+      : "    -n, --dry-run               Show what would be done without acting";
+  const devenvLine = opts?.noDevenv ? null : "    --devenv                    Safety override for devenv-repo operations";
   return `    -h, --help                  Show this help message and exit
     -v, --version               Show version information and exit
     -V, --verbose               Enable verbose output (debug logging)
-    -n, --dry-run               Show what would be done without acting
-    --devenv                    Safety override for devenv-repo operations`;
+${dryRunLine === null ? "" : dryRunLine + "\n"}${devenvLine === null ? "" : devenvLine}`;
 }
 
 /** The shared environment-variables block (DEVENV_REPO contract). */

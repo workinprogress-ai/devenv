@@ -6,7 +6,6 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
 import {basename} from "node:path";
 import {} from "node:fs";
 
@@ -30,7 +29,7 @@ Read-only — use before suggesting labels in triage so only existing labels
 are proposed. Create missing labels with issue-label-create.
 
 Options:
-${usageCommonFlags()}
+${usageCommonFlags({ noDryRun: true })}
     -f, --format FORMAT         Output format: table (default), json, simple
     -s, --search TERM           Filter labels by substring (case-insensitive)
 
@@ -56,6 +55,8 @@ async function main(argv: string[]): Promise<number> {
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv,
+      noDryRun: true,
+      allowPositionals: false,
       options: {
         format: { type: "string", short: "f", default: "table" },
         search: { type: "string", short: "s" },

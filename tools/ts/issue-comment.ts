@@ -11,7 +11,6 @@
 // materializes into the body before posting so the dry-run preview and the
 // real post show the same content.
 
-import { parseArgs } from "node:util";
 import { basename, join } from "node:path";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -20,6 +19,7 @@ import { spawnSync } from "node:child_process";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesComment } from "../lib/providers/facade/issues.ts";
@@ -38,11 +38,7 @@ Arguments:
     ISSUE_NUMBER                Issue number to comment on
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
-    -n, --dry-run               Show what would be done without posting
-    --devenv                    Safety override to comment on devenv repo issues
+${usageCommonFlags()}
 
 Comment Source (one required):
     -b, --body TEXT             Comment text (inline)
@@ -51,7 +47,7 @@ Comment Source (one required):
     -e, --edit                  Open $EDITOR to compose comment
 
 Environment Variables:
-    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
+${usageEnvBlock()}
 
 Examples:
     ${SCRIPT_NAME} 123 --body "Fixed in PR #456"
@@ -75,32 +71,30 @@ interface Parsed {
 
 function parseCliArgs(argv: string[]): { parsed: Parsed; positional: string[] } {
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         "dry-run": { type: "boolean", short: "n", default: false },
-        devenv: { type: "boolean", default: false },
         body: { type: "string", short: "b" },
         "body-file": { type: "string", short: "f" },
         edit: { type: "boolean", short: "e", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
+    if (cli.common.help) showUsage();
     return {
       parsed: {
-        help: Boolean(values["help"]),
-        version: Boolean(values["version"]),
-        dryRun: Boolean(values["dry-run"]),
-        devenv: Boolean(values["devenv"]),
+        help: cli.common.help,
+        version: cli.common.version,
+        dryRun: cli.common.dryRun,
+        devenv: cli.common.devenv,
         issue: "",
-        body: values["body"] ?? "",
-        bodyFile: values["body-file"] ?? "",
-        edit: Boolean(values["edit"]),
+        body: ((cli.values["body"] as string | undefined) ?? ""),
+        bodyFile: ((cli.values["body-file"] as string | undefined) ?? ""),
+        edit: cli.values["edit"] === true,
       },
-      positional: positionals,
+      positional: cli.positionals,
     };
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
@@ -173,7 +167,6 @@ async function main(argv: string[]): Promise<number> {
   }
 
   let body = "";
-  let bodyFile = "";
   if (sources === 1) {
     // Single explicit source: resolve through the shared resolver so the
     // '-' and file legs carry the uniform empty refusal. --edit keeps its
