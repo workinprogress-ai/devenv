@@ -7,14 +7,13 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
-
 import { basename } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadCreate, prsView } from "../lib/providers/facade/prs.ts";
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
@@ -42,15 +41,14 @@ Options:
     -l, --line N                Line number in the file (on the chosen side)
     -s, --side SIDE             Which side of the diff the line is on:
                                 RIGHT (new file content, default) or LEFT
-    -n, --dry-run               Show what would be posted without posting
-    --devenv                    Safety override for devenv repo PRs
+${usageCommonFlags()}
 
 Comment Source (one required):
     -b, --body TEXT             Comment text (inline)
     -F, --body-file FILE        Read comment from file
 
 Environment Variables:
-    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
+${usageEnvBlock()}
 
 Examples:
     ${SCRIPT_NAME} 123 --file src/Service.cs --line 42 --body "Null check missing"
@@ -74,36 +72,28 @@ async function main(argv: string[]): Promise<number> {
   let dryRun = false;
   let devenv = false;
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         "dry-run": { type: "boolean", short: "n", default: false },
-        devenv: { type: "boolean", default: false },
         file: { type: "string", short: "f" },
         line: { type: "string", short: "l" },
         side: { type: "string", short: "s" },
         body: { type: "string", short: "b" },
         "body-file": { type: "string", short: "F" },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    dryRun = values["dry-run"] === true;
-    devenv = values["devenv"] === true;
-    filePath = values["file"] ?? "";
-    lineNumber = values["line"] ?? "";
-    side = (values["side"] ?? "RIGHT").toUpperCase();
-    bodyText = values["body"] ?? "";
-    bodyFile = values["body-file"] ?? "";
-    if (positionals.length > 0) prNumber = positionals[0] ?? "";
+    if (cli.common.help) showUsage();
+    dryRun = cli.common.dryRun;
+    devenv = cli.common.devenv;
+    filePath = ((cli.values["file"] as string | undefined) ?? "");
+    lineNumber = ((cli.values["line"] as string | undefined) ?? "");
+    side = (((cli.values["side"] as string | undefined) ?? "RIGHT")).toUpperCase();
+    bodyText = ((cli.values["body"] as string | undefined) ?? "");
+    bodyFile = ((cli.values["body-file"] as string | undefined) ?? "");
+    if (cli.positionals.length > 0) prNumber = cli.positionals[0] ?? "";
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");

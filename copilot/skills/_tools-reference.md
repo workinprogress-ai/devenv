@@ -29,7 +29,7 @@ the backing CLI is an implementation detail that may change.
 - Repo targeting for issue/artifact wrappers — env-prefix or cwd resolution;
   see the protocol reference for the resolution order.
 
-Tools that ingest a markdown body (`issue-artifact-upsert`, `issue-comment`, `issue-comment-update`, `issue-create`, `issue-update`, `pr-comment`, `pr-thread-reply`) resolve their body through ONE shared implementation: `resolveBodySource` in `tools/lib/core/body-source.ts` (the per-tool local copies and the historical `tools/lib/body-source.bash` are retired):
+Tools that ingest a markdown body (`issue-artifact-upsert`, `issue-comment`, `issue-comment-update`, `issue-create`, `issue-update`, `pr-comment`, `pr-thread-reply`) resolve their body through ONE shared implementation: `resolveBodySource` in `tools/lib/core/body-source.ts`:
 
 - **Source flags:** `--body TEXT` or `--body-file FILE` — exactly one. Giving both is an error.
 - **stdin via `-`:** `--body-file -` reads the body from stdin (decision: a literal file named `-` is unreachable through this flag; use `--body` for such content).

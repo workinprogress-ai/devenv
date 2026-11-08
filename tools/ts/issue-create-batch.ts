@@ -12,7 +12,6 @@
 // The manifest reader is a bounded YAML-subset parser covering the documented
 // schema (maps, lists of maps, flow arrays, block scalars, quoted scalars).
 
-import { parseArgs } from "node:util";
 import { basename, join } from "node:path";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -20,7 +19,8 @@ import { tmpdir } from "node:os";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logDebug, logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { issueNumberFromRef } from "../lib/domain/issues/refs.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { childOfMapFromConfig, issueNumberFromRef } from "../lib/domain/issues/refs.ts";
 import { spawnSync } from "node:child_process";
 
 assertNodeFloor();
@@ -43,11 +43,8 @@ Input (choose one):
         -f, --file FILE             Path to YAML/JSON manifest (advanced mode)
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
+${usageCommonFlags({ noDevenv: true })}
         --create                    Create issues (default is preview only)
-    -n, --dry-run               Alias for preview mode
     --continue-on-error         Continue creating remaining issues after a failure
         --type TYPE                 Default issue type
     --parent ISSUE_NUM          Default parent issue number for items missing parent
@@ -479,7 +476,7 @@ function previewBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry 
   // 15.15: flag child_of placement violations in the preview (static
   // config check — the authoritative rejection happens inside issue-create
   // at create time, resolving the parent's live type).
-  const childOf = childOfMapFrom(
+  const childOf = childOfMapFromConfig(
     process.env.ISSUES_CONFIG ?? join(TOOLS_ROOT, "config", "issues-config.yml"),
   );
   for (let index = 0; index < count; index++) {
@@ -500,34 +497,9 @@ function previewBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry 
   return 0;
 }
 
-/** The type -> allowed-parent-types map from an issues-config.yml (the
- * static preview check; issue-create's create-time check is authoritative). */
-function childOfMapFrom(path: string): Map<string, string[]> {
-  const map = new Map<string, string[]>();
-  let inTypes = false;
-  let current = "";
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (/^types:\s*$/.test(line)) {
-      inTypes = true;
-      continue;
-    }
-    if (inTypes && /^\S/.test(line) && !/^types:/.test(line)) inTypes = false;
-    if (!inTypes) continue;
-    const name = /^\s*-\s*name:\s*(.+)$/.exec(line);
-    if (name?.[1] !== undefined) {
-      current = name[1].replace(/^["']|["']$/g, "").trim();
-      continue;
-    }
-    const list = /^\s*child_of:\s*\[(.*)\]/.exec(line);
-    if (list?.[1] !== undefined) {
-      map.set(
-        current,
-        list[1].split(",").map((x) => x.replace(/^["'\s]+|["'\s]+$/g, "")).filter((x) => x !== ""),
-      );
-    }
-  }
-  return map;
-}
+// The type -> allowed-parent-types map comes from the shared refs module
+// (one parser for the static preview check and issue-create's create-time
+// check — inline and block child_of forms both handled there).
 
 function createBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry | null, count: number): number {
   let created = 0;
@@ -597,12 +569,12 @@ function createBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry |
 // --- Main ---------------------------------------------------------------------
 
 async function main(argv: string[]): Promise<number> {
-  const { values } = parseArgs({
-    args: argv,
+  const cli = toolCli({
+    name: SCRIPT_NAME,
+    version: SCRIPT_VERSION,
+    argv,
+    allowPositionals: false,
     options: {
-      help: { type: "boolean", short: "h", default: false },
-      version: { type: "boolean", short: "v", default: false },
-      verbose: { type: "boolean", short: "V", default: false },
       create: { type: "boolean", default: false },
       "dry-run": { type: "boolean", short: "n", default: false },
       "continue-on-error": { type: "boolean", default: false },
@@ -618,18 +590,13 @@ async function main(argv: string[]): Promise<number> {
       file: { type: "string", short: "f" },
       issue: { type: "string", short: "i", multiple: true },
     },
-    allowPositionals: false,
-    strict: true,
   });
+  const values = cli.values as Record<string, string | boolean | string[] | undefined>;
 
-  if (values["help"]) showUsage();
-  if (values["version"]) {
-    console.log(SCRIPT_VERSION);
-    return 0;
-  }
+  if (cli.common.help) showUsage();
 
-  const manifestFile = values["file"] ?? "";
-  const issueEntries = values["issue"] ?? [];
+  const manifestFile = ((values["file"] as string | undefined) ?? "");
+  const issueEntries = (values["issue"] ?? []) as string[];
 
   if (manifestFile !== "" && issueEntries.length > 0) {
     logError("Use either --file or --issue, not both");
@@ -639,22 +606,22 @@ async function main(argv: string[]): Promise<number> {
     logError("Provide input via --issue (repeatable) or --file");
     return EXIT_GENERAL_ERROR;
   }
-  const defaultBodyFile = values["body-file"] ?? "";
+  const defaultBodyFile = ((values["body-file"] as string | undefined) ?? "");
   if (defaultBodyFile !== "" && !existsSync(defaultBodyFile)) {
     logError(`Default body file not found: ${defaultBodyFile}`);
     return EXIT_GENERAL_ERROR;
   }
 
   const cliDefaults: Defaults = {
-    type: values["type"] ?? "",
-    parent: values["parent"] ?? "",
-    milestone: values["milestone"] ?? "",
-    project: values["project"] ?? "",
-    body: values["body"] ?? "",
+    type: ((values["type"] as string | undefined) ?? ""),
+    parent: ((values["parent"] as string | undefined) ?? ""),
+    milestone: ((values["milestone"] as string | undefined) ?? ""),
+    project: ((values["project"] as string | undefined) ?? ""),
+    body: ((values["body"] as string | undefined) ?? ""),
     bodyFile: defaultBodyFile,
-    labels: values["label"] ?? [],
-    assignees: values["assignee"] ?? [],
-    blockedBy: values["blocked-by"] ?? [],
+    labels: (values["label"] ?? []) as string[],
+    assignees: (values["assignee"] ?? []) as string[],
+    blockedBy: (values["blocked-by"] ?? []) as string[],
   };
 
   const entries: ParsedEntry[] = [];
@@ -732,7 +699,7 @@ async function main(argv: string[]): Promise<number> {
   };
   const count = mode === "fast" ? fastEntries.length : entries.length;
 
-  const createMode = values["create"] === true && values["dry-run"] !== true;
+  const createMode = values["create"] === true && cli.common.dryRun !== true;
   const tempDir = mkdtempSync(join(tmpdir(), "issue-create-batch."));
   const ctx: BatchCtx = {
     defaults: manifestDefaults,

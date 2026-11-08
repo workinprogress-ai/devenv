@@ -16,7 +16,7 @@
 // The candidate list comes from issue-artifact-list's enumeration logic,
 // invoked in-process (same tree, no shell-out).
 
-import { parseArgs } from "node:util";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { basename } from "node:path";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT, EXIT_API_FAILURE, EXIT_AMBIGUITY } from "../lib/core/exit-codes.ts";
@@ -47,9 +47,7 @@ Options:
     -f, --format FORMAT           Output format: json, doc-id, comment-id, url (default: json)
     --pretty                      Pretty-print JSON output
     --repo OWNER/REPO             Repository override (defaults to DEVENV_REPO)
-    -V, --verbose                 Enable verbose logs
-    -h, --help                    Show help and exit
-    -v, --version                 Show version and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Selection rules:
     1) If --doc-id is provided, select that exact artifact.
@@ -78,12 +76,13 @@ interface Parsed {
 
 function parseCliArgs(argv: string[]): Parsed {
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
+      allowPositionals: false,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         issue: { type: "string" },
         "issue-number": { type: "string" },
         "issue_number": { type: "string" },
@@ -96,19 +95,19 @@ function parseCliArgs(argv: string[]): Parsed {
         pretty: { type: "boolean", default: false },
         repo: { type: "string" },
       },
-      allowPositionals: false,
-      strict: true,
     });
+    if (cli.common.help) showUsage();
+    const v = cli.values as Record<string, string | boolean | undefined>;
     return {
-      help: Boolean(values["help"]),
-      version: Boolean(values["version"]),
-      issue: values["issue"] ?? values["issue-number"] ?? values["issue_number"] ?? "",
-      artifactType: values["artifact-type"] ?? values["artifact_type"] ?? "",
-      docId: values["doc-id"] ?? values["doc_id"] ?? "",
-      latest: Boolean(values["latest"]),
-      format: values["format"] ?? "json",
-      pretty: Boolean(values["pretty"]),
-      repo: values["repo"] ?? "",
+      help: cli.common.help,
+      version: cli.common.version,
+      issue: ((v["issue"] as string | undefined) ?? (v["issue-number"] as string | undefined) ?? (v["issue_number"] as string | undefined) ?? ""),
+      artifactType: ((v["artifact-type"] as string | undefined) ?? (v["artifact_type"] as string | undefined) ?? ""),
+      docId: ((v["doc-id"] as string | undefined) ?? (v["doc_id"] as string | undefined) ?? ""),
+      latest: v["latest"] === true,
+      format: ((v["format"] as string | undefined) ?? "json"),
+      pretty: v["pretty"] === true,
+      repo: ((v["repo"] as string | undefined) ?? ""),
     };
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));

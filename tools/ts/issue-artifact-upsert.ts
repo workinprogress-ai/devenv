@@ -14,7 +14,7 @@
 // Interactive .local-artifacts picking is a TTY-only flow (D1); the non-TTY
 // path requires an explicit source or piped stdin.
 
-import { parseArgs } from "node:util";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { basename, join } from "node:path";
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -55,6 +55,7 @@ Options:
     -V, --verbose                 Enable verbose logs
     -h, --help                    Show help and exit
     -v, --version                 Show version and exit
+    --devenv                      Safety override for devenv-repo operations
 
 Behavior:
     1) Read comment body from --body or --body-file
@@ -96,15 +97,14 @@ interface Parsed {
 
 function parseCliArgs(argv: string[]): Parsed {
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      allowPositionals: false,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         "dry-run": { type: "boolean", short: "n", default: false },
         "no-stamp": { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
         all: { type: "boolean", default: false },
         issue: { type: "string" },
         "issue-number": { type: "string" },
@@ -114,20 +114,20 @@ function parseCliArgs(argv: string[]): Parsed {
         "body_file": { type: "string" },
         repo: { type: "string" },
       },
-      allowPositionals: false,
-      strict: true,
     });
+    if (cli.common.help) showUsage();
+    const v = cli.values as Record<string, string | boolean | undefined>;
     return {
-      help: Boolean(values["help"]),
-      version: Boolean(values["version"]),
-      issue: values["issue"] ?? values["issue-number"] ?? values["issue_number"] ?? "",
-      body: values["body"] ?? "",
-      bodyFile: values["body-file"] ?? values["body_file"] ?? "",
-      repo: values["repo"] ?? "",
-      dryRun: Boolean(values["dry-run"]),
-      noStamp: Boolean(values["no-stamp"]),
-      devenv: Boolean(values["devenv"]),
-      all: Boolean(values["all"]),
+      help: cli.common.help,
+      version: cli.common.version,
+      issue: ((v["issue"] as string | undefined) ?? (v["issue-number"] as string | undefined) ?? (v["issue_number"] as string | undefined) ?? ""),
+      body: ((v["body"] as string | undefined) ?? ""),
+      bodyFile: ((v["body-file"] as string | undefined) ?? (v["body_file"] as string | undefined) ?? ""),
+      repo: ((v["repo"] as string | undefined) ?? ""),
+      dryRun: cli.common.dryRun,
+      noStamp: v["no-stamp"] === true,
+      devenv: cli.common.devenv,
+      all: v["all"] === true,
     };
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));

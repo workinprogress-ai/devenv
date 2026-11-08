@@ -11,7 +11,7 @@
 // issue-operations.bash's (normalize_doc_id_slug/repo, generate_artifact_
 // doc_id), including the implementation-plan → plan canonicalization.
 
-import { parseArgs } from "node:util";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { basename } from "node:path";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -46,9 +46,7 @@ Slug Source (exactly one required):
 
 Optional:
   --repo OWNER/REPO            Override repository (default: DEVENV_REPO or current git repo)
-  -V, --verbose                Enable verbose logging
-  -h, --help                   Show help
-  -v, --version                Show version
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Examples:
   ${SCRIPT_NAME} --issue 123 --artifact-type spike --slug "retry strategy"
@@ -124,12 +122,13 @@ interface Parsed {
 function parseCliArgs(argv: string[]): Parsed {
   let parsed: Parsed;
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
+      allowPositionals: false,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         issue: { type: "string" },
         "issue-number": { type: "string" },
         "issue_number": { type: "string" },
@@ -140,18 +139,17 @@ function parseCliArgs(argv: string[]): Parsed {
         "source_file": { type: "string" },
         repo: { type: "string" },
       },
-      allowPositionals: false,
-      strict: true,
     });
+    const v = cli.values as Record<string, string | boolean | undefined>;
     parsed = {
-      help: Boolean(values["help"]),
-      version: Boolean(values["version"]),
-      verbose: Boolean(values["verbose"]),
-      issue: values["issue"] ?? values["issue-number"] ?? values["issue_number"] ?? "",
-      artifactType: values["artifact-type"] ?? values["artifact_type"] ?? "",
-      slug: values["slug"] ?? "",
-      sourceFile: values["source-file"] ?? values["source_file"] ?? "",
-      repo: values["repo"] ?? "",
+      help: cli.common.help,
+      version: cli.common.version,
+      verbose: cli.common.verbose,
+      issue: ((v["issue"] as string | undefined) ?? (v["issue-number"] as string | undefined) ?? (v["issue_number"] as string | undefined) ?? ""),
+      artifactType: ((v["artifact-type"] as string | undefined) ?? (v["artifact_type"] as string | undefined) ?? ""),
+      slug: ((v["slug"] as string | undefined) ?? ""),
+      sourceFile: ((v["source-file"] as string | undefined) ?? (v["source_file"] as string | undefined) ?? ""),
+      repo: ((v["repo"] as string | undefined) ?? ""),
     };
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));

@@ -5,12 +5,12 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
 import { prsList } from "../lib/providers/facade/prs.ts";
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
@@ -28,12 +28,9 @@ function showUsage(): never {
 List and filter GitHub pull requests. Output is JSON by default.
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
+${usageCommonFlags({ noDryRun: true })}
     --pretty                    Pretty-print JSON output
     --table                     Output as a human-readable table
-    --devenv                    Safety override for devenv repo
 
 Filters:
     -s, --state STATE           PR state: open, closed, merged, all (default: open)
@@ -44,7 +41,7 @@ Filters:
     --limit N                   Max number of PRs to return (default: 30)
 
 Environment Variables:
-    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
+${usageEnvBlock()}
 
 Examples:
     # All open PRs (JSON)
@@ -69,15 +66,15 @@ async function main(argv: string[]): Promise<number> {
   let outputFormat = "json";
   let devenv = false;
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
+      allowPositionals: false,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         pretty: { type: "boolean", default: false },
         table: { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
         state: { type: "string", short: "s" },
         author: { type: "string", short: "a" },
         label: { type: "string", short: "l" },
@@ -85,23 +82,18 @@ async function main(argv: string[]): Promise<number> {
         head: { type: "string" },
         limit: { type: "string" },
       },
-      allowPositionals: false,
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    if (values["table"]) outputFormat = "table";
-    if (values["pretty"]) outputFormat = "pretty";
-    devenv = values["devenv"] === true;
-    state = values["state"] ?? "open";
-    author = values["author"] ?? "";
-    label = values["label"] ?? "";
-    baseBranch = values["base"] ?? "";
-    headBranch = values["head"] ?? "";
-    limit = values["limit"] ?? "30";
+    if (cli.common.help) showUsage();
+    const values = cli.values as Record<string, string | boolean | undefined>;
+    if (values["table"] === true) outputFormat = "table";
+    if (values["pretty"] === true) outputFormat = "pretty";
+    devenv = cli.common.devenv;
+    state = ((values["state"] as string | undefined) ?? "open");
+    author = ((values["author"] as string | undefined) ?? "");
+    label = ((values["label"] as string | undefined) ?? "");
+    baseBranch = ((values["base"] as string | undefined) ?? "");
+    headBranch = ((values["head"] as string | undefined) ?? "");
+    limit = ((values["limit"] as string | undefined) ?? "30");
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");

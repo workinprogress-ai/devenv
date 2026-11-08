@@ -5,13 +5,13 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 import {} from "node:fs";
 
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesView } from "../lib/providers/facade/issues.ts";
 
@@ -28,13 +28,10 @@ Retrieve a GitHub issue's details as structured JSON.
 Arguments:
     ISSUE_NUMBER                Issue number to retrieve
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
+${usageCommonFlags({ noDryRun: true })}
     --pretty                    Pretty-print JSON output (default: compact)
     --format FIELD              Print one field as raw text (title, body, state,
                                 url, number, author, labels) — replaces jq -r pipelines
-    --devenv                    Safety override to read issues in devenv repo
 
 Examples:
     ${SCRIPT_NAME} 123
@@ -51,22 +48,21 @@ async function main(argv: string[]): Promise<number> {
   let formatField = "";
   let devenv = false;
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         pretty: { type: "boolean", default: false },
         format: { type: "string" },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    pretty = Boolean(values["pretty"]);
-    formatField = values["format"] ?? "";
-    devenv = Boolean(values["devenv"]);
-    for (const p of positionals) {
+    if (cli.common.help) showUsage();
+    pretty = Boolean(cli.values["pretty"]);
+    formatField = (cli.values["format"] as string | undefined) ?? "";
+    devenv = cli.common.devenv;
+    for (const p of cli.positionals) {
       if (issueNumber === "") {
         if (!/^[0-9]+$/.test(p)) {
           logError(`Invalid issue number: ${p}`);
@@ -83,12 +79,6 @@ async function main(argv: string[]): Promise<number> {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
-  }
-
-  if (argv.includes("-h") || argv.includes("--help")) showUsage();
-  if (argv.includes("-v") || argv.includes("--version")) {
-    console.log(SCRIPT_VERSION);
-    return 0;
   }
 
   if (issueNumber === "") {

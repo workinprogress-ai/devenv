@@ -9,12 +9,12 @@
 // from that date. Any other name under review/ is left untouched, reported,
 // and makes the run exit non-zero.
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
@@ -34,9 +34,7 @@ Arguments:
     DAYS_OLD    Age threshold in days (default: 30)
 
 Options:
-    --dry-run   Print which branches would be deleted; delete nothing
-    -h, --help  Show this help and exit
-    -v, --version  Show version information and exit`);
+${usageCommonFlags({ noDevenv: true })}`);
   process.exit(0);
 }
 
@@ -44,29 +42,20 @@ function main(argv: string[]): number {
   let dryRun = false;
   let positionals: string[] = [];
   try {
-    const { values, positionals: pos } = parseArgs({
-      args: argv,
-      options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        "dry-run": { type: "boolean", default: false },
-      },
-      allowPositionals: true,
-      strict: true,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
     });
-    dryRun = values["dry-run"] === true;
-    positionals = pos;
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
+    dryRun = cli.common.dryRun;
+    positionals = cli.positionals;
+    if (cli.common.help) showUsage();
   } catch (err) {
     console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
     return EXIT_MISUSE;
   }
 
-  // parseArgs' own positionals (a `-`-leading REPO_DIR stays a positional;
+  // toolCli's positionals (a `-`-leading REPO_DIR stays a positional;
   // a hand-rolled startsWith("-") filter would misread it as a flag).
   if (positionals.length > 2) {
     console.error("Error: Too many arguments (expected [REPO_DIR] [DAYS_OLD])");

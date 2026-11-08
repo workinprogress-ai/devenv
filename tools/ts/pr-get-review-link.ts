@@ -6,12 +6,12 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli } from "../lib/core/cli.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsList } from "../lib/providers/facade/prs.ts";
 
@@ -30,23 +30,20 @@ Arguments:
     REPO_DIR    Repository path (default: current directory)
 
 Options:
-    -h, --help  Show this help and exit`);
+    -h, --help  Show this help and exit
+    -v, --version  Show version information and exit`);
   process.exit(0);
 }
 
 async function main(argv: string[]): Promise<number> {
   try {
-    const { values } = parseArgs({
-      args: argv,
-      options: { help: { type: "boolean", short: "h", default: false }, version: { type: "boolean", short: "v", default: false } },
-      allowPositionals: true,
-      strict: true,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
+    if (cli.common.help) showUsage();
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));
     return EXIT_GENERAL_ERROR;

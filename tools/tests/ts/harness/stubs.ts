@@ -1,5 +1,5 @@
-// harness/stubs.ts — PATH-stub factories (the audit's F004: 25 per-suite
-// installGhStub copies unified; cli-stubs.bash semantics absorbed per the
+// harness/stubs.ts — PATH-stub factories (the 25 per-suite installGhStub
+// copies unified; cli-stubs.bash semantics absorbed per the
 // bats-retirement phase).
 //
 // Every stub is mode-driven shell the suite writes; the factory owns only

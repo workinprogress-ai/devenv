@@ -1,5 +1,6 @@
-// refs.ts — shared issue-reference parsing (the audit's F010: byte-identical
-// per-tool copies unified). Lives beside the issues-graph domain module.
+// refs.ts — shared issue-reference parsing (byte-identical per-tool copies
+// unified here so the parsers cannot drift). Lives beside the issues-graph
+// domain module.
 //
 // The child_of parser is YAML-structure-aware (ported from the per-tool
 // copies): it walks the issues-config's types list, tracking each `- name:`
@@ -56,6 +57,13 @@ export function childOfMapFrom(content: string): Map<string, string[]> {
       const item = map.get(current) ?? [];
       item.push(line.replace(/^\s*-\s*/, "").replace(/^["']|["']$/g, "").trim());
       map.set(current, item);
+      continue;
+    }
+    // Terminator: a non-item line ends the block list — without this, a
+    // sibling list field under the same record (`labels:` with `- item`
+    // lines) bleeds its items into child_of.
+    if (inChildOf && /^\s*\S/.test(line)) {
+      inChildOf = false;
       continue;
     }
   }

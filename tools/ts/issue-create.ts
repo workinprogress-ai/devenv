@@ -13,7 +13,6 @@
 // The interactive editor/template picker surface needs a TTY and is refused
 // with named errors under automation.
 
-import { parseArgs } from "node:util";
 import { basename, join } from "node:path";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logDebug, logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
@@ -46,8 +46,8 @@ Create a new GitHub issue with labels, assignees, and project assignment.
 Options:
     -h, --help                  Show this help message and exit
     -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
-    -n, --dry-run               Show what would be done without creating issue
+    -V, --verbose               Enable verbose output (debug logging)
+    -n, --dry-run               Show what would be done without acting
 
 Optional Flags:
     --devenv                    Allow creating issues in devenv repo itself (safety override)
@@ -73,7 +73,7 @@ Optional:
                                 used as-is when a template is selected)
 
 Environment Variables:
-    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
+${usageEnvBlock()}
 
 Examples:
     ${s} --title "Quick bug" --type Bug --body "Something is broken"
@@ -249,7 +249,6 @@ function parseParentRef(raw: string): ParentRef | null {
   return null;
 }
 
-/** Bare id (Azure shape) or the trailing number of an issue/work-item URL. */
 function checkAuth(): void {
   if (ghApiSync(["auth", "status"], { tolerateFailure: true }).status !== 0) {
     logError("Not authenticated with the active provider");
@@ -415,14 +414,13 @@ async function createIssue(st: CreateState): Promise<number> {
 // --- Main -------------------------------------------------------------------
 
 async function main(argv: string[]): Promise<number> {
-  const { values } = parseArgs({
-    args: argv,
+  const cli = toolCli({
+    name: SCRIPT_NAME,
+    version: SCRIPT_VERSION,
+    argv,
+    allowPositionals: false,
     options: {
-      help: { type: "boolean", short: "h", default: false },
-      version: { type: "boolean", short: "v", default: false },
-      verbose: { type: "boolean", short: "V", default: false },
       "dry-run": { type: "boolean", short: "n", default: false },
-      devenv: { type: "boolean", default: false },
       title: { type: "string", short: "t" },
       body: { type: "string", short: "b" },
       "body-file": { type: "string", short: "f" },
@@ -438,23 +436,18 @@ async function main(argv: string[]): Promise<number> {
       "no-template": { type: "boolean", default: false },
       "no-interactive": { type: "boolean", default: false },
     },
-    allowPositionals: false,
-    strict: true,
   });
+  const values = cli.values as Record<string, string | boolean | string[] | undefined>;
 
-  if (values["help"]) showUsage();
-  if (values["version"]) {
-    console.log(SCRIPT_VERSION);
-    return 0;
-  }
+  if (cli.common.help) showUsage();
 
-  let title = values["title"] ?? "";
+  let title = ((values["title"] as string | undefined) ?? "");
   let body = "";
   const labels = values["label"] ?? [];
   const assignees = values["assignee"] ?? [];
   const blockedBy = values["blocked-by"] ?? [];
-  const issueType = values["type"] ?? "";
-  const useEditor = !values["no-interactive"];
+  const issueType = ((values["type"] as string | undefined) ?? "");
+  const useEditor = values["no-interactive"] !== true;
   const useTemplate = values["template"] !== undefined || values["select-template"] === true;
 
   // --body / --body-file go through the shared body-source resolver (one
@@ -462,7 +455,7 @@ async function main(argv: string[]): Promise<number> {
   // interactive outcome is issue-create's own: no flags + TTY means the
   // template picker (further down), never an auto-read.
   if (values["body"] !== undefined || values["body-file"] !== undefined) {
-    const resolved = resolveBodySource({ text: values["body"], file: values["body-file"] });
+    const resolved = resolveBodySource({ text: values["body"] as string | undefined, file: values["body-file"] as string | undefined });
     if (!resolved.ok) {
       logError(resolved.error.message);
       // A missing --body-file was always a usage error (exit 2) in this
@@ -478,7 +471,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   checkAuth();
-  checkTargetRepo(values["devenv"] === true);
+  checkTargetRepo(cli.common.devenv);
   probeTargetRepo();
 
   // 15.15 placement validation: --parent must satisfy the requested type's
@@ -562,7 +555,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (useTemplate) {
-    let templateFile = values["template"] ?? "";
+    let templateFile = ((values["template"] as string | undefined) ?? "");
     if (templateFile === "") {
       templateFile = selectTemplateInteractive(join(process.cwd(), ".github", "ISSUE_TEMPLATE")) ?? "";
     }
@@ -614,14 +607,14 @@ async function main(argv: string[]): Promise<number> {
     title,
     body,
     type: issueType,
-    labels,
-    assignees,
-    milestone: values["milestone"] ?? "",
-    project: values["project"] ?? "",
-    parent: parentRef === null ? values["parent"] : String(parentRef.number),
+    labels: labels as string[],
+    assignees: assignees as string[],
+    milestone: ((values["milestone"] as string | undefined) ?? ""),
+    project: ((values["project"] as string | undefined) ?? ""),
+    parent: parentRef === null ? ((values["parent"] as string | undefined) ?? "") : String(parentRef.number),
     parentSpec: parentRef?.repoSpec,
-    blockedBy,
-    dryRun: values["dry-run"] === true,
+    blockedBy: blockedBy as string[],
+    dryRun: cli.common.dryRun,
   });
 }
 

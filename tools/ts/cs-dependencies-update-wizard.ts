@@ -7,6 +7,7 @@
 // facade's pipelines verbs), and refresh the repo cache.
 
 import { spawnSync } from "node:child_process";
+import { requireCommandOrExit } from "../lib/core/commands.ts";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,14 +70,6 @@ Exit Codes:
     2   Invalid arguments
     3   Directory not found`);
   process.exit(0);
-}
-
-function requireCommand(cmd: string): void {
-  const r = spawnSync("bash", ["-c", `command -v ${cmd}`], { stdio: "ignore" });
-  if (r.status !== 0) {
-    logError(`required command not found: ${cmd}`);
-    process.exit(EXIT_GENERAL_ERROR);
-  }
 }
 
 // ── Prompt helpers (/dev/tty contract preserved: prompts read the terminal,
@@ -385,10 +378,10 @@ function runSingleRepoWizard(args: WizardArgs, repoDir: string): number {
 }
 
 async function main(): Promise<void> {
-  requireCommand("git");
-  requireCommand("jq");
-  requireCommand("dotnet");
-  requireCommand("dotnet-outdated");
+  requireCommandOrExit("git", undefined, EXIT_GENERAL_ERROR);
+  requireCommandOrExit("jq", undefined, EXIT_GENERAL_ERROR);
+  requireCommandOrExit("dotnet", undefined, EXIT_GENERAL_ERROR);
+  requireCommandOrExit("dotnet-outdated", undefined, EXIT_GENERAL_ERROR);
 
   const args = parseArgs_main();
   let rootRepo = "";

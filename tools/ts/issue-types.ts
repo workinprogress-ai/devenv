@@ -9,12 +9,12 @@
 // Read-only: used when setting up or verifying the native issue-type
 // vocabulary (tools/config/issues-config.yml: Bug, Feature, Task, Epic).
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { orgIssueTypes } from "../lib/providers/facade/issues.ts";
 
@@ -31,14 +31,10 @@ Read-only — used when setting up or verifying the native issue-type vocabulary
 (mirrors tools/config/issues-config.yml: Bug, Feature, Task, Epic).
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     -f, --format FORMAT         Output format: table (default), json, simple
 
-Environment Variables:
-    DEVENV_REPO                 Repository override in owner/repo form (the
-                                single repo-targeting env var)
+${usageEnvBlock()}
 
 Examples:
     ${SCRIPT_NAME}
@@ -65,21 +61,18 @@ function resolveOrg(): string {
 async function main(argv: string[]): Promise<number> {
   let format = "table";
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
+      allowPositionals: false,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         format: { type: "string", short: "f", default: "table" },
       },
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    format = values["format"] ?? "table";
+    if (cli.common.help) showUsage();
+    format = ((cli.values["format"] as string | undefined) ?? "table");
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");

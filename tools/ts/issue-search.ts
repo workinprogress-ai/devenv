@@ -10,13 +10,12 @@
 // Matching is substring (lowercased contains), not regex — metacharacters
 // in terms match literally, no escaping hazards (the bash port's contract).
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
-import {} from "node:fs";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { normalizeIssueType } from "../lib/domain/issues/types.ts";
 import { issuesList } from "../lib/providers/facade/issues.ts";
@@ -52,6 +51,7 @@ Output:
     -f, --format FORMAT         table (default), json, simple
     -n, --limit NUMBER          Maximum results (default: 30)
     --fetch-limit N             Issues to fetch before ranking (default: 200)
+${usageCommonFlags({ noDryRun: true })}
 
 Examples:
     ${SCRIPT_NAME} token expiry
@@ -74,11 +74,12 @@ async function main(argv: string[]): Promise<number> {
 
   // Terms are the positionals after the options; `--` handling is native.
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         state: { type: "string", short: "s", default: "all" },
         type: { type: "string", short: "t" },
         label: { type: "string", short: "l" },
@@ -87,13 +88,12 @@ async function main(argv: string[]): Promise<number> {
         format: { type: "string", short: "f", default: "table" },
         limit: { type: "string", short: "n", default: "30" },
         "fetch-limit": { type: "string", default: "200" },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    state = values["state"] ?? "all";
-    type = values["type"] ?? "";
+    if (cli.common.help) showUsage();
+    const values = cli.values as Record<string, string | boolean | undefined>;
+    state = (values["state"] as string | undefined) ?? "all";
+    type = (values["type"] as string | undefined) ?? "";
     if (type !== "") {
       const normalized = normalizeIssueType(type);
       if (normalized === null) {
@@ -107,27 +107,21 @@ async function main(argv: string[]): Promise<number> {
       if (Array.isArray(lv)) labels.push(...lv.map(String));
       else labels.push(String(lv));
     }
-    assignee = values["assignee"] ?? "";
-    milestone = values["milestone"] ?? "";
-    format = values["format"] ?? "table";
-    limit = Number.parseInt(values["limit"] ?? "30", 10);
-    fetchLimit = Number.parseInt(values["fetch-limit"] ?? "200", 10);
+    assignee = (values["assignee"] as string | undefined) ?? "";
+    milestone = (values["milestone"] as string | undefined) ?? "";
+    format = (values["format"] as string | undefined) ?? "table";
+    limit = Number.parseInt((values["limit"] as string | undefined) ?? "30", 10);
+    fetchLimit = Number.parseInt((values["fetch-limit"] as string | undefined) ?? "200", 10);
     if (!Number.isFinite(fetchLimit) || fetchLimit <= 0) {
       logError(`Invalid --fetch-limit: ${values["fetch-limit"]} (expected a positive number)`);
       return EXIT_MISUSE;
     }
-    devenv = Boolean(values["devenv"]);
-    terms.push(...positionals);
+    devenv = cli.common.devenv;
+    terms.push(...cli.positionals);
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
-  }
-
-  if (argv.includes("-h") || argv.includes("--help")) showUsage();
-  if (argv.includes("-v") || argv.includes("--version")) {
-    console.log(SCRIPT_VERSION);
-    return 0;
   }
 
   if (terms.length === 0) {

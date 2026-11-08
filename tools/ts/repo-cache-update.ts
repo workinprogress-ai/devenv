@@ -5,6 +5,7 @@
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import {
   repoCacheDir, csDepOrgPrefix, ensureDependencyIndex, refreshRepoCache,
 } from "../lib/domain/cs/dependency-graph.ts";
@@ -21,8 +22,7 @@ All organization repositories are cloned (or updated) as shallow single-branch
 clones. The dependency index is rebuilt whenever the cache has changed.
 
 Options:
-    -h, --help          Show this help message and exit
-    -v, --version       Show version information and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --no-refresh        Skip refreshing the repository cache (rebuild index only)
 
 Exit Codes:
@@ -32,20 +32,25 @@ Exit Codes:
   process.exit(0);
 }
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-if (argv.includes("-v") || argv.includes("--version")) {
-  console.log("1.0.0");
-  process.exit(0);
-}
+const SCRIPT_VERSION = "1.0.0";
 
 let skipRefresh = false;
-for (const a of argv) {
-  if (a === "--no-refresh") skipRefresh = true;
-  else {
-    logError(`Unknown option: ${a}. Use --help for usage information.`);
-    process.exit(EXIT_MISUSE);
-  }
+try {
+  const cli = toolCli({
+    name: "repo-cache-update",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      "no-refresh": { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  skipRefresh = cli.values["no-refresh"] === true;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 // Step 1: refresh the repo cache (clone / update all org repos).

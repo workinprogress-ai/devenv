@@ -6,7 +6,6 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -17,6 +16,7 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadReply } from "../lib/providers/facade/prs.ts";
@@ -42,12 +42,8 @@ Arguments:
     PR_NUMBER                   PR number
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
-    -n, --dry-run               Show what would be posted without posting
+${usageCommonFlags()}
     --comment-id COMMENT_ID     The ID of the comment to reply to, from pr-threads-get (required)
-    --devenv                    Safety override to reply on devenv repo PRs
 
 Reply Source (one required):
     -b, --body TEXT             Reply text (inline)
@@ -56,7 +52,7 @@ Reply Source (one required):
     -e, --edit                  Open \\$EDITOR to compose reply
 
 Environment Variables:
-    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
+${usageEnvBlock()}
     EDITOR                      Editor to use with --edit (default: nano)
 
 Examples:
@@ -103,14 +99,12 @@ async function main(argv: string[]): Promise<number> {
   let dryRun = false;
   let devenv = false;
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         "dry-run": { type: "boolean", short: "n", default: false },
-        devenv: { type: "boolean", default: false },
         "comment-id": { type: "string" },
         comment_id: { type: "string" },
         body: { type: "string", short: "b" },
@@ -118,21 +112,15 @@ async function main(argv: string[]): Promise<number> {
         "body_file": { type: "string" },
         edit: { type: "boolean", short: "e", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    dryRun = values["dry-run"] === true;
-    devenv = values["devenv"] === true;
-    useEditor = values["edit"] === true;
-    prNumber = positionals[0] ?? "";
-    commentId = values["comment-id"] ?? values["comment_id"] ?? "";
-    bodyText = values["body"] ?? "";
-    bodyFile = values["body-file"] ?? values["body_file"] ?? "";
+    if (cli.common.help) showUsage();
+    dryRun = cli.common.dryRun;
+    devenv = cli.common.devenv;
+    useEditor = cli.values["edit"] === true;
+    prNumber = cli.positionals[0] ?? "";
+    commentId = ((cli.values["comment-id"] as string | undefined) ?? (cli.values["comment_id"] as string | undefined) ?? "");
+    bodyText = ((cli.values["body"] as string | undefined) ?? "");
+    bodyFile = ((cli.values["body-file"] as string | undefined) ?? (cli.values["body_file"] as string | undefined) ?? "");
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");

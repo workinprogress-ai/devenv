@@ -10,18 +10,11 @@ import { existsSync, readdirSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
+import { requireCommandOrExit } from "../lib/core/commands.ts";
 
 assertNodeFloor();
 
-function requireCommand(cmd: string): void {
-  const r = spawnSync("bash", ["-c", `command -v ${cmd}`], { stdio: "ignore" });
-  if (r.status !== 0) {
-    console.error(`Error: required command not found: ${cmd}`);
-    process.exit(EXIT_GENERAL_ERROR);
-  }
-}
-
-requireCommand("mongorestore");
+requireCommandOrExit("mongorestore", undefined, EXIT_GENERAL_ERROR);
 
 let assumeYes = false;
 let connectionString = "";

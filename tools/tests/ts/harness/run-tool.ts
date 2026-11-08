@@ -1,5 +1,5 @@
-// harness/run-tool.ts — the shared black-box tool runner (the audit's F004:
-// 42 divergent per-suite runTool copies unified).
+// harness/run-tool.ts — the shared black-box tool runner (the 42 divergent
+// per-suite runTool copies unified here; suites no longer own spawn glue).
 //
 // One signature: runTool(tool, args, {env, stdin, cwd, toolbox}) spawns
 // `node tools/ts/<tool>.ts` with stub-aware env construction and returns

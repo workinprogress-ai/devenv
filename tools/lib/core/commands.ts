@@ -1,5 +1,5 @@
-// commands.ts — required-command probe (the audit's F008: five divergent
-// per-tool requireCommand copies unified).
+// commands.ts — the one required-command probe for all tools (the five
+// divergent per-tool requireCommand copies were unified here).
 //
 // One signature: requireCommand(cmd, hint?) — throws a named error the
 // tool's catch renders (or exits directly via the helper when a tool is
@@ -11,6 +11,9 @@
 import { execFileSync } from "node:child_process";
 import { EXIT_MISUSE } from "./exit-codes.ts";
 import { logError } from "./logging.ts";
+
+// Exit codes are a load-bearing cross-suite contract: adopting tools keep
+// their historical missing-command exit code via the optional parameter.
 
 export class MissingCommandError extends Error {
   constructor(cmd: string, hint?: string) {
@@ -40,10 +43,10 @@ export function requireCommand(cmd: string, hint?: string): void {
 }
 
 /** The exit-direct variant (thin tools with no catch block): logs and
- * exits EXIT_MISUSE. */
-export function requireCommandOrExit(cmd: string, hint?: string): void {
+ * exits EXIT_MISUSE by default, or the caller's historical exit code. */
+export function requireCommandOrExit(cmd: string, hint?: string, exitCode?: number): void {
   if (!commandAvailable(cmd)) {
     logError(new MissingCommandError(cmd, hint).message);
-    process.exit(EXIT_MISUSE);
+    process.exit(exitCode ?? EXIT_MISUSE);
   }
 }

@@ -11,13 +11,12 @@
 // a fixed field set; simple = `#N - Title` lines. --web opens the browser
 // (no listing).
 
-import { parseArgs } from "node:util";
-import {basename} from "node:path";
-import {} from "node:fs";
+import { basename } from "node:path";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { formatTable } from "../lib/ui/panels.ts";
 import { issuesList } from "../lib/providers/facade/issues.ts";
@@ -46,7 +45,7 @@ Output:
     -f, --format FORMAT         Output format: table, json, simple (default: table)
     -n, --limit NUMBER          Limit number of results (default: 30)
     --web                       Open results in web browser
-    --devenv                    Safety override to list issues in devenv repo
+${usageCommonFlags({ noDryRun: true })}
 
 Examples:
     ${SCRIPT_NAME}
@@ -84,11 +83,13 @@ async function main(argv: string[]): Promise<number> {
   let web = false;
   let devenv = false;
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
+      allowPositionals: false,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         state: { type: "string", short: "s", default: "open" },
         type: { type: "string", short: "t" },
         label: { type: "string", short: "l" },
@@ -99,18 +100,12 @@ async function main(argv: string[]): Promise<number> {
         format: { type: "string", short: "f", default: "table" },
         limit: { type: "string", short: "n", default: "30" },
         web: { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: false,
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    state = values["state"] ?? "open";
-    type = values["type"] ?? "";
+    if (cli.common.help) showUsage();
+    const values = cli.values as Record<string, string | boolean | undefined>;
+    state = (values["state"] as string | undefined) ?? "open";
+    type = (values["type"] as string | undefined) ?? "";
     if (type !== "") {
       const normalized = normalizeIssueType(type);
       if (normalized === null) {
@@ -124,18 +119,18 @@ async function main(argv: string[]): Promise<number> {
       if (Array.isArray(lv)) labels.push(...lv.map(String));
       else labels.push(String(lv));
     }
-    assignee = values["assignee"] ?? "";
-    milestone = values["milestone"] ?? "";
-    author = values["author"] ?? "";
-    mention = values["mention"] ?? "";
-    format = values["format"] ?? "table";
-    limit = Number.parseInt(values["limit"] ?? "30", 10);
+    assignee = (values["assignee"] as string | undefined) ?? "";
+    milestone = (values["milestone"] as string | undefined) ?? "";
+    author = (values["author"] as string | undefined) ?? "";
+    mention = (values["mention"] as string | undefined) ?? "";
+    format = (values["format"] as string | undefined) ?? "table";
+    limit = Number.parseInt((values["limit"] as string | undefined) ?? "30", 10);
     if (!Number.isFinite(limit) || limit <= 0) {
       logError(`Invalid --limit: ${values["limit"]} (expected a positive number)`);
       return EXIT_MISUSE;
     }
     web = Boolean(values["web"]);
-    devenv = Boolean(values["devenv"]);
+    devenv = cli.common.devenv;
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");

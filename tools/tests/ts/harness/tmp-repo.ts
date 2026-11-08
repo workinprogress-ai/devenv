@@ -1,5 +1,5 @@
-// harness/tmp-repo.ts — throwaway-directory factories (the audit's F004:
-// 159 per-suite mkdtemp fixture blocks unified into named intents).
+// harness/tmp-repo.ts — throwaway-directory factories (the 159 per-suite
+// mkdtemp fixture blocks unified into named intents).
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

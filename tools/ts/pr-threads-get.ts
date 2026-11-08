@@ -6,13 +6,13 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadsPage } from "../lib/providers/facade/prs.ts";
 import type { GhThread } from "../lib/providers/facade/prs.ts";
@@ -34,15 +34,12 @@ Arguments:
     PR_NUMBER                   PR number to fetch threads for
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
+${usageCommonFlags({ noDryRun: true })}
     --pretty                    Pretty-print JSON output (default: compact)
     --all                       Include resolved threads (default: unresolved only)
-    --devenv                    Safety override to read PRs in devenv repo
 
 Environment Variables:
-    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
+${usageEnvBlock()}
 
 Output:
     JSON array of thread objects. Each thread:
@@ -103,28 +100,21 @@ async function main(argv: string[]): Promise<number> {
   let all = false;
   let devenv = false;
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         pretty: { type: "boolean", default: false },
         all: { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    devenv = values["devenv"] === true;
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    pretty = values["pretty"] === true;
-    all = values["all"] === true;
-    prNumber = positionals[0] ?? "";
+    if (cli.common.help) showUsage();
+    devenv = cli.common.devenv;
+    pretty = cli.values["pretty"] === true;
+    all = cli.values["all"] === true;
+    prNumber = cli.positionals[0] ?? "";
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");

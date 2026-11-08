@@ -13,13 +13,12 @@
 // (ui/prompts per D4); it is deferred to the interactive-polish pass and
 // refuses cleanly when no TTY is present.
 
-import { parseArgs } from "node:util";
-import {basename} from "node:path";
-import {} from "node:fs";
+import { basename } from "node:path";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesClose, issuesReopen, issuesExists } from "../lib/providers/facade/issues.ts";
 
@@ -38,14 +37,10 @@ Arguments:
     ISSUE_NUMBER...             One or more issue numbers
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
-    -n, --dry-run               Show what would be done without closing
+${usageCommonFlags()}
     -c, --comment TEXT          Add a comment when closing/reopening
     -r, --reason REASON         Close reason (completed|not planned); close only
     --select                    Interactively select issues (requires a TTY)
-    --devenv                    Safety override to close issues in devenv repo
 
 Examples:
     ${SCRIPT_NAME} 123
@@ -69,29 +64,27 @@ async function main(argv: string[]): Promise<number> {
   if (rest.length !== argv.length) action = argv[0] ?? "close";
 
   try {
-    const { values, positionals } = parseArgs({
-      args: rest,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv: rest,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         "dry-run": { type: "boolean", short: "n", default: false },
         comment: { type: "string", short: "c" },
         reason: { type: "string", short: "r" },
         select: { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    dryRun = Boolean(values["dry-run"]);
-    devenv = Boolean(values["devenv"]);
-    comment = values["comment"] ?? "";
-    reason = values["reason"] ?? "";
-    if (values["select"]) {
+    if (cli.common.help) showUsage();
+    dryRun = cli.common.dryRun;
+    devenv = cli.common.devenv;
+    comment = ((cli.values["comment"] as string | undefined) ?? "");
+    reason = ((cli.values["reason"] as string | undefined) ?? "");
+    if (cli.values["select"] === true) {
       logError("--select requires an interactive terminal (issue selection); pass issue numbers explicitly");
       return EXIT_MISUSE;
     }
-    for (const p of positionals) {
+    for (const p of cli.positionals) {
       if (!/^[0-9]+$/.test(p)) {
         logError(`Unknown option or invalid issue number: ${p}`);
         console.log("Use --help for usage information");
@@ -103,12 +96,6 @@ async function main(argv: string[]): Promise<number> {
     logError(err instanceof Error ? err.message : String(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
-  }
-
-  if (argv.includes("-h") || argv.includes("--help")) showUsage();
-  if (argv.includes("-v") || argv.includes("--version")) {
-    console.log(SCRIPT_VERSION);
-    return 0;
   }
 
   if (issueNumbers.length === 0) {

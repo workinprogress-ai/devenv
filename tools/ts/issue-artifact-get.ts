@@ -11,7 +11,7 @@
 // header keys, and enforce the single-match invariant (0 → not-found,
 // >1 → conflict report). Output field names are the bash tool's exact set.
 
-import { parseArgs } from "node:util";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { basename, dirname } from "node:path";
 import { writeFileSync, existsSync } from "node:fs";
 
@@ -42,9 +42,7 @@ Options:
                                   or without --full)
     --pretty                      Pretty-print JSON output
     --repo OWNER/REPO             Repository override (defaults to DEVENV_REPO)
-    -V, --verbose                 Enable verbose logs
-    -h, --help                    Show help and exit
-    -v, --version                 Show version and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Output:
     { "issue_number": N, "doc_id": "...", "comment_id": N, "artifact_type": "...",
@@ -88,12 +86,13 @@ interface Parsed {
 
 function parseCliArgs(argv: string[]): Parsed {
   try {
-    const { values } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
+      allowPositionals: false,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         full: { type: "boolean", default: false },
         pretty: { type: "boolean", default: false },
         issue: { type: "string" },
@@ -104,19 +103,19 @@ function parseCliArgs(argv: string[]): Parsed {
         "write-body": { type: "string" },
         repo: { type: "string" },
       },
-      allowPositionals: false,
-      strict: true,
     });
+    if (cli.common.help) showUsage();
+    const v = cli.values as Record<string, string | boolean | undefined>;
     return {
-      help: Boolean(values["help"]),
-      version: Boolean(values["version"]),
-      verbose: Boolean(values["verbose"]),
-      full: Boolean(values["full"]),
-      pretty: Boolean(values["pretty"]),
-      issue: values["issue"] ?? values["issue-number"] ?? values["issue_number"] ?? "",
-      docId: values["doc-id"] ?? values["doc_id"] ?? "",
-      writeBody: values["write-body"] ?? "",
-      repo: values["repo"] ?? "",
+      help: cli.common.help,
+      version: cli.common.version,
+      verbose: cli.common.verbose,
+      full: v["full"] === true,
+      pretty: v["pretty"] === true,
+      issue: ((v["issue"] as string | undefined) ?? (v["issue-number"] as string | undefined) ?? (v["issue_number"] as string | undefined) ?? ""),
+      docId: ((v["doc-id"] as string | undefined) ?? (v["doc_id"] as string | undefined) ?? ""),
+      writeBody: ((v["write-body"] as string | undefined) ?? ""),
+      repo: ((v["repo"] as string | undefined) ?? ""),
     };
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));

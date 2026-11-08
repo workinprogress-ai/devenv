@@ -5,12 +5,12 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
-import { logError } from "../lib/core/logging.ts";
+import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
 import { prsView } from "../lib/providers/facade/prs.ts";
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
@@ -32,14 +32,11 @@ Arguments:
     PR_NUMBER                   PR number to retrieve
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
+${usageCommonFlags({ noDryRun: true })}
     --pretty                    Pretty-print JSON output (default: compact)
-    --devenv                    Safety override to read PRs in devenv repo
 
 Environment Variables:
-    DEVENV_REPO                 Repository in format owner/repo (default: current repo)
+${usageEnvBlock()}
 
 Examples:
     ${SCRIPT_NAME} 123
@@ -54,31 +51,24 @@ async function main(argv: string[]): Promise<number> {
   let pretty = false;
   let devenv = false;
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
-        verbose: { type: "boolean", short: "V", default: false },
         pretty: { type: "boolean", default: false },
-        devenv: { type: "boolean", default: false },
       },
-      allowPositionals: true,
-      strict: true,
     });
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    pretty = values["pretty"] === true;
-    devenv = values["devenv"] === true;
-    if (positionals.length === 0) {
+    if (cli.common.help) showUsage();
+    pretty = cli.values["pretty"] === true;
+    devenv = cli.common.devenv;
+    if (cli.positionals.length === 0) {
       logError("PR number is required");
       console.log("Use --help for usage information");
       return EXIT_MISUSE;
     }
-    prNumber = positionals[0] ?? "";
+    prNumber = cli.positionals[0] ?? "";
     if (!/^[0-9]+$/.test(prNumber)) {
       logError(`Invalid PR number: ${prNumber} (must be numeric)`);
       return EXIT_MISUSE;
@@ -111,10 +101,6 @@ async function main(argv: string[]): Promise<number> {
     console.log(json.trim());
   }
   return 0;
-}
-
-function logInfo(msg: string): void {
-  process.stderr.write(`[INFO] ${msg}\n`);
 }
 
 main(process.argv.slice(2)).then(

@@ -3,26 +3,18 @@
 // names (built-ins skipped; a malformed name aborts loudly), then mongodump
 // each database into a timestamped subfolder. A failed dump is non-zero.
 
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { requireCommandOrExit } from "../lib/core/commands.ts";
 
 assertNodeFloor();
 
-function requireCommand(cmd: string): void {
-  try {
-    execFileSync("bash", ["-c", `command -v ${cmd}`], { stdio: "ignore" });
-  } catch {
-    console.error(`Error: required command not found: ${cmd}`);
-    process.exit(EXIT_GENERAL_ERROR);
-  }
-}
-
-requireCommand("mongodump");
-requireCommand("mongosh");
+requireCommandOrExit("mongodump", undefined, EXIT_GENERAL_ERROR);
+requireCommandOrExit("mongosh", undefined, EXIT_GENERAL_ERROR);
 
 if (process.argv.length !== 4) {
   console.error("Usage: mongo-backup-server <connection_string> <backup_directory>");

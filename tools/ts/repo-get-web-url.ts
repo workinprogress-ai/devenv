@@ -9,21 +9,42 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli } from "../lib/core/cli.ts";
 import { remoteToWeb } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.1.0";
+
+function showUsage(): never {
+  console.log(`Usage: repo-get-web-url [REPO_DIR]
+
+Outputs the web URL of the repository (normalizes SSH to HTTPS) via the
+provider URL seam.
+
+Arguments:
+    REPO_DIR    Repository path (default: current directory)
+
+Options:
+    -h, --help  Show this help message and exit
+    -v, --version  Show version information and exit`);
+  process.exit(0);
+}
+
+const cli = toolCli({
+  name: "repo-get-web-url",
+  version: SCRIPT_VERSION,
+  argv: process.argv.slice(2),
+  noDryRun: true,
+});
+if (cli.common.help) showUsage();
+const repoDirArg = cli.positionals[0];
 
 function gitOut(args: string[], cwd: string): { status: number; out: string } {
   const r = spawnSync("git", args, { encoding: "utf8", cwd });
   return { status: r.status ?? 1, out: (r.stdout ?? "").trim() };
 }
 
-function gitOut2(args: string[], cwd: string): { status: number; out: string } {
-  const r = spawnSync("git", args, { encoding: "utf8", cwd });
-  return { status: r.status ?? 1, out: (r.stdout ?? "").trim() };
-}
-
-const repoDirArg = process.argv[2];
 const repoDir = repoDirArg === undefined
   ? process.cwd()
   : isAbsolute(repoDirArg)
@@ -39,15 +60,16 @@ if (gitOut(["rev-parse", "--is-inside-work-tree"], repoDir).status !== 0) {
   process.exit(1);
 }
 
-const remoteGet = gitOut2(["config", "--get", "remote.origin.url"], repoDir);
+const remoteGet = gitOut(["config", "--get", "remote.origin.url"], repoDir);
 if (remoteGet.status !== 0) {
   console.error(`No 'origin' remote configured in ${repoDir}.`);
   process.exit(1);
 }
 const remoteUrl = remoteGet.out;
 
-// Host detection + normalization via the provider URL seam.
-const repoUrl = remoteToWeb(remoteUrl);
+// Host detection + normalization via the provider URL seam (async seam —
+// awaited; the un-awaited call printed a pending Promise).
+const repoUrl = await remoteToWeb(remoteUrl);
 if (repoUrl !== null) {
   console.log(repoUrl);
 } else {
