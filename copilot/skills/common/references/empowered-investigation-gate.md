@@ -2,6 +2,8 @@
 
 Shared protocol for skills that are empowered to run aggressive, potentially destructive investigation measures — currently `devenv-hunt` and `devenv-research`. Each consuming skill cites this gate and keeps only its mode-scoped deltas (default lane, scratch locations, marker key, blocked-vs-unanswerable wording) locally.
 
+**Exclusivity:** this gate is the sole source of license to *execute* investigation — building or running probe projects, POCs, scratch experiments, destructive measures. Skills that do not cite this gate (conversational and read-only skills — chat, load, help) hold no such license anywhere in the workspace, scratch dirs included; a question that needs running code is handed to a gated skill (`devenv-research`, `devenv-hunt`), not probed in place.
+
 ## Aggressive-measures gate
 
 The skill is empowered to answer its question by doing: adding code, removing code, writing tests, running the suite, instrumenting running systems, or running destructive-class experiments. The default lane is read-only investigation plus out-of-repo scratch work; anything beyond it (in-repo edits, behavior-altering changes, deletions, environment mutation) requires consent.
