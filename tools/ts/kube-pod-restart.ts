@@ -5,10 +5,10 @@
 // multi-match exits 3, refusal exits 2, declined exits 130.
 
 import { spawnSync } from "node:child_process";
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { confirm } from "../lib/ui/prompts.ts";
 import {
   KUBE_CONFIRM_DECLINED_STATUS,
@@ -28,31 +28,37 @@ scale back to the recorded replica count). Refuses on zero or multiple
 matches so a partial name can never restart an unintended workload.
 
 Options:
-  -n, --namespace NS   Namespace
-  -h, --help           Show this help`);
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  -n, --namespace NS     Namespace`);
   process.exit(0);
 }
 
-const { values, positionals } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    namespace: { type: "string" },
-    n: { type: "string" },
-  },
-  allowPositionals: true,
-  strict: false,
-});
+let depPart = "";
+let nsInput = "";
+try {
+  const cli = toolCli({
+    name: "kube-pod-restart",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      namespace: { type: "string" },
+      n: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  depPart = cli.positionals[0] ?? "";
+  nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+}
 
-if (values.help) usage();
-
-const depPart = positionals[0];
-if (depPart === undefined || depPart === "") {
+if (depPart === "") {
   logError("usage: kube-pod-restart <deployment-name-part> [-n|--namespace <ns>]");
   process.exit(EXIT_MISUSE);
 }
 
-const nsInput = (values.namespace as string | undefined) ?? (values.n as string | undefined) ?? "";
 const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {
   logError(resolution.message);

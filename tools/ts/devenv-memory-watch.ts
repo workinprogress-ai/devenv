@@ -7,12 +7,14 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileS
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
 const DEFAULT_INTERVAL_MINUTES = 10;
 const DEFAULT_TOP_COUNT = 10;
 const DEFAULT_MAX_PROCESSES = 250;
+const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
   console.log(`Usage: devenv-memory-watch [OPTIONS]
@@ -21,7 +23,7 @@ Samples container memory usage over time, persists history in a state directory,
 and writes a compact current-culprits TSV for the latest analysis.
 
 Options:
-  -h, --help                 Show this help message and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
   -i, --interval-minutes N    Sample every N minutes (default: ${DEFAULT_INTERVAL_MINUTES})
   -t, --top N                Show the top N culprits in the summary TSV (default: ${DEFAULT_TOP_COUNT})
   -s, --state-dir PATH        Directory used to store samples and progress
@@ -36,9 +38,6 @@ Environment Variables:
   process.exit(0);
 }
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-
 let intervalMinutes = DEFAULT_INTERVAL_MINUTES;
 let topCount = DEFAULT_TOP_COUNT;
 let maxProcesses = Number(process.env.DEVENV_MEMORY_WATCH_MAX_PROCESSES ?? DEFAULT_MAX_PROCESSES);
@@ -48,31 +47,38 @@ let once = false;
 const isPositiveInt = (v: string): boolean => /^\d+$/.test(v) && Number(v) > 0;
 const die = (msg: string): never => { console.error(`ERROR: ${msg}`); process.exit(1); };
 
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  const val = (name: string): string => {
-    const v = argv[i + 1];
-    if (v === undefined) die(`${name} requires a value`);
-    i++;
-    return v as string;
-  };
-  if (a === "-i" || a === "--interval-minutes") {
-    const v = val(a);
-    if (!isPositiveInt(v)) die("--interval-minutes must be a positive integer");
-    intervalMinutes = Number(v);
-  } else if (a === "-t" || a === "--top") {
-    const v = val(a);
-    if (!isPositiveInt(v)) die("--top must be a positive integer");
-    topCount = Number(v);
-  } else if (a === "-s" || a === "--state-dir") {
-    process.env.STATE_DIR = val(a);
-  } else if (a === "-m" || a === "--max-processes") {
-    const v = val(a);
-    if (!isPositiveInt(v)) die("--max-processes must be a positive integer");
-    maxProcesses = Number(v);
-  } else if (a === "-r" || a === "--reset") resetState = true;
-  else if (a === "-o" || a === "--once") once = true;
-  else die(`Unknown argument: ${a}`);
+try {
+  const cli = toolCli({
+    name: "devenv-memory-watch",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      "interval-minutes": { type: "string", short: "i", default: String(DEFAULT_INTERVAL_MINUTES) },
+      top: { type: "string", short: "t", default: String(DEFAULT_TOP_COUNT) },
+      "state-dir": { type: "string", short: "s" },
+      "max-processes": { type: "string", short: "m" },
+      reset: { type: "boolean", short: "r", default: false },
+      once: { type: "boolean", short: "o", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  const iv = (cli.values["interval-minutes"] as string | undefined) ?? String(DEFAULT_INTERVAL_MINUTES);
+  if (!isPositiveInt(iv)) die("--interval-minutes must be a positive integer");
+  intervalMinutes = Number(iv);
+  const tp = (cli.values["top"] as string | undefined) ?? String(DEFAULT_TOP_COUNT);
+  if (!isPositiveInt(tp)) die("--top must be a positive integer");
+  topCount = Number(tp);
+  const sd = cli.values["state-dir"] as string | undefined;
+  if (sd !== undefined && sd !== "") process.env.STATE_DIR = sd;
+  const mp = (cli.values["max-processes"] as string | undefined) ?? String(maxProcesses);
+  if (!isPositiveInt(mp)) die("--max-processes must be a positive integer");
+  maxProcesses = Number(mp);
+  resetState = cli.values["reset"] === true;
+  once = cli.values["once"] === true;
+} catch (err) {
+  console.error(`ERROR: ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
 }
 
 const devenvRoot = process.env.DEVENV_ROOT ?? selfRoot(process.cwd());

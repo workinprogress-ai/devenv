@@ -13,11 +13,11 @@
 //
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
 import { basename } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { providerDetect } from "../lib/providers/provider-core.ts";
 import type { ProviderExplain, FamilyExplain } from "../lib/providers/explain.ts";
 import { githubExplain } from "../lib/providers/github/explain.ts";
@@ -38,10 +38,12 @@ function showUsage(): void {
 Explain the active provider's wrapper-calling requirements, read from the
 provider module itself (never a doc file).
 
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+
   (no arg)   Active provider + one line per wrapper family.
   FAMILY     One family's full requirements: issues, pr, project, pipelines,
-             repos, artifact (prefixes match).
-  -h, --help Show this help.`);
+             repos, artifact (prefixes match).`);
 }
 
 function oneLiner(f: FamilyExplain): string {
@@ -64,15 +66,24 @@ function printFamily(f: FamilyExplain): void {
 }
 
 async function main(): Promise<void> {
-  const { values, positionals } = parseArgs({
-    args: process.argv.slice(2),
-    options: {
-      help: { type: "boolean", short: "h", default: false },
-    },
-    strict: true,
-    allowPositionals: true,
-  });
-  if (values.help === true) {
+  const positionals = (() => {
+    try {
+      const cli = toolCli({
+        name: "provider-explain",
+        version: "1.0.0",
+        argv: process.argv.slice(2),
+        noDryRun: true,
+        strict: true,
+        allowPositionals: true,
+      });
+      if (cli.common.help) return null;
+      return cli.positionals;
+    } catch (err) {
+      logError(err instanceof Error ? err.message : String(err));
+      process.exit(EXIT_MISUSE);
+    }
+  })();
+  if (positionals === null) {
     showUsage();
     return;
   }

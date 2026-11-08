@@ -6,24 +6,44 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { select, multiSelect } from "../lib/ui/prompts.ts";
 
 assertNodeFloor();
 
-const argv = process.argv.slice(2);
 let multi = false;
 let extrasDir = "";
 let filter = "";
+try {
+  const cli = toolCli({
+    name: "install-extras",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      multi: { type: "boolean", short: "m", default: false },
+      dir: { type: "string" },
+    },
+  });
+  if (cli.common.help) {
+    console.log(`Usage: install-extras [-m|--multi] [--dir <extras-dir>] [filter]
 
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  if (a === "-m" || a === "--multi") multi = true;
-  else if (a === "--dir") {
-    const v = argv[i + 1];
-    if (v === undefined) { console.error("❌ Missing value for --dir"); process.exit(2); }
-    extrasDir = v as string;
-    i++;
-  } else if (filter === "") filter = a;
+Pick an "extra" from .devcontainer/install-extras and run it: picker on a
+TTY (multi via -m), numbered fallback otherwise; a filter with a single
+match auto-runs.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  -m, --multi             Multi-select mode
+  --dir <extras-dir>      Extras directory (default: $DEVENV_ROOT/.devcontainer/install-extras)`);
+    process.exit(0);
+  }
+  multi = cli.values.multi === true;
+  extrasDir = typeof cli.values.dir === "string" ? cli.values.dir : "";
+  filter = cli.positionals[0] ?? "";
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(2);
 }
 
 // The bash tool read ${devenv:-.} — the checkout root via env, else cwd.

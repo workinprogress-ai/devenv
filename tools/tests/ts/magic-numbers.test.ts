@@ -74,9 +74,9 @@ describe("magic numbers", () => {
   });
 
   it("script template shows constant definition pattern", () => {
-    const t = join(ROOT, "tools/templates/script-template.sh");
-    expect(spawnSync("grep", ["readonly DEFAULT_TIMEOUT=", t], { encoding: "utf8" }).status).toBe(0);
-    expect(spawnSync("grep", ["readonly DEFAULT_MAX_RETRIES=", t], { encoding: "utf8" }).status).toBe(0);
+    const t = join(ROOT, "tools/templates/script-template.ts");
+    expect(spawnSync("grep", ["const SCRIPT_VERSION =", t], { encoding: "utf8" }).status).toBe(0);
+    expect(spawnSync("grep", ["const TOOL_NAME =", t], { encoding: "utf8" }).status).toBe(0);
   });
 
   it("tool versions are declared in exactly one place (tool-versions.bash)", () => {
@@ -88,7 +88,7 @@ describe("magic numbers", () => {
   });
 
   it("constants have descriptive names", () => {
-    const r = sh(`grep -h 'readonly [A-Z_]*=' '${ROOT}/tools/lib/'*.bash '${ROOT}/tools/templates/'*.sh '${ROOT}/tools/tests/run-devenv-tests.sh' 2>/dev/null`);
+    const r = sh(`grep -h 'readonly [A-Z_]*=' '${ROOT}/tools/lib/'*.bash '${ROOT}/tools/tests/run-devenv-tests.sh' 2>/dev/null`);
     expect(r.status).toBe(0);
     expect(r.out).toMatch(/VERSION|TIMEOUT|DELAY|MAX|DEFAULT/);
   });

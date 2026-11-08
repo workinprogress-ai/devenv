@@ -7,6 +7,8 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
@@ -16,20 +18,36 @@ function git(args: string[]): { status: number; out: string } {
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-const arg = process.argv[2] ?? "";
-if (arg === "-h" || arg === "--help") {
-  console.log(`Usage: git-unwip
-Soft-reset the current branch to its last non-WIP commit and, when the
-remote tip is itself a WIP commit, force-push with a lease.
-Takes no arguments.`);
+const SCRIPT_VERSION = "1.1.0";
+
+function usage(): never {
+  console.log(USAGE_TEXT);
   process.exit(0);
 }
-if (arg !== "") {
-  console.error(`git-unwip: unknown argument: ${arg}`);
-  console.error(`Usage: git-unwip
+
+const USAGE_TEXT = `Usage: git-unwip
+
 Soft-reset the current branch to its last non-WIP commit and, when the
 remote tip is itself a WIP commit, force-push with a lease.
-Takes no arguments.`);
+Takes no arguments.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`;
+
+try {
+  const cli = toolCli({
+    name: "git-unwip",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    allowPositionals: false,
+  });
+  if (cli.common.help) usage();
+} catch (err) {
+  // Bash-parity refusal: the full usage block with a non-zero exit (the
+  // helper-args suite pins both 'Usage' in the output and status != 0).
+  logError(err instanceof Error ? err.message : String(err));
+  console.log(USAGE_TEXT);
   process.exit(EXIT_MISUSE);
 }
 

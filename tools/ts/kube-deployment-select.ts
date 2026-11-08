@@ -4,10 +4,10 @@
 // auto-select the single match, menu when several (clack on a TTY;
 // first-line pick when KUBE_NO_INTERACTIVE=1, the test contract).
 
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { select } from "../lib/ui/prompts.ts";
 import { kubeInteractive, listDeployments, resolveNamespace } from "../lib/domain/kube/kube.ts";
 
@@ -20,29 +20,36 @@ Interactive deployment selection: auto-selects when one deployment matches,
 offers a menu when several match. Prints the selected deployment name.
 
 Options:
-  FILTER               Case-insensitive regex filter
-  HEADER               Menu header override (default: "Select a deployment (ns: NS)")
-  -n, --namespace NS   Namespace
-  -h, --help           Show this help`);
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  -n, --namespace NS     Namespace
+
+FILTER is an optional case-insensitive regex filter; HEADER overrides the
+menu header.`);
   process.exit(0);
 }
 
-const { values, positionals } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    namespace: { type: "string" },
-    n: { type: "string" },
-  },
-  allowPositionals: true,
-  strict: false,
-});
-
-if (values.help) usage();
-
-const filter = positionals[0] ?? "";
-const header = positionals[1] ?? "";
-const nsInput = (values.namespace as string | undefined) ?? (values.n as string | undefined) ?? "";
+let filter = "";
+let header = "";
+let nsInput = "";
+try {
+  const cli = toolCli({
+    name: "kube-deployment-select",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      namespace: { type: "string" },
+      n: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  filter = cli.positionals[0] ?? "";
+  header = cli.positionals[1] ?? "";
+  nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+}
 
 const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {

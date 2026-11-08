@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { select } from "../lib/ui/prompts.ts";
 import { kubeInteractive } from "../lib/domain/kube/kube.ts";
 
@@ -19,19 +20,28 @@ Switch Kubernetes context. Contexts are filtered case-insensitively by
 CONTEXT_FILTER; a single match is auto-selected, several offer a menu.
 
 Options:
-  -h, --help   Show this help`);
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   process.exit(exitCode);
 }
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-const unknownOpt = argv.find((a) => a.startsWith("-"));
-if (unknownOpt !== undefined) {
-  logError(`Unknown option: ${unknownOpt}`);
+let filter = "";
+try {
+  const cli = toolCli({
+    name: "kube-set-context",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) usage();
+  if (cli.positionals.length > 1) {
+    logError("Too many arguments: at most one CONTEXT_FILTER");
+    usage(EXIT_MISUSE);
+  }
+  filter = cli.positionals[0] ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
   usage(EXIT_MISUSE);
 }
-
-const filter = argv.find((a) => !a.startsWith("-")) ?? "";
 
 function kubectl(args: string[]): { stdout: string; status: number } {
   const r = spawnSync("kubectl", args, { encoding: "utf8" });

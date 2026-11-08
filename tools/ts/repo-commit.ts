@@ -21,6 +21,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli } from "../lib/core/cli.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
@@ -116,6 +117,26 @@ refused: the editor save is the permission gate.
 Never stages (except via the --wip delegation to git-wip), never runs tests, never
 inspects hooks.
 Only /devenv-commit may invoke this tool.`);
+}
+
+// House flags (-h/-v/-V) parse through the shared toolCli scaffold; the lane
+// grammar below stays a hand-rolled token walk because it is order-dependent
+// (--staged-only only after --wip) and forwards raw message words — parseArgs
+// cannot express it faithfully. Non-strict so unknown tokens keep reaching
+// the by-design refusal in the walk.
+try {
+  const cli = toolCli({
+    name: "repo-commit",
+    version: "1.1.0",
+    argv: process.argv.slice(2),
+    strict: false,
+  });
+  if (cli.common.help) {
+    usage();
+    process.exit(0);
+  }
+} catch {
+  // Non-strict parse cannot throw on unknown tokens; defensive only.
 }
 
 /** True when the editor command is a known non-interactive no-op (an env sentinel

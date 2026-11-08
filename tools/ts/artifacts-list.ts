@@ -6,10 +6,10 @@
 //              via the provider org accessor when not provided.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { ensureProviderAuth, ghApiSync, providerOrgGet } from "../lib/providers/provider-core.ts";
 import { formatTable } from "../lib/ui/panels.ts";
 
@@ -38,6 +38,7 @@ Options:
     --sort FIELD                Sort field: name, type, created_at, updated_at
     --versions                  List versions of --type/--name package
     --format FORMAT             table (default) or json
+${usageCommonFlags({ noDryRun: true })}
 
 Examples:
     artifacts-list --owner myorg --type npm --name my-package --versions
@@ -45,29 +46,38 @@ Examples:
   process.exit(0);
 }
 
-const parsed = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    owner: { type: "string" },
-    type: { type: "string" },
-    name: { type: "string" },
-    format: { type: "string" },
-    repo: { type: "string" },
-    sort: { type: "string" },
-    versions: { type: "boolean", default: false },
-  },
-  strict: false,
-});
+const SCRIPT_VERSION = "1.1.0";
 
-if (parsed.values.help) usage();
-owner = typeof parsed.values.owner === "string" ? parsed.values.owner : "";
-type = typeof parsed.values.type === "string" ? parsed.values.type : "";
-name = typeof parsed.values.name === "string" ? parsed.values.name : "";
-format = typeof parsed.values.format === "string" && parsed.values.format !== "" ? parsed.values.format : "table";
-repo = typeof parsed.values.repo === "string" ? parsed.values.repo : "";
-sortField = typeof parsed.values.sort === "string" && parsed.values.sort !== "" ? parsed.values.sort : "name";
-listVersions = parsed.values.versions === true;
+try {
+  const cli = toolCli({
+    name: "artifacts-list",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    strict: false,
+    options: {
+      owner: { type: "string" },
+      type: { type: "string" },
+      name: { type: "string" },
+      format: { type: "string", default: "table" },
+      repo: { type: "string" },
+      sort: { type: "string", default: "name" },
+      versions: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  owner = (cli.values["owner"] as string | undefined) ?? "";
+  type = (cli.values["type"] as string | undefined) ?? "";
+  name = (cli.values["name"] as string | undefined) ?? "";
+  format = (cli.values["format"] as string | undefined) ?? "table";
+  repo = (cli.values["repo"] as string | undefined) ?? "";
+  sortField = (cli.values["sort"] as string | undefined) ?? "name";
+  listVersions = cli.values["versions"] === true;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
 
 // Resolve owner via the provider org accessor when not provided.
 if (owner === "") owner = providerOrgGet();

@@ -10,18 +10,44 @@ import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { requireCommandOrExit } from "../lib/core/commands.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
-requireCommandOrExit("mongodump", undefined, EXIT_GENERAL_ERROR);
-requireCommandOrExit("mongosh", undefined, EXIT_GENERAL_ERROR);
+const SCRIPT_VERSION = "1.0.0";
 
-if (process.argv.length !== 4) {
-  console.error("Usage: mongo-backup-server <connection_string> <backup_directory>");
+let connectionString = "";
+let backupDir = "";
+try {
+  const cli = toolCli({
+    name: "mongo-backup-server",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) {
+    console.log(`Usage: mongo-backup-server <connection_string> <backup_directory>
+
+Back up every non-built-in MongoDB database via mongodump into a
+timestamped subfolder of the backup directory.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
+    process.exit(0);
+  }
+  if (cli.positionals.length !== 2) {
+    console.error("Usage: mongo-backup-server <connection_string> <backup_directory>");
+    process.exit(EXIT_MISUSE);
+  }
+  connectionString = cli.positionals[0] as string;
+  backupDir = cli.positionals[1] as string;
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
-const connectionString = process.argv[2] as string;
-const backupDir = process.argv[3] as string;
+requireCommandOrExit("mongodump", undefined, EXIT_GENERAL_ERROR);
+requireCommandOrExit("mongosh", undefined, EXIT_GENERAL_ERROR);
 
 mkdirSync(backupDir, { recursive: true });
 

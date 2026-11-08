@@ -4,33 +4,52 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
 function usage(): never {
-  console.log("Usage: tunnel-ports [-p <ssh port>] [-i <path to ssh key>] <user@target> <port1:destination1> [<port2:destination2> ...]");
+  console.log(`Usage: tunnel-ports [-p <ssh port>] [-i <path to ssh key>] <user@target> <port1:destination1> [<port2:destination2> ...]
+
+Open SSH local port-forwards and hold until a keypress, then close them all.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  -p <ssh port>          SSH port (default: 22)
+  -i <ssh key path>      Path to the SSH key`);
   process.exit(1);
 }
 
-const argv = process.argv.slice(2);
-
 let sshPort = "22";
 let sshCert = "";
-
-if (argv[0] === "-p") {
-  sshPort = argv[1] ?? "";
-  if (sshPort === "") usage();
-  argv.splice(0, 2);
+let target = "";
+let tunnelArgs: string[] = [];
+try {
+  const cli = toolCli({
+    name: "tunnel-ports",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      p: { type: "string" },
+      i: { type: "string" },
+    },
+  });
+  if (cli.common.help) {
+    // Bash parity: usage exits 1 (it is also the missing-argument refusal).
+    usage();
+  }
+  sshPort = typeof cli.values.p === "string" && cli.values.p !== "" ? cli.values.p : "22";
+  sshCert = typeof cli.values.i === "string" ? cli.values.i : "";
+  target = cli.positionals[0] ?? "";
+  tunnelArgs = cli.positionals.slice(1);
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  usage();
 }
-if (argv[0] === "-i") {
-  sshCert = argv[1] ?? "";
-  if (sshCert === "") usage();
-  argv.splice(0, 2);
-}
 
-const target = argv[0];
-if (target === undefined || target === "") usage();
-const tunnels = argv.slice(1);
+if (target === "") usage();
+const tunnels = tunnelArgs;
 if (tunnels.length === 0) usage();
 
 const children: ReturnType<typeof spawn>[] = [];

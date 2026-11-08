@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
 import { requireCommandOrExit } from "../lib/core/commands.ts";
@@ -19,21 +20,29 @@ Extract a .snupkg symbol package (a zip) into
 <output-root>/<name-without-extension>/ (default output root: snupkg-extracted).
 
 Options:
-  -h, --help   Show this help`);
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   process.exit(exitCode);
 }
 
-if (process.argv.slice(2).some((a) => a === "-h" || a === "--help")) usage();
-
-requireCommandOrExit("unzip", "unzip is required to extract snupkgs", EXIT_API_FAILURE);
-
-const args = process.argv.slice(2).filter((a) => !a.startsWith("-"));
-if (args.length < 1) {
+let snupkgPath = "";
+let outputRoot = "snupkg-extracted";
+try {
+  const cli = toolCli({
+    name: "cs-extract-snupkgs",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) usage();
+  if (cli.positionals.length < 1) usage(EXIT_MISUSE);
+  snupkgPath = cli.positionals[0] ?? "";
+  outputRoot = cli.positionals[1] ?? "snupkg-extracted";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
   usage(EXIT_MISUSE);
 }
 
-const snupkgPath = args[0] as string;
-const outputRoot = args[1] ?? "snupkg-extracted";
+requireCommandOrExit("unzip", "unzip is required to extract snupkgs", EXIT_API_FAILURE);
 
 if (!existsSync(snupkgPath)) {
   logError(`File not found: ${snupkgPath}`);

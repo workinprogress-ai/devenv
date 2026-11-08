@@ -5,8 +5,35 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
+
+try {
+  const cli = toolCli({
+    name: "metrics-count-code-lines",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    // Positionals are accepted (the bash original ignored them; callers
+    // pass '.' for cwd semantics) but never read.
+    allowPositionals: true,
+  });
+  if (cli.common.help) {
+    console.log(`Usage: metrics-count-code-lines
+
+Count lines of code across the repository's tracked source files (git
+ls-files over the source extensions, piped through wc -l). Takes no
+arguments.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
+    process.exit(0);
+  }
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(2);
+}
 
 const globs = [
   "*/*.cs", "*.cs", "*/*.html", "*.html", "*/*.js", "*.js", "*/*.ts", "*.ts",

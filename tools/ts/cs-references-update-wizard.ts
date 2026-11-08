@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
@@ -42,10 +43,8 @@ Runs the full NuGet dependency-update workflow for a single repository:
   7. Create and merge PR
 
 Options:
-    -h, --help          Show this help message and exit
-    -v, --version       Show version information and exit
+${usageCommonFlags({ noDryRunShort: true })}
     --branch NAME       Branch name to create (default: ${DEFAULT_UPDATE_BRANCH})
-    --dry-run           Show what would happen without making any changes
     --continue          Resume a previously started update
     --framework TFM     Forwarded to cs-references-update
     --lang-version VER  Forwarded to cs-references-update
@@ -176,7 +175,6 @@ function main(): void {
   requireCommandOrExit("git", undefined, EXIT_GENERAL_ERROR);
   requireCommandOrExit("dotnet", undefined, EXIT_GENERAL_ERROR);
 
-  const argv = process.argv.slice(2);
   let repoDir = "";
   let updateBranch = DEFAULT_UPDATE_BRANCH;
   let dryRun = false;
@@ -185,45 +183,36 @@ function main(): void {
   let langVersion = "";
   let langDefault = false;
 
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i] as string;
-    switch (a) {
-      case "-h":
-      case "--help": showUsage(); break;
-      case "-v":
-      case "--version":
-        console.log(SCRIPT_VERSION);
-        process.exit(0);
-        break;
-      case "--branch":
-      case "--framework":
-      case "--lang-version": {
-        const v = argv[i + 1];
-        if (v === undefined || v === "") {
-          logError(`${a} requires a value`);
-          process.exit(EXIT_MISUSE);
-        }
-        if (a === "--branch") updateBranch = v;
-        else if (a === "--framework") framework = v;
-        else langVersion = v;
-        i++;
-        break;
-      }
-      case "--lang-default": langDefault = true; break;
-      case "-n":
-      case "--dry-run": dryRun = true; break;
-      case "--continue": continueMode = true; break;
-      default:
-        if (a.startsWith("-")) {
-          logError(`Unknown option: ${a}. Use --help for usage information.`);
-          process.exit(EXIT_MISUSE);
-        }
-        if (repoDir === "") repoDir = a;
-        else {
-          logError("Too many arguments. Use --help for usage information.");
-          process.exit(EXIT_MISUSE);
-        }
+  try {
+    const cli = toolCli({
+      name: "cs-references-update-wizard",
+      version: SCRIPT_VERSION,
+      argv: process.argv.slice(2),
+      options: {
+        branch: { type: "string", default: DEFAULT_UPDATE_BRANCH },
+        framework: { type: "string" },
+        "lang-version": { type: "string" },
+        "lang-default": { type: "boolean", default: false },
+        continue: { type: "boolean", default: false },
+      },
+    });
+    if (cli.common.help) showUsage();
+    updateBranch = (cli.values["branch"] as string | undefined) ?? DEFAULT_UPDATE_BRANCH;
+    framework = (cli.values["framework"] as string | undefined) ?? "";
+    langVersion = (cli.values["lang-version"] as string | undefined) ?? "";
+    langDefault = cli.values["lang-default"] === true;
+    dryRun = cli.common.dryRun;
+    continueMode = cli.values["continue"] === true;
+    const positionals = cli.positionals;
+    if (positionals.length > 1) {
+      logError("Too many arguments. Use --help for usage information.");
+      process.exit(EXIT_MISUSE);
     }
+    repoDir = positionals[0] ?? "";
+  } catch (err) {
+    logError(err instanceof Error ? err.message : String(err));
+    console.log("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
   }
 
   repoDir = repoDir === "" ? "." : repoDir;

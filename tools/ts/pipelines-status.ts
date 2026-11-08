@@ -5,8 +5,8 @@
 //              for the configured org (devenv.config [organization] org).
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { requireString } from "../lib/core/args.ts";
 import { formatTable } from "../lib/ui/panels.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -46,8 +46,7 @@ Report GitHub Actions workflow run status across the org.
 Defaults to the latest run per repo.
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
+${usageCommonFlags()}
     --json                      Output as compact JSON
     --pretty                    Output as pretty-printed JSON
 
@@ -65,38 +64,39 @@ Examples:
   process.exit(0);
 }
 
-const { values } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    json: { type: "boolean", default: false },
-    pretty: { type: "boolean", default: false },
-    repo: { type: "string" },
-    status: { type: "string" },
-    workflow: { type: "string" },
-    limit: { type: "string" },
-  },
-  strict: false,
-});
+const SCRIPT_VERSION = "1.0.0";
 
-if (values.help) usage();
-if (values.version) {
-  console.log("1.0.0");
-  process.exit(0);
-}
-if (values.json) outputFormat = "json";
-if (values.pretty) outputFormat = "pretty";
-repoRegex = values.repo === undefined ? "" : requireString(values.repo, "--repo");
-statusFilter = values.status === undefined ? "" : requireString(values.status, "--status");
-workflowFilter = values.workflow === undefined ? "" : requireString(values.workflow, "--workflow");
-if (values.limit !== undefined) {
-  const limitRaw = requireString(values.limit, "--limit");
-  if (!/^[0-9]+$/.test(limitRaw)) {
+try {
+  const cli = toolCli({
+    name: "pipelines-status",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    strict: false,
+    options: {
+      json: { type: "boolean", default: false },
+      pretty: { type: "boolean", default: false },
+      repo: { type: "string" },
+      status: { type: "string" },
+      workflow: { type: "string" },
+      limit: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  if (cli.values["json"]) outputFormat = "json";
+  if (cli.values["pretty"]) outputFormat = "pretty";
+  repoRegex = cli.values["repo"] === undefined ? "" : requireString(cli.values["repo"], "--repo");
+  statusFilter = cli.values["status"] === undefined ? "" : requireString(cli.values["status"], "--status");
+  workflowFilter = cli.values["workflow"] === undefined ? "" : requireString(cli.values["workflow"], "--workflow");
+  const limitRaw = cli.values["limit"] === undefined ? "" : requireString(cli.values["limit"], "--limit");
+  if (limitRaw !== "" && !/^[0-9]+$/.test(limitRaw)) {
     logError(`--limit requires a numeric argument: ${limitRaw}`);
     process.exit(EXIT_MISUSE);
   }
-  limit = limitRaw;
+  if (limitRaw !== "") limit = limitRaw;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 // Auth after argv validation: a usage error must exit 2 without touching gh

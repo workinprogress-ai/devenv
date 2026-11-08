@@ -5,8 +5,13 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { invalidArgs } from "../lib/core/args.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
   console.log(`Usage: next-id [OPTIONS]
@@ -31,9 +36,7 @@ Options:
     --file FILE                  Document to scan (in-doc mode)
     --prefix PREFIX              ID prefix to scan for, e.g. 'SPEC-', 'Q-', 'ADR-', 'AC-'
     --full                       In-doc mode: print 'PREFIX<NNN>' instead of the bare number
-    -V, --verbose                Enable verbose logs
-    -h, --help                   Show help and exit
-    -v, --version                Show version and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Output: the next number (zero-padded like existing entries), or the full
 filename / PREFIX-NNN with --filename / --full.
@@ -41,13 +44,6 @@ filename / PREFIX-NNN with --filename / --full.
 Exit Codes:
     0 success
     2 invalid arguments`);
-  process.exit(0);
-}
-
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-if (argv.includes("-v") || argv.includes("--version")) {
-  console.log("1.0.0");
   process.exit(0);
 }
 
@@ -59,23 +55,34 @@ let width = "";
 let printFilename = false;
 let full = false;
 
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  const val = (): string => {
-    const v = argv[i + 1];
-    if (v === undefined) invalidArgs(`Missing value for ${a}`);
-    i++;
-    return v as string;
-  };
-  if (a === "--pattern") pattern = val();
-  else if (a === "--dir") dir = val();
-  else if (a === "--width") width = val();
-  else if (a === "--filename") printFilename = true;
-  else if (a === "--file") file = val();
-  else if (a === "--prefix") prefix = val();
-  else if (a === "--full") full = true;
-  else if (a === "-V" || a === "--verbose") { /* CLI consistency */ }
-  else invalidArgs(`Unknown option: ${a}`);
+try {
+  const cli = toolCli({
+    name: "next-id",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      pattern: { type: "string" },
+      dir: { type: "string", default: "." },
+      width: { type: "string" },
+      filename: { type: "boolean", default: false },
+      file: { type: "string" },
+      prefix: { type: "string" },
+      full: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  pattern = (cli.values["pattern"] as string | undefined) ?? "";
+  dir = (cli.values["dir"] as string | undefined) ?? ".";
+  width = (cli.values["width"] as string | undefined) ?? "";
+  printFilename = cli.values["filename"] === true;
+  file = (cli.values["file"] as string | undefined) ?? "";
+  prefix = (cli.values["prefix"] as string | undefined) ?? "";
+  full = cli.values["full"] === true;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (pattern !== "" && (file !== "" || prefix !== "")) {

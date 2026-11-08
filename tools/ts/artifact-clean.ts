@@ -16,15 +16,15 @@
 //               the migration's D4 decision: interactive selection is a
 //               multiselect prompt; a non-TTY run never prompts (list-only).
 
-import { parseArgs } from "node:util";
-import { basename, dirname, join } from "node:path";
-import { readdirSync, existsSync, rmSync, statSync } from "node:fs";
-import { cwd as getCwd } from "node:process";
-
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logInfo, logWarn, logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli } from "../lib/core/cli.ts";
 import { confirm, isInteractive, multiSelect } from "../lib/ui/index.ts";
+
+import { basename, dirname, join } from "node:path";
+import { readdirSync, existsSync, rmSync, statSync } from "node:fs";
+import { cwd as getCwd } from "node:process";
 
 assertNodeFloor();
 
@@ -263,12 +263,12 @@ async function main(argv: string[]): Promise<number> {
   const userPaths: string[] = [];
 
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
-      allowPositionals: true,
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "v", default: false },
         interactive: { type: "boolean", short: "i", default: false },
         tmp: { type: "boolean", default: false },
         session: { type: "boolean", default: false },
@@ -279,24 +279,19 @@ async function main(argv: string[]): Promise<number> {
         yes: { type: "boolean", short: "y", default: false },
         list: { type: "boolean", short: "l", default: false },
       },
-      strict: true,
     });
 
-    if (values["help"]) showUsage();
-    if (values["version"]) {
-      console.log(SCRIPT_VERSION);
-      return 0;
-    }
-    if (values["interactive"]) mode = "interactive";
-    if (values["tmp"]) mode += "tmp";
-    if (values["session"]) mode += "session";
-    if (values["working"]) mode += "working";
-    if (values["all"]) mode = "tmp session working other";
-    if (values["include-deliverables"]) includeDeliverables = true;
-    if (values["keep-tmp"]) keepTmp = true;
-    if (values["yes"]) assumeYes = true;
-    if (values["list"]) listOnly = true;
-    userPaths.push(...positionals);
+    if (cli.common.help) showUsage();
+    if (cli.values["interactive"]) mode = "interactive";
+    if (cli.values["tmp"]) mode += "tmp";
+    if (cli.values["session"]) mode += "session";
+    if (cli.values["working"]) mode += "working";
+    if (cli.values["all"]) mode = "tmp session working other";
+    if (cli.values["include-deliverables"]) includeDeliverables = true;
+    if (cli.values["keep-tmp"]) keepTmp = true;
+    if (cli.values["yes"]) assumeYes = true;
+    if (cli.values["list"]) listOnly = true;
+    userPaths.push(...cli.positionals);
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     return EXIT_MISUSE;

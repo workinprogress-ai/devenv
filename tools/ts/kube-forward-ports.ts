@@ -6,14 +6,16 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
-import { parseArgs } from "node:util";
 import { EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { logError } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { listPods, resolveNamespace } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
   console.log(`Usage: kube-forward-ports [-n|--namespace <ns>] [mapping_file] POD=PORT or POD=LOCAL_PORT:POD_PORT [POD=PORT ...]
@@ -25,24 +27,30 @@ All forwards run in parallel and reconnect when they die until interrupted.
 
 Options:
   -n, --namespace NS   Namespace
-  -h, --help           Show this help`);
+${usageCommonFlags({ noDryRun: true })}`);
   process.exit(1);
 }
 
-const { values, positionals } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    namespace: { type: "string" },
-    n: { type: "string" },
-  },
-  allowPositionals: true,
-  strict: false,
-});
-
-if (values.help) usage();
-
-const nsInput = (values.namespace as string | undefined) ?? (values.n as string | undefined) ?? "";
+let nsInput = "";
+let mappingsRaw: string[] = [];
+try {
+  const cli = toolCli({
+    name: "kube-forward-ports",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    strict: false,
+    options: {
+      namespace: { type: "string", short: "n" },
+    },
+  });
+  if (cli.common.help) usage();
+  nsInput = (cli.values["namespace"] as string | undefined) ?? "";
+  mappingsRaw = [...cli.positionals];
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+}
 const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {
   console.error(resolution.message);
@@ -60,7 +68,7 @@ const ns = resolution.ns;
 
 // Mappings: first argv entry may be a mapping file; the rest are inline.
 const mappings: string[] = [];
-const args = [...positionals];
+const args = [...mappingsRaw];
 if (args.length > 0 && statSync(args[0] as string, { throwIfNoEntry: false })?.isFile()) {
   const file = args.shift() as string;
   let content = "";

@@ -6,11 +6,14 @@ import { basename } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import {
   validateAcNumber, findAcLine, setItemCompleteAtLine, countAcs,
 } from "../lib/domain/markdown.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
   console.log(`Usage: markdown-plan-complete-ac [OPTIONS] AC_NUMBER... [FILE]
@@ -28,9 +31,7 @@ and then the current directory is used.  Other files (e.g. Specifications) can
 be updated only by naming them explicitly.
 
 Options:
-    -h, --help          Show this help message and exit
-    -v, --version       Show version information and exit
-    -V, --verbose       Enable verbose output
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --uncomplete        Mark the criteria as incomplete ([ ]) instead of complete ([x])
 
 Exit Codes:
@@ -41,32 +42,35 @@ Exit Codes:
   process.exit(0);
 }
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-if (argv.includes("-v") || argv.includes("--version")) {
-  console.log("1.0.0");
-  process.exit(0);
-}
-
 const acs: string[] = [];
 let planFile = "";
 let uncomplete = false;
 
-for (const a of argv) {
-  if (a === "--uncomplete") { uncomplete = true; continue; }
-  if (a === "-V" || a === "--verbose") continue;
-  if (a.startsWith("-")) {
-    logError(`Unknown option: ${a}`);
-    logInfo("Run 'markdown-plan-complete-ac --help' for usage.");
-    process.exit(EXIT_MISUSE);
+try {
+  const cli = toolCli({
+    name: "markdown-plan-complete-ac",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      uncomplete: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  uncomplete = cli.values["uncomplete"] === true;
+  for (const a of cli.positionals) {
+    if (validateAcNumber(a)) { acs.push(a); continue; }
+    if (planFile !== "") {
+      logError(`Unexpected argument '${a}': file already set to '${planFile}'.`);
+      logInfo("Run 'markdown-plan-complete-ac --help' for usage.");
+      process.exit(EXIT_MISUSE);
+    }
+    planFile = a;
   }
-  if (validateAcNumber(a)) { acs.push(a); continue; }
-  if (planFile !== "") {
-    logError(`Unexpected argument '${a}': file already set to '${planFile}'.`);
-    logInfo("Run 'markdown-plan-complete-ac --help' for usage.");
-    process.exit(EXIT_MISUSE);
-  }
-  planFile = a;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  logInfo("Run 'markdown-plan-complete-ac --help' for usage.");
+  process.exit(EXIT_MISUSE);
 }
 
 if (acs.length === 0) {

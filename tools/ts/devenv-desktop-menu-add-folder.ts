@@ -3,6 +3,7 @@
 
 import { existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { addFolder, menuFile } from "../lib/domain/desktop-menu.ts";
 
@@ -19,7 +20,7 @@ Arguments:
     parent-folder  Optional -- name of an existing folder to nest this one inside.
 
 Options:
-    -h, --help   Show this help message and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Examples:
     devenv-desktop-menu-add-folder "Databases"
@@ -30,14 +31,27 @@ Environment:
   process.exit(0);
 }
 
-const argv = process.argv.slice(2);
-if (argv[0] === "-h" || argv[0] === "--help") usage();
-if (argv.length < 1) {
-  console.error("ERROR: Usage: devenv-desktop-menu-add-folder <folder-name> [parent-folder]  (use --help for details)");
-  process.exit(EXIT_MISUSE);
+let folderName = "";
+let parentFolder = "";
+try {
+  const cli = toolCli({
+    name: "devenv-desktop-menu-add-folder",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) usage();
+  if (cli.positionals.length < 1 || cli.positionals.length > 2) {
+    console.error("ERROR: Usage: devenv-desktop-menu-add-folder <folder-name> [parent-folder]  (use --help for details)");
+    process.exit(EXIT_MISUSE);
+  }
+  folderName = cli.positionals[0] ?? "";
+  parentFolder = cli.positionals[1] ?? "";
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  usage();
 }
 
-const [folderName, parentFolder = ""] = argv as [string, string?];
 const menu = menuFile();
 if (!existsSync(menu)) {
   console.error(`ERROR: Fluxbox menu file not found: ${menu}`);

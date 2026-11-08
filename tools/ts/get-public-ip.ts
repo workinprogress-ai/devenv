@@ -3,8 +3,32 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
+
+try {
+  const cli = toolCli({
+    name: "get-public-ip",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    allowPositionals: false,
+  });
+  if (cli.common.help) {
+    console.log(`Usage: get-public-ip
+
+Retrieve the machine's public IP: three providers tried in order, first
+success wins. Takes no arguments.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
+    process.exit(0);
+  }
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(2);
+}
 
 const providers = [
   "https://ipinfo.io/ip",

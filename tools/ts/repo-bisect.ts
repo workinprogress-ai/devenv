@@ -5,9 +5,13 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
   console.log(`Usage: repo-bisect <bad-ref> <good-ref> -- <probe command...>
@@ -21,6 +25,9 @@ at each step. Probe exit 0 = good, non-zero = bad. Works on any branch.
   <good-ref>   A commit known NOT to have it (defines the search range).
   probe        The command after '--'; run from the repo root at each step.
 
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+
 Outside a scratchpad, a notice names the operating branch — AI hunts should
 start from: repo-scratchpad enter
 
@@ -28,8 +35,7 @@ Exit codes:
     0   Success (first-bad identified)
     1   General error / dirty-tree refusal
     2   Invalid arguments (EXIT_MISUSE)
-    4   Not found (bad/good ref unresolvable)
-Version: 1.0.0`);
+    4   Not found (bad/good ref unresolvable)`);
   process.exit(0);
 }
 
@@ -38,18 +44,41 @@ function git(args: string[]): { out: string; ok: boolean } {
   return { out: r.stdout ?? "", ok: r.status === 0 };
 }
 
-const argv = process.argv.slice(2);
-if (argv.length === 0) usage();
-const [cmd] = argv as [string];
-const rest = argv.slice(1);
+let cmd = "";
+let rest: string[] = [];
+try {
+  // The probe command after '--' must survive verbatim (it may contain
+  // tokens like -c or ! that belong to the probe, not to this tool), so
+  // the raw argv splits at the first '--' before parsing: the left side
+  // goes through toolCli, the right side is the probe, untouched.
+  const raw = process.argv.slice(2);
+  const sep = raw.indexOf("--");
+  const flagSide = sep === -1 ? raw : raw.slice(0, sep);
+  const probeSide = sep === -1 ? [] : raw.slice(sep + 1);
+  const cli = toolCli({
+    name: "repo-bisect",
+    version: SCRIPT_VERSION,
+    argv: flagSide,
+    noDryRun: true,
+    // Positional-driven: status / reset / <bad-ref> <good-ref>. The probe
+    // never enters the parse (it lives in probeSide).
+  });
+  if (cli.common.help) usage();
+  const positionals = [...cli.positionals, ...(sep === -1 ? [] : ["--", ...probeSide])];
+  if (positionals.length === 0) usage();
+  cmd = positionals[0] ?? "";
+  rest = positionals.slice(1);
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
 
 const scratchpadActive = (): boolean =>
   spawnSync("git", ["show-ref", "--verify", "--quiet", "refs/scratchpad/state"], { stdio: "ignore" }).status === 0;
 
 const requireGitRepo = (): boolean =>
   git(["rev-parse", "--git-dir"]).ok;
-
-if (cmd === "-h" || cmd === "--help") usage();
 
 if (cmd === "status") {
   if (!requireGitRepo()) process.exit(EXIT_GENERAL_ERROR);

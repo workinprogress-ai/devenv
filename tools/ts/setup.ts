@@ -20,7 +20,7 @@
 // Degraded path: when node itself is absent the slim bootstrap prints the
 // manual recovery instructions — this tool never runs in that world.
 
-import { parseArgs } from "node:util";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { spawnSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -98,6 +98,8 @@ const INSTALL_STEPS: InstallStep[] = [
 
 const STEPS: Step[] = [...INSTALL_STEPS, ...PROVISION_STEPS];
 
+const SCRIPT_VERSION = "1.0.0";
+
 function showUsage(): never {
   console.log(`Usage: ${basename("setup")} [STEP...] | --all | --list | --skip STEP,...
 
@@ -112,6 +114,7 @@ ${STEPS.map((s) => `    ${s.name.padEnd(20)} ${s.description}`).join("\n")}
 
 Options:
     -h, --help      Show this help message
+${usageCommonFlags({ noDryRun: true })}
     --all           Run every step in bootstrap order
     --skip STEP,... Run every step EXCEPT the named ones (use with --all)
     --list          List steps and exit
@@ -148,29 +151,28 @@ async function main(argv: string[]): Promise<number> {
   const requested: string[] = [];
 
   try {
-    const { values, positionals } = parseArgs({
-      args: argv,
-      allowPositionals: true,
+    const cli = toolCli({
+      name: "setup",
+      version: SCRIPT_VERSION,
+      argv,
+      noDryRun: true,
       options: {
-        help: { type: "boolean", short: "h", default: false },
         all: { type: "boolean", default: false },
         list: { type: "boolean", default: false },
         json: { type: "boolean", default: false },
         skip: { type: "string" },
       },
-      strict: true,
     });
-    all = Boolean(values["all"]);
-    list = Boolean(values["list"]);
-    json = Boolean(values["json"]);
-    skipArg = values["skip"];
-    requested.push(...positionals);
+    if (cli.common.help) showUsage();
+    all = cli.values["all"] === true;
+    list = cli.values["list"] === true;
+    json = cli.values["json"] === true;
+    skipArg = cli.values["skip"] as string | undefined;
+    requested.push(...cli.positionals);
   } catch (err) {
     logError(err instanceof Error ? err.message : String(err));
     return EXIT_MISUSE;
   }
-
-  if (valuesHelp(argv)) showUsage();
 
   if (list) {
     for (const s of STEPS) {
@@ -280,10 +282,6 @@ async function main(argv: string[]): Promise<number> {
   }
   logInfo(`[setup] ${results.length} step(s) completed`);
   return 0;
-}
-
-function valuesHelp(argv: string[]): boolean {
-  return argv.includes("-h") || argv.includes("--help");
 }
 
 function basename(s: string): string {

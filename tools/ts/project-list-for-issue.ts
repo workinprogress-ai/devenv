@@ -5,10 +5,10 @@
 //              per project. Empty output when the issue is in no projects.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { issueWebUrl } from "../lib/providers/facade/issues.ts";
 import { projectsOps } from "../lib/providers/facade/projects.ts";
@@ -18,6 +18,7 @@ assertNodeFloor();
 ensureProviderAuth();
 
 let issueNumber = "";
+let devenvOverride = false;
 
 function usage(): never {
   console.log(`Usage: project-list-for-issue ISSUE_NUMBER [OPTIONS]
@@ -25,7 +26,7 @@ function usage(): never {
 List the projects containing an issue, with the issue's Status in each.
 
 Options:
-    --devenv                 Safety override to read from the devenv repo itself
+${usageCommonFlags({ noDryRun: true })}
 
 Output (one line per project):
     <project-title>\\t<project-number>\\t<status-or-dash>
@@ -36,25 +37,24 @@ Examples:
   process.exit(0);
 }
 
-const parsed = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    devenv: { type: "boolean", default: false },
-  },
-  allowPositionals: true,
-  strict: false,
-});
-
-if (parsed.values.help) usage();
-if (parsed.values.version) {
-  console.log("1.1.0");
-  process.exit(0);
+try {
+  const cli = toolCli({
+    name: "project-list-for-issue",
+    version: "1.1.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      devenv: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  devenvOverride = cli.values.devenv === true;
+  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  if (positionals.length > 0) issueNumber = positionals[0] ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
 }
-
-const positionals = parsed.positionals.filter((p) => !p.startsWith("-"));
-if (positionals.length > 0) issueNumber = positionals[0] ?? "";
 
 if (issueNumber === "" || !/^[0-9]+$/.test(issueNumber)) {
   logError("A numeric ISSUE_NUMBER is required");
@@ -73,7 +73,7 @@ if (repoSpec === "") {
   logError("Cannot resolve the target repository — pass DEVENV_REPO or run inside a repository.");
   process.exit(EXIT_GENERAL_ERROR);
 }
-if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "") && parsed.values.devenv !== true) {
+if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "") && !devenvOverride) {
   logError("The current repository appears to be the devenv repository itself");
   console.log("Operations should be performed in target project repositories, not in devenv");
   console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");

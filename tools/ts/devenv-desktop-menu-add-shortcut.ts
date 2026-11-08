@@ -3,6 +3,7 @@
 
 import { existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { addShortcut, menuFile } from "../lib/domain/desktop-menu.ts";
 
@@ -20,7 +21,7 @@ Arguments:
     folder    Optional -- name of an existing folder to place the shortcut inside.
 
 Options:
-    -h, --help   Show this help message and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Examples:
     devenv-desktop-menu-add-shortcut "MongoDB Compass" "mongodb-compass"
@@ -31,14 +32,29 @@ Environment:
   process.exit(0);
 }
 
-const argv = process.argv.slice(2);
-if (argv[0] === "-h" || argv[0] === "--help") usage();
-if (argv.length < 2) {
-  console.error("ERROR: Usage: devenv-desktop-menu-add-shortcut <label> <command> [folder]  (use --help for details)");
-  process.exit(EXIT_MISUSE);
+let label = "";
+let cmd = "";
+let folder = "";
+try {
+  const cli = toolCli({
+    name: "devenv-desktop-menu-add-shortcut",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) usage();
+  if (cli.positionals.length < 2 || cli.positionals.length > 3) {
+    console.error("ERROR: Usage: devenv-desktop-menu-add-shortcut <label> <command> [folder]  (use --help for details)");
+    process.exit(EXIT_MISUSE);
+  }
+  label = cli.positionals[0] ?? "";
+  cmd = cli.positionals[1] ?? "";
+  folder = cli.positionals[2] ?? "";
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  usage();
 }
 
-const [label, cmd, folder = ""] = argv as [string, string, string?];
 const menu = menuFile();
 if (!existsSync(menu)) {
   console.error(`ERROR: Fluxbox menu file not found: ${menu}`);

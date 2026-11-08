@@ -9,6 +9,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
@@ -16,22 +17,41 @@ assertNodeFloor();
 // DEVENV_ROOT pointing elsewhere is ignored (self-root contract).
 const devenvRoot = selfRoot(import.meta.url);
 
+const SCRIPT_VERSION = "1.0.0";
+
+function usage(): never {
+  console.log(`Usage: lint-documentation [--fix] [file ...]
+
+Without file arguments, lints README.md and docs/**/*.md
+Also checks relative .md links and their in-page anchors
+(GitHub-style fragments) in the linted files.
+
+Options:
+    --fix                       Apply markdown autofixes where possible
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
+  process.exit(0);
+}
+
 let fixMode = false;
 const files: string[] = [];
 
-const argv = process.argv.slice(2);
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i]!;
-  if (a === "--fix") fixMode = true;
-  else if (a === "--help" || a === "-h") {
-    console.log("Usage: lint-documentation [--fix] [file ...]");
-    console.log("");
-    console.log("Without file arguments, lints README.md and docs/**/*.md");
-    console.log("Also checks relative .md links and their in-page anchors");
-    console.log("(GitHub-style fragments) in the linted files.");
-    console.log("--fix    Apply markdown autofixes where possible");
-    process.exit(0);
-  } else files.push(a);
+try {
+  const cli = toolCli({
+    name: "lint-documentation",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      fix: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  fixMode = cli.values["fix"] === true;
+  files.push(...cli.positionals);
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(2);
 }
 
 function gitRoot(): string | null {

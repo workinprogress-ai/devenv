@@ -9,6 +9,7 @@ import { join, relative, sep } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
@@ -26,8 +27,7 @@ function usage(): never {
 Run shellcheck on all shell scripts in the project.
 
 Options:
-    -h, --help          Show this help message
-    -v, --version       Show version information
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     -f, --format FMT    Output format: tty, json, gcc, checkstyle (default: tty)
     -s, --severity LVL  Minimum severity: error, warning, info, style (default: warning)
     -q, --quiet         Only show failures
@@ -43,48 +43,33 @@ Exit Codes:
 }
 
 const argv = process.argv.slice(2);
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i]!;
-  switch (a) {
-    case "-h":
-    case "--help":
-      usage();
-      break;
-    case "-v":
-    case "--version":
-      console.log("1.0.0");
-      process.exit(0);
-      break;
-    case "-f":
-    case "--format":
-      outputFormat = argv[++i] ?? "";
-      if (!outputFormat) { logError("Missing value for --format"); process.exit(2); }
-      break;
-    case "-s":
-    case "--severity":
-      severity = argv[++i] ?? "";
-      if (!severity) { logError("Missing value for --severity"); process.exit(2); }
-      break;
-    case "-q":
-    case "--quiet":
-      quiet = true;
-      break;
-    case "-d":
-    case "--dir":
-      searchDir = argv[++i] ?? "";
-      if (!searchDir) { logError("Missing value for --dir"); process.exit(2); }
-      break;
-    case "--fix":
-      // shellcheck has no autofix; the flag is accepted for contract parity.
-      break;
-    case "--no-color":
-      noColor = true;
-      break;
-    default:
-      logError(`Unknown option: ${a}`);
-      console.log("Use --help for usage information");
-      process.exit(2);
-  }
+const SCRIPT_VERSION = "1.0.0";
+try {
+  const cli = toolCli({
+    name: "lint-scripts",
+    version: SCRIPT_VERSION,
+    argv,
+    noDryRun: true,
+    options: {
+      format: { type: "string", short: "f", default: "tty" },
+      severity: { type: "string", short: "s", default: "warning" },
+      quiet: { type: "boolean", short: "q", default: false },
+      dir: { type: "string", short: "d" },
+      fix: { type: "boolean", default: false },
+      "no-color": { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  outputFormat = (cli.values["format"] as string | undefined) ?? "tty";
+  severity = (cli.values["severity"] as string | undefined) ?? "warning";
+  quiet = cli.values["quiet"] === true;
+  searchDir = (cli.values["dir"] as string | undefined) ?? projectRoot;
+  // --fix accepted for contract parity (shellcheck has no autofix)
+  noColor = cli.values["no-color"] === true;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(2);
 }
 
 const C = (code: string): string => (noColor ? "" : code);

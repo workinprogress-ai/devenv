@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 
 assertNodeFloor();
@@ -18,16 +19,35 @@ Clone a configuration repository and extract it into the local config
 folder (CONFIG_FOLDER, default $DEVENV_ROOT/.debug/config). An existing
 config folder is replaced.
 
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+
   repo-url   Repository to clone (default: $SERVICES_CONFIG_REPO)
   branch     Branch to check out (default: the repository default)`);
   process.exit(0);
 }
 
-const argv = process.argv.slice(2);
-if (argv[0] === "-h" || argv[0] === "--help") usage();
+let repoUrl = "";
+let branch = "";
+try {
+  const cli = toolCli({
+    name: "get-services-config",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) usage();
+  if (cli.positionals.length > 2) {
+    logError("Too many arguments: at most repo-url and branch");
+    process.exit(EXIT_MISUSE);
+  }
+  repoUrl = cli.positionals[0] ?? process.env.SERVICES_CONFIG_REPO ?? "";
+  branch = cli.positionals[1] ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+}
 
-const repoUrl = argv[0] ?? process.env.SERVICES_CONFIG_REPO ?? "";
-const branch = argv[1] ?? "";
 const targetFolder = process.env.CONFIG_FOLDER
   ?? join(process.env.DEVENV_ROOT ?? selfRoot(process.cwd()), ".debug", "config");
 

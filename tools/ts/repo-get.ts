@@ -12,13 +12,16 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { logWarn } from "../lib/core/logging.ts";
+import { logError, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { providerOrgGet, providerRepoSplit } from "../lib/providers/provider-core.ts";
 import { gitTransportUrl, authStatusOk, remoteToSpec } from "../lib/providers/facade/urls.ts";
 import { reposList } from "../lib/providers/facade/repos.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.2.0";
 
 const devenvRoot = process.env.DEVENV_ROOT ?? "";
 if (devenvRoot === "") {
@@ -28,12 +31,23 @@ if (devenvRoot === "") {
 const reposDir = join(devenvRoot, "repos");
 if (!existsSync(reposDir)) mkdirSync(reposDir, { recursive: true });
 
+const USAGE_TEXT = `Usage: repo-get [--select|--all] [<repository-name>|<repository-url>]
+
+Clone or update a repository from the organization.
+
+  --select            Show a selection list of repositories in the organization
+                      (excludes already cloned repos)
+  --all               Clone all repositories in the organization not already
+                      present locally
+  repository-name     Name of the GitHub repository (alphanumeric, hyphens, dots)
+  repository-url      Full URL to a foreign repository (https:// or git@);
+                      cloned flat into repos/ by its basename
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`;
+
 function printUsage(): void {
-  console.error("Usage: repo-get [--select|--all] [<repository-name>|<repository-url>]");
-  console.error("  --select: Show a selection list of repositories in the organization (excludes already cloned repos)");
-  console.error("  --all: Clone all repositories in the organization not already present locally");
-  console.error("  repository-name: Name of the GitHub repository (alphanumeric, hyphens, and dots)");
-  console.error("  repository-url: Full URL to a foreign repository (https:// or git@); cloned flat into repos/ by its basename");
+  console.error(USAGE_TEXT);
 }
 
 function usage(): never {
@@ -121,32 +135,84 @@ let allMode = false;
 let repoName = "";
 let foreignUrl = "";
 
-const first = process.argv[2];
-if (first === "--select") {
-  selectMode = true;
-} else if (first === "--all") {
-  allMode = true;
-} else if (first === "--help" || first === "-h") {
-  printUsage();
-  process.exit(0);
-} else if (first === undefined || first === "") {
-  const root = git(["rev-parse", "--show-toplevel"]);
-  repoName = root.status === 0 ? (root.out.trim().split("/").pop() ?? "") : "";
-  if (repoName === "" || repoName === "devenv" || !existsSync(join(reposDir, repoName))) {
-    usage();
-  }
-} else {
-  const input = first.replace(/\/$/, "");
-  if (isForeignUrl(input)) {
-    foreignUrl = input;
-    const derived = foreignRepoName(input);
-    if (derived === null) process.exit(EXIT_GENERAL_ERROR);
-    repoName = derived;
-  } else if (!validateRepositoryName(input)) {
-    usage();
+try {
+  // A repository name may itself start with '-' (e.g. '-repo'); parseArgs
+  // swallows such tokens as short-flag groups even under strict:false, so a
+  // dash-leading first token that is not a known flag is routed straight to
+  // name validation ('Invalid repository name' — pinned by the validation
+  // suite) instead of the parser.
+  const rawFirst = process.argv[2] ?? "";
+  const KNOWN_FLAGS = new Set(["--select", "--all", "--help", "-h", "-v", "--version", "-V", "--verbose", "--devenv", "--"]);
+  if (rawFirst.startsWith("-") && !KNOWN_FLAGS.has(rawFirst)) {
+    const input = rawFirst.replace(/\/$/, "");
+    if (isForeignUrl(input)) {
+      foreignUrl = input;
+      const derived = foreignRepoName(input);
+      if (derived === null) process.exit(EXIT_GENERAL_ERROR);
+      repoName = derived;
+    } else if (!validateRepositoryName(input)) {
+      usage();
+    } else {
+      repoName = input;
+    }
   } else {
-    repoName = input;
+  const cli = toolCli({
+    name: "repo-get",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    // Non-strict by design: a name argument may start with '-' (e.g.
+    // '-repo' must reach name validation and print 'Invalid repository
+    // name', not a parse error — pinned by the validation suite). Known
+    // flags still parse; unknown single-dash tokens fall through to the
+    // name path.
+    strict: false,
+    options: {
+      select: { type: "boolean", default: false },
+      all: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) {
+    printUsage();
+    process.exit(0);
   }
+  selectMode = cli.values.select === true;
+  if (cli.values.all === true) {
+    allMode = true;
+  }
+  const nameArg = cli.positionals[0] ?? "";
+  if (cli.positionals.length > 1) {
+    logError("Too many arguments: expected one repository name or URL");
+    usage();
+  }
+  if (selectMode || allMode) {
+    if (nameArg !== "") {
+      logError("A repository name/URL cannot combine with --select/--all");
+      usage();
+    }
+  } else if (nameArg === "") {
+    const root = git(["rev-parse", "--show-toplevel"]);
+    repoName = root.status === 0 ? (root.out.trim().split("/").pop() ?? "") : "";
+    if (repoName === "" || repoName === "devenv" || !existsSync(join(reposDir, repoName))) {
+      usage();
+    }
+  } else {
+    const input = nameArg.replace(/\/$/, "");
+    if (isForeignUrl(input)) {
+      foreignUrl = input;
+      const derived = foreignRepoName(input);
+      if (derived === null) process.exit(EXIT_GENERAL_ERROR);
+      repoName = derived;
+    } else if (!validateRepositoryName(input)) {
+      usage();
+    } else {
+      repoName = input;
+    }
+  }
+  }
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
 }
 
 if (selectMode) {

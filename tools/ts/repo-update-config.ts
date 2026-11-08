@@ -15,6 +15,7 @@ import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { providerOrgGet, ghApiSync } from "../lib/providers/provider-core.ts";
 import {
   loadRepoTypesConfig,
@@ -32,19 +33,23 @@ import {
 assertNodeFloor();
 
 const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
+const SCRIPT_VERSION = "1.1.0";
+
+const USAGE_TEXT = `Usage: repo-update-config <repo-path> [--type <type>]
+
+Arguments:
+  repo-path                Path to the cloned repository
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  --type <type>            Repository type (optional; auto-detected if not provided)
+
+Examples:
+  repo-update-config ~/repos/my-service
+  repo-update-config ~/repos/my-docs --type documentation`;
 
 function usage(): never {
-  console.error("Usage: repo-update-config <repo-path> [--type <type>]");
-  console.error("");
-  console.error("Arguments:");
-  console.error("  repo-path                Path to the cloned repository");
-  console.error("");
-  console.error("Options:");
-  console.error("  --type <type>            Repository type (optional; auto-detected if not provided)");
-  console.error("");
-  console.error("Examples:");
-  console.error("  repo-update-config ~/repos/my-service");
-  console.error("  repo-update-config ~/repos/my-docs --type documentation");
+  console.error(USAGE_TEXT);
   process.exit(1);
 }
 
@@ -56,28 +61,30 @@ if (providerOrgGet() === "") {
 
 let repoPath = "";
 let repoType = "";
-
-const argv = process.argv.slice(2);
-while (argv.length > 0) {
-  const arg = argv.shift() ?? "";
-  if (arg === "--type") {
-    const v = argv.shift();
-    if (v === undefined) {
-      logError("--type requires an argument");
-      usage();
-    }
-    repoType = v;
-  } else if (arg === "-h" || arg === "--help") {
+try {
+  const cli = toolCli({
+    name: "repo-update-config",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      type: { type: "string" },
+    },
+  });
+  if (cli.common.help) {
+    // Bash parity is exit 1 on help (usage() exits 1) — pinned by the
+    // suite; the house exit-0 help does not apply here.
     usage();
-  } else if (arg.startsWith("-")) {
-    logError(`Unknown option: ${arg}`);
-    usage();
-  } else if (repoPath === "") {
-    repoPath = arg;
-  } else {
+  }
+  repoPath = cli.positionals[0] ?? "";
+  if (cli.positionals.length > 1) {
     logError("Too many positional arguments");
     usage();
   }
+  repoType = typeof cli.values.type === "string" ? cli.values.type : "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
 }
 
 if (repoPath === "") {

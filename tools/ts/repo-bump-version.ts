@@ -16,11 +16,13 @@ import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkReleaseConfigSupportsCustomTypes, getConventionalCommitType } from "../lib/domain/release/version.ts";
 
 assertNodeFloor();
 
 const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
+const SCRIPT_VERSION = "1.1.0";
 
 function usage(): void {
   console.log(`Usage: repo-bump-version <change-type> [repository-names...]
@@ -30,6 +32,9 @@ Forces an empty commit in multiple repositories to trigger version updates.
 Arguments:
   change-type       Type of version change: 'patch', 'minor', or 'major'
   repository-names  List of repository names (can be provided via heredoc)
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Examples:
   repo-bump-version patch repo1 repo2 repo3
@@ -59,8 +64,27 @@ function run(args: string[], opts: { cwd?: string; input?: string } = {}): Run {
   return { status: r.status ?? 1 };
 }
 
+let positionals: string[] = [];
+try {
+  const cli = toolCli({
+    name: "repo-bump-version",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) {
+    usage();
+    process.exit(0);
+  }
+  positionals = cli.positionals;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+  process.exit(EXIT_MISUSE);
+}
+
 // Validate change type parameter
-const changeType = process.argv[2] ?? "";
+const changeType = positionals[0] ?? "";
 if (changeType === "") {
   logError("Missing required argument: change-type");
   usage();
@@ -74,9 +98,8 @@ if (!/^(patch|minor|major)$/.test(changeType)) {
 
 // Collect repository names from arguments or stdin (heredoc)
 const repos: string[] = [];
-const positional = process.argv.slice(3);
-if (positional.length > 0) {
-  repos.push(...positional);
+if (positionals.length > 1) {
+  repos.push(...positionals.slice(1));
 } else {
   const stdinData = readFileSync(0, "utf8");
   for (const rawLine of stdinData.split("\n")) {

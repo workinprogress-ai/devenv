@@ -3,10 +3,10 @@
 // partial-match > context default; the filter is a regex against pod names
 // (jq test() semantics, metacharacter-safe via argv, never shell).
 
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { listPods, resolveNamespace } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
@@ -17,28 +17,34 @@ function usage(): never {
 List pod names in a namespace (one per line).
 
 Options:
-  -n, --namespace NS   Namespace (flag > NAMESPACE env > partial match >
-                       current-context default)
-  POD_NAME_FILTER      Regex filter applied to pod names
-  -h, --help           Show this help`);
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  -n, --namespace NS     Namespace (flag > NAMESPACE env > partial match >
+                         current-context default)
+
+POD_NAME_FILTER is an optional positional regex filter applied to pod names.`);
   process.exit(0);
 }
 
-const { values, positionals } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    namespace: { type: "string" },
-    n: { type: "string" },
-  },
-  allowPositionals: true,
-  strict: false,
-});
-
-if (values.help) usage();
-
-const nsInput = (values.namespace as string | undefined) ?? (values.n as string | undefined) ?? "";
-const filter = positionals[0] ?? "";
+let nsInput = "";
+let filter = "";
+try {
+  const cli = toolCli({
+    name: "kube-list-pods",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      namespace: { type: "string" },
+      n: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
+  filter = cli.positionals[0] ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+}
 
 const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {

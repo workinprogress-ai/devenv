@@ -25,14 +25,16 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
 const SCRATCHPAD_BRANCH_PREFIX = "scratchpad/";
 const SCRATCHPAD_STATE_REF = "refs/scratchpad/state";
+const SCRIPT_VERSION = "1.1.0";
 
 function git(args: string[]): { status: number; out: string } {
   const r = spawnSync("git", args, { encoding: "utf8" });
@@ -40,19 +42,22 @@ function git(args: string[]): { status: number; out: string } {
 }
 
 function usage(): never {
-  console.log(`Usage: git-wip [--staged-only] [--dry-run] [--file <path>] ["<message words...>"]
+  console.log(`Usage: git-wip [--staged-only] [-n, --dry-run] [--file <path>] ["<message words...>"]
 
 Stage everything (or --staged-only to skip staging) and push a WIP snapshot
 commit prefixed with "WIP: ".
 
   --staged-only   Do not run \`git add -A\`; commit the existing index.
-  --dry-run       Print what would happen (stage set, commit, push) and exit
+  -n, --dry-run   Print what would happen (stage set, commit, push) and exit
                   without touching anything — the safe probe path.
   --file <path>   Read the message from a file (used verbatim after the
                   WIP: prefix). Mutually exclusive with positional words.
 
 Commit and push require an interactive terminal (or --allow-non-tty): an
-accidental non-interactive invocation must not publish a hook-bypass commit.`);
+accidental non-interactive invocation must not publish a hook-bypass commit.
+
+Options:
+${usageCommonFlags({ noDevenv: true })}`);
   process.exit(0);
 }
 
@@ -99,32 +104,46 @@ let allowNonTty = false;
 let msgFile = "";
 const words: string[] = [];
 
-const { values } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    "staged-only": { type: "boolean", default: false },
-    "dry-run": { type: "boolean", default: false },
-    "allow-non-tty": { type: "boolean", default: false },
-    file: { type: "string" },
-    help: { type: "boolean", default: false },
-  },
-  allowPositionals: true, // positionals unused: message words come from raw-token reconstruction
-  // bash refused unknown flags with exit 1 + a named message; parseArgs'
-  // throw would leak a stack trace instead.
-  strict: false,
-});
-// parseArgs (strict:false) silently treats single-dash tokens like `-n` as
-// boolean flags, dropping them from positionals — `git-wip -n oops` would
-// lose the token from the WIP message. Only long flags are recognized; a
-// single-dash token that is not -h is a message word (bash carried it through).
+let parsed;
+try {
+  parsed = toolCli({
+    name: "git-wip",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    // Non-strict by design: message words are raw tokens, and single-dash
+    // tokens like `-n` are message words, not flags (parseArgs would
+    // swallow them as booleans). The unknown-long-flag refusal loop below
+    // keeps the bash contract; the house dry-run replaces the local one.
+    strict: false,
+    options: {
+      "staged-only": { type: "boolean", default: false },
+      "allow-non-tty": { type: "boolean", default: false },
+      file: { type: "string" },
+    },
+  });
+  if (parsed.common.help) usage();
+  stagedOnly = parsed.values["staged-only"] === true;
+  dryRun = parsed.common.dryRun;
+  allowNonTty = parsed.values["allow-non-tty"] === true;
+  msgFile = typeof parsed.values.file === "string" ? parsed.values.file : "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
+// toolCli (strict:false) silently treats single-dash tokens like `-x` as
+// boolean flags, dropping them from positionals — `git-wip -x oops` would
+// lose the token from the WIP message. Only long flags and the house short
+// flags are recognized; any other single-dash token is a message word (bash
+// carried it through).
 for (const a of process.argv.slice(2)) {
   if (a.startsWith("--") && a !== "--staged-only" && a !== "--dry-run" && a !== "--allow-non-tty" && a !== "--file" && a !== "--help" && a !== "-h" && a !== "--") {
     console.error(`Error: unknown flag '${a}'`);
     process.exit(EXIT_GENERAL_ERROR);
   }
 }
-// --file requires a value (bash's arity guard, lost under parseArgs strict:false —
-// a lone trailing --file parses as boolean and would push an empty-message snapshot).
+// --file requires a value (a lone trailing --file parses as boolean under
+// non-strict parsing — it would push an empty-message snapshot).
 const rawArgs = process.argv.slice(2);
 const fileFlagIdx = rawArgs.indexOf("--file");
 if (fileFlagIdx !== -1) {
@@ -135,21 +154,27 @@ if (fileFlagIdx !== -1) {
   }
 }
 
-if (values.help) usage();
-stagedOnly = values["staged-only"] === true;
-dryRun = values["dry-run"] === true;
-allowNonTty = values["allow-non-tty"] === true;
-msgFile = typeof values.file === "string" ? values.file : "";
-// Reconstruct message words from the raw tokens instead of parseArgs
-// positionals: single-dash tokens (e.g. `-n`) parse as boolean flags and
-// would vanish from the message; raw reconstruction keeps order and content.
-// Known flags (incl. the new --dry-run / --allow-non-tty) are skipped so they
-// never leak into the message.
+// Reconstruct message words from the raw tokens instead of the parse
+// result: single-dash tokens (e.g. `-x`) parse as boolean flags under
+// non-strict parsing and would vanish from the message; raw
+// reconstruction keeps order and content. House flags (-h/-v/-V/-n and
+// their long forms) are reserved vocabulary — recognized as flags and
+// skipped from the message. After `--`, every token is a message word
+// (matching parseArgs' end-of-options handling); before it, the tool's
+// own flags and their values are skipped.
+const FLAG_WORDS = new Set([
+  "--staged-only", "--dry-run", "--allow-non-tty", "--help", "-h",
+  "-v", "--version", "-V", "--verbose", "-n", "--devenv",
+]);
 const rawTokens = process.argv.slice(2);
+let afterSeparator = false;
 for (let i = 0; i < rawTokens.length; i++) {
   const a: string = rawTokens[i] ?? "";
-  if (a === "--staged-only" || a === "--dry-run" || a === "--allow-non-tty" || a === "--help" || a === "-h" || a === "--") continue;
-  if (a === "--file") { i++; continue; } // skip the file path value
+  if (a === "--") { afterSeparator = true; continue; }
+  if (!afterSeparator) {
+    if (FLAG_WORDS.has(a)) continue;
+    if (a === "--file") { i++; continue; } // skip the file path value
+  }
   words.push(a);
 }
 
