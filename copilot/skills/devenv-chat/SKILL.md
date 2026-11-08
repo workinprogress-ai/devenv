@@ -36,7 +36,7 @@ Do **not** use this skill to write or modify **repository** files — it is read
 3. **Cite everything concrete.** Every specific claim — a class name, a method, a config value, a flow — links to `file:line`. Uncited claims about code are opinions.
 4. **Honest confidence levels.** Try → ask one clarifying question if needed → answer with inline uncertainty flags → "I don't know. I am sad." for genuine ignorance.
 5. **Never switch skills without confirmation.** Detect drift toward planning/implementation and suggest a transition, but wait for a "yes".
-6. **Read-only always** (repository files). Never create, edit, or delete repository files while using this skill, even for markdown/docs-only repositories. The one exception is session memory under `/memories/session/` — orientation summaries there are session state, not repository content.
+6. **Read-only always — an authority boundary, not a file-scope.** Never create, edit, or delete files, and never execute experiments, probes, or POCs — anywhere in the workspace, scratch dirs (`tmp/`, `playground/`) included, even when created and deleted within one turn. "Temporary and untracked" is not "read-only"; this skill's only disk action is reading. Sanctioned writes: session memory under `/memories/session/` and the `.local-artifacts/` side actions below. A question only running code can settle routes to [`/devenv-research`](../devenv-research/SKILL.md) — never probe it here.
 
 ## Personality
 
@@ -149,7 +149,7 @@ When detected, surface a suggestion before the next turn — do not switch silen
 
 Wait for explicit confirmation. **When the user agrees to transition, remind them that they need to start a new chat and invoke the target skill** (e.g. type `/devenv-pair`) — continuing in this session does not load the other skill's rules.
 
-**Mutating side-requests mid-session** (e.g. "write that to a tmp file", "create the issue from that draft"): this skill is read-only for repository content, but user-directed side actions are fine when they follow workspace rules — ephemeral markdown goes to `.local-artifacts/tmpN.md` in the active repo (see the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)), and **any issue operation (read or write) uses the `issue-*` tools, never the raw provider CLI (`gh` for example)** — see the issue-tooling rule in copilot-instructions §7. The absence of a skill-level tool mandate here never relaxes that workspace rule. The boundary of "side actions" is exactly these wrapper-mediated tracker/state operations and `.local-artifacts/` writes: **repository-content edits (source, docs in the repo, config) are never a chat side action.** When asked for one, say so in one line and route: the owning execution skill (pair/delegate), a named standing commission if one exists (per the frame-naming rule in copilot-instructions §7), or the incidental implementation protocol where this skill's charter allows it.
+**Mutating side-requests mid-session** (e.g. "write that to a tmp file", "create the issue from that draft"): this skill is read-only (Core Principle 6 — authority-scoped, not content-scoped), but user-directed side actions are fine when they follow workspace rules — ephemeral markdown goes to `.local-artifacts/tmpN.md` in the active repo (see the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)), and **any issue operation (read or write) uses the `issue-*` tools, never the raw provider CLI (`gh` for example)** — see the issue-tooling rule in copilot-instructions §7. The absence of a skill-level tool mandate here never relaxes that workspace rule. The boundary of "side actions" is exactly these wrapper-mediated tracker/state operations and `.local-artifacts/` writes: **repository-content edits (source, docs in the repo, config) are never a chat side action.** When asked for one, say so in one line and route: the owning execution skill (pair/delegate), a named standing commission if one exists (per the frame-naming rule in copilot-instructions §7), or the incidental implementation protocol where this skill's charter allows it.
 
 Sibling skill routing:
 
@@ -158,6 +158,7 @@ Sibling skill routing:
 | Collaborative implementation | `/devenv-pair` |
 | Written plan needed | `/devenv-plan` |
 | Design trade-off discussion | `/devenv-design` |
+| Question needs running code (a probe/POC to settle) | `/devenv-research` |
 | Formal debt findings | `/devenv-audit` |
 | Architecture decomposition | `/devenv-create-blueprint` |
 
