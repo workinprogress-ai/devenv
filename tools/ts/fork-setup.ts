@@ -7,15 +7,18 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { loadConfig, upstreamMatches } from "../lib/domain/fork/index.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.0.0";
 
 const die = (msg: string, code: number): never => {
   console.error(`ERROR: ${msg}`);
   process.exit(code);
 };
 
-if (process.argv[2] === "--help" || process.argv[2] === "-h") {
+function usage(): never {
   console.log(`fork-setup — one-time setup of this repo's upstream relationship
 
 Idempotently adds a fetch-only \`upstream\` git remote and confirms the
@@ -24,18 +27,29 @@ Idempotently adds a fetch-only \`upstream\` git remote and confirms the
 See docs/Forking.md.
 
 USAGE
-  fork-setup [--dry-run]`);
+    fork-setup [--dry-run]
+
+Options:
+${usageCommonFlags()}`);
   process.exit(0);
 }
 
 process.env.DEVENV_ROOT = process.env.DEVENV_ROOT ?? selfRoot(process.cwd());
-const config = loadConfig();
 
 let dryRun = false;
-for (const a of process.argv.slice(2)) {
-  if (a === "--dry-run") dryRun = true;
-  else die(`unknown option: ${a}`, EXIT_MISUSE);
+try {
+  const cli = toolCli({
+    name: "fork-setup",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+  });
+  if (cli.common.help) usage();
+  dryRun = cli.common.dryRun;
+} catch (err) {
+  die(err instanceof Error ? err.message : String(err), EXIT_MISUSE);
 }
+
+const config = loadConfig();
 
 const gr = (args: string[]): { out: string; ok: boolean } => {
   const r = spawnSync("git", args, { encoding: "utf8" });

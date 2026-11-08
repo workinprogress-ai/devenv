@@ -9,6 +9,9 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { invalidArgs } from "../lib/core/args.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { providerOrgGet } from "../lib/providers/provider-core.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 
@@ -31,8 +34,7 @@ Options:
     --plan-file FILE  Specific plan file to match (repeatable)
     --org ORG         Default org for bare/repo-relative issue refs
     --repo REPO       Default repo for bare #N refs
-    -h, --help        Show this help message
-    -v, --version     Show version and exit
+${usageCommonFlags({ noDryRun: true })}
 
 Exit codes:
     0 parsed OK
@@ -49,43 +51,46 @@ interface StepRec {
 
 // --- argv ---
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-if (argv.includes("-v") || argv.includes("--version")) {
-  console.log("1.0.0");
-  process.exit(0);
-}
+const SCRIPT_VERSION = "1.0.0";
 
 let roadmap = "";
 let defaultOrg = "";
 let defaultRepo = "";
 const planFiles: string[] = [];
 
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  if (a === "--plan-dir" || a === "--plan-file" || a === "--org" || a === "--repo") {
-    const v = argv[i + 1];
-    if (v === undefined) invalidArgs(`Missing value for ${a}`);
-    if (a === "--plan-dir") {
-      if (existsSync(v as string)) {
-        for (const e of readdirSync(v as string)) {
-          if (e.endsWith(".md")) planFiles.push(join(v as string, e));
-        }
+try {
+  const cli = toolCli({
+    name: "roadmap-parse",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      "plan-dir": { type: "string" },
+      "plan-file": { type: "string", multiple: true },
+      org: { type: "string" },
+      repo: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  const planDir = cli.values["plan-dir"] as string | undefined;
+  if (planDir !== undefined && planDir !== "") {
+    if (existsSync(planDir)) {
+      for (const e of readdirSync(planDir)) {
+        if (e.endsWith(".md")) planFiles.push(join(planDir, e));
       }
-    } else if (a === "--plan-file") {
-      planFiles.push(v as string);
-    } else if (a === "--org") {
-      defaultOrg = v as string;
-    } else {
-      defaultRepo = v as string;
     }
-    i++;
-  } else if (a.startsWith("--")) {
-    invalidArgs(`Unknown option: ${a}`);
-  } else {
+  }
+  planFiles.push(...((cli.values["plan-file"] as string[] | undefined) ?? []));
+  defaultOrg = (cli.values["org"] as string | undefined) ?? "";
+  defaultRepo = (cli.values["repo"] as string | undefined) ?? "";
+  for (const a of cli.positionals) {
     if (roadmap !== "") invalidArgs("Multiple roadmap files given");
     roadmap = a;
   }
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (roadmap === "") invalidArgs("ROADMAP_FILE is required");

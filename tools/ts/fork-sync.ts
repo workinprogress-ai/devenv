@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { changeIdGetFromCommit } from "../lib/core/change-id.ts";
 import { loadConfig, normalizeGitUrl, upstreamMatches } from "../lib/domain/fork/index.ts";
 import {
@@ -50,7 +51,10 @@ USAGE
     fork-sync --link <local-commit> <upstream-commit>
     fork-sync --unlink <local-or-upstream-sha>
     fork-sync --drift
-    fork-sync --propose-links`);
+    fork-sync --propose-links
+
+Options:
+${usageCommonFlags()}`);
   process.exit(0);
 }
 
@@ -61,31 +65,53 @@ let dryRun = false, replay = false, push = false, rewriteOrigin = false, yes = f
 let linkLocal = "", linkUpstream = "", unlinkSha = "";
 let proposeLinks = false, drift = false;
 
-const argv = process.argv.slice(2);
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  if (a === "--dry-run") dryRun = true;
-  else if (a === "--replay") replay = true;
-  else if (a === "--push-to-origin") push = true;
-  else if (a === "--rewrite-origin") rewriteOrigin = true;
-  else if (a === "--yes") yes = true;
-  else if (a === "--link") {
-    const l = argv[i + 1];
-    const u = argv[i + 2];
-    if (l === undefined || u === undefined) die("Missing value for --link", EXIT_MISUSE);
-    linkLocal = l as string;
-    linkUpstream = u as string;
-    i += 2;
-  } else if (a === "--propose-links") proposeLinks = true;
-  else if (a === "--drift") drift = true;
-  else if (a === "--unlink") {
-    const v = argv[i + 1];
-    if (v === undefined) die("Missing value for --unlink", EXIT_MISUSE);
-    unlinkSha = v as string;
-    i++;
-  } else if (a === "--rebase") {
+// Superseded-flag guard before toolCli: parseArgs's own unknown-option
+// text differs from the pinned lowercase contract.
+for (const a of process.argv.slice(2)) {
+  if (a.startsWith("--") && !["--dry-run","--replay","--push-to-origin","--rewrite-origin","--yes","--link","--unlink","--drift","--propose-links","--help","--verbose","--version","--devenv"].includes(a)) {
+    die(`unknown option: ${a}`, EXIT_MISUSE);
+  }
+}
+try {
+  const cli = toolCli({
+    name: "fork-sync",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    options: {
+      replay: { type: "boolean", default: false },
+      "push-to-origin": { type: "boolean", default: false },
+      "rewrite-origin": { type: "boolean", default: false },
+      yes: { type: "boolean", default: false },
+      link: { type: "string", multiple: true },
+      unlink: { type: "string" },
+      "propose-links": { type: "boolean", default: false },
+      drift: { type: "boolean", default: false },
+      rebase: { type: "boolean", default: false },
+    },
+  });
+  dryRun = cli.common.dryRun;
+  replay = cli.values["replay"] === true;
+  push = cli.values["push-to-origin"] === true;
+  rewriteOrigin = cli.values["rewrite-origin"] === true;
+  yes = cli.values["yes"] === true;
+  // --link takes two values; parseArgs options take one, so the second
+  // arrives as a positional. Reassemble: --link <a> <b>.
+  const linkFirst = cli.values["link"] as string | undefined;
+  if (linkFirst !== undefined) {
+    const linkSecond = cli.positionals[0];
+    if (linkSecond === undefined) die("Missing value for --link", EXIT_MISUSE);
+    linkLocal = linkFirst;
+    linkUpstream = linkSecond as string;
+    cli.positionals.shift();
+  }
+  unlinkSha = (cli.values["unlink"] as string | undefined) ?? "";
+  proposeLinks = cli.values["propose-links"] === true;
+  drift = cli.values["drift"] === true;
+  if (cli.values["rebase"] === true) {
     die("--rebase was renamed --replay (the sync applies upstream's commits on top of the branch; it no longer describes itself as a rebase)", EXIT_MISUSE);
-  } else die(`unknown option: ${a}`, EXIT_MISUSE);
+  }
+} catch (err) {
+  die(err instanceof Error ? err.message : String(err), EXIT_MISUSE);
 }
 
 if (yes && !push && !replay) die("--yes requires --push-to-origin or --replay", EXIT_MISUSE);

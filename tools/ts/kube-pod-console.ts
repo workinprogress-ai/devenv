@@ -3,10 +3,10 @@
 // default to /bin/bash when no command is given, then kubectl exec -it.
 
 import { spawnSync } from "node:child_process";
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { listPods, resolveNamespace } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
@@ -18,32 +18,39 @@ Open an interactive shell (or the given command) on the first pod whose name
 matches pod-name-part in the resolved namespace. Defaults to /bin/bash.
 
 Options:
-  -n, --namespace NS   Namespace
-  -h, --help           Show this help`);
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  -n, --namespace NS     Namespace`);
   process.exit(0);
 }
 
-const { values, positionals } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    namespace: { type: "string" },
-    n: { type: "string" },
-  },
-  allowPositionals: true,
-  strict: false,
-});
+let podPart = "";
+let command: string[] = [];
+let nsInput = "";
+try {
+  const cli = toolCli({
+    name: "kube-pod-console",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      namespace: { type: "string" },
+      n: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  podPart = cli.positionals[0] ?? "";
+  command = cli.positionals.slice(1);
+  nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+}
 
-if (values.help) usage();
-
-const podPart = positionals[0];
-if (podPart === undefined || podPart === "") {
+if (podPart === "") {
   logError("usage: kube-pod-console <pod-name-part> [-n|--namespace <ns>] [command...]");
   process.exit(EXIT_GENERAL_ERROR);
 }
-const command = positionals.slice(1);
 
-const nsInput = (values.namespace as string | undefined) ?? (values.n as string | undefined) ?? "";
 const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {
   logError(resolution.message);

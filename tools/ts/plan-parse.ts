@@ -11,6 +11,8 @@ import { basename, dirname, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { invalidArgs } from "../lib/core/args.ts";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { headerField } from "../lib/domain/artifacts.ts";
 
 assertNodeFloor();
@@ -50,9 +52,7 @@ Modes:
 Options:
     --require-header  With --lint only: make the DEVENV_ARTIFACT_V1 header
                  mandatory and validated (the issue-artifact-upsert gate)
-    -V, --verbose   Enable verbose logs
-    -h, --help      Show help and exit
-    -v, --version   Show version and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Exit Codes:
     0 success (lint: no errors)
@@ -347,34 +347,59 @@ function emitSummary(file: string, parsed: Parsed, content: string): never {
 // Argv
 // ---------------------------------------------------------------------------
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-if (argv.includes("-v") || argv.includes("--version")) {
-  console.log("1.2.0");
-  process.exit(0);
-}
+const SCRIPT_VERSION = "1.2.0";
 
 let mode = "structure";
 let modeSet = 0;
 let requireHeader = false;
 let file = "";
 
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  if (["--structure", "--anchors", "--census", "--summary", "--lint"].includes(a)) {
-    modeSet++;
-    if (modeSet > 1) {
-      console.error(`plan-parse: only one mode flag allowed (already set: --${mode}, got ${a})`);
-      process.exit(EXIT_MISUSE);
-    }
-    mode = a.slice(2);
-  } else if (a === "--require-header") {
-    requireHeader = true;
-  } else if (a === "-V" || a === "--verbose") {
-    // accepted for parity; no verbose surface in the port
-  } else {
+try {
+  const cli = toolCli({
+    name: "plan-parse",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      structure: { type: "boolean", default: false },
+      anchors: { type: "boolean", default: false },
+      census: { type: "boolean", default: false },
+      summary: { type: "boolean", default: false },
+      lint: { type: "boolean", default: false },
+      "require-header": { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  for (const a of cli.positionals) {
+    if (file !== "") invalidArgs(`Unexpected argument: ${a}`);
     file = a;
   }
+  // Report flags in command-line order (the original loop's contract):
+  // "already set" names the flag that appeared FIRST on the line.
+  const seen: string[] = [];
+  const modeFlags = ["structure", "anchors", "census", "summary", "lint"] as const;
+  const order: string[] = [];
+  for (const a of process.argv.slice(2)) {
+    const long = a.startsWith("--") ? a.slice(2) : "";
+    if ((modeFlags as readonly string[]).includes(long)) order.push(long);
+  }
+  for (const m of modeFlags) {
+    if (cli.values[m] === true) seen.push(m);
+  }
+  // Use command-line order for the duplicate report when available.
+  const first = order.length > 0 ? order[0] : (seen[0] ?? mode);
+  if (seen.length > 1) {
+    const second = order.length > 1 ? order[1] : (seen[1] ?? "");
+    console.error(`plan-parse: only one mode flag allowed (already set: --${first}, got --${second})`);
+    process.exit(EXIT_MISUSE);
+  }
+  if (seen.length === 1) mode = seen[0] as string;
+  requireHeader = cli.values["require-header"] === true;
+} catch (err) {
+  if (err instanceof Error && err.message.startsWith("Unexpected argument")) throw err;
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (file === "") invalidArgs("FILE is required");

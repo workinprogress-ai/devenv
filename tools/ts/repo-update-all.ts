@@ -10,39 +10,56 @@ import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
 const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const MAX_PARALLEL_JOBS = 4;
 const DEFAULT_PARALLEL_JOBS = 2;
+const SCRIPT_VERSION = "1.1.0";
 
 let parallelJobs = DEFAULT_PARALLEL_JOBS;
-const argv = process.argv.slice(2);
-while (argv.length > 0) {
-  const arg = argv.shift() ?? "";
-  if (arg === "-j" || arg === "--jobs") {
-    const v = argv.shift() ?? "";
-    if (!/^[0-9]+$/.test(v)) {
-      console.error("ERROR: --jobs requires a numeric argument");
-      process.exit(1);
-    }
-    parallelJobs = Number(v);
-    // A zero pool never launches a job and never fires the completion tail:
-    // the await hangs forever with no output (bash xargs -P 0 meant
-    // UNLIMITED — not honored here; the TS pool floors at 1 implicitly by
-    // refusing 0).
-    if (parallelJobs === 0) {
-      console.error("ERROR: --jobs 0 would deadlock the spawn pool (use 1 or more)");
-      process.exit(1);
-    }
-  } else if (arg === "-h" || arg === "--help") {
-    console.log("Usage: repo-update-all [--jobs N]\nUpdate all repositories in repos directory in parallel.");
+try {
+  const cli = toolCli({
+    name: "repo-update-all",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    allowPositionals: false,
+    options: {
+      jobs: { type: "string", short: "j", default: String(DEFAULT_PARALLEL_JOBS) },
+    },
+  });
+  if (cli.common.help) {
+    console.log(`Usage: repo-update-all [-j, --jobs N]
+Update all repositories in repos directory in parallel (default ${DEFAULT_PARALLEL_JOBS} jobs, max ${MAX_PARALLEL_JOBS}).
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  -j, --jobs N             Parallel repo-get jobs (default: ${DEFAULT_PARALLEL_JOBS})`);
     process.exit(0);
-  } else {
-    console.error(`ERROR: Unknown option: ${arg}`);
+  }
+  const jobsRaw = typeof cli.values.jobs === "string" ? cli.values.jobs : String(DEFAULT_PARALLEL_JOBS);
+  if (!/^[0-9]+$/.test(jobsRaw)) {
+    logError("--jobs requires a numeric argument");
     process.exit(1);
   }
+  parallelJobs = Number(jobsRaw);
+  // A zero pool never launches a job and never fires the completion tail:
+  // the await hangs forever with no output (bash xargs -P 0 meant
+  // UNLIMITED — not honored here; the TS pool floors at 1 implicitly by
+  // refusing 0).
+  if (parallelJobs === 0) {
+    logError("--jobs 0 would deadlock the spawn pool (use 1 or more)");
+    process.exit(1);
+  }
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (parallelJobs > MAX_PARALLEL_JOBS) {

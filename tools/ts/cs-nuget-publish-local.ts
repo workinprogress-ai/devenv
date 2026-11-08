@@ -12,10 +12,34 @@ import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { calculateNextVersion, getLatestVersionTag } from "../lib/domain/release/version.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
 const devenvRoot = process.env.DEVENV_ROOT ?? selfRoot(process.cwd());
+const SCRIPT_VERSION = "1.0.0";
+
+function usage(): never {
+  console.log(`Usage: cs-nuget-publish-local [TARGET_DIR [VERSION [CONFIG]]]
+
+Restore, build, and pack every .csproj under TARGET_DIR (skipping /test/
+projects), copy the packages into the local NuGet dev feed, and clear the
+caches of the pushed packages. VERSION defaults to the repo's calculated
+next version; CONFIG defaults to Debug.
+
+Arguments:
+    TARGET_DIR      Directory to walk for .csproj files (default: cwd)
+    VERSION         Package version (default: calculated next version)
+    CONFIG          Build configuration (default: Debug)
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+
+Exit codes:
+    0 success
+    1 no csproj found / a dotnet step failed`);
+  process.exit(0);
+}
 
 function findCsprojFiles(dir: string, depth: number): string[] {
   if (depth > 8) return [];
@@ -41,7 +65,21 @@ function run(cmd: string, args: string[]): boolean {
 }
 
 function main(): void {
-  const argv = process.argv.slice(2);
+  let argv: string[] = [];
+  try {
+    const cli = toolCli({
+      name: "cs-nuget-publish-local",
+      version: SCRIPT_VERSION,
+      argv: process.argv.slice(2),
+      noDryRun: true,
+    });
+    if (cli.common.help) usage();
+    argv = cli.positionals;
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    console.log("Use --help for usage information");
+    process.exit(2);
+  }
   const target = argv[0] ?? process.cwd();
   const version = argv[1] ?? calculateNextVersion(getLatestVersionTag());
   const releaseConfig = argv[2] ?? "Debug";

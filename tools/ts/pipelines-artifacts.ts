@@ -6,11 +6,11 @@
 //              100 MiB) or a single named artifact into --dir.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
 import { readSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { ensureProviderAuth, } from "../lib/providers/provider-core.ts";
 import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
 import { formatTable } from "../lib/ui/panels.ts";
@@ -48,6 +48,7 @@ Options:
     --download                  Download artifacts instead of just listing
     --name NAME                 Artifact name to download (use with --download)
     --dir DIR                   Download destination directory (default: .)
+${usageCommonFlags()}
 
 Examples:
     pipelines-artifacts 12345678 --repo <org>/my-service
@@ -56,41 +57,42 @@ Examples:
   process.exit(0);
 }
 
-const parsed = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    repo: { type: "string" },
-    json: { type: "boolean", default: false },
-    pretty: { type: "boolean", default: false },
-    download: { type: "boolean", default: false },
-    name: { type: "string" },
-    dir: { type: "string" },
-  },
-  allowPositionals: true,
-  strict: false,
-});
+const SCRIPT_VERSION = "1.0.0";
 
-if (parsed.values.help) usage();
-if (parsed.values.version) {
-  console.log("1.0.0");
-  process.exit(0);
-}
-repo = typeof parsed.values.repo === "string" ? parsed.values.repo : "";
-if (parsed.values.json) outputFormat = "json";
-if (parsed.values.pretty) outputFormat = "pretty";
-download = parsed.values.download === true;
-artifactName = typeof parsed.values.name === "string" ? parsed.values.name : "";
-destDir = typeof parsed.values.dir === "string" && parsed.values.dir !== "" ? parsed.values.dir : ".";
-
-const positionals = parsed.positionals.filter((p) => !p.startsWith("-"));
-if (positionals.length !== 1) {
-  logError("RUN_ID (exactly one positional) is required");
+try {
+  const cli = toolCli({
+    name: "pipelines-artifacts",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    strict: false,
+    options: {
+      repo: { type: "string" },
+      json: { type: "boolean", default: false },
+      pretty: { type: "boolean", default: false },
+      download: { type: "boolean", default: false },
+      name: { type: "string" },
+      dir: { type: "string", default: "." },
+    },
+  });
+  if (cli.common.help) usage();
+  repo = (cli.values["repo"] as string | undefined) ?? "";
+  if (cli.values["json"]) outputFormat = "json";
+  if (cli.values["pretty"]) outputFormat = "pretty";
+  download = cli.values["download"] === true;
+  artifactName = (cli.values["name"] as string | undefined) ?? "";
+  destDir = (cli.values["dir"] as string | undefined) ?? ".";
+  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  if (positionals.length !== 1) {
+    logError("RUN_ID (exactly one positional) is required");
+    console.error("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
+  }
+  runId = positionals[0] ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
   console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
-runId = positionals[0] ?? "";
 if (!/^[0-9]+$/.test(runId)) {
   logError(`RUN_ID must be numeric: ${runId}`);
   process.exit(EXIT_MISUSE);

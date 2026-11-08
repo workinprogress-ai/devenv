@@ -8,11 +8,11 @@
 //              limitation).
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { ensureProviderAuth, } from "../lib/providers/provider-core.ts";
 import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
 import { pipelinesWorkflowRun, pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
@@ -36,6 +36,7 @@ Arguments:
     WORKFLOW                    Workflow file name (e.g. ci.yml) or display name
 
 Options:
+${usageCommonFlags({ noDryRun: true })}
     --repo OWNER/REPO           Repository to run workflow in (required)
     --ref REF                   Branch or tag to run on (default: repo default branch)
     --input KEY=VALUE           Workflow dispatch input (repeatable)
@@ -46,37 +47,35 @@ Examples:
   process.exit(0);
 }
 
-const parsed = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    repo: { type: "string" },
-    ref: { type: "string" },
-    input: { type: "string", multiple: true },
-  },
-  allowPositionals: true,
-  strict: false,
-});
-
-if (parsed.values.help) usage();
-if (parsed.values.version) {
-  console.log("1.0.0");
-  process.exit(0);
+try {
+  const cli = toolCli({
+    name: "pipelines-run",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      repo: { type: "string" },
+      ref: { type: "string" },
+      input: { type: "string", multiple: true },
+    },
+  });
+  if (cli.common.help) usage();
+  repo = typeof cli.values.repo === "string" ? cli.values.repo : "";
+  ref = typeof cli.values.ref === "string" ? cli.values.ref : "";
+  for (const i of (cli.values.input as string[] | undefined) ?? []) {
+    if (typeof i === "string") inputs.push(i);
+  }
+  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  if (positionals.length !== 1) {
+    logError("WORKFLOW (exactly one positional) is required");
+    console.error("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
+  }
+  workflow = positionals[0] ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
 }
-repo = typeof parsed.values.repo === "string" ? parsed.values.repo : "";
-ref = typeof parsed.values.ref === "string" ? parsed.values.ref : "";
-for (const i of parsed.values.input ?? []) {
-  if (typeof i === "string") inputs.push(i);
-}
-
-const positionals = parsed.positionals.filter((p) => !p.startsWith("-"));
-if (positionals.length !== 1) {
-  logError("WORKFLOW (exactly one positional) is required");
-  console.error("Use --help for usage information");
-  process.exit(EXIT_MISUSE);
-}
-workflow = positionals[0] ?? "";
 
 if (repo === "" || !repo.includes("/")) {
   logError("--repo OWNER/REPO is required");

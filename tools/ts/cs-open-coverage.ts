@@ -6,9 +6,34 @@ import { execFileSync, spawn } from "node:child_process";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
+
+try {
+  const cli = toolCli({
+    name: "cs-open-coverage",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    allowPositionals: false,
+  });
+  if (cli.common.help) {
+    console.log(`Usage: cs-open-coverage
+
+Open generated coverage reports in a browser: find index.html files under
+coverage.report paths (cwd walk) and open each in chromium or firefox
+(detached). Takes no arguments.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
+    process.exit(0);
+  }
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(2);
+}
 
 function commandExists(cmd: string): boolean {
   try {

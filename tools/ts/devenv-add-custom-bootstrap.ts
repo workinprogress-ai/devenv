@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
@@ -16,8 +17,32 @@ const devenvRoot = process.env["DEVENV_ROOT"] ?? selfRoot(import.meta.url);
 const bootstrapDir = join(devenvRoot, ".devcontainer");
 const bootstrapScript = join(bootstrapDir, "user-custom-bootstrap.sh");
 
-const argv = process.argv.slice(2);
-if (argv.length === 0) {
+let commands: string[] = [];
+try {
+  const cli = toolCli({
+    name: "devenv-add-custom-bootstrap",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) {
+    console.log(`Usage: devenv-add-custom-bootstrap "command1" "command2" ...
+
+Add custom bootstrap commands to .devcontainer/user-custom-bootstrap.sh.
+Commands run each time the container is recreated or bootstrap executes.
+Each command is syntax-checked (bash -n) before it is appended.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
+    process.exit(0);
+  }
+  commands = cli.positionals;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  process.exit(2);
+}
+
+if (commands.length === 0) {
   logError('Usage: devenv-add-custom-bootstrap "command1" "command2" ...');
   process.exit(2);
 }
@@ -44,7 +69,7 @@ if (!existsSync(bootstrapScript)) {
 }
 
 let addedCount = 0;
-for (const cmd of argv) {
+for (const cmd of commands) {
   const check = spawnSync("bash", ["-n", "-c", cmd], { stdio: "ignore" });
   if ((check.status ?? 1) === 0) {
     logInfo(`Adding command: ${cmd}`);

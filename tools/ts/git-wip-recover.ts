@@ -13,16 +13,67 @@
 import { spawnSync } from "node:child_process";
 import { readSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
 const WIP_REF = "refs/wip/last";
+const SCRIPT_VERSION = "1.1.0";
 
 function git(args: string[]): { status: number; out: string } {
   const r = spawnSync("git", args, { encoding: "utf8" });
   return { status: r.status ?? 1, out: r.stdout ?? "" };
 }
+
+function usage(): never {
+  console.log(`Usage: git-wip-recover [--show | --branch [NAME]]
+
+Inspect or restore the most recently saved WIP commit.
+
+Options:
+  (no args)       Show a summary and prompt to restore interactively
+  --show          Print the saved WIP commit summary and diff stat
+  --branch [NAME] Check out a new branch at the WIP commit
+                  NAME defaults to 'wip-recovered'
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+
+The saved ref (refs/wip/last) is updated by git-wip after each push and is
+NOT deleted by git-unwip, allowing short-term recovery after unwipping.`);
+  process.exit(0);
+}
+
+let mode = "";
+let branchNameArg = "";
+try {
+  const cli = toolCli({
+    name: "git-wip-recover",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      show: { type: "boolean", default: false },
+      branch: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  if (cli.values["show"] === true) mode = "--show";
+  else if (cli.values["branch"] === true) mode = "--branch";
+  branchNameArg = cli.positionals[0] ?? "";
+} catch (err) {
+  // The bash original refused unknown options with exit 1 (general error),
+  // not exit 2 — preserved on adoption.
+  logError(`git-wip-recover: unknown option. Use --help for usage.`);
+  process.exit(EXIT_GENERAL_ERROR);
+}
+
+// Resolve the ref (required for all remaining modes)
+if (git(["rev-parse", "--verify", "--quiet", WIP_REF]).status !== 0) {
+  console.log(`git-wip-recover: no saved WIP commit found (${WIP_REF} does not exist).`);
+  process.exit(EXIT_GENERAL_ERROR);
+}
+const wipCommit = git(["rev-parse", WIP_REF]).out.trim();
 
 function showSummary(wipCommit: string): void {
   const msg = git(["log", "-1", "--format=%s", wipCommit]).out.trim();
@@ -44,39 +95,10 @@ function checkoutBranch(name: string, wipCommit: string): void {
   console.log(`git-wip-recover: checked out '${name}' at ${wipCommit}`);
 }
 
-const mode = process.argv[2] ?? "";
-
-if (mode === "-h" || mode === "--help") {
-  console.log(`Usage: git-wip-recover [--show | --branch [NAME]]
-
-Inspect or restore the most recently saved WIP commit.
-
-Options:
-  (no args)       Show a summary and prompt to restore interactively
-  --show          Print the saved WIP commit summary and diff stat
-  --branch [NAME] Check out a new branch at the WIP commit
-                  NAME defaults to 'wip-recovered'
-
-The saved ref (refs/wip/last) is updated by git-wip after each push and is
-NOT deleted by git-unwip, allowing short-term recovery after unwipping.`);
-  process.exit(0);
-}
-if (mode !== "--show" && mode !== "--branch" && mode !== "") {
-  console.error(`git-wip-recover: unknown option '${mode}'. Use --help for usage.`);
-  process.exit(EXIT_GENERAL_ERROR);
-}
-
-// Resolve the ref (required for all remaining modes)
-if (git(["rev-parse", "--verify", "--quiet", WIP_REF]).status !== 0) {
-  console.log(`git-wip-recover: no saved WIP commit found (${WIP_REF} does not exist).`);
-  process.exit(EXIT_GENERAL_ERROR);
-}
-const wipCommit = git(["rev-parse", WIP_REF]).out.trim();
-
 if (mode === "--show") {
   showSummary(wipCommit);
 } else if (mode === "--branch") {
-  const branchName = process.argv[3] ?? "wip-recovered";
+  const branchName = branchNameArg !== "" ? branchNameArg : "wip-recovered";
   checkoutBranch(branchName, wipCommit);
 } else {
   showSummary(wipCommit);

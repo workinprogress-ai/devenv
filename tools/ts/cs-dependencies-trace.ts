@@ -4,12 +4,12 @@
 // dependency tree — deduplicated and sorted — either grouped by repository
 // or annotated with the consuming packages.
 
-import { parseArgs } from "node:util";
 import { existsSync, readdirSync } from "node:fs";
 import { basename } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { getReverseDependencyTree, refreshRepoCache } from "../lib/domain/cs/dependency-graph.ts";
 
 assertNodeFloor();
@@ -23,8 +23,7 @@ Trace which cached repositories depend on the C# project(s) in TARGET_DIR
 (default: current directory), via the org-package dependency index.
 
 Options:
-    -h, --help      Show this help message and exit
-    -v, --version   Show version information and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --by-repo       Group output by repository name instead of package
     --no-refresh    Skip refreshing the repository cache (use existing cache)
 
@@ -41,38 +40,37 @@ Exit Codes:
   process.exit(0);
 }
 
-const { values, positionals } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    "by-repo": { type: "boolean", default: false },
-    "no-refresh": { type: "boolean", default: false },
-  },
-  allowPositionals: true,
-  strict: false,
-});
-
-// --help / --version are answered before any validation.
-if (values.help) showUsage();
-if (values.version) {
-  console.log(SCRIPT_VERSION);
-  process.exit(0);
+let byRepo = false;
+let skipRefresh = false;
+let targetDir = ".";
+let positionalCount = 0;
+try {
+  const cli = toolCli({
+    name: "cs-dependencies-trace",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    strict: false,
+    options: {
+      "by-repo": { type: "boolean", default: false },
+      "no-refresh": { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) showUsage();
+  byRepo = cli.values["by-repo"] === true;
+  skipRefresh = cli.values["no-refresh"] === true;
+  targetDir = cli.positionals[0] ?? ".";
+  positionalCount = cli.positionals.length;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
-const byRepo = values["by-repo"] === true;
-const skipRefresh = values["no-refresh"] === true;
-
-let targetDir = "";
-for (const a of positionals) {
-  if (targetDir === "") targetDir = a;
-  else {
-    logError("Too many arguments. Use --help for usage information.");
-    process.exit(EXIT_MISUSE);
-  }
+if (positionalCount > 1) {
+  logError("Too many arguments. Use --help for usage information.");
+  process.exit(EXIT_MISUSE);
 }
-targetDir = targetDir === "" ? "." : targetDir;
-
 if (!existsSync(targetDir)) {
   logError(`Directory not found: ${targetDir}`);
   process.exit(EXIT_API_FAILURE);

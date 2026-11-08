@@ -5,10 +5,10 @@
 //              flags, URL). Read-only.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { orgReleasesList } from "../lib/providers/facade/org.ts";
 
@@ -18,6 +18,7 @@ ensureProviderAuth();
 
 let outputFormat: "table" | "json" | "simple" = "table";
 let limit = "20";
+let devenvOverride = false;
 
 function usage(): never {
   console.log(`Usage: release-list [OPTIONS]
@@ -26,9 +27,9 @@ List GitHub releases (tag, name, published date, prerelease/draft flags, URL)
 for the target repository. Read-only.
 
 Options:
+${usageCommonFlags({ noDryRun: true })}
     -f, --format FORMAT         Output format: table (default), json, simple
     -n, --limit NUMBER          Max releases to show (default: 20)
-    --devenv                    Safety override to list releases in devenv repo
 
 Examples:
     release-list
@@ -36,32 +37,33 @@ Examples:
   process.exit(0);
 }
 
-const parsed = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    format: { type: "string" },
-    limit: { type: "string" },
-    devenv: { type: "boolean", default: false },
-  },
-  strict: false,
-});
-
-if (parsed.values.help) usage();
-if (parsed.values.version) {
-  console.log("1.1.0");
-  process.exit(0);
-}
-if (typeof parsed.values.format === "string" && parsed.values.format !== "") {
-  outputFormat = parsed.values.format as "table" | "json" | "simple";
-}
-if (typeof parsed.values.limit === "string" && parsed.values.limit !== "") {
-  if (!/^[0-9]+$/.test(parsed.values.limit)) {
-    logError(`--limit requires a numeric argument: ${parsed.values.limit}`);
-    process.exit(EXIT_MISUSE);
+try {
+  const cli = toolCli({
+    name: "release-list",
+    version: "1.1.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      format: { type: "string", short: "f" },
+      limit: { type: "string", short: "n" },
+      devenv: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  devenvOverride = cli.values.devenv === true;
+  if (typeof cli.values.format === "string" && cli.values.format !== "") {
+    outputFormat = cli.values.format as "table" | "json" | "simple";
   }
-  limit = parsed.values.limit;
+  if (typeof cli.values.limit === "string" && cli.values.limit !== "") {
+    if (!/^[0-9]+$/.test(cli.values.limit)) {
+      logError(`--limit requires a numeric argument: ${cli.values.limit}`);
+      process.exit(EXIT_MISUSE);
+    }
+    limit = cli.values.limit;
+  }
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
 }
 
 if (providerOrgGet() === "") {
@@ -76,7 +78,7 @@ if (repoSpec === "") {
 }
 
 // Devenv-repo safety gate (resolve_target_repo parity): implicit targets only.
-if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "") && parsed.values.devenv !== true) {
+if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "") && !devenvOverride) {
   logError("The current repository appears to be the devenv repository itself");
   console.log("Operations should be performed in target project repositories, not in devenv");
   console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");

@@ -21,6 +21,16 @@ const EXPLICIT_STRICT = [
   "issue-artifact-list",
   "issue-artifact-select",
   "issue-artifact-upsert",
+  // repo/git family (Phase 7.1 adoptions): these refused stray positionals
+  // before adoption (hand-rolled or allowPositionals:false parses) and must
+  // keep refusing them.
+  "repo-calc-version",
+  "repo-version-list",
+  "git-unwip",
+  "git-update",
+  "git-prune-branches",
+  "repo-batch-draft",
+  "repo-update-all",
 ] as const;
 
 const IMPLICIT_STRICT = ["issue-types", "issue-label-list", "issue-select"] as const;

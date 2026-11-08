@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { confirm, multiSelect } from "../lib/ui/prompts.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import {
   changeIdGenerate, changeIdGetFromCommit, changeIdGetFromMessage,
   changeIdIsForkAdapted, changeIdIsForkOnly, skipListAdd, skipListHasCommit,
@@ -134,13 +135,14 @@ prints the manual continuation command and leaves the Git operation intact.
 USAGE
   fork-export [<end-ref>] [--all] [--export-only] [--format bundle|patch|both] [--apply-to <path>] [--dry-run] [--include-untracked] [--include-skipped]
   fork-export --start-ref <start-commit> <end-ref> [--export-only] [--format bundle|patch|both] [--apply-to <path>]
-  fork-export --skip <commit> | --unskip <commit-or-change-id> | --list-skipped`);
+  fork-export --skip <commit> | --unskip <commit-or-change-id> | --list-skipped
+
+Options:
+${usageCommonFlags()}`);
   process.exit(0);
 }
 
 // --- argv ---
-const argv = process.argv.slice(2);
-if (argv[0] === "--help" || argv[0] === "-h") usage();
 
 let format = "bundle";
 let applyTo = "";
@@ -160,38 +162,59 @@ let listSkipped = false;
 // explicit refs. The dry run and the real run must agree on this.
 let pickerWillRun = false;
 
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  const val = (flag: string): string => {
-    const v = argv[i + 1];
-    if (v === undefined) die(`Missing value for ${flag}`, EXIT_MISUSE);
-    i++;
-    return v as string;
-  };
-  if (a === "--skip") {
-    const v = argv[i + 1];
-    if (v !== undefined && !v.startsWith("--")) { skipRef = v; i++; }
-    else skipInteractive = true;
-  } else if (a === "--unskip") unskipRef = val(a);
-  else if (a === "--list-skipped") listSkipped = true;
-  else if (a === "--include-untracked") includeUntracked = true;
-  else if (a === "--include-skipped") includeSkipped = true;
-  else if (a === "--start-ref") startRef = val(a);
-  else if (a === "--all") all = true;
-  else if (a === "--export-only") exportOnly = true;
-  else if (a === "--format") {
-    format = val(a);
-    if (!["bundle", "patch", "both"].includes(format)) {
-      die(`invalid format '${format}'; choose bundle, patch, or both`, EXIT_MISUSE);
+try {
+  const cli = toolCli({
+    name: "fork-export",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    options: {
+      skip: { type: "boolean", default: false },
+      unskip: { type: "string" },
+      "list-skipped": { type: "boolean", default: false },
+      "include-untracked": { type: "boolean", default: false },
+      "include-skipped": { type: "boolean", default: false },
+      "start-ref": { type: "string" },
+      all: { type: "boolean", default: false },
+      "export-only": { type: "boolean", default: false },
+      format: { type: "string", default: "bundle" },
+      "apply-to": { type: "string" },
+    },
+  });
+  dryRun = cli.common.dryRun;
+  if (cli.common.help) usage();
+  if (cli.values["skip"] === true) {
+    // --skip takes an optional commit (parseArgs has no optional-value
+    // flags): the next non-flag token is the commit (bash consumed the
+    // next arg unless it was another flag); rev-parse validates it later.
+    const first = cli.positionals[0];
+    if (first !== undefined && !first.startsWith("--")) {
+      skipRef = first;
+      cli.positionals.shift();
+    } else {
+      skipInteractive = true;
     }
-  } else if (a === "--apply-to") applyTo = val(a);
-  else if (a === "--dry-run") dryRun = true;
-  else if (a.startsWith("--")) die(`unknown option: ${a}`, EXIT_MISUSE);
-  else {
+  }
+  unskipRef = (cli.values["unskip"] as string | undefined) ?? "";
+  listSkipped = cli.values["list-skipped"] === true;
+  includeUntracked = cli.values["include-untracked"] === true;
+  includeSkipped = cli.values["include-skipped"] === true;
+  startRef = (cli.values["start-ref"] as string | undefined) ?? "";
+  all = cli.values["all"] === true;
+  exportOnly = cli.values["export-only"] === true;
+  const fmt = (cli.values["format"] as string | undefined) ?? "bundle";
+  if (!["bundle", "patch", "both"].includes(fmt)) {
+    die(`invalid format '${fmt}'; choose bundle, patch, or both`, EXIT_MISUSE);
+  }
+  format = fmt;
+  applyTo = (cli.values["apply-to"] as string | undefined) ?? "";
+  for (const a of cli.positionals) {
     if (endRefSet) die("only one end commit/ref may be provided", EXIT_MISUSE);
     endRef = a;
     endRefSet = true;
   }
+} catch (err) {
+  if (err instanceof Error && err.message.startsWith("invalid format")) throw err;
+  die(err instanceof Error ? err.message : String(err), EXIT_MISUSE);
 }
 if (all && startRef !== "") die("--all cannot be combined with --start-ref", EXIT_MISUSE);
 if (exportOnly && applyTo !== "") die("--export-only cannot be combined with --apply-to", EXIT_MISUSE);

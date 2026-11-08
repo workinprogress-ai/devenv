@@ -5,11 +5,11 @@
 //              (id, name, enforcement) instead. Read-only.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
 import { writeFileSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { orgRulesetsList, orgRulesetGet } from "../lib/providers/facade/org.ts";
 
@@ -28,7 +28,7 @@ repository's rulesets (id, name, enforcement) instead. Read-only.
 
 Options:
     -o, --output FILE           Write JSON to FILE instead of stdout
-    --devenv                    Safety override to target the devenv repo
+${usageCommonFlags()}
 
 Examples:
     policy-export
@@ -37,31 +37,34 @@ Examples:
   process.exit(0);
 }
 
-const parsed = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    output: { type: "string" },
-    devenv: { type: "boolean", default: false },
-  },
-  allowPositionals: true,
-  strict: false,
-});
+const SCRIPT_VERSION = "1.1.0";
 
-if (parsed.values.help) usage();
-if (parsed.values.version) {
-  console.log("1.1.0");
-  process.exit(0);
+let devenvOverride = false;
+try {
+  const cli = toolCli({
+    name: "policy-export",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    strict: false,
+    options: {
+      output: { type: "string", short: "o" },
+    },
+  });
+  if (cli.common.help) usage();
+  devenvOverride = cli.common.devenv;
+  outputFile = (cli.values["output"] as string | undefined) ?? "";
+  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  if (positionals.length > 1) {
+    logError("At most one RULESET_ID positional is allowed");
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+  rulesetId = positionals[0] ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
-outputFile = typeof parsed.values.output === "string" ? parsed.values.output : "";
-
-const positionals = parsed.positionals.filter((p) => !p.startsWith("-"));
-if (positionals.length > 1) {
-  logError("At most one RULESET_ID positional is allowed");
-  process.exit(EXIT_GENERAL_ERROR);
-}
-rulesetId = positionals[0] ?? "";
 if (rulesetId !== "" && !/^[0-9]+$/.test(rulesetId)) {
   logError(`Invalid ruleset ID: ${rulesetId} (must be numeric)`);
   process.exit(EXIT_GENERAL_ERROR);
@@ -79,7 +82,7 @@ if (ownerRepo === "") {
 }
 
 // Devenv-repo safety gate (resolve_target_repo parity): implicit targets only.
-if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "") && parsed.values.devenv !== true) {
+if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "") && !devenvOverride) {
   logError("The current repository appears to be the devenv repository itself");
   console.log("Operations should be performed in target project repositories, not in devenv");
   console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");

@@ -5,10 +5,10 @@
 //              (--failed), optionally with debug logging (--debug).
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { ensureProviderAuth, } from "../lib/providers/provider-core.ts";
 import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
 import { pipelinesRunRerun, pipelinesRunView } from "../lib/providers/facade/pipelines.ts";
@@ -31,6 +31,7 @@ Arguments:
     RUN_ID                      The workflow run ID to re-run
 
 Options:
+${usageCommonFlags({ noDryRun: true })}
     --repo OWNER/REPO           Repository containing the run (required)
     --failed                    Re-run only failed jobs (not the whole workflow)
     --debug                     Enable debug logging for the re-run
@@ -41,38 +42,36 @@ Examples:
   process.exit(0);
 }
 
-const parsed = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    repo: { type: "string" },
-    failed: { type: "boolean", default: false },
-    debug: { type: "boolean", default: false },
-  },
-  allowPositionals: true,
-  strict: false,
-});
-
-if (parsed.values.help) usage();
-if (parsed.values.version) {
-  console.log("1.0.0");
-  process.exit(0);
-}
-repo = typeof parsed.values.repo === "string" ? parsed.values.repo : "";
-failedOnly = parsed.values.failed === true;
-debugMode = parsed.values.debug === true;
-
-const positionals = parsed.positionals.filter((p) => !p.startsWith("-"));
-if (positionals.length !== 1) {
-  logError("RUN_ID (exactly one positional) is required");
-  console.error("Use --help for usage information");
-  process.exit(EXIT_MISUSE);
-}
-runId = positionals[0] ?? "";
-if (!/^[0-9]+$/.test(runId)) {
-  logError(`RUN_ID must be numeric: ${runId}`);
-  process.exit(EXIT_MISUSE);
+try {
+  const cli = toolCli({
+    name: "pipelines-rerun",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      repo: { type: "string" },
+      failed: { type: "boolean", default: false },
+      debug: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  repo = typeof cli.values.repo === "string" ? cli.values.repo : "";
+  failedOnly = cli.values.failed === true;
+  debugMode = cli.values.debug === true;
+  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  if (positionals.length !== 1) {
+    logError("RUN_ID (exactly one positional) is required");
+    console.error("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
+  }
+  runId = positionals[0] ?? "";
+  if (!/^[0-9]+$/.test(runId)) {
+    logError(`RUN_ID must be numeric: ${runId}`);
+    process.exit(EXIT_MISUSE);
+  }
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
 }
 if (repo === "" || !repo.includes("/")) {
   logError("--repo OWNER/REPO is required");

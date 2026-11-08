@@ -6,9 +6,35 @@
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 
 assertNodeFloor();
+
+try {
+  const cli = toolCli({
+    name: "server-run-sql",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    allowPositionals: false,
+  });
+  if (cli.common.help) {
+    console.log(`Usage: server-run-sql
+
+Run (or start) a local SQL Server container: start the existing sqlserver
+container when present, otherwise run a new azure-sql-edge container,
+wait, and create the test database. Prints the sqlcmd connect line.
+Takes no arguments.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
+    process.exit(0);
+  }
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(2);
+}
 
 const debug = join(process.env.DEVENV_ROOT ?? selfRoot(process.cwd()), ".debug");
 const containerName = "sqlserver";

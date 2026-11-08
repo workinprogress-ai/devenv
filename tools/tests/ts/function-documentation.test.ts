@@ -45,10 +45,10 @@ describe("function documentation", () => {
   });
 
   it("script template includes documentation examples", () => {
-    const template = readFileSync(join(ROOT, "tools/templates/script-template.sh"), "utf8");
-    expect(template).toContain("# Arguments:");
-    expect(template).toContain("# Returns:");
-    expect(template).toContain("# Side effects:");
+    const template = readFileSync(join(ROOT, "tools/templates/script-template.ts"), "utf8");
+    expect(template).toContain("Usage:");
+    expect(template).toContain("Options:");
+    expect(template).toContain("toolCli");
   });
 
   it("complex functions in bootstrap have parameter descriptions", () => {

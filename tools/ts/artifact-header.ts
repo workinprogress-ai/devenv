@@ -5,11 +5,15 @@
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { invalidArgs } from "../lib/core/args.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { invalidArgs } from "../lib/core/args.ts";
 import { parseHeaderJson } from "../lib/domain/artifacts.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
   console.log(`Usage: artifact-header FILE [OPTIONS]
@@ -25,9 +29,7 @@ Options:
     --stamp                      Rewrite updated_at_utc to the current UTC time
                                  (inserts the line if the block lacks it)
     --set KEY=VALUE              Set/replace one header key (repeatable)
-    -V, --verbose                Enable verbose logs
-    -h, --help                   Show help and exit
-    -v, --version                Show version and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Output:
     JSON object: {"found": true, "header": {<parsed key/value pairs>}}
@@ -41,37 +43,32 @@ Exit Codes:
   process.exit(0);
 }
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-if (argv.includes("-v") || argv.includes("--version")) {
-  console.log("1.0.0");
-  process.exit(0);
-}
-
 let file = "";
 let field = "";
 let stamp = false;
 const sets: string[] = [];
 
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  if (a === "--field") {
-    const v = argv[i + 1];
-    if (v === undefined) invalidArgs("Missing value for --field");
-    field = v as string;
-    i++;
-  } else if (a === "--stamp") {
-    stamp = true;
-  } else if (a === "--set") {
-    const v = argv[i + 1];
-    if (v === undefined) invalidArgs("Missing value for --set (KEY=VALUE)");
-    sets.push(v as string);
-    i++;
-  } else if (a === "-V" || a === "--verbose") {
-    // accepted for CLI consistency
-  } else {
-    file = a;
-  }
+try {
+  const cli = toolCli({
+    name: "artifact-header",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      field: { type: "string" },
+      stamp: { type: "boolean", default: false },
+      set: { type: "string", multiple: true },
+    },
+  });
+  if (cli.common.help) usage();
+  file = cli.positionals[0] ?? "";
+  field = (cli.values["field"] as string | undefined) ?? "";
+  stamp = cli.values["stamp"] === true;
+  sets.push(...((cli.values["set"] as string[] | undefined) ?? []));
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (file === "") invalidArgs("FILE is required");

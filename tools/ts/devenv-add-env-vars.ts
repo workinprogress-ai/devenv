@@ -10,6 +10,7 @@ import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
@@ -17,8 +18,32 @@ const devenvRoot = process.env["DEVENV_ROOT"] ?? selfRoot(import.meta.url);
 const runtimeDir = join(devenvRoot, ".runtime");
 const envVarsFile = join(runtimeDir, "env-vars.sh");
 
-const argv = process.argv.slice(2);
-if (argv.length === 0) {
+let assignments: string[] = [];
+try {
+  const cli = toolCli({
+    name: "devenv-add-env-vars",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) {
+    console.log(`Usage: devenv-add-env-vars "VAR1=value1" "VAR2=value2" ...
+
+Add or update environment variables in $DEVENV_ROOT/.runtime/env-vars.sh
+(the file is sourced by every shell; values are written with bash %q
+quoting so nothing in a value is ever executed).
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
+    process.exit(0);
+  }
+  assignments = cli.positionals;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  process.exit(2);
+}
+
+if (assignments.length === 0) {
   logError('Usage: devenv-add-env-vars "VAR1=value1" "VAR2=value2" ...');
   process.exit(2);
 }
@@ -38,7 +63,7 @@ function bashQuote(value: string): string {
 let addedCount = 0;
 let updatedCount = 0;
 
-for (const envVar of argv) {
+for (const envVar of assignments) {
   if (!/^[A-Z_][A-Z0-9_]*=.*/.test(envVar)) {
     logError(`Invalid environment variable format: ${envVar}`);
     logError("Expected format: VAR_NAME=value (variable name must start with letter/underscore, uppercase)");

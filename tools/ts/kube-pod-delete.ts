@@ -5,10 +5,10 @@
 // Guard contract: multi-match exits 3, refusal exits 2, declined exits 130.
 
 import { spawnSync } from "node:child_process";
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { confirm } from "../lib/ui/prompts.ts";
 import {
   KUBE_CONFIRM_DECLINED_STATUS,
@@ -26,30 +26,36 @@ Delete the one pod whose name matches pod-name-part. Refuses on zero or
 multiple matches so a partial name can never delete an unintended pod.
 
 Options:
-  -n, --namespace NS   Namespace (a bare positional after the filter also works)
-  -h, --help           Show this help`);
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  -n, --namespace NS     Namespace (a bare positional after the filter also works)`);
   process.exit(0);
 }
 
-const { values, positionals } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    namespace: { type: "string" },
-    n: { type: "string" },
-  },
-  allowPositionals: true,
-  strict: false,
-});
+let podPart = "";
+let nsInput = "";
+try {
+  const cli = toolCli({
+    name: "kube-pod-delete",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      namespace: { type: "string" },
+      n: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  podPart = cli.positionals[0] ?? "";
+  nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? cli.positionals[1] ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+}
 
-if (values.help) usage();
-
-const podPart = positionals[0];
-if (podPart === undefined || podPart === "") {
+if (podPart === "") {
   logError("usage: kube-pod-delete <pod-name-part> [-n|--namespace <ns>]");
   process.exit(EXIT_MISUSE);
 }
-const nsInput = (values.namespace as string | undefined) ?? (values.n as string | undefined) ?? positionals[1] ?? "";
 
 const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {

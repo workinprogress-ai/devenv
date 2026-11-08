@@ -6,7 +6,7 @@
 //              run history. Use pipelines-status for that.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
@@ -39,8 +39,7 @@ List GitHub Actions workflow definitions across org repositories.
 Shows what workflows exist, not their run history. Use pipelines-status for that.
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
+${usageCommonFlags()}
     --json                      Output as compact JSON
     --pretty                    Output as pretty-printed JSON
 
@@ -57,28 +56,32 @@ Examples:
   process.exit(0);
 }
 
-const { values } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    json: { type: "boolean", default: false },
-    pretty: { type: "boolean", default: false },
-    repo: { type: "string" },
-    state: { type: "string" },
-  },
-  strict: false,
-});
+const SCRIPT_VERSION = "1.0.0";
 
-if (values.help) usage();
-if (values.version) {
-  console.log("1.0.0");
-  process.exit(0);
+try {
+  const cli = toolCli({
+    name: "pipelines-list",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    strict: false,
+    options: {
+      json: { type: "boolean", default: false },
+      pretty: { type: "boolean", default: false },
+      repo: { type: "string", short: "r" },
+      state: { type: "string", default: "active" },
+    },
+  });
+  if (cli.common.help) usage();
+  if (cli.values["json"]) outputFormat = "json";
+  if (cli.values["pretty"]) outputFormat = "pretty";
+  repoRegex = (cli.values["repo"] as string | undefined) ?? "";
+  const st = (cli.values["state"] as string | undefined) ?? "";
+  if (st !== "") stateFilter = st;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
-if (values.json) outputFormat = "json";
-if (values.pretty) outputFormat = "pretty";
-repoRegex = typeof values.repo === "string" ? values.repo : "";
-if (typeof values.state === "string" && values.state !== "") stateFilter = values.state;
 
 // Auth after argv validation: a usage error must exit 2 without touching gh
 // (no network probe on the misuse path).

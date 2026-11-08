@@ -7,7 +7,7 @@
 //              issue: the first unresolvable field aborts that issue's setup.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
@@ -35,11 +35,7 @@ Arguments:
 
 Options:
   --field NAME=VALUE      Set a single-select field on the card (repeatable)
-  -n, --dry-run           Show what would be done without making changes
-  --devenv                Allow operating on the devenv repository itself
-  -h, --help              Show this help
-  -v, --version           Show version
-  -V, --verbose           Verbose output
+${usageCommonFlags()}
 
 Examples:
   project-add-issue "Team Board" 123 124
@@ -48,28 +44,32 @@ Examples:
 }
 
 // Parse arguments
-const { values, positionals } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    verbose: { type: "boolean", default: false },
-    "dry-run": { type: "boolean", default: false },
-    field: { type: "string", multiple: true },
-    devenv: { type: "boolean", default: false },
-  },
-  allowPositionals: true,
-  strict: false,
-});
-
-if (values.help) usage();
-if (values.version) {
-  console.log("1.1.0");
-  process.exit(0);
+const SCRIPT_VERSION = "1.1.0";
+let devenvOverride = false;
+let fieldEntries: string[] = [];
+let rawPositionals: string[] = [];
+try {
+  const cli = toolCli({
+    name: "project-add-issue",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    strict: false,
+    options: {
+      field: { type: "string", multiple: true },
+    },
+  });
+  if (cli.common.help) usage();
+  dryRun = cli.common.dryRun;
+  devenvOverride = cli.common.devenv;
+  fieldEntries = (cli.values["field"] as string[] | undefined) ?? [];
+  rawPositionals = [...cli.positionals];
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
-dryRun = values["dry-run"] === true;
 
-const args = [...positionals];
+const args = [...rawPositionals];
 if (args.length === 0) {
   logError("Project name and at least one issue number are required");
   console.error("Use --help for usage information");
@@ -94,8 +94,8 @@ if (issueNumbers.length === 0) {
   console.error("Use --help for usage information");
   process.exit(EXIT_GENERAL_ERROR);
 }
-for (const fv of values.field ?? []) {
-  if (typeof fv === "string") fieldValues.push(fv);
+for (const fv of fieldEntries) {
+  fieldValues.push(fv);
 }
 
 // Org identity gate (fail fast, bash parity).
@@ -112,7 +112,7 @@ if (!isDevenvRepoGated()) {
   // not a devenv checkout: gate is a no-op
 } else if (process.env["DEVENV_REPO"] !== undefined && process.env["DEVENV_REPO"] !== "") {
   // explicit target: allowed
-} else if (values["devenv"] === true) {
+} else if (devenvOverride) {
   // explicit override: allowed
 } else {
   logError("The current repository appears to be the devenv repository itself");

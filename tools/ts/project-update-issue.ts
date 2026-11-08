@@ -8,7 +8,7 @@
 //              --safe tolerates "in no projects" as success.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
@@ -43,7 +43,7 @@ Options:
     --safe                    With --all-projects: tolerate "in no projects" as success
     --field NAME=VALUE        Set a single-select field (repeatable)
     --list-fields             List the project's fields
-    -n, --dry-run             Show what would be done without making changes
+${usageCommonFlags({ noDryRunShort: true })}
 
 Note: the issue must already be in the project; field names and values must
 match exactly (case-sensitive).`);
@@ -85,22 +85,31 @@ interface ParsedArgs {
 }
 let parsed: ParsedArgs;
 try {
-  parsed = parseArgs({
-    args: process.argv.slice(2),
+  const cli = toolCli({
+    name: "project-update-issue",
+    version: "1.1.0",
+    argv: process.argv.slice(2),
     options: {
-      help: { type: "boolean", default: false },
-      version: { type: "boolean", default: false },
-      "dry-run": { type: "boolean", default: false },
       status: { type: "string" },
       "all-projects": { type: "boolean", default: false },
       safe: { type: "boolean", default: false },
       field: { type: "string", multiple: true },
       "list-fields": { type: "boolean", default: false },
-      devenv: { type: "boolean", default: false },
     },
-    allowPositionals: true,
-    strict: true,
   });
+  if (cli.common.help) usage();
+  parsed = {
+    values: {
+      status: (cli.values["status"] as string | undefined) ?? "",
+      "all-projects": cli.values["all-projects"] === true,
+      safe: cli.values["safe"] === true,
+      field: (cli.values["field"] as string[] | undefined) ?? [],
+      "list-fields": cli.values["list-fields"] === true,
+      "dry-run": cli.common.dryRun,
+      devenv: cli.common.devenv,
+    },
+    positionals: cli.positionals,
+  };
 } catch (err) {
   // strict:true throws on an unknown flag — a named one-liner instead of a
   // raw Node stack trace (the suite's stated unknown-flag contract).
@@ -109,18 +118,13 @@ try {
   process.exit(EXIT_MISUSE);
 }
 
-if (parsed.values.help) usage();
-if (parsed.values.version) {
-  console.log("1.1.0");
-  process.exit(0);
-}
 dryRun = parsed.values["dry-run"] === true;
 allProjects = parsed.values["all-projects"] === true;
 safeMode = parsed.values.safe === true;
 listFields = parsed.values["list-fields"] === true;
 statusValue = typeof parsed.values.status === "string" ? parsed.values.status : "";
-for (const fv of parsed.values.field ?? []) {
-  if (typeof fv === "string") fieldUpdates.push(fv);
+for (const fv of (parsed.values.field as string[] | undefined) ?? []) {
+  fieldUpdates.push(fv);
 }
 
 const positionals = parsed.positionals.filter((p) => !p.startsWith("-"));

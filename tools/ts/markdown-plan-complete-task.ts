@@ -6,11 +6,14 @@ import { basename } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import {
   validateTaskNumber, findTaskLine, setItemCompleteAtLine, countTasks,
 } from "../lib/domain/markdown.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
   console.log(`Usage: markdown-plan-complete-task [OPTIONS] TASK_NUMBER... [FILE]
@@ -31,9 +34,7 @@ filename alias is legacy — see the sunset note in plan-parse.ts and drop all
 three carriers together.
 
 Options:
-    -h, --help          Show this help message and exit
-    -v, --version       Show version information and exit
-    -V, --verbose       Enable verbose output
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --uncomplete        Mark the tasks as incomplete ([ ]) instead of complete ([x])
 
 Exit Codes:
@@ -44,35 +45,38 @@ Exit Codes:
   process.exit(0);
 }
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-if (argv.includes("-v") || argv.includes("--version")) {
-  console.log("1.0.0");
-  process.exit(0);
-}
-
-const acs: string[] = [];
+const tasks: string[] = [];
 let planFile = "";
 let uncomplete = false;
 
-for (const a of argv) {
-  if (a === "--uncomplete") { uncomplete = true; continue; }
-  if (a === "-V" || a === "--verbose") continue;
-  if (a.startsWith("-")) {
-    logError(`Unknown option: ${a}`);
-    logInfo("Run 'markdown-plan-complete-task --help' for usage.");
-    process.exit(EXIT_MISUSE);
+try {
+  const cli = toolCli({
+    name: "markdown-plan-complete-task",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      uncomplete: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  uncomplete = cli.values["uncomplete"] === true;
+  for (const a of cli.positionals) {
+    if (validateTaskNumber(a)) { tasks.push(a); continue; }
+    if (planFile !== "") {
+      logError(`Unexpected argument '${a}': file already set to '${planFile}'.`);
+      logInfo("Run 'markdown-plan-complete-task --help' for usage.");
+      process.exit(EXIT_MISUSE);
+    }
+    planFile = a;
   }
-  if (validateTaskNumber(a)) { acs.push(a); continue; }
-  if (planFile !== "") {
-    logError(`Unexpected argument '${a}': file already set to '${planFile}'.`);
-    logInfo("Run 'markdown-plan-complete-task --help' for usage.");
-    process.exit(EXIT_MISUSE);
-  }
-  planFile = a;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  logInfo("Run 'markdown-plan-complete-task --help' for usage.");
+  process.exit(EXIT_MISUSE);
 }
 
-if (acs.length === 0) {
+if (tasks.length === 0) {
   logError("At least one TASK_NUMBER is required.");
   logInfo("Run 'markdown-plan-complete-task --help' for usage.");
   process.exit(EXIT_MISUSE);
@@ -108,15 +112,15 @@ const state = uncomplete ? "incomplete" : "complete";
 const content = readFileSync(planFile, "utf8");
 
 let failures = 0;
-for (const ac of acs) {
-  const lineNo = findTaskLine(content, ac);
+for (const task of tasks) {
+  const lineNo = findTaskLine(content, task);
   if (lineNo === null) {
-    logError(`${ac} not found in ${planFile}`);
+    logError(`${task} not found in ${planFile}`);
     failures++;
     continue;
   }
   setItemCompleteAtLine(planFile, lineNo, state);
-  logInfo(`${ac} marked as ${state}`);
+  logInfo(`${task} marked as ${state}`);
 }
 
 const counts = countTasks(readFileSync(planFile, "utf8"));

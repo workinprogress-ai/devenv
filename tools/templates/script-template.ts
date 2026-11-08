@@ -6,73 +6,33 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
-import { parseArgs } from "node:util";
-import { fileURLToPath } from "node:url";
-
-// ============================================================================
-// Library imports (core is self-locating; see tools/lib/core/self-root.ts)
-// ============================================================================
-
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "DEVENV_TOOLS/lib/core/exit-codes.ts";
-import { logInfo, logError } from "DEVENV_TOOLS/lib/core/logging.ts";
-import { assertNodeFloor } from "DEVENV_TOOLS/lib/core/node-floor.ts";
-import { invalidArgs } from "DEVENV_TOOLS/lib/core/args.ts";
+import { toolCli, usageCommonFlags } from "REL_LIB/core/cli.ts";
+import { logError, logInfo } from "REL_LIB/core/logging.ts";
+import { assertNodeFloor } from "REL_LIB/core/node-floor.ts";
 
 // The floor check runs before anything else: an older Node dies with a raw
 // strip-types syntax error instead of a clear message.
 assertNodeFloor();
 
-// ============================================================================
-// Constants
-// ============================================================================
-
 const SCRIPT_VERSION = "1.0.0";
-const SCRIPT_NAME = fileURLToPath(import.meta.url).split("/").pop() ?? "unknown";
-
-interface CliArgs {
-  help: boolean;
-  version: boolean;
-  values: parseArgs.ParseArgsConfig["values"];
-}
+const TOOL_NAME = "SCRIPT_NAME";
 
 // ============================================================================
-// Argument parsing
+// Usage
 // ============================================================================
 
 function showUsage(): never {
-  console.log(`Usage: ${SCRIPT_NAME} [OPTIONS]
+  console.log(`Usage: ${TOOL_NAME} [OPTIONS]
 
 Brief description of what this script does.
 
 Options:
-    -h, --help      Show this help message
-    -V, --version   Show version
-    --verbose       Enable verbose logging
+${usageCommonFlags()}
 
 Examples:
-    ${SCRIPT_NAME}
-    ${SCRIPT_NAME} --verbose
+    ${TOOL_NAME}
 `);
   process.exit(0);
-}
-
-function parseCliArgs(argv: string[]): CliArgs {
-  try {
-    const { values } = parseArgs({
-      args: argv,
-      options: {
-        help: { type: "boolean", short: "h", default: false },
-        version: { type: "boolean", short: "V", default: false },
-        verbose: { type: "boolean", default: false },
-      },
-      strict: true,
-    });
-    return { help: Boolean(values["help"]), version: Boolean(values["version"]), values };
-  } catch (err) {
-    // parseArgs throws on unknown flags / missing values: report and exit 2.
-    logError(err instanceof Error ? err.message : String(err));
-    process.exit(EXIT_MISUSE);
-  }
 }
 
 // ============================================================================
@@ -80,12 +40,24 @@ function parseCliArgs(argv: string[]): CliArgs {
 // ============================================================================
 
 async function main(argv: string[]): Promise<number> {
-  const args = parseCliArgs(argv);
-
-  if (args.help) showUsage();
-  if (args.version) {
-    console.log(`${SCRIPT_NAME} ${SCRIPT_VERSION}`);
-    return 0;
+  try {
+    const cli = toolCli({
+      name: TOOL_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      // Tool-specific flags merge over the house table; caller entries win
+      // on key collision. Add them here, e.g.:
+      // options: { format: { type: "string", short: "f", default: "table" } },
+    });
+    if (cli.common.help) showUsage();
+    // -v printed and exited inside toolCli; -V wired DEBUG logging.
+    // Tool flags read from cli.values["..."]; positionals from cli.positionals.
+    void cli;
+  } catch (err) {
+    // Parse failures report with a usage hint and exit 2 (house contract).
+    logError(err instanceof Error ? err.message : String(err));
+    console.log("Use --help for usage information");
+    return 2;
   }
 
   // TODO: implement the tool's behavior here.
@@ -98,10 +70,6 @@ main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
     logError(err instanceof Error ? err.message : String(err));
-    process.exit(EXIT_GENERAL_ERROR);
+    process.exit(1);
   },
 );
-
-// Keep invalidArgs referenced: the args helper is part of the template's
-// standard surface even before the tool grows real argument validation.
-void invalidArgs;

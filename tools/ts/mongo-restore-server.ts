@@ -11,33 +11,56 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
 import { requireCommandOrExit } from "../lib/core/commands.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
-requireCommandOrExit("mongorestore", undefined, EXIT_GENERAL_ERROR);
+const SCRIPT_VERSION = "1.0.0";
+const USAGE = "Usage: mongo-restore-server <connection_string> <backup_directory> [--yes]";
 
 let assumeYes = false;
 let connectionString = "";
 let backupDir = "";
 
-for (const a of process.argv.slice(2)) {
-  if (a === "--yes" || a === "-y") {
-    assumeYes = true;
-  } else if (a.startsWith("-")) {
-    console.error(`Unknown option: ${a}. Usage: mongo-restore-server <connection_string> <backup_directory> [--yes]`);
-    process.exit(EXIT_MISUSE);
-  } else if (connectionString === "") {
-    connectionString = a;
-  } else if (backupDir === "") {
-    backupDir = a;
-  } else {
-    console.error("Too many arguments. Usage: mongo-restore-server <connection_string> <backup_directory> [--yes]");
+try {
+  const cli = toolCli({
+    name: "mongo-restore-server",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      yes: { type: "boolean", short: "y", default: false },
+    },
+  });
+  if (cli.common.help) {
+    console.log(`Usage: mongo-restore-server <connection_string> <backup_directory> [--yes]
+
+Restore a MongoDB backup with a consent gate (--yes / YES=1 / interactive y)
+before the destructive mongorestore --drop.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+    -y, --yes                 Skip the consent prompt`);
+    process.exit(0);
+  }
+  assumeYes = cli.values["yes"] === true;
+  const positionals = cli.positionals;
+  if (positionals.length > 2) {
+    console.error(`Too many arguments. ${USAGE}`);
     process.exit(EXIT_MISUSE);
   }
+  connectionString = positionals[0] ?? "";
+  backupDir = positionals[1] ?? "";
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
+requireCommandOrExit("mongorestore", undefined, EXIT_GENERAL_ERROR);
+
 if (connectionString === "" || backupDir === "") {
-  console.error("Usage: mongo-restore-server <connection_string> <backup_directory> [--yes]");
+  console.error(USAGE);
   process.exit(EXIT_MISUSE);
 }
 

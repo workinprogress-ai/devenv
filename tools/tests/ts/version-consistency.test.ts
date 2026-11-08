@@ -2,7 +2,7 @@
 // vitest `it` per source `@test`: doc-claims guards and version pins.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -33,21 +33,29 @@ describe("version consistency", () => {
   });
 
   it("--version prints exactly SCRIPT_VERSION, with provider authentication failing", () => {
-    const script = join(ROOT, "tools/templates/script-template.sh");
-    const want = readFileSync(script, "utf8").match(/readonly SCRIPT_VERSION="?([^"\n]*)"?/)?.[1];
+    // The raw template carries the REL_LIB placeholder and cannot run;
+    // generate a real tool first (fixture dir inside the checkout so the
+    // computed import prefix resolves).
+    const fixtureDir = join(ROOT, "tmp", "vc-gen-fixture");
+    rmSync(fixtureDir, { recursive: true, force: true });
+    const gen = spawnSync("node", [join(ROOT, "tools", "ts", "tooling-create-script.ts"), "-d", fixtureDir, "vc-probe-tool"], { encoding: "utf8" });
+    expect(gen.status, gen.stderr ?? "").toBe(0);
+    const script = join(fixtureDir, "vc-probe-tool.ts");
+    const want = readFileSync(script, "utf8").match(/const SCRIPT_VERSION = "([^\n]*)"/)?.[1];
     const env = {
       ...process.env,
       DEVENV_ROOT: "/nonexistent/foreign",
       GH_TOKEN: "invalid-token-for-auth-probe",
       PATH: process.env["PATH"] ?? "",
     };
-    const r = spawnSync("bash", [script, "--version"], { encoding: "utf8", env, timeout: 10_000 });
+    const r = spawnSync("node", [script, "--version"], { encoding: "utf8", env, timeout: 10_000 });
     expect((r.stdout ?? "").trim()).toBe(want);
+    rmSync(fixtureDir, { recursive: true, force: true });
   });
 
   it("no script calls script_version, and the library no longer gates output on SHOW_VERSION", () => {
     const r1 = sh(
-      `grep -lE '^[[:space:]]*script_version[[:space:]]' '${ROOT}/tools/templates/script-template.sh' '${ROOT}/tools/tests/run-devenv-tests.sh'`,
+      `grep -lE '^[[:space:]]*script_version[[:space:]]' '${ROOT}/tools/tests/run-devenv-tests.sh'`,
     );
     expect(r1.status).toBe(1);
     const r2 = sh(`grep -n 'SHOW_VERSION\\|^script_version()' '${ROOT}/tools/lib/versioning.bash'`);

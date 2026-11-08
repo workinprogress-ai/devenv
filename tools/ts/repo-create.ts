@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { providerOrgGet } from "../lib/providers/provider-core.ts";
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
 import { reposView, reposCreate, reposCommitsCount, reposTreeCount } from "../lib/providers/facade/repos.ts";
@@ -39,21 +40,25 @@ assertNodeFloor();
 const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const REPO_TYPES_CONFIG = repoTypesConfigPath(undefined, toolsDir);
 
+const USAGE_HEADER = `Usage: repo-create <repo-name> --type <type> [OPTIONS]
+       repo-create --interactive
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  --type <type>            Repository type (see below)
+  -i, --interactive        Interactive mode (select type and enter name)
+  --public                 Visibility: public (default: private)
+  --private                Visibility: private
+  --description <text>     Repository description
+  --no-branch-protection   Skip branch protection setup
+  --no-template            Skip template initialization
+  --no-clone               Skip cloning repo after creation
+  --no-post-creation       Skip running post-creation script
+
+Repository Types:`;
+
 function printUsage(): void {
-  console.error("Usage: repo-create <repo-name> --type <type> [OPTIONS]");
-  console.error("       repo-create --interactive");
-  console.error("");
-  console.error("Options:");
-  console.error("  --type <type>           Repository type (see below)");
-  console.error("  --interactive, -i       Interactive mode (select type and enter name)");
-  console.error("  --public|--private      Visibility (default: private)");
-  console.error("  --description <text>    Repository description");
-  console.error("  --no-branch-protection  Skip branch protection setup");
-  console.error("  --no-template           Skip template initialization");
-  console.error("  --no-clone              Skip cloning repo after creation");
-  console.error("  --no-post-creation      Skip running post-creation script");
-  console.error("");
-  console.error("Repository Types:");
+  console.error(USAGE_HEADER);
   try {
     const config = loadRepoTypesConfig(REPO_TYPES_CONFIG);
     for (const [key, type] of Object.entries(config.types)) {
@@ -322,12 +327,6 @@ async function createRepo(
 
 // --- main -------------------------------------------------------------------
 
-const argv0 = process.argv[2] ?? "";
-if (argv0 === "--help" || argv0 === "-h") {
-  printUsage();
-  process.exit(0);
-}
-
 let visibility = "private";
 let description = "";
 let repoType = "";
@@ -338,35 +337,45 @@ let skipPostCreation = false;
 let interactiveMode = false;
 let repoName = "";
 
-const args = process.argv.slice(2);
-if (args[0] === "--interactive" || args[0] === "-i") {
-  interactiveMode = true;
-  args.shift();
-} else if (args.length >= 1 && !(args[0] ?? "").startsWith("-")) {
-  repoName = args.shift() ?? "";
-}
-
-while (args.length > 0) {
-  const arg = args.shift() ?? "";
-  switch (arg) {
-    case "--public": visibility = "public"; break;
-    case "--private": visibility = "private"; break;
-    case "--description": description = args.shift() ?? ""; break;
-    case "--type": repoType = args.shift() ?? ""; break;
-    case "--no-branch-protection": skipProtection = true; break;
-    case "--no-template": skipTemplate = true; break;
-    case "--no-clone": skipClone = true; break;
-    case "--no-post-creation": skipPostCreation = true; break;
-    case "--interactive": case "-i": interactiveMode = true; break;
-    case "--help": case "-h": printUsage(); process.exit(0); break;
-    default:
-      if (repoName === "" && !arg.startsWith("-")) {
-        repoName = arg;
-      } else {
-        logError(`Unknown option '${arg}'`);
-        usage();
-      }
+try {
+  const cli = toolCli({
+    name: "repo-create",
+    version: "1.2.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      type: { type: "string" },
+      interactive: { type: "boolean", short: "i", default: false },
+      public: { type: "boolean", default: false },
+      private: { type: "boolean", default: false },
+      description: { type: "string" },
+      "no-branch-protection": { type: "boolean", default: false },
+      "no-template": { type: "boolean", default: false },
+      "no-clone": { type: "boolean", default: false },
+      "no-post-creation": { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) {
+    printUsage();
+    process.exit(0);
   }
+  if (cli.values.interactive === true) interactiveMode = true;
+  if (cli.values.public === true) visibility = "public";
+  if (cli.values.private === true) visibility = "private";
+  description = typeof cli.values.description === "string" ? cli.values.description : "";
+  repoType = typeof cli.values.type === "string" ? cli.values.type : "";
+  skipProtection = cli.values["no-branch-protection"] === true;
+  skipTemplate = cli.values["no-template"] === true;
+  skipClone = cli.values["no-clone"] === true;
+  skipPostCreation = cli.values["no-post-creation"] === true;
+  repoName = cli.positionals[0] ?? "";
+  if (cli.positionals.length > 1) {
+    logError(`Unexpected argument '${cli.positionals[1] ?? ""}'`);
+    usage();
+  }
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
 }
 
 const config = loadRepoTypesConfig(REPO_TYPES_CONFIG);

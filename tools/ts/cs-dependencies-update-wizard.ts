@@ -15,6 +15,7 @@ import { resolveToolsRoot, selfRoot } from "../lib/core/self-root.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import {
   getReverseDependencyTree,
   getTopologicalGenerations,
@@ -54,13 +55,11 @@ Failure handling:
   repos may depend on the failing repo.
 
 Options:
-    -h, --help              Show this help message and exit
-    -v, --version           Show version information and exit
+${usageCommonFlags()}
     --no-refresh            Skip refreshing the repository cache
     --framework TFM         Forwarded to the single-repo wizard
     --lang-version VER      Forwarded to the single-repo wizard
     --lang-default          Forwarded to the single-repo wizard
-    -n, --dry-run           Show what would be updated without changing
     --auto                  Process generations without confirmation prompts
     --global [N]            Global mode; optional starting generation N
 
@@ -286,51 +285,46 @@ function parseArgs_main(): WizardArgs {
     targetDir: "", skipRefresh: false, dryRun: false, globalMode: false,
     globalStartGen: 0, auto: false, framework: "", langVersion: "", langDefault: false,
   };
-  const raw = process.argv.slice(2);
-  if (raw.includes("-h") || raw.includes("--help")) showUsage();
-  if (raw.includes("-v") || raw.includes("--version")) {
-    console.log(SCRIPT_VERSION);
-    process.exit(0);
-  }
-  for (let i = 0; i < raw.length; i++) {
-    const arg = raw[i] as string;
-    switch (arg) {
-      case "--no-refresh": a.skipRefresh = true; break;
-      case "--framework":
-      case "--lang-version": {
-        const v = raw[i + 1];
-        if (v === undefined || v === "") {
-          logError(`${arg} requires a value (e.g. ${arg === "--framework" ? "net10.0" : "14.0"})`);
-          process.exit(EXIT_MISUSE);
-        }
-        if (arg === "--framework") a.framework = v;
-        else a.langVersion = v;
-        i++;
-        break;
-      }
-      case "--lang-default": a.langDefault = true; break;
-      case "-n":
-      case "--dry-run": a.dryRun = true; break;
-      case "--auto":
-      case "--auto-generations": a.auto = true; break;
-      case "--global":
-        a.globalMode = true;
-        if (raw[i + 1] !== undefined && /^[0-9]+$/.test(raw[i + 1] as string)) {
-          a.globalStartGen = Number(raw[i + 1]);
-          i++;
-        }
-        break;
-      default:
-        if (arg.startsWith("-")) {
-          logError(`Unknown option: ${arg}. Use --help for usage information.`);
-          process.exit(EXIT_MISUSE);
-        }
-        if (a.targetDir === "") a.targetDir = arg;
-        else {
-          logError("Too many arguments. Use --help for usage information.");
-          process.exit(EXIT_MISUSE);
-        }
+  try {
+    const cli = toolCli({
+      name: "cs-dependencies-update-wizard",
+      version: SCRIPT_VERSION,
+      argv: process.argv.slice(2),
+      options: {
+        "no-refresh": { type: "boolean", default: false },
+        framework: { type: "string" },
+        "lang-version": { type: "string" },
+        "lang-default": { type: "boolean", default: false },
+        auto: { type: "boolean", default: false },
+        "auto-generations": { type: "boolean", default: false },
+        global: { type: "boolean", default: false },
+      },
+    });
+    if (cli.common.help) showUsage();
+    a.skipRefresh = cli.values["no-refresh"] === true;
+    a.framework = (cli.values["framework"] as string | undefined) ?? "";
+    a.langVersion = (cli.values["lang-version"] as string | undefined) ?? "";
+    a.langDefault = cli.values["lang-default"] === true;
+    a.dryRun = cli.common.dryRun;
+    a.auto = cli.values["auto"] === true || cli.values["auto-generations"] === true;
+    a.globalMode = cli.values["global"] === true;
+    // --global [N]: the optional generation number arrives as a bare
+    // positional (parseArgs has no optional-value flags); numeric
+    // positionals belong to --global, any other is TARGET_DIR.
+    const positionals = cli.positionals;
+    if (a.globalMode && positionals.length > 0 && /^[0-9]+$/.test(positionals[0] ?? "")) {
+      a.globalStartGen = Number(positionals[0]);
+      positionals.shift();
     }
+    if (positionals.length > 1) {
+      logError("Too many arguments. Use --help for usage information.");
+      process.exit(EXIT_MISUSE);
+    }
+    a.targetDir = positionals[0] ?? "";
+  } catch (err) {
+    logError(err instanceof Error ? err.message : String(err));
+    console.log("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
   }
   if (a.globalMode && a.targetDir !== "") {
     logError("--global and TARGET_DIR are mutually exclusive. Use --help for usage information.");

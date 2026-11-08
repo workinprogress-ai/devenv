@@ -8,6 +8,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
@@ -55,14 +56,34 @@ Checks:
   SK010  catalog parity: frontmatter USE WHEN triggers and DO-NOT-USE-FOR
          siblings findable (normalized) in the registry row and docs/Skills.md
 
-Exit 0 = clean (warnings allowed); exit 1 = any failure.`);
+Exit 0 = clean (warnings allowed); exit 1 = any failure.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   process.exit(0);
 }
 
-const argv = process.argv.slice(2);
-if (argv[0] === "-h" || argv[0] === "--help") usage();
+const SCRIPT_VERSION = "1.0.0";
 const defaultRoot = selfRoot(import.meta.url);
-const repoRoot = argv[0] ?? defaultRoot;
+let repoRoot = "";
+try {
+  const cli = toolCli({
+    name: "lint-skills",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) usage();
+  if (cli.positionals.length > 1) {
+    console.error(`SK-FAIL multiple paths given: ${cli.positionals.join(" ")}`);
+    process.exit(1);
+  }
+  repoRoot = cli.positionals[0] ?? defaultRoot;
+} catch (err) {
+  console.error(`SK-FAIL ${err instanceof Error ? err.message : String(err)}`);
+  console.log("Use --help for usage information");
+  process.exit(2);
+}
 
 // Accept either a repo root (…/copilot/skills beneath it) or a skills dir.
 let skillsDir: string;

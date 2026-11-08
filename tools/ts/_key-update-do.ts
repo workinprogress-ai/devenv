@@ -10,11 +10,13 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { selfRoot, resolveToolsRoot } from "../lib/core/self-root.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { toolCli } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
 const devenvRoot = process.env["DEVENV_ROOT"] ?? selfRoot(import.meta.url);
 const tools = resolveToolsRoot(import.meta.url);
+const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
   console.log("Usage: key-update-do [TOKEN] | --help");
@@ -31,13 +33,25 @@ console.log("");
 
 // --help/-h must never be interpreted as a token: an unrecognized flag would
 // otherwise fall through to the token path and be stored as a secret.
-const arg = process.argv[2];
-if (arg === "--help" || arg === "-h") usage();
+// House flags (-v/-V) are lifted by toolCli; the sole positional (or none)
+// is the token.
+let newToken = "";
+try {
+  const cli = toolCli({
+    name: "key-update-do",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) usage();
+  if (cli.positionals.length > 0) newToken = cli.positionals[0] as string;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
 
-let newToken: string;
-if (arg) {
-  newToken = arg;
-} else {
+if (newToken === "") {
   const prompted = spawnSync("bash", ["-c", 'read -s -r -p "    Paste Digital Ocean API token: " t || t=""; printf %s "$t"'], {
     stdio: ["inherit", "pipe", "inherit"],
     encoding: "utf8",

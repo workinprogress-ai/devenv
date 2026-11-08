@@ -864,7 +864,7 @@ Scripts live in `tools/ts/<name>.ts`
 
 Scripts that only the devenv or githook machinery invokes (never run by users) belong in `tools/internal/` instead — they get no stub, are not on `PATH`, and are not part of the custom-over-fork-over-provided override chain. See [Additional Tooling — Internal machinery scripts](./Additional-Tooling.md#internal-machinery-scripts-toolsinternal).
 
-1. **Start from the template**: `tooling-create-script <name>` scaffolds the file from `tools/templates/script-template.sh`.
+1. **Start from the template**: `tooling-create-script <name>` scaffolds the file from `tools/templates/script-template.ts`.
 2. **File location**: `tools/ts/<group>-<action>.ts` (TypeScript), following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task`).
 3. **Entry point**: none needed by hand — run `.devcontainer/entry-stubs-sync.sh` (or bootstrap) and the `tools/<name>` stub is generated automatically.
 

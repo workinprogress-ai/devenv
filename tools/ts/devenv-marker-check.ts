@@ -9,6 +9,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { invalidArgs } from "../lib/core/args.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
@@ -43,9 +44,7 @@ Options:
     --include-copilot            Gate/audit modes: also scan copilot/ (devenv's own
                                  example markers live there; copilot/ is always
                                  scanned by --todo-report and --ac)
-    -V, --verbose                Verbose logs
-    -h, --help                   Show help and exit
-    -v, --version                Show version and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Exit Codes:
     0 gate passed (no markers) / finder mode done / --require satisfied
@@ -69,12 +68,7 @@ function walk(root: string, noExclude: boolean, skipCopilot: boolean, out: strin
   }
 }
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-if (argv.includes("-v") || argv.includes("--version")) {
-  console.log("1.0.0");
-  process.exit(0);
-}
+const SCRIPT_VERSION = "1.0.0";
 
 let acMode = false, todoReport = false, allMarkers = false, require = false;
 let noExclude = false, includeCopilot = false;
@@ -82,23 +76,36 @@ let marker = "";
 let customMarker = false;
 const paths: string[] = [];
 
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  if (a === "--ac") acMode = true;
-  else if (a === "--todo-report") todoReport = true;
-  else if (a === "--all") allMarkers = true;
-  else if (a === "--marker") {
-    const v = argv[i + 1];
-    if (v === undefined) invalidArgs("Missing value for --marker");
-    marker = v as string;
-    customMarker = true;
-    i++;
-  } else if (a === "--require") require = true;
-  else if (a === "--no-exclude") noExclude = true;
-  else if (a === "--include-copilot") includeCopilot = true;
-  else if (a === "-V" || a === "--verbose") { /* verbose logs */ }
-  else if (a.startsWith("--")) invalidArgs(`Unknown option: ${a}`);
-  else paths.push(a);
+try {
+  const cli = toolCli({
+    name: "devenv-marker-check",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      ac: { type: "boolean", default: false },
+      "todo-report": { type: "boolean", default: false },
+      all: { type: "boolean", default: false },
+      require: { type: "boolean", default: false },
+      "no-exclude": { type: "boolean", default: false },
+      "include-copilot": { type: "boolean", default: false },
+      marker: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  acMode = cli.values["ac"] === true;
+  todoReport = cli.values["todo-report"] === true;
+  allMarkers = cli.values["all"] === true;
+  require = cli.values["require"] === true;
+  noExclude = cli.values["no-exclude"] === true;
+  includeCopilot = cli.values["include-copilot"] === true;
+  marker = (cli.values["marker"] as string | undefined) ?? "";
+  customMarker = marker !== "";
+  paths.push(...cli.positionals);
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(2);
 }
 
 if (paths.length === 0) paths.push(".");

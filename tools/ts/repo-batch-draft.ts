@@ -16,11 +16,14 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { changedFiles } from "../lib/core/git.ts";
 import { draftFromClaims, renderDraft, type TaskClaim } from "../lib/domain/commit-batch.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.0.0";
 
 function die(...lines: string[]): never {
   for (const l of lines) logError(l);
@@ -36,6 +39,9 @@ live changed set. Read-only outside .local-artifacts/.
   --plan <file>   the Plan-*.md to read claims from; without it, every
                   changed file lands in the unassigned parking lot
 
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+
 Output: .local-artifacts/batch-draft-N.md (next free suffix) plus a stdout
 summary: groups / assigned / unassigned / conflicts counts and the
 unassigned list. Parking sections are comments — resolve them by hand
@@ -45,27 +51,26 @@ staging with repo-stage --batch <file> --group N.`);
 
 // --- argv
 let planFile = "";
-{
-  const argv = process.argv.slice(2);
-  let i = 0;
-  while (i < argv.length) {
-    const arg = argv[i++] ?? "";
-    switch (arg) {
-      case "-h":
-      case "--help":
-        usage();
-        process.exit(0);
-        break;
-      case "--plan":
-        planFile = argv[i++] ?? "";
-        if (planFile === "") die("--plan requires a path argument");
-        break;
-      default:
-        logError(`unknown argument '${arg}'`);
-        usage();
-        process.exit(EXIT_MISUSE);
-    }
-  }
+try {
+  const cli = toolCli({
+    name: "repo-batch-draft",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    allowPositionals: false,
+    options: {
+      plan: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  // --plan is optional: without it the tool runs in parking-lot mode (every
+  // changed file unassigned). Only a present-but-valueless --plan is an error
+  // (strict parse throws on the missing value → the catch below).
+  planFile = typeof cli.values.plan === "string" ? cli.values.plan : "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+  process.exit(EXIT_MISUSE);
 }
 
 // --- repo root

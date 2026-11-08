@@ -6,10 +6,10 @@
 //              --exit-status exits non-zero when the watched run fails.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { ensureProviderAuth, } from "../lib/providers/provider-core.ts";
 import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
 import { pipelinesRunList, pipelinesRunWatch } from "../lib/providers/facade/pipelines.ts";
@@ -32,6 +32,7 @@ Arguments:
     RUN_ID                      Workflow run ID to watch (optional)
 
 Options:
+${usageCommonFlags({ noDryRun: true })}
     --repo OWNER/REPO           Repository containing the run (required)
     --exit-status               Exit non-zero if the watched run fails
 
@@ -42,32 +43,30 @@ Examples:
   process.exit(0);
 }
 
-const parsed = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    version: { type: "boolean", default: false },
-    repo: { type: "string" },
-    "exit-status": { type: "boolean", default: false },
-  },
-  allowPositionals: true,
-  strict: false,
-});
-
-if (parsed.values.help) usage();
-if (parsed.values.version) {
-  console.log("1.0.0");
-  process.exit(0);
+try {
+  const cli = toolCli({
+    name: "pipelines-watch",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      repo: { type: "string" },
+      "exit-status": { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  repo = typeof cli.values.repo === "string" ? cli.values.repo : "";
+  exitStatus = cli.values["exit-status"] === true;
+  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  if (positionals.length > 1) {
+    logError("At most one RUN_ID positional is allowed");
+    process.exit(EXIT_MISUSE);
+  }
+  runId = positionals[0] ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
 }
-repo = typeof parsed.values.repo === "string" ? parsed.values.repo : "";
-exitStatus = parsed.values["exit-status"] === true;
-
-const positionals = parsed.positionals.filter((p) => !p.startsWith("-"));
-if (positionals.length > 1) {
-  logError("At most one RUN_ID positional is allowed");
-  process.exit(EXIT_MISUSE);
-}
-runId = positionals[0] ?? "";
 
 if (repo === "" || !repo.includes("/")) {
   logError("--repo OWNER/REPO is required");

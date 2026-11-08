@@ -7,8 +7,12 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
+
+const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
   console.log(`Usage: skill-orient [--scope <paths...>] [--plan <plan-file>]
@@ -17,29 +21,35 @@ Emits a JSON orientation blob:
   { "plan": {...}|null, "todos": [...], "staged": N, "unstaged": N,
     "untracked": N, "provenance_hint": "..." }
 
-Read-only. No exploration, no network.`);
+Read-only. No exploration, no network.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   process.exit(0);
 }
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-
 const scope: string[] = [];
 let plan = "";
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  if (a === "--scope") {
-    // --scope takes one path per flag (bash consumed the next single arg)
-    const v = argv[i + 1];
-    if (v !== undefined) { scope.push(v as string); i++; }
-  } else if (a === "--plan") {
-    const v = argv[i + 1];
-    if (v === undefined) { console.error("Missing value for --plan"); process.exit(2); }
-    plan = v as string;
-    i++;
-  } else {
-    scope.push(a);
-  }
+try {
+  const cli = toolCli({
+    name: "skill-orient",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      scope: { type: "string", multiple: true },
+      plan: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  // --scope takes one path per flag (bash consumed the next single arg)
+  scope.push(...((cli.values["scope"] as string[] | undefined) ?? []));
+  plan = (cli.values["plan"] as string | undefined) ?? "";
+  scope.push(...cli.positionals);
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 const repoRoot = (() => {

@@ -23,6 +23,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { changedFiles } from "../lib/core/git.ts";
 import { batchClaimedPaths, isLiteralFilePath, parseCommitBatch, validateCommitBatch } from "../lib/domain/commit-batch.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -60,10 +61,11 @@ repo-root-relative paths. Batch mode validates a commit-batch manifest
 (groups + excluded) against the live tree on every invocation and stages one
 group at a time.
 
-  --unstage        unstage the named paths (git restore --staged)
-  --batch <file>   validate the manifest and print a summary (no mutation)
-  --group N        with --batch: stage group N after validation
-  --dry-run        full validation + report, no mutation
+Options:
+${usageCommonFlags({ noDevenv: true })}
+  --unstage               unstage the named paths (git restore --staged)
+  --batch <file>          validate the manifest and print a summary (no mutation)
+  --group N               with --batch: stage group N after validation
 
 Validation (batch mode, always on, refuses rather than warns): strict parse,
 literal paths only, deletion-aware existence, duplicate membership, coverage
@@ -78,46 +80,39 @@ let batchFile = "";
 let groupOpt: number | null = null;
 let dryRun = false;
 const paths: string[] = [];
-{
-  const argv = process.argv.slice(2);
-  let i = 0;
-  while (i < argv.length) {
-    const arg = argv[i++] ?? "";
-    switch (arg) {
-      case "-h":
-      case "--help":
-        usage();
-        process.exit(0);
-        break;
-      case "--unstage":
-        if (mode !== "paths") die("--unstage cannot combine with --batch (pick one mode)");
-        mode = "unstage";
-        break;
-      case "--batch":
-        if (mode !== "paths") die("--batch cannot combine with --unstage (pick one mode)");
-        mode = "batch";
-        batchFile = argv[i++] ?? "";
-        if (batchFile === "") die("--batch requires a manifest path argument");
-        break;
-      case "--group": {
-        const v = argv[i++] ?? "";
-        const n = Number.parseInt(v, 10);
-        if (Number.isNaN(n) || n < 1 || !/^[0-9]+$/.test(v)) die("--group requires a positive integer");
-        groupOpt = n;
-        break;
-      }
-      case "--dry-run":
-        dryRun = true;
-        break;
-      default:
-        if (arg.startsWith("-")) {
-          logError(`unknown option '${arg}'`);
-          usage();
-          process.exit(EXIT_MISUSE);
-        }
-        paths.push(arg);
-    }
+try {
+  const cli = toolCli({
+    name: "repo-stage",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    options: {
+      unstage: { type: "boolean", default: false },
+      batch: { type: "string" },
+      group: { type: "string" },
+    },
+  });
+  if (cli.common.help) {
+    usage();
+    process.exit(0);
   }
+  dryRun = cli.common.dryRun;
+  if (cli.values["unstage"] === true) mode = "unstage";
+  batchFile = typeof cli.values.batch === "string" ? cli.values.batch : "";
+  if (batchFile !== "") {
+    if (mode !== "paths") die("--unstage cannot combine with --batch (pick one mode)");
+    mode = "batch";
+  }
+  const groupRaw = typeof cli.values.group === "string" ? cli.values.group : "";
+  if (groupRaw !== "") {
+    const n = Number.parseInt(groupRaw, 10);
+    if (Number.isNaN(n) || n < 1 || !/^[0-9]+$/.test(groupRaw)) die("--group requires a positive integer");
+    groupOpt = n;
+  }
+  paths.push(...cli.positionals);
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+  process.exit(EXIT_MISUSE);
 }
 
 if (mode !== "batch" && groupOpt !== null) die("--group requires --batch");

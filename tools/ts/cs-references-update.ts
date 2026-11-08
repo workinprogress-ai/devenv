@@ -14,6 +14,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "
 import { relative } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
@@ -37,7 +38,7 @@ For every .csproj under REPO_DIR (default: current directory), runs
 'dotnet outdated --upgrade' to update NuGet package references.
 
 Options:
-    -h, --help              Show this help message and exit
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --framework TFM         Rewrite <TargetFramework> (and every entry of
                             <TargetFrameworks> lists) to TFM (e.g. net10.0)
                             before updating packages. Framework-first: the
@@ -100,45 +101,40 @@ function dirHasLangVersionTags(dir: string, csprojs: string[]): boolean {
 
 // ── Argument parsing ─────────────────────────────────────────────────────
 
-const argv = process.argv.slice(2);
+
+const SCRIPT_VERSION = "1.0.0";
+
 let targetDir = "";
 let framework = "";
 let langVersion = "";
 let langDefault = false;
+let positionalCount = 0;
 
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  switch (a) {
-    case "-h":
-    case "--help":
-      showUsage();
-      break;
-    case "--framework":
-    case "--lang-version": {
-      const v = argv[i + 1];
-      if (v === undefined || v === "") {
-        console.error(`ERROR: ${a} requires a value${a === "--framework" ? " (e.g. net10.0)" : " (e.g. 14.0)"}`);
-        process.exit(EXIT_MISUSE);
-      }
-      if (a === "--framework") framework = v;
-      else langVersion = v;
-      i++;
-      break;
-    }
-    case "--lang-default":
-      langDefault = true;
-      break;
-    default:
-      if (a.startsWith("-")) {
-        console.error(`ERROR: Unknown option: ${a}. Use --help for usage.`);
-        process.exit(EXIT_MISUSE);
-      }
-      if (targetDir === "") targetDir = a;
-      else {
-        console.error("ERROR: Too many arguments. Use --help for usage.");
-        process.exit(EXIT_MISUSE);
-      }
-  }
+try {
+  const cli = toolCli({
+    name: "cs-references-update",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      framework: { type: "string" },
+      "lang-version": { type: "string" },
+      "lang-default": { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) showUsage();
+  framework = (cli.values["framework"] as string | undefined) ?? "";
+  langVersion = (cli.values["lang-version"] as string | undefined) ?? "";
+  langDefault = cli.values["lang-default"] === true;
+  positionalCount = cli.positionals.length;
+  targetDir = cli.positionals[0] ?? "";
+} catch (err) {
+  console.error(`ERROR: ${err instanceof Error ? err.message : String(err)}. Use --help for usage.`);
+  process.exit(EXIT_MISUSE);
+}
+if (positionalCount > 1) {
+  console.error("ERROR: Too many arguments. Use --help for usage.");
+  process.exit(EXIT_MISUSE);
 }
 
 targetDir = targetDir === "" ? process.cwd() : targetDir;

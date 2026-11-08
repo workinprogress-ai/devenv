@@ -14,13 +14,13 @@
 // Event names: bare form accepted and normalized (staging-deploy,
 // _on_staging_deploy, and _on_begin_review are all valid for that event).
 
-import { parseArgs } from "node:util";
 import { basename, join } from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli } from "../lib/core/cli.ts";
 import { onEvent, type WorkflowWriteContext } from "../lib/domain/issues/graph.ts";
 import { eventNames } from "../lib/domain/events.ts";
 import { select } from "../lib/ui/prompts.ts";
@@ -58,6 +58,7 @@ Options:
     -h, --help           Show this help message and exit
     -v, --version        Show version information and exit
     -l, --list           List available events and exit
+    -V, --verbose        Enable verbose output (debug logging)
 
 Examples:
     ${SCRIPT_NAME} --list
@@ -239,16 +240,29 @@ async function runGroups(groups: EventIssueGroup[], root: string): Promise<void>
 }
 
 async function main(): Promise<void> {
-  const { values, positionals } = parseArgs({
-    args: process.argv.slice(2),
-    options: {
-      help: { type: "boolean", short: "h", default: false },
-      version: { type: "boolean", short: "v", default: false },
-      list: { type: "boolean", short: "l", default: false },
-    },
-    strict: true,
-    allowPositionals: true,
-  });
+  let list = false;
+  let positionals: string[] = [];
+  try {
+    const cli = toolCli({
+      name: SCRIPT_NAME,
+      version: VERSION,
+      argv: process.argv.slice(2),
+      noDryRun: true,
+      options: {
+        list: { type: "boolean", short: "l", default: false },
+      },
+    });
+    if (cli.common.help) {
+      showUsage();
+      process.exit(0);
+    }
+    list = cli.values["list"] === true;
+    positionals = cli.positionals;
+  } catch (err) {
+    logError(err instanceof Error ? err.message : String(err));
+    console.error("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
+  }
 
   const root = signalToolsRoot();
   if (!existsSync(root)) {
@@ -256,15 +270,7 @@ async function main(): Promise<void> {
     process.exit(EXIT_GENERAL_ERROR);
   }
 
-  if (values.help === true) {
-    showUsage();
-    process.exit(0);
-  }
-  if (values.version === true) {
-    console.log(VERSION);
-    process.exit(0);
-  }
-  if (values.list === true) {
+  if (list) {
     for (const e of listEvents(root)) console.log(e);
     process.exit(0);
   }

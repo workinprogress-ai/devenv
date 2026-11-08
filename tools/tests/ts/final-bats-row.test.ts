@@ -91,7 +91,7 @@ describe("script linting sweep (bats port)", () => {
 
 // ── script template ─────────────────────────────────────────────────────────
 
-const TEMPLATE = join(TOOLS, "templates", "script-template.sh");
+const TEMPLATE = join(TOOLS, "templates", "script-template.ts");
 const CREATE_SCRIPT = join(TOOLS, "tooling-create-script");
 
 describe("script template (bats port)", () => {
@@ -101,123 +101,54 @@ describe("script template (bats port)", () => {
     expect(existsSync(TEMPLATE)).toBe(true);
   });
 
-  it("script template is executable", () => {
-    expect(spawnSync("bash", ["-c", `test -x '${TEMPLATE}'`]).status).toBe(0);
+  it("the bash template lane is gone", () => {
+    expect(existsSync(join(TOOLS, "templates", "script-template.sh"))).toBe(false);
   });
 
-  it("script template has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", TEMPLATE]).status).toBe(0);
-  });
-
-  it("template includes error handling setup", () => {
-    expect(tmpl()).toContain("enable_strict_mode");
-  });
-
-  it("template includes ERR trap", () => {
-    expect(tmpl()).toContain("enable_strict_mode");
-  });
-
-  it("template includes EXIT trap for cleanup", () => {
-    expect(tmpl()).toMatch(/trap.*cleanup.*EXIT/);
+  it("template includes the Node floor check", () => {
+    expect(tmpl()).toContain("assertNodeFloor()");
   });
 
   it("template includes version header", () => {
-    expect(tmpl()).toContain("# Version:");
+    expect(tmpl()).toContain("// Version:");
   });
 
-  it("template includes show_usage function", () => {
-    expect(tmpl()).toContain("show_usage()");
-  });
-
-  it("template includes on_error function", () => {
-    expect(tmpl()).toContain("# on_error()");
-  });
-
-  it("template includes cleanup function", () => {
-    expect(tmpl()).toContain("cleanup()");
-  });
-
-  it("template includes validate_dependencies function", () => {
-    expect(tmpl()).toContain("validate_dependencies()");
-  });
-
-  it("template includes validate_arguments function", () => {
-    expect(tmpl()).toContain("validate_arguments()");
+  it("template includes showUsage function", () => {
+    expect(tmpl()).toContain("function showUsage");
   });
 
   it("template includes main function", () => {
-    expect(tmpl()).toContain("main()");
+    expect(tmpl()).toContain("async function main");
   });
 
-  it("template sources error handling library", () => {
-    expect(tmpl()).toContain("error-handling");
+  it("template parses through toolCli (house flags)", () => {
+    expect(tmpl()).toContain("toolCli({");
   });
 
-  it("template sources logging library", () => {
-    expect(tmpl()).toContain("logging");
+  it("template renders the shared usage block", () => {
+    expect(tmpl()).toContain("usageCommonFlags()");
   });
 
-  it("template sources versioning library", () => {
-    expect(tmpl()).toContain("versioning");
-  });
-
-  it("template includes --help flag parsing", () => {
+  it("template includes --help flag surface", () => {
     expect(tmpl()).toContain("--help");
   });
 
-  it("template includes --version flag parsing", () => {
-    expect(tmpl()).toContain("--version");
-  });
-
-  it("template includes --verbose flag parsing", () => {
-    expect(tmpl()).toContain("--verbose");
-  });
-
-  it("template includes --dry-run flag parsing", () => {
-    expect(tmpl()).toContain("--dry-run");
+  it("template renders the house flag table (-v/-V/-n come from the shared block)", () => {
+    // The literal --version/--verbose/--dry-run strings live in
+    // usageCommonFlags() at render time; the template's job is to embed it.
+    expect(tmpl()).toContain("${usageCommonFlags()}");
   });
 
   it("template includes usage examples", () => {
     expect(tmpl()).toMatch(/Examples:/i);
   });
 
-  it("template includes exit code documentation", () => {
-    expect(tmpl()).toMatch(/Exit [Cc]odes?/);
-  });
-
-  it("template includes configuration section", () => {
-    expect(tmpl()).toMatch(/# Configuration/i);
-  });
-
   it("template defines SCRIPT_VERSION constant", () => {
-    expect(tmpl()).toMatch(/SCRIPT_VERSION=/);
+    expect(tmpl()).toMatch(/const SCRIPT_VERSION =/);
   });
 
-  it("template gets script directory properly", () => {
-    expect(tmpl()).toMatch(/BASH_SOURCE/);
-  });
-
-  it("template gets script directory properly (project root derives from it)", () => {
-    // The migrated template resolves everything from BASH_SOURCE (no separate
-    // PROJECT_ROOT constant).
-    expect(tmpl()).toMatch(/BASH_SOURCE/);
-  });
-
-  it("template only runs main when executed directly", () => {
-    expect(tmpl()).toContain('if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then');
-  });
-
-  it("template has comprehensive function documentation", () => {
-    expect(tmpl()).toMatch(/^# /m);
-    expect((tmpl().match(/^# /gm) ?? []).length).toBeGreaterThan(20);
-  });
-
-  it("template cleanup removes temp files", () => {
-    expect(tmpl()).toMatch(/TEMP_FILE|TEMP_DIR/);
-  });
-
-  it("template cleanup kills background processes", () => {
-    expect(tmpl()).toMatch(/kill.*BG_PID/);
+  it("template keeps the usage-hint error contract", () => {
+    expect(tmpl()).toContain("Use --help for usage information");
   });
 
   it("tooling-create-script.sh exists", () => {
@@ -226,10 +157,6 @@ describe("script template (bats port)", () => {
 
   it("tooling-create-script.sh is executable", () => {
     expect(spawnSync("bash", ["-c", `test -x '${CREATE_SCRIPT}'`]).status).toBe(0);
-  });
-
-  it("tooling-create-script.sh has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", CREATE_SCRIPT]).status).toBe(0);
   });
 
   it("tooling-create-script.sh has --help flag", () => {

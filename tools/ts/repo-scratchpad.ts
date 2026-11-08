@@ -5,6 +5,7 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import {
   SCRATCHPAD_BRANCH_PREFIX, SCRATCHPAD_STATE_REF, activeBranch, baseCommit,
@@ -32,13 +33,15 @@ entry. Save work first: git wip (recommended; notes: it pushes) or a normal
 commit. --carry overrides with a loud warning + best-effort snapshot into
 .local-artifacts/tmp/scratchpad/ — carried work is DESTROYED by reset.
 
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+
 Exit codes:
     0   Success
     1   General error / safety refusal (dirty tree, bisect in flight, etc.)
     2   Invalid arguments (EXIT_MISUSE)
     3   Conflict (already active, nothing to reset) (EXIT_CONFLICT)
-    4   Not found (unknown sha/promote target) (EXIT_API_FAILURE)
-Version: 1.0.0`);
+    4   Not found (unknown sha/promote target) (EXIT_API_FAILURE)`);
   process.exit(0);
 }
 
@@ -46,12 +49,34 @@ const requireRepo = (): void => {
   if (!git(["rev-parse", "--git-dir"]).ok) process.exit(EXIT_GENERAL_ERROR);
 };
 
+// Subcommand dispatch is positionally driven (status/reset/promote/...);
+// only the house flags and --carry route through toolCli — the subcommand
+// and its own operands (slug, title words, sha) stay raw tokens.
+let carryFlag = false;
+try {
+  const cli = toolCli({
+    name: "repo-scratchpad",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    // Non-strict: the subcommand and its operands are raw tokens, and a
+    // title word may look like a flag (repo-scratchpad commit "-x fix").
+    strict: false,
+    options: {
+      carry: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) usage();
+  carryFlag = cli.values["carry"] === true;
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(EXIT_MISUSE);
+}
+
 const argv = process.argv.slice(2);
 if (argv.length === 0) usage();
 const cmd = argv[0] as string;
 const rest = argv.slice(1);
-
-if (cmd === "-h" || cmd === "--help") usage();
 
 // --- enter ---
 if (cmd === "enter") {
@@ -61,9 +86,8 @@ if (cmd === "enter") {
     process.exit(EXIT_GENERAL_ERROR);
   }
   let slug = "";
-  let carry = false;
   for (const a of rest) {
-    if (a === "--carry") carry = true;
+    if (a === "--carry") continue; // already lifted by toolCli
     else if (a === "-h" || a === "--help") usage();
     else if (slug === "") slug = a;
     else { console.error(`Error: unexpected argument '${a}'`); process.exit(EXIT_MISUSE); }
@@ -78,7 +102,7 @@ if (cmd === "enter") {
     process.exit(EXIT_CONFLICT);
   }
   if (isDirty()) {
-    if (carry) {
+    if (carryFlag) {
       console.error("⚠️  CARRY: dirty tree carried into the scratchpad. scratchpad reset will DESTROY carried work.");
       snapshotCarry(slug);
     } else {

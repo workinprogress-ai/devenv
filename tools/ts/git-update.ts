@@ -10,6 +10,8 @@
 import { spawnSync } from "node:child_process";
 import { readSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { rewriteDetectState } from "../lib/core/git.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
@@ -30,24 +32,36 @@ function fail(...lines: string[]): never {
   process.exit(1);
 }
 
-function usage(): never {
-  console.log(`Usage: git-update
+const SCRIPT_VERSION = "1.1.0";
+
+const USAGE_TEXT = `Usage: git-update
 Fetch tags and pull the current branch when it is strictly behind its upstream.
 When the remote history was rewritten (a fork sync), reset to it when the clone
 has nothing unique, or replay local commits with rebase when it has.
-Takes no arguments.`);
+Takes no arguments.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`;
+
+function usage(): never {
+  console.log(USAGE_TEXT);
   process.exit(0);
 }
 
-const arg = process.argv[2] ?? "";
-if (arg === "-h" || arg === "--help") usage();
-if (arg !== "") {
-  console.error(`git-update: unknown argument: ${arg}`);
-  console.error(`Usage: git-update
-Fetch tags and pull the current branch when it is strictly behind its upstream.
-When the remote history was rewritten (a fork sync), reset to it when the clone
-has nothing unique, or replay local commits with rebase when it has.
-Takes no arguments.`);
+try {
+  const cli = toolCli({
+    name: "git-update",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    allowPositionals: false,
+  });
+  if (cli.common.help) usage();
+} catch (err) {
+  // Bash-parity refusal: the full usage block with a non-zero exit (the
+  // helper-args suite pins both 'Usage' in the output and status != 0).
+  logError(err instanceof Error ? err.message : String(err));
+  console.log(USAGE_TEXT);
   process.exit(EXIT_MISUSE);
 }
 

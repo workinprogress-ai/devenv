@@ -5,6 +5,9 @@
 import { readFileSync, existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { invalidArgs } from "../lib/core/args.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
@@ -27,7 +30,10 @@ Warnings never affect exit status; errors set exit 1.
 Exit Codes:
     0 no errors (warnings allowed)
     1 validation errors found
-    2 invalid arguments`);
+    2 invalid arguments
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   process.exit(0);
 }
 
@@ -35,19 +41,24 @@ interface Spec {
   id: string; group: string; deps: string[]; file: string;
 }
 
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
-if (argv.includes("-v") || argv.includes("--version")) {
-  console.log("1.0.0");
-  process.exit(0);
-}
-
+const SCRIPT_VERSION = "1.0.0";
 const files: string[] = [];
-for (const a of argv) {
-  if (a === "-V" || a === "--verbose") continue;
-  if (a.startsWith("--")) invalidArgs(`Unknown option: ${a}`);
-  if (!existsSync(a)) invalidArgs(`File not found: ${a}`);
-  files.push(a);
+try {
+  const cli = toolCli({
+    name: "spec-dependency-check",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) usage();
+  for (const a of cli.positionals) {
+    if (!existsSync(a)) invalidArgs(`File not found: ${a}`);
+    files.push(a);
+  }
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 if (files.length === 0) invalidArgs("At least one Specifications file is required");
 

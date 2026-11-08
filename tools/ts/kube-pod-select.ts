@@ -4,10 +4,10 @@
 // (clack select on a TTY; first-line pick when KUBE_NO_INTERACTIVE=1 as the
 // test contract requires; otherwise errors naming the candidates).
 
-import { parseArgs } from "node:util";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { select } from "../lib/ui/prompts.ts";
 import { kubeInteractive, listPods, resolveNamespace } from "../lib/domain/kube/kube.ts";
 
@@ -20,30 +20,36 @@ Interactive pod selection: auto-selects when one pod matches, offers a menu
 when several match. Prints the selected pod name.
 
 Options:
-  -n, --namespace NS   Namespace (flag > NAMESPACE env > partial match >
-                       current-context default)
-  FILTER               Regex filter applied to pod names
-  HEADER               Menu header override (default: "Select a pod (ns: NS)")
-  -h, --help           Show this help`);
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+  -n, --namespace NS     Namespace (flag > NAMESPACE env > partial match >
+                         current-context default)
+
+FILTER is an optional regex filter; HEADER overrides the menu header.`);
   process.exit(0);
 }
 
-const { values, positionals } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    help: { type: "boolean", default: false },
-    namespace: { type: "string" },
-    n: { type: "string" },
-  },
-  allowPositionals: true,
-  strict: false,
-});
-
-if (values.help) usage();
-
-const nsInput = (values.namespace as string | undefined) ?? (values.n as string | undefined) ?? "";
-const filter = positionals[0] ?? "";
-const header = positionals[1] ?? "";
+let nsInput = "";
+let filter = "";
+let header = "";
+try {
+  const cli = toolCli({
+    name: "kube-pod-select",
+    version: "1.0.0",
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    options: {
+      namespace: { type: "string" },
+      n: { type: "string" },
+    },
+  });
+  if (cli.common.help) usage();
+  nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
+  filter = cli.positionals[0] ?? "";
+  header = cli.positionals[1] ?? "";
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  usage();
+}
 
 const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {

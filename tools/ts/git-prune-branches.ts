@@ -17,29 +17,34 @@
 import { spawnSync } from "node:child_process";
 import { readSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { parseArgs } from "node:util";
+import { logError } from "../lib/core/logging.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
 const GONE_MARKER = "|[gone]";
+const SCRIPT_VERSION = "1.2.0";
 
 function git(args: string[], input?: string): { status: number; out: string } {
   const r = spawnSync("git", args, { encoding: "utf8", input });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-const { values } = parseArgs({
-  args: process.argv.slice(2),
-  options: {
-    force: { type: "boolean", default: false },
-    help: { type: "boolean", short: "h", default: false },
-  },
-  strict: true,
-  allowPositionals: false,
-});
-
-if (values.help === true) {
-  console.log(`Usage: git-prune-branches [--force]
+let force = false;
+try {
+  const cli = toolCli({
+    name: "git-prune-branches",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+    allowPositionals: false,
+    options: {
+      force: { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) {
+    console.log(`Usage: git-prune-branches [--force]
 
 Delete local branches whose upstream is gone (after git fetch -p).
 
@@ -49,10 +54,17 @@ Delete local branches whose upstream is gone (after git fetch -p).
               force-deleted; any unique commit leaves it skipped.
   --force     Delete every upstream-gone branch unconditionally (the Y
               confirm still applies).
-  -h, --help  Show this help.`);
-  process.exit(0);
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
+    process.exit(0);
+  }
+  force = cli.values["force"] === true;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
-const force = values.force === true;
 
 console.log("Running git fetch, just a moment...");
 const fetchRun = git(["fetch", "-p"]);

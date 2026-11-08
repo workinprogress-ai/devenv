@@ -9,10 +9,12 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { logError } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { toolCli } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
 const tools = resolveToolsRoot(import.meta.url);
+const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
   console.log("Usage: key-update-tailscale [AUTH_KEY] | --help");
@@ -38,16 +40,27 @@ console.log("    This will update your Auth Key and immediately reconnect.");
 console.log("");
 
 // --help/-h must never be interpreted as a key: an unrecognized flag would
-// otherwise fall through to the key path and fail at auth.
-const arg = process.argv[2];
-if (arg === "--help" || arg === "-h") usage();
+// otherwise fall through to the key path and fail at auth. House flags are
+// lifted by toolCli; the sole positional (or none) is the key.
+let newKey = "";
+try {
+  const cli = toolCli({
+    name: "key-update-tailscale",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+  if (cli.common.help) usage();
+  if (cli.positionals.length > 0) newKey = cli.positionals[0] as string;
+} catch (err) {
+  logError(err instanceof Error ? err.message : String(err));
+  console.log("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
 
 // Capture the key: the argument when given (the documented non-interactive
 // form), otherwise prompt on the terminal.
-let newKey: string;
-if (arg) {
-  newKey = arg;
-} else {
+if (newKey === "") {
   const prompted = spawnSync(
     "bash",
     ["-c", 'read -s -r -p "    Paste new Reusable Auth Key: " k || k=""; printf %s "$k"'],

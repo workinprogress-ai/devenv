@@ -2002,17 +2002,27 @@ editor somefile.sh  # Uses vim if VS Code fails
 
 ### `tooling-create-script`
 
-Creates a new script from the standard template with error handling, versioning, and cleanup.
+Creates a new TypeScript script from the standard template: born on the shared
+CLI scaffold (`toolCli` + house flags) with core-lib imports carrying the
+correct relative prefix for the output directory. The bash template lane is
+gone — every new tool is TypeScript.
 
 ```bash
 tooling-create-script <script-name>
 ```
 
+**Options:**
+
+- `--dir DIR`: Output directory (default: `scripts/`)
+- `--force`: Overwrite an existing file
+
 **Features:**
 
-- Uses `$DEVENV_TOOLS/templates/script-template.sh` as base
+- Uses `tools/templates/script-template.ts` as base (toolCli + house flags)
+- Rewrites the template's `REL_LIB` import prefix to the computed relative
+  path, so generated imports resolve wherever the tool is created
 - Automatically makes script executable
-- Includes error handling, cleanup traps, and library sourcing
+- Includes the floor check, usage block, and the house error contract
 
 ### `lint-scripts`
 
