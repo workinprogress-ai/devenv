@@ -93,7 +93,7 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
   (URL/spec helpers + the gh list-flags helper), `repos`, `issues`, `prs`,
   `pipelines`, `projects` (boards), `policies` (branch policies),
   `releases` (git-tag mapping + Artifacts feeds), `org` (org-level bridge),
-  plus `key-update.sh`, `azure-setup.sh`, `azure-smoke-test.sh`, and
+  plus `key-update.ts`, `setup.bash`, `smoke.ts`, and
   `MAPPING.md` (the durable mapping doc).
   List/view verbs follow gh's `--json`/`-q` semantics so the shared
   wrappers behave identically under both providers.
@@ -119,7 +119,7 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
   ```
 
 - **PAT setup**: run `key-update-azure` (bash function; the script lives at
-  `tools/lib/providers/azure/key-update.sh`). It prompts (hidden input — the
+  `tools/lib/providers/azure/key-update.ts`). It prompts (hidden input — the
   token never enters chat, shell history, or argv) and stores the PAT as a
   **0600 file** in the devenv config area; a piped stdin token also works.
   Scopes needed: Work Items (Read/Write), Code (Read/Write), Build
@@ -870,7 +870,8 @@ Scripts that only the devenv or githook machinery invokes (never run by users) b
 
 4. **Standard structure** (in order):
    - Shebang + header comment (name, version, description, specifications)
-   - `source "$DEVENV_TOOLS/lib/error-handling.bash"` and `source "$DEVENV_TOOLS/lib/versioning.bash"`
+   - `source "$DEVENV_TOOLS/lib/error-handling.bash"` (seam-chain libs only —
+     see the Tooling-Standards library catalog for the post-Phase-10 allowlist)
    - `enable_strict_mode`
    - `SCRIPT_VERSION` and `SCRIPT_NAME` constants
    - `script_version` call

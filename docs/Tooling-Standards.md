@@ -192,8 +192,8 @@ when a second consumer appears; do not create it speculatively.
 set -euo pipefail
 
 source "$DEVENV_TOOLS/lib/error-handling.bash"
-source "$DEVENV_TOOLS/lib/versioning.bash"
-# ... other libs as needed (provider-loader, issue-operations, ...)
+# ... other libs as needed (config-reader, provider seam modules —
+# see the Library catalog for the post-Phase-10 allowlist)
 
 readonly SCRIPT_VERSION="1.0.0"
 readonly SCRIPT_NAME="$(basename "$0")"
@@ -271,16 +271,26 @@ on `PATH`, are excluded from the `tools/*` gitignore whitelist via
 
 Source only what you use. All paths are `$DEVENV_TOOLS/lib/`.
 
+The bash verb layer retired with the provider-port phase (Phase 10 of the
+TS consolidation): `versioning.bash`, `provider-loader.bash`,
+`git-operations.bash`, `issue-operations.bash`, `artifact-operations.bash`,
+and every provider verb twin are gone — their logic lives in the TS facade
+(`tools/lib/providers/`) and `lib/core/`. The bash that remains under
+`tools/lib` is the bootstrap seam allowlist, exactly:
+
+```bash
+config-reader.bash            copilot-knowledge.bash      error-handling.bash
+providers/provider-core.bash
+providers/github/{auth,setup,bootstrap}.bash
+providers/azure/{auth,setup,bootstrap}.bash
+providers/azure/credential-helper.sh
+```
+
 | Library | Provides | When to source |
 |---|---|---|
-| `error-handling.bash` | Logging (`log_debug/info/warn/error/fatal`, `success`), exit-code constants, `die`, `invalid_args`, `require_option_value`, `api_failure`, `handle_global_flag`, `enable_strict_mode`, `require_command`, `safe_remove` | **Always.** Non-negotiable. |
-| `versioning.bash` | Version parsing and comparison (`parse_version`, `compare_versions`, `version_gte`), environment requirement checks (`check_bash_version`, `check_git_version`, `check_environment_requirements`), `require_script_version` | When a tool needs version comparison or environment checks. `-v/--version` comes from `handle_global_flag` and `SCRIPT_VERSION`, not from this library. |
-| `provider-loader.bash` | `ensure_gh_login`, `get_repo_spec`, `resolve_target_repo` | Any GitHub-facing tool (new work uses `tools/lib/providers/` — see the [provider abstraction](../tools/lib/providers/README.md)) |
-| `git-operations.bash` | `check_target_repo` (devenv-repo safety gate) | Tools operating on the cwd's repo; required by `resolve_target_repo` |
-| `issue-operations.bash` | Issue CRUD wrappers | Issue tools |
+| `error-handling.bash` | Logging (`log_debug/info/warn/error/fatal`, `success`), exit-code constants, `die`, `invalid_args`, `require_option_value`, `api_failure`, `handle_global_flag`, `enable_strict_mode`, `require_command`, `safe_remove` | **Always** (seam-chain members only, post-Phase-10). Non-negotiable. |
+| `config-reader.bash` | `config_init` / `config_read_value` / `config_get_raw` over `devenv.config` | Seam chain reading configuration |
 | `lib/core/body-source.ts` (TS) | `resolveBodySource` | Tools that accept markdown/text bodies — the shared resolver (the historical `body-source.bash` is retired) |
-| `fzf-selection.bash` | `fzf_select_single`, `check_fzf_installed` | Interactive pickers |
-| `artifact-operations.bash` | `artifact_header_field` | Reading `DEVENV_ARTIFACT_V1` headers |
 
 ## Exit-code contract (suite-wide)
 
@@ -345,9 +355,9 @@ Org identity comes from `provider_org_get` (config `[organization] org` →
 seed); a provider module owns the
 equivalent chain for its backend.
 
-- Use `resolve_target_repo [override]` — it delegates to
-  `provider_repo_target` and runs the devenv-repo safety gate. It
-  hard-exits if `git-operations.bash` isn't loaded, so source that lib too.
+- Use `providerRepoTarget` (`lib/providers/provider-core.ts`) — it resolves
+  the target and runs the devenv-repo safety gate; explicit `--repo` wins
+  over `DEVENV_REPO`.
 - Do not hand-roll repo/org resolution chains; five historical idioms
   existed and were consolidated for exactly this reason. `GH_REPO` is
   provider-owned transport state — scripts never read or write it.

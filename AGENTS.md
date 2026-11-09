@@ -19,7 +19,7 @@ dispatcher — the authoritative guides live in `docs/`, this file routes.
   `skill-orient`, …), their implementations in `tools/ts/` (TypeScript),
   libs, tests
 - `docs/` — workflow and conventions documentation (see below)
-- `repos/` — cloned org repos, including the six `template.*` repos
+- `repos/` — cloned org repos, including the `template.*` repos
 - `setup/`, `.devcontainer/` — container bootstrap
 - `playground/`, `tmp/`, `write_file/` — scratch areas
 
