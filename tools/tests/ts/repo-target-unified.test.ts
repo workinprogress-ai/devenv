@@ -30,6 +30,13 @@ beforeEach(() => {
   TMP = mkdtempSync(join(tmpdir(), `rtgt-${Date.now()}-${Math.random().toString(36).slice(2)}`));
   spawnSync("bash", ["-c", `git init -q "$TMP/devenv-root" 2>/dev/null`]);
   writeFileSync(join(TMP, "devenv.config"), "[provider]\nname=github\n[organization]\nname=t\norg=my-org\n");
+  // Spawned fixtures configure the provider per-test via their own devenv.config;
+  // an inherited provider selection or session-scoped override from the parent
+  // shell would beat that config (provider_load short-circuits on a non-empty
+  // PROVIDER_NAME) and poison azure-fixture assertions.
+  delete process.env.PROVIDER_NAME;
+  delete process.env.AZURE_DEVOPS_ORG;
+  delete process.env.AZURE_DEVOPS_PROJECT;
   delete process.env.DEVENV_REPO;
 });
 

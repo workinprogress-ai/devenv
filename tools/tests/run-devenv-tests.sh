@@ -23,6 +23,13 @@ if [ -x "$STUB_SYNC" ]; then
     bash "$STUB_SYNC" >/dev/null 2>&1 || true
 fi
 
+# Tests spawn provider-sourcing bash fixtures that configure the provider via
+# their own devenv.config; an inherited PROVIDER_NAME from the invoking shell
+# beats that config (provider_load short-circuits on a non-empty PROVIDER_NAME)
+# and poisons provider-fixture assertions. The gate must not depend on the
+# caller's shell environment.
+unset PROVIDER_NAME AZURE_DEVOPS_ORG AZURE_DEVOPS_PROJECT
+
 DEVENV_TOOLS="$(devenv_resolve_tools_root "${BASH_SOURCE[0]}")"
 export DEVENV_TOOLS
 
