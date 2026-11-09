@@ -30,7 +30,7 @@ enforcement surface derives from it:
 | --- | --- |
 | Local commitlint | `type-enum` in `commitlint.config.js` — the single source |
 | Repository ruleset | `commit_message_pattern` in `tools/config/ruleset-default.json` — must equal the enum (enforced by a drift test, `test_repo_metadata.bats`) |
-| Wrapper validation | `validate_conventional_commits` in `tools/lib/git-operations.bash` — regex built from `DEVENV_COMMIT_TYPES`, which a drift test keeps equal to the enum |
+| Wrapper validation | `repo-commit` (TS) validates every message against the target repo's own commitlint config before opening the editor — the same enum, applied at commit time |
 | CI | the `commit-messages` job in `.github/workflows/test.yml` runs commitlint (this enum) over every pull-request commit |
 | Skills / prose | Skills cite this document; they do not restate type lists |
 
@@ -85,8 +85,8 @@ patch rule stands).
 Which repos are docs-first is discoverable, not guessed (skills apply this
 order): the repo's type in `tools/config/repo-types.yaml` carrying
 `docs_first: true` — resolve the type from the repo name via
-`detect_repo_type` (`tools/lib/repo-types.bash`, silent mode), then read the
-flag with `get_type_docs_first` (org-owned, fork-adjustable); then the
+`detectRepoType` (`tools/lib/domain/repos/types.ts`), then read the
+flag with `getTypeDocsFirst` (org-owned, fork-adjustable); then the
 in-repo `package.json` `"docs-repo"` marker; then the `planning.*`/`docs.*`
 name pattern.
 

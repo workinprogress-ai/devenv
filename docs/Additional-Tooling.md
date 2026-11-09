@@ -19,15 +19,18 @@ Public functions:
   - No-op when `copilot/knowledge` is not an initialized git repository.
   - Used by `.devcontainer/startup.sh` so each container start refreshes Copilot knowledge when available.
 
-### `rewrite-detect.bash`
+### `rewrite-detect` (TS)
 
-Shared classifier for the devenv self-update flow: given the current branch, decides
-whether its divergence from `origin/<branch>` is a rewritten remote (a fork sync
-force-push) and, if so, whether the clone can be safely reset (`clean` — local HEAD
-is a past remote tip from the reflog) or needs a rebase (`diverged` — unique local
-work). Returns the pre-rewrite tip so the `Devenv-Action` trailer scan can be
-bounded to genuinely new upstream commits. Consumers: `git-update`,
-`check-update-devenv-repo.sh`, `devenv-update`.
+Shared classifier for the devenv self-update flow, now in
+`lib/core/git.ts` (`rewriteDetectState`): given the current branch, decides
+whether its divergence from `origin/<branch>` is a rewritten remote (a fork
+sync force-push) and, if so, whether the clone can be safely reset (`clean`
+— local HEAD is a past remote tip from the reflog) or needs a rebase
+(`diverged` — unique local work). Returns the pre-rewrite tip so the
+`Devenv-Action` trailer scan can be bounded to genuinely new upstream
+commits. Consumers: `git-update`, `check-update-devenv-repo.sh`,
+`devenv-update` (the historical `rewrite-detect.bash` retired with the bash
+verb layer).
 
 ### `lib/domain/issues/graph.ts` (workflow state engine)
 
@@ -76,7 +79,7 @@ issue-graph-link PARENT CHILD [--unlink]
 
 Both IDs accept `N` or `owner/repo#N` (cross-repo parenting works — the sub-issue API takes global node IDs); idempotent add; removing an absent link is a no-op.
 
-Tests: `tools/tests/ts/provider-loading.test.ts`, `tools/tests/ts/workflow-model.test.ts`.
+Tests: `tools/tests/ts/url-seams.test.ts`, `tools/tests/ts/workflow-model.test.ts`.
 
 ## Diagnostics
 
@@ -185,7 +188,7 @@ repo-create --interactive                  # prompts for type and name
 - Post-creation script execution (per type) with configurable commit handling
 
 **Architecture:**
-The script uses the `repo-types` library (`tools/lib/repo-types.bash`) to manage repository configuration, validation, and ruleset application. The library provides common functions for:
+The script uses the repo-types domain module (`tools/lib/domain/repos/types.ts`) to manage repository configuration, validation, and ruleset application. The module provides common functions for:
 
 - Loading and validating `repo-types.yaml`
 - Validating repository names against type-specific patterns
@@ -457,7 +460,7 @@ WIP commits are an **escape hatch, not a storage format**. Use them to save unfi
 
 **How the block is delivered.** The gate logic lives in `tools/git-hooks/wip-gate.sh` in the devenv repo, and reaches repositories primarily through the **template boilerplate sync** — the same mechanism that distributes any shared boilerplate:
 
-1. **Template sync (primary).** The template repos (`template.service`, `template.cs-library`) carry the gate block in their `.husky/pre-commit`, and their `.repo/update-manifest.json` lists that file for sync. Derived repos receive the block by running their `.repo/update.sh` boilerplate update and committing `chore: update boilerplate` — a visible, reviewable, test-gated commit in the repo itself. `repos/repo-cache-sync-boilerplate.sh` automates that sweep across `<your-library-glob>` and `service.*` repos (master-only, clean-tree, tests-gated, per-repo commit + push); run it manually when rolling out boilerplate changes. Repos acquire `.repo/update.sh` on first sync (the script seeds the infrastructure from the template).
+1. **Template sync (primary).** The template repos (`template.service`, `template.cs-library`) carry the gate block in their `.husky/pre-commit`, and their `.repo/update-manifest.json` lists that file for sync. Derived repos receive the block by running their `.repo/update.sh` boilerplate update and committing `chore: update boilerplate` — a visible, reviewable, test-gated commit in the repo itself. `repos/repo-cache-sync-boilerplate.sh` automates that sweep across `<your-library-glob>`, `service.*`, `devops.*`, `gitops.*`, and `tool.*` repos (master-only, clean-tree, tests-gated, per-repo commit + push); run it manually when rolling out boilerplate changes. Repos acquire `.repo/update.sh` on first sync (the script seeds the infrastructure from the template).
 2. **Global hooks dir (fallback).** Bootstrap points `core.hooksPath` at `tools/git-hooks/` globally, so repos that don't manage their own hooks get the gate without any per-repo file.
 **What a well-formed commit looks like.** A real commit names what changed and why: a conventional type prefix (`feat:`, `fix:`, `docs:`, …) and, in the devenv repo itself, a `Devenv-Action` trailer telling consumers what to do after pulling. If a change can't pass those bars yet, it isn't ready to be a real commit — WIP it, finish the work, then `git-unwip` and commit properly.
 
@@ -465,7 +468,7 @@ WIP commits are an **escape hatch, not a storage format**. Use them to save unfi
 
 #### `repo-cache-sync-boilerplate`
 
-Sweeps the `<your-library-glob>` / `service.*` repos in the repo cache: seeds each repo's `.repo/` update infrastructure from its template, runs the template update (which syncs `.husky/pre-commit` and all other manifest boilerplate), runs the repo's `./run-tests` when present, then commits `chore: update boilerplate` and pushes — per repo, on `master` only, and only with a clean working tree:
+Sweeps the `<your-library-glob>` / `service.*` / `devops.*` / `gitops.*` / `tool.*` repos in the repo cache: seeds each repo's `.repo/` update infrastructure from its template, runs the template update (which syncs `.husky/pre-commit` and all other manifest boilerplate), runs the repo's `./run-tests` when present, then commits `chore: update boilerplate` and pushes — per repo, on `master` only, and only with a clean working tree:
 
 ```bash
 ./repos/repo-cache-sync-boilerplate.sh --dry-run        # print the plan, touch nothing
@@ -829,7 +832,7 @@ When listing versions (`--versions`), the table shows:
 
 **Library Functions:**
 
-The `artifacts-list` script is built on the `artifact-operations.bash` library, which provides reusable functions for querying packages:
+The `artifacts-list` script is built on the TS packages facade, which provides reusable functions for querying packages (the historical `artifact-operations.bash` retired with the bash verb layer):
 
 - `query_packages`: Query packages with filtering by type and name
 - `get_package_versions`: Get versions for a specific package
@@ -2997,8 +3000,8 @@ service:
 
 **Dependencies:**
 
-- `repo-types.bash` (shared library)
-- `yq` (YAML processor)
+- `tools/lib/domain/repos/types.ts` (shared TS module)
+- `yq` (YAML processor, repo-reset-merge-config leg only)
 
 **Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.ts)](./Forking.md#repo-creation-standards-repo-create) in the Forking Guide for configuration options.
 
@@ -3019,7 +3022,7 @@ script's entry in [`tools/special/README.md`](../tools/special/README.md) states
 what it does, when to run it, and its blast radius. Invoke by explicit path:
 `bash tools/special/<script>.sh`.
 
-- **`tools/lib/providers/azure/azure-smoke-test.sh`** — Azure provider live validation, two opt-in tiers:
+- **`tools/lib/providers/azure/smoke.ts`** — Azure provider live validation, two opt-in tiers:
   `AZURE_SMOKE=1` (read-only: auth, repo list, WIQL, work-item view, PR list)
   and `AZURE_SMOKE=write` (destructive: create/comment/close work items,
   create and rebase-merge a PR — disposable test project only). Manual-only;
