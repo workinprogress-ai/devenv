@@ -30,8 +30,11 @@ describe("background updates", () => {
     expect(spawnSync("bash", ["-n", BG]).status).toBe(0);
   });
 
-  it("background-check-devenv-updates.sh sources versioning library", () => {
-    expect(grepBash(["source.*lib/versioning.bash", BG])).toBe(0);
+  it("background-check-devenv-updates.sh inlines the version floor check", () => {
+    // The retired versioning.bash contract (bash >= 4.0, git >= 2.0) is
+    // inlined as version_ge in the script.
+    expect(grepBash(["version_ge", BG])).toBe(0);
+    expect(grepBash(["BASH_VERSINFO", BG])).toBe(0);
   });
 
   it("background-check-devenv-updates.sh has cleanup function", () => {

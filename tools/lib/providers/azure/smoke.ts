@@ -20,7 +20,7 @@
 //   AZURE_SMOKE_REPORT        optional per-verb pass/fail report path
 // Exit: 0 only when every probe passed AND teardown succeeded.
 //
-// Run via the bash runner (see smoke-run.sh) or:
+// Run directly:
 //   AZURE_SMOKE=write AZURE_SMOKE_CONFIRM=<proj> AZURE_PAT=... \
 //   AZURE_DEVOPS_ORG=... AZURE_SMOKE_TEST_PROJECT=... \
 //   node tools/lib/providers/azure/smoke.ts

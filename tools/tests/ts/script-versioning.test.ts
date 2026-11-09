@@ -16,29 +16,6 @@ describe("script versioning", () => {
     expect(spawnSync("bash", ["-n", join(ROOT, ".devcontainer/bootstrap.sh")]).status).toBe(0);
   });
 
-  it("versioning library is present", () => {
-    expect(existsSync(join(ROOT, "tools/lib/versioning.bash"))).toBe(true);
-  });
-
-  it("versioning library has valid syntax", () => {
-    expect(spawnSync("bash", ["-n", join(ROOT, "tools/lib/versioning.bash")]).status).toBe(0);
-  });
-
-  it("versioning library defines check_environment_requirements function", () => {
-    const r = spawnSync("grep", ["check_environment_requirements()", join(ROOT, "tools/lib/versioning.bash")], { encoding: "utf8" });
-    expect(r.status).toBe(0);
-  });
-
-  it("versioning library defines MIN_BASH_VERSION", () => {
-    const r = spawnSync("grep", ["readonly MIN_BASH_VERSION=", join(ROOT, "tools/lib/versioning.bash")], { encoding: "utf8" });
-    expect(r.status).toBe(0);
-  });
-
-  it("versioning library defines MIN_GIT_VERSION", () => {
-    const r = spawnSync("grep", ["readonly MIN_GIT_VERSION=", join(ROOT, "tools/lib/versioning.bash")], { encoding: "utf8" });
-    expect(r.status).toBe(0);
-  });
-
   it("repo-bump-version carries the error-handling equivalent", () => {
     const r = spawnSync("grep", ["core/exit-codes.ts", join(ROOT, "tools/ts/repo-bump-version.ts")], { encoding: "utf8" });
     expect(r.status).toBe(0);

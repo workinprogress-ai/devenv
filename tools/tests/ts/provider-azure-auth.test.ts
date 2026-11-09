@@ -214,7 +214,7 @@ describe("auth import + key-update seam", () => {
   it("key-update-azure leaves the git helper wiring to the credential import", () => {
     // The import verb wires the helper (see the import test above); the
     // rotation script must not wire it a second time.
-    const keyUpdate = readFileSync(join(TOOLS, "lib/providers/azure/key-update.sh"), "utf8");
-    expect(keyUpdate).not.toContain("provider_auth_setup_git");
+    const keyUpdate = readFileSync(join(TOOLS, "lib/providers/azure/key-update.ts"), "utf8");
+    expect(keyUpdate).not.toContain("provider_auth_setup_git_impl");
   });
 });

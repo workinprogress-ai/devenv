@@ -106,14 +106,16 @@ describe("provider detection via devenv.config", () => {
   });
 
   it("provider_load skips absent azure domain modules with a warning (fails defined)", () => {
-    // prs is implemented for azure — absent modules must warn-and-skip, never
-    // crash, but this one must actually load.
+    // prs is now a TS twin (azure/prs.ts) — absent bash modules must
+    // warn-and-skip, never crash; an actually-absent module exercises that,
+    // and the prs twin surface is covered by its own suite.
     writeFileSync(join(DEVENV_ROOT, "devenv.config"), "[provider]\nname=azure\n");
     const r = azureBash(
       `source '${TOOLS}/lib/providers/provider-core.bash'\nprovider_detect\nprovider_load prs\ndeclare -F provider_prs_list >/dev/null && echo IMPLEMENTED || echo ABSENT`,
     );
     expect(r.status).toBe(0);
-    expect(r.out).toContain("IMPLEMENTED");
+    expect(r.out).toContain("WARN");
+    expect(r.out).toContain("ABSENT");
   });
 
   it("azure auth module is discoverable by provider_load auth", () => {
@@ -131,17 +133,25 @@ describe("provider detection via devenv.config", () => {
 // ===========================================================================
 
 describe("key-update-azure", () => {
-  const KEY_UPDATE = join(TOOLS, "lib/providers/azure/key-update.sh");
+  const KEY_UPDATE = join(TOOLS, "lib/providers/azure/key-update.ts");
+  const keyUpdateRun = (args: string[], input?: string) => {
+    const r = spawnSync("node", [KEY_UPDATE, ...args], {
+      encoding: "utf8",
+      input: input ?? "",
+      env: { ...process.env, DEVENV_ROOT, AZURE_PAT_FILE: PAT_FILE },
+    });
+    return { status: r.status, out: `${r.stdout ?? ""}${r.stderr ?? ""}` };
+  };
 
   it("--help explains usage and never prompts", () => {
-    const r = azureBash(`bash '${KEY_UPDATE}' --help < /dev/null`);
+    const r = keyUpdateRun(["--help"]);
     expect(r.status).toBe(0);
     expect(r.out).toContain("Usage: key-update-azure");
     expect(r.out).toContain("Azure DevOps personal access token");
   });
 
   it("stores a token piped on stdin", () => {
-    const r = azureBash(`printf 'stdin-pat-xyz\\n' | bash '${KEY_UPDATE}'`);
+    const r = keyUpdateRun([], "stdin-pat-xyz\n");
     expect(r.status).toBe(0);
     expect(existsSync(PAT_FILE)).toBe(true);
     expect(spawnSync("stat", ["-c", "%a", PAT_FILE], { encoding: "utf8" }).stdout?.trim()).toBe("600");
@@ -149,74 +159,55 @@ describe("key-update-azure", () => {
   });
 
   it("refuses a token passed as an argument and stores nothing", () => {
-    const r = azureBash(`bash '${KEY_UPDATE}' 'arg-pat-xyz' < /dev/null`);
+    const r = keyUpdateRun(["arg-pat-xyz"]);
     expect(r.status).not.toBe(0);
     expect(r.out).toContain("stdin");
     expect(existsSync(PAT_FILE)).toBe(false);
   });
 
   it("rejects an empty token", () => {
-    const r = azureBash(`bash '${KEY_UPDATE}' < /dev/null`);
+    const r = keyUpdateRun([]);
     expect(r.status).not.toBe(0);
   });
 });
 
 describe("azure releases projection", () => {
-  it("provider_org_releases_list emits one JSON array and honors --json", () => {
-    // minimal curl stub mirroring the fixture: -D headers + body from file
-    const bin = join(TMP, "bin");
-    mkdirSync(bin, { recursive: true });
-    writeFileSync(
-      join(bin, "curl"),
-      [
-        "#!/usr/bin/env bash",
-        'prev=""; out_file=""; write_fmt=""; headers_file="/dev/null"',
-        'for arg in "$@"; do',
-        '  [[ "$prev" == "-D" ]] && headers_file="$arg"',
-        '  [[ "$prev" == "-o" ]] && out_file="$arg"',
-        '  [[ "$prev" == "-w" ]] && write_fmt="$arg"',
-        '  prev="$arg"',
-        "done",
-        'for arg in "$@"; do [[ "$arg" == "@-" ]] && { cat > /dev/null; break; }; done',
-        'echo "curl" >> "${STUB_CALL_LOG:?}"',
-        'code="${STUB_CURL_HTTP_CODE:-200}"',
-        'emit_body() { [[ -f "$1" ]] || { [[ -n "$out_file" ]] && : > "$out_file"; return 0; }; if [[ -n "$out_file" ]]; then cat "$1" > "$out_file"; else cat "$1"; fi; }',
-        'emit_write_out() { [[ -n "$write_fmt" ]] || return 0; printf \'%b\' "${write_fmt//%\\{http_code\\}/$code}"; }',
-        '{ printf \'HTTP/1.1 %s OK\\r\\n\\r\\n\' "$code"; } > "$headers_file"',
-        'emit_body "${STUB_CURL_RESPONSE:-/nonexistent}"',
-        "emit_write_out",
-        "exit 0",
-        "",
-      ].join("\n"),
-    );
-    chmodSync(join(bin, "curl"), 0o755);
-    writeFileSync(PAT_FILE, "test-pat\n");
-    chmodSync(PAT_FILE, 0o600);
-    writeFileSync(
-      join(TMP, "tags.json"),
-      '{"value":[{"name":"refs/tags/v1.0.0","objectId":"A1","creator":{"displayName":"Tagger"}},{"name":"refs/tags/v2.0.0-beta.1","objectId":"B2","creator":{"displayName":"Tagger"}}]}',
-    );
-    const r = azureBash(
-      `${LIBS}; provider_load repos releases; provider_org_releases_list o1/p1/r1 --json tagName,isPrerelease`,
-      {
-        STUB_CALL_LOG: join(TMP, "stub-calls.log"),
-        STUB_CURL_RESPONSE: join(TMP, "tags.json"),
-        AZURE_DEVOPS_ORG: "o1",
-        AZURE_DEVOPS_PROJECT: "p1",
-        PATH: `${bin}:${process.env.PATH ?? ""}`,
-      },
-    );
-    expect(r.status).toBe(0);
-    // One JSON array; the projection keeps exactly the requested fields;
-    // newest first: the 2.0.0 prerelease comes before 1.0.0.
-    const ok = spawnSync(
-      "jq",
-      [
-        "-e",
-        'length == 2 and .[1].tagName == "v1.0.0" and .[1].isPrerelease == false and .[0].isPrerelease == true and (.[0] | keys | sort) == ["isPrerelease","tagName"]',
-      ],
-      { input: r.out, stdio: "ignore" },
-    );
-    expect(ok.status ?? 1).toBe(0);
+  it("provider_org_releases_list emits one JSON array and honors --json", async () => {
+    // The releases projection is TS now (azure/org.ts orgReleasesList over
+    // the http.ts transport): stub the fetch layer by pointing the module at
+    // a stub http module via a fetch-spy harness — the transport contract
+    // (one JSON array, projected fields, newest first) is identical.
+    const { orgReleasesList } = await import(join(TOOLS, "lib/providers/azure/org.ts"));
+    // The transport resolves the credential before any fetch: supply the
+    // env PAT leg (never a URL rider — asserted below).
+    process.env.AZURE_PAT = "test-pat";
+    const tags = [
+      { name: "refs/tags/v1.0.0", objectId: "A1" },
+      { name: "refs/tags/v2.0.0-beta.1", objectId: "B2" },
+    ];
+    const calls: string[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify({ value: tags }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const out = await orgReleasesList("o1/p1/r1", { json: "tagName,isPrerelease" });
+      const arr = JSON.parse(out);
+      expect(Array.isArray(arr)).toBe(true);
+      expect(arr).toHaveLength(2);
+      // newest first: the 2.0.0 prerelease comes before 1.0.0
+      expect(arr[0].tagName).toBe("v2.0.0-beta.1");
+      expect(arr[0].isPrerelease).toBe(true);
+      expect(arr[1].tagName).toBe("v1.0.0");
+      expect(arr[1].isPrerelease).toBe(false);
+      // projection keeps exactly the requested fields
+      expect(Object.keys(arr[0]).sort()).toEqual(["isPrerelease", "tagName"]);
+      // the PAT never rides the URL
+      expect(calls.every((u) => !u.includes("test-pat"))).toBe(true);
+    } finally {
+      globalThis.fetch = realFetch;
+      delete process.env.AZURE_PAT;
+    }
   });
 });

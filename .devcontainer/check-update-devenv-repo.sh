@@ -34,13 +34,14 @@ fi
 # non-interactive runs, one TTY-only pointer line interactively. Objects missing from a shallow
 # clone make the reachability test fail, which reads as "not rewritten".
 if [ "$LOCAL_HASH" != "$BASE_HASH" ]; then
-    # The shared rewrite classifier: none / clean <past-tip> / diverged <past-tip>.
-    # shellcheck source=../tools/lib/rewrite-detect.bash
-    source "$devenv/tools/lib/rewrite-detect.bash" 2>/dev/null || {
-        echo "Warning: rewrite-detect library missing; cannot classify the divergence." >&2
+    # The shared rewrite classifier lives in TS (lib/core/git.ts
+    # rewriteDetectState; the bash lib retired with the layer). Same
+    # guarded contract: a classifier that cannot run reads as "not
+    # rewritten" — the update offer is skipped, never guessed.
+    STATE="$(node --input-type=module -e "import('file://'+process.argv[1]+'/tools/lib/core/git.ts').then(m=>{const s=m.rewriteDetectState(process.argv[1],process.argv[2]);console.log(s.verdict+(s.pastTip?' '+s.pastTip:''))}).catch(()=>process.exit(1))" "$devenv" "$CURRENT_BRANCH" 2>/dev/null)" || {
+        echo "Warning: rewrite classifier missing; cannot classify the divergence." >&2
         exit 0
     }
-    STATE="$(rewrite_detect_state "$CURRENT_BRANCH")"
     VERDICT="${STATE%% *}"
     case "$VERDICT" in
         clean|diverged)

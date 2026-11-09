@@ -24,25 +24,6 @@ function grepCount(args: string[]): number {
 // ── function documentation (port of test_function_documentation.bats, 8) ─
 
 describe("function documentation", () => {
-  it("bootstrap.bash on_error function has documentation", () => {
-    const r = sh(`grep -B 5 '^on_error()' '${ROOT}/.devcontainer/bootstrap.bash' | head -6`);
-    expect(r.status).toBe(0);
-    expect(r.out).toContain("on_error");
-  });
-
-  it("lib/error-handling.bash functions have documentation headers", () => {
-    // The file exists and has function definitions.
-    expect(grepCount([`-c`, "^.*()", join(ROOT, "tools/lib/error-handling.bash")])).toBeGreaterThan(0);
-  });
-
-  it("lib/git-operations.bash functions have documentation", () => {
-    const r = sh(`grep -B 3 '^configure_git_repo()' '${ROOT}/tools/lib/git-operations.bash' | grep -q '# Args:'`);
-    expect(r.status).toBe(0);
-  });
-
-  it("lib/versioning.bash functions have documentation", () => {
-    expect(grepCount(["-c", "# Usage:", join(ROOT, "tools/lib/versioning.bash")])).toBeGreaterThan(5);
-  });
 
   it("script template includes documentation examples", () => {
     const template = readFileSync(join(ROOT, "tools/templates/script-template.ts"), "utf8");
@@ -59,7 +40,12 @@ describe("function documentation", () => {
   });
 
   it("public library functions have return value documentation", () => {
-    const r = sh(`grep -B 5 'compare_versions()' '${ROOT}/tools/lib/versioning.bash' | grep -q 'Returns:'`);
+    // versioning.bash retired with the bash verb layer; the documentation
+    // contract pins a representative TS library function instead (its doc
+    // comment describes the return: empty when unresolvable).
+    const r = sh(
+      `grep -B 8 'export function providerOrgGet' '${ROOT}/tools/lib/providers/provider-core.ts' | grep -q 'Empty'`,
+    );
     expect(r.status).toBe(0);
   });
 
