@@ -267,6 +267,8 @@ Scan for staleness signals before continuing:
 
 If they say refresh, tell them to invoke it (new skill invocation required) and stop. If they say proceed, note the signals in open questions and continue. **If fewer than two signals**, continue silently.
 
+**Pivot-class discovery (stronger than drift):** if mid-session work surfaces a verified finding that supersedes the approach assumption behind the *remaining* phases while the goal survives, that is not a drift signal — it is a pivot. The shared [pivot protocol](../common/references/pivot-protocol.md) governs: classify on its gradient (torn → classify up), stabilize at a clean boundary, route decision mass through `/devenv-groom` before refining, and hand to `/devenv-refine-plan` (revision mode) for the rewrite. The user is present in a pair session, so the classification conversation happens live — but the plan rewrite is still refine-plan's, not pair's.
+
 ### 2c. Upstream decision re-anchor (required when upstream artifacts are linked)
 
 If the loaded plan references a grooming artifact or other upstream design artifact in `## Reference Information`, run a quick carry-forward check before coding:
