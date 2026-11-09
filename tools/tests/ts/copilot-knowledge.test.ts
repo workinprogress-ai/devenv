@@ -25,6 +25,10 @@ beforeEach(() => {
   mkdirSync(join(TMP, "repo", ".git"), { recursive: true });
   mkdirSync(DEVENV_ROOT, { recursive: true });
   writeFileSync(GIT_ARGS_LOG, "");
+  // Spawned fixtures configure the provider per-test via their own devenv.config;
+  // an inherited provider selection from the parent shell would beat that config
+  // (provider_load short-circuits on a non-empty PROVIDER_NAME).
+  delete process.env.PROVIDER_NAME;
   // nohup runs its command synchronously here so the test can read what git received.
   writeFileSync(join(TMP, "bin", "nohup"), '#!/usr/bin/env bash\nexec "$@"\n');
   writeFileSync(join(TMP, "bin", "git"), 'printf "%s\\n" "$*" >> "$GIT_ARGS_LOG"\nexit 0\n');
