@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, openSync, closeSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
@@ -77,7 +78,7 @@ try {
   resetState = cli.values["reset"] === true;
   once = cli.values["once"] === true;
 } catch (err) {
-  console.error(`ERROR: ${err instanceof Error ? err.message : String(err)}`);
+  console.error(`ERROR: ${errorMessage(err)}`);
   process.exit(1);
 }
 

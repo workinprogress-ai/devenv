@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { requireCommandOrExit } from "../lib/core/commands.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -42,7 +43,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   connectionString = cli.positionals[0] as string;
   backupDir = cli.positionals[1] as string;
 } catch (err) {
-  console.error(err instanceof Error ? err.message : String(err));
+  console.error(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }

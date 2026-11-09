@@ -10,6 +10,7 @@
 
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { configGetArray } from "../lib/core/config.ts";
@@ -113,7 +114,7 @@ try {
 } catch (err) {
   // strict:true throws on an unknown flag — a named one-liner instead of a
   // raw Node stack trace (the suite's stated unknown-flag contract).
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }

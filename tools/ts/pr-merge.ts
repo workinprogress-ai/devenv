@@ -17,6 +17,8 @@ import { spawnSync } from "node:child_process";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCheck, gitInherit } from "../lib/core/git.ts";
 import { toolCli } from "../lib/core/cli.ts";
 import { checkTargetRepo, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsList, prsMerge, prsView } from "../lib/providers/facade/prs.ts";
@@ -59,11 +61,8 @@ Options:
 }
 
 function git(args: string[], opts: { capture?: boolean } = {}): { ok: boolean; out: string } {
-  const r = spawnSync("git", args, {
-    encoding: "utf8",
-    ...(opts.capture ? {} : { stdio: ["ignore", "inherit", "inherit"] }),
-  });
-  return { ok: r.status === 0, out: (r.stdout ?? "").trim() };
+  if (opts.capture) return gitCheck(null, args).ok ? { ok: true, out: gitCheck(null, args).out.trim() } : { ok: false, out: gitCheck(null, args).out.trim() };
+  return gitInherit(null, args);
 }
 
 function currentBranch(repoDir: string): string {
@@ -111,8 +110,8 @@ function buildMergeCommitMessage(title: string, body: string, prNum: string, iss
 
 /** WIP scan (git-operations'): anchored ` WIP:` subject prefix in the range. */
 function wipScan(range: string): { clean: boolean; offenders: string } {
-  const r = spawnSync("git", ["log", range, "--format=%h %s"], { encoding: "utf8" });
-  const offenders = (r.stdout ?? "")
+  const r = gitCheck(null, ["log", range, "--format=%h %s"]);
+  const offenders = r.out
     .split("\n")
     .filter((l) => l.includes(" WIP:"))
     .join("\n");
@@ -122,15 +121,15 @@ function wipScan(range: string): { clean: boolean; offenders: string } {
 /** Soft warning: breaking markers in the range (! before colon or a
  * BREAKING CHANGE footer). Warning surface only, never a gate. */
 function breakingMarkerScan(range: string): void {
-  const log = spawnSync("git", ["log", range, "--format=%h %s"], { encoding: "utf8" });
-  for (const line of (log.stdout ?? "").split("\n")) {
+  const log = gitCheck(null, ["log", range, "--format=%h %s"]);
+  for (const line of log.out.split("\n")) {
     if (/^[0-9a-f]{7,} [a-z]+(\([^)]*\))?!:/.test(line)) {
       logWarn(`Breaking marker in range: ${line}`);
     }
   }
-  const withFooters = spawnSync("git", ["log", range, "--format=C %h %s%n%b"], { encoding: "utf8" });
+  const withFooters = gitCheck(null, ["log", range, "--format=C %h %s%n%b"]);
   let cur = "";
-  for (const line of (withFooters.stdout ?? "").split("\n")) {
+  for (const line of withFooters.out.split("\n")) {
     if (line.startsWith("C ") && line.length > 2) cur = line.slice(2);
     if (/^BREAKING CHANGE[ :=]/.test(line) && cur !== "") {
       logWarn(`Breaking marker in range: ${cur} (BREAKING CHANGE footer)`);
@@ -193,7 +192,7 @@ async function main(argv: string[]): Promise<number> {
     }
     commitMessage = cli.positionals[0] ?? "";
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     usage(EXIT_MISUSE);
   }
 
@@ -238,8 +237,8 @@ async function main(argv: string[]): Promise<number> {
   }
 
   // Git context (validate_git_context): repo, clean WD, not on the target.
-  const inside = spawnSync("git", ["-C", repoDir, "rev-parse", "--is-inside-work-tree"], { encoding: "utf8" });
-  if (inside.status !== 0) {
+  const inside = gitCheck(repoDir, ["rev-parse", "--is-inside-work-tree"]);
+  if (!inside.ok) {
     logError("Not in a git repository");
     return EXIT_GENERAL_ERROR;
   }
@@ -418,7 +417,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   main(process.argv.slice(2)).then(
     (code) => process.exit(code),
     (err: unknown) => {
-      logError(err instanceof Error ? err.message : String(err));
+      logError(errorMessage(err));
       process.exit(EXIT_API_FAILURE);
     },
   );

@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, appendFileSync, writeFileSync, chmodSync } from 
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -37,7 +38,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   }
   commands = cli.positionals;
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   process.exit(2);
 }
 

@@ -16,6 +16,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCheck, gitInherit } from "../lib/core/git.ts";
 import { toolCli } from "../lib/core/cli.ts";
 import { checkTargetRepo, providerRepoTarget, requireRepoTarget, ghApi } from "../lib/providers/provider-core.ts";
 import { prsCreate, prsList } from "../lib/providers/facade/prs.ts";
@@ -51,11 +53,13 @@ function usage(): never {
 }
 
 function git(args: string[], opts: { capture?: boolean; quiet?: boolean } = {}): { ok: boolean; out: string } {
-  const r = spawnSync("git", args, {
-    encoding: "utf8",
-    ...(opts.capture ? {} : opts.quiet ? { stdio: ["ignore", "ignore", "ignore"] } : { stdio: ["ignore", "inherit", "inherit"] }),
-  });
-  return { ok: r.status === 0, out: (r.stdout ?? "").trim() };
+  // quiet: output captured and dropped — callers read only .ok (the old
+  // all-ignore stdio shape's contract for these call sites).
+  const r = gitCheck(null, args);
+  if (opts.capture || opts.quiet) {
+    return { ok: r.ok, out: opts.capture ? r.out.trim() : "" };
+  }
+  return gitInherit(null, args);
 }
 
 function conventionalCommitsOk(title: string): boolean {
@@ -64,8 +68,8 @@ function conventionalCommitsOk(title: string): boolean {
 
 /** WIP scan (git-operations'): anchored ` WIP:` subject prefix in the range. */
 function wipScan(repoDir: string, range: string): { clean: boolean; offenders: string } {
-  const r = spawnSync("git", ["-C", repoDir, "log", range, "--format=%h %s"], { encoding: "utf8" });
-  const offenders = (r.stdout ?? "").split("\n").filter((l) => l.includes(" WIP:")).join("\n");
+  const r = gitCheck(repoDir, ["log", range, "--format=%h %s"]);
+  const offenders = r.out.split("\n").filter((l) => l.includes(" WIP:")).join("\n");
   return { clean: offenders === "", offenders };
 }
 
@@ -144,7 +148,7 @@ async function main(argv: string[]): Promise<number> {
       usage();
     }
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
@@ -154,11 +158,11 @@ async function main(argv: string[]): Promise<number> {
   // repo, and blocked on any scratchpad/* branch (defense-in-depth: scratch
   // commits bypass hooks and carry no Devenv-Action/Change-Id trailers; they
   // must never reach shared history).
-  const scratchBranch = spawnSync("git", ["-C", repoDir, "rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8" });
-  const branchName = (scratchBranch.stdout ?? "").trim();
-  const stateRef = spawnSync("git", ["-C", repoDir, "show-ref", "--verify", "--quiet", "refs/scratchpad/state"]);
+  const scratchBranch = gitCheck(repoDir, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  const branchName = scratchBranch.out.trim();
+  const stateRef = gitCheck(repoDir, ["show-ref", "--verify", "--quiet", "refs/scratchpad/state"]);
   const onScratchBranch = /^scratchpad\//.test(branchName);
-  if (stateRef.status === 0 || onScratchBranch) {
+  if (stateRef.ok || onScratchBranch) {
     console.error(
       "Error: pr-create push is blocked on a scratchpad branch — scratch commits bypass hooks and carry no Devenv-Action/Change-Id trailers; they must never reach shared history.",
     );
@@ -199,8 +203,8 @@ async function main(argv: string[]): Promise<number> {
   // provider resolver. The house --devenv flag gates devenv-repo operations
   // (pr-create pushes branches; the safety override must have real meaning).
   checkTargetRepo(devenvFlag);
-  const originUrl = spawnSync("git", ["-C", repoDir, "remote", "get-url", "origin"], { encoding: "utf8" });
-  let repoSpec = originUrl.status === 0 ? ((await remoteToSpec((originUrl.stdout ?? "").trim())) ?? "") : "";
+  const originUrl = gitCheck(repoDir, ["remote", "get-url", "origin"]);
+  let repoSpec = originUrl.ok ? ((await remoteToSpec(originUrl.out.trim())) ?? "") : "";
   if (repoSpec === "") repoSpec = requireRepoTarget(providerRepoTarget(""), "pr-create", "pr");
 
   // allowSquashMerge rides the provider repos seam (jq kept in argv: the
@@ -240,8 +244,8 @@ async function main(argv: string[]): Promise<number> {
     }
   }
 
-  const inside = spawnSync("git", ["-C", repoDir, "rev-parse", "--is-inside-work-tree"], { encoding: "utf8" });
-  if (inside.status !== 0) {
+  const inside = gitCheck(repoDir, ["rev-parse", "--is-inside-work-tree"]);
+  if (!inside.ok) {
     console.error(`Directory ${repoDir} is not a git repository.`);
     return EXIT_GENERAL_ERROR;
   }
@@ -260,8 +264,8 @@ async function main(argv: string[]): Promise<number> {
   }
 
   // Clean-tree gate (git diff-index --quiet HEAD --).
-  const dirty = spawnSync("git", ["-C", repoDir, "diff-index", "--quiet", "HEAD", "--"], { encoding: "utf8" });
-  if (dirty.status !== 0) {
+  const dirty = gitCheck(repoDir, ["diff-index", "--quiet", "HEAD", "--"]);
+  if (!dirty.ok) {
     console.error("There are uncommitted or staged changes.");
     return EXIT_GENERAL_ERROR;
   }
@@ -273,8 +277,8 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (targetBranch === "") {
-    const ref = spawnSync("git", ["-C", repoDir, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], { encoding: "utf8" });
-    const refName = (ref.stdout ?? "").trim().replace(/^origin\//, "");
+    const ref = gitCheck(repoDir, ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]);
+    const refName = ref.out.trim().replace(/^origin\//, "");
     targetBranch = refName !== "" ? refName : git(["-C", repoDir, "show-ref", "--quiet", "refs/remotes/origin/main"], { capture: true }).ok ? "main" : "master";
   }
 
@@ -287,8 +291,8 @@ async function main(argv: string[]): Promise<number> {
 
   if (atCommit !== "") {
     if (atCommit === "pick") {
-      const commits = spawnSync("git", ["-C", repoDir, "log", `${targetBranch}..${current}`, "--format=%h%x09%s"], { encoding: "utf8" });
-      const lines = (commits.stdout ?? "").split("\n").filter((l) => l.trim() !== "");
+      const commits = gitCheck(repoDir, ["log", `${targetBranch}..${current}`, "--format=%h%x09%s"]);
+      const lines = commits.out.split("\n").filter((l) => l.trim() !== "");
       if (lines.length === 0) {
         console.error(`No commits found in ${targetBranch}..${current} to pick from.`);
         return EXIT_GENERAL_ERROR;
@@ -298,11 +302,11 @@ async function main(argv: string[]): Promise<number> {
       console.error("Re-run with --at <hash> (non-interactive pick is not supported).");
       return EXIT_GENERAL_ERROR;
     }
-    const resolved = spawnSync("git", ["-C", repoDir, "rev-parse", "--verify", "--quiet", `${atCommit}^{commit}`], { encoding: "utf8" });
-    let resolvedHash = (resolved.stdout ?? "").trim();
+    const resolved = gitCheck(repoDir, ["rev-parse", "--verify", "--quiet", `${atCommit}^{commit}`]);
+    let resolvedHash = resolved.out.trim();
     if (resolvedHash === "") {
-      const log = spawnSync("git", ["-C", repoDir, "log", `${targetBranch}..${current}`, "--format=%H %s"], { encoding: "utf8" });
-      for (const line of (log.stdout ?? "").split("\n")) {
+      const log = gitCheck(repoDir, ["log", `${targetBranch}..${current}`, "--format=%H %s"]);
+      for (const line of log.out.split("\n")) {
         if (line.includes(atCommit)) {
           resolvedHash = line.split(" ")[0] ?? "";
           break;
@@ -313,10 +317,10 @@ async function main(argv: string[]): Promise<number> {
       console.error(`Error: --at '${atCommit}' does not resolve to a commit in ${targetBranch}..${current}.`);
       return EXIT_GENERAL_ERROR;
     }
-    const shortHash = spawnSync("git", ["-C", repoDir, "rev-parse", "--short", resolvedHash], { encoding: "utf8" });
-    const short = (shortHash.stdout ?? "").trim();
+    const shortHash = gitCheck(repoDir, ["rev-parse", "--short", resolvedHash]);
+    const short = shortHash.out.trim();
     const mergeBranch = `merge/${short}-${current}`;
-    if (spawnSync("git", ["-C", repoDir, "show-ref", "--verify", "--quiet", `refs/heads/${mergeBranch}`], { encoding: "utf8" }).status === 0) {
+    if (gitCheck(repoDir, ["show-ref", "--verify", "--quiet", `refs/heads/${mergeBranch}`]).ok) {
       console.error(`Merge branch ${mergeBranch} already exists — reusing it.`);
       git(["-C", repoDir, "checkout", "-q", mergeBranch], { quiet: true });
     } else {
@@ -327,8 +331,8 @@ async function main(argv: string[]): Promise<number> {
       restoreBranch(repoDir, current);
       return EXIT_API_FAILURE; // the restore matches the bash tool's EXIT trap
     }
-    const push = spawnSync("git", ["-C", repoDir, "push", "-q", "-u", "origin", mergeBranch], { encoding: "utf8", stdio: ["ignore", "ignore", "inherit"] });
-    if (push.status !== 0) {
+    const push = gitInherit(repoDir, ["push", "-q", "-u", "origin", mergeBranch]);
+    if (!push.ok) {
       console.error(`Error: could not push ${mergeBranch} to origin — no PR was created.`);
       restoreBranch(repoDir, current);
       return EXIT_API_FAILURE;
@@ -383,7 +387,7 @@ async function main(argv: string[]): Promise<number> {
       })
     ).stdout;
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
     console.error("Failed to create PR.");
     return EXIT_API_FAILURE;
   }
@@ -412,17 +416,17 @@ let currentBranchVar = "";
 /** The bash tool's restore_original_branch EXIT trap: switch back to the
  * original branch when we are not already on it. */
 function restoreBranch(repoDir: string, original: string): void {
-  const now = spawnSync("git", ["-C", repoDir, "rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8" });
-  const nowName = (now.stdout ?? "").trim();
+  const now = gitCheck(repoDir, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  const nowName = now.out.trim();
   if (nowName !== "" && nowName !== original) {
-    spawnSync("git", ["-C", repoDir, "checkout", "-q", original], { encoding: "utf8", stdio: ["ignore", "ignore", "ignore"] });
+    gitCheck(repoDir, ["checkout", "-q", original]);
   }
 }
 
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_API_FAILURE);
   },
 );

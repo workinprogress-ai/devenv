@@ -5,6 +5,7 @@
 // first-line pick when KUBE_NO_INTERACTIVE=1, the test contract).
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -47,7 +48,7 @@ try {
   header = cli.positionals[1] ?? "";
   nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 
@@ -71,7 +72,7 @@ try {
   // Regex filter through the listing seam — parity with bash `grep -i`.
   deployments = listDeployments({ namespace: ns, filter });
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   process.exit(EXIT_GENERAL_ERROR);
 }
 

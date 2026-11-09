@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadsPage } from "../lib/providers/facade/prs.ts";
@@ -116,7 +117,7 @@ async function main(argv: string[]): Promise<number> {
     all = cli.values["all"] === true;
     prNumber = cli.positionals[0] ?? "";
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
@@ -145,7 +146,7 @@ async function main(argv: string[]): Promise<number> {
       page = (await prsThreadsPage(`${owner}/${name}`, Number.parseInt(prNumber, 10), cursor)).stdout;
     } catch (err) {
       logError(`Failed to fetch review threads for PR #${prNumber}`);
-      logError(err instanceof Error ? err.message : String(err));
+      logError(errorMessage(err));
       return EXIT_API_FAILURE;
     }
     let parsed: {
@@ -236,7 +237,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_API_FAILURE);
   },
 );

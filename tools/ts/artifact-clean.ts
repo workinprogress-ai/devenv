@@ -19,8 +19,9 @@
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logInfo, logWarn, logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli } from "../lib/core/cli.ts";
-import { confirm, isInteractive, multiSelect } from "../lib/ui/index.ts";
+import { confirm, isInteractive, multiSelect } from "../lib/ui/prompts.ts";
 
 import { basename, dirname, join } from "node:path";
 import { readdirSync, existsSync, rmSync, statSync } from "node:fs";
@@ -293,7 +294,7 @@ async function main(argv: string[]): Promise<number> {
     if (cli.values["list"]) listOnly = true;
     userPaths.push(...cli.positionals);
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     return EXIT_MISUSE;
   }
 
@@ -372,7 +373,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_GENERAL_ERROR);
   },
 );

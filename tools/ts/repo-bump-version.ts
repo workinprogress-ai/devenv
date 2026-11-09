@@ -14,6 +14,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -78,7 +79,7 @@ try {
   }
   positionals = cli.positionals;
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
   process.exit(EXIT_MISUSE);
 }

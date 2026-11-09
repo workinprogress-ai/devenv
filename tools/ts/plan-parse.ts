@@ -9,6 +9,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { invalidArgs } from "../lib/core/args.ts";
 import { logError } from "../lib/core/logging.ts";
@@ -397,7 +398,7 @@ try {
   requireHeader = cli.values["require-header"] === true;
 } catch (err) {
   if (err instanceof Error && err.message.startsWith("Unexpected argument")) throw err;
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }

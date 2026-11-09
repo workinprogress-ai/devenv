@@ -23,6 +23,7 @@ import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT } from "../lib/core/exit
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { select } from "../lib/ui/prompts.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { providerRepoTarget, requireRepoTarget, isDevenvRepoGated } from "../lib/providers/provider-core.ts";
 import { issuesComments, issuesCommentAdd, issuesCommentEdit } from "../lib/providers/facade/issues.ts";
 
@@ -130,7 +131,7 @@ function parseCliArgs(argv: string[]): Parsed {
       all: v["all"] === true,
     };
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_MISUSE);
   }
 }
@@ -370,7 +371,7 @@ async function main(argv: string[]): Promise<number> {
   try {
     raw = await issuesComments(repo, issueNum);
   } catch (err) {
-    logError(`Failed to fetch comments for issue #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);
+    logError(`Failed to fetch comments for issue #${issueNumber}: ${errorMessage(err)}`);
     return 4;
   }
   let comments: CommentRecord[];
@@ -415,7 +416,7 @@ async function main(argv: string[]): Promise<number> {
       }));
       return 0;
     } catch (err) {
-      logError(`Failed to update comment: ${err instanceof Error ? err.message : String(err)}`);
+      logError(`Failed to update comment: ${errorMessage(err)}`);
       return 4;
     }
   }
@@ -437,7 +438,7 @@ async function main(argv: string[]): Promise<number> {
     }));
     return 0;
   } catch (err) {
-    logError(`Failed to create issue comment on issue #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);
+    logError(`Failed to create issue comment on issue #${issueNumber}: ${errorMessage(err)}`);
     return 4;
   }
 }
@@ -445,7 +446,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(4);
   },
 );

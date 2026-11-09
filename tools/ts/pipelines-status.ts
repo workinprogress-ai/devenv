@@ -6,6 +6,7 @@
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { requireString } from "../lib/core/args.ts";
 import { formatTable } from "../lib/ui/panels.ts";
@@ -94,7 +95,7 @@ try {
   }
   if (limitRaw !== "") limit = limitRaw;
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }

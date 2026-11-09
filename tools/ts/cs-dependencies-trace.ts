@@ -7,6 +7,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { basename } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -62,7 +63,7 @@ try {
   targetDir = cli.positionals[0] ?? ".";
   positionalCount = cli.positionals.length;
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
@@ -133,7 +134,7 @@ try {
     for (const line of new Set(lines)) console.log(line);
   }
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   process.exit(EXIT_GENERAL_ERROR);
 }
 

@@ -30,7 +30,7 @@
 // The module never exits; failures throw ProviderError and callers decide.
 
 import { ProviderError } from "../provider-core.ts";
-import type { GhResult } from "../provider-core.ts";
+import type { GhResult } from "../github/transport.ts";
 import { loadProviderModules } from "./provider-loader.ts";
 import type * as ghTypes from "../github/prs.ts";
 import type * as azTypes from "../azure/prs.ts";

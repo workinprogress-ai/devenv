@@ -10,6 +10,7 @@ import { spawnSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli } from "../lib/core/cli.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsList } from "../lib/providers/facade/prs.ts";
@@ -44,7 +45,7 @@ async function main(argv: string[]): Promise<number> {
     });
     if (cli.common.help) showUsage();
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
     return EXIT_GENERAL_ERROR;
   }
 
@@ -82,7 +83,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
     process.exit(EXIT_API_FAILURE);
   },
 );

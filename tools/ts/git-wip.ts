@@ -26,6 +26,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCapture, gitInherit } from "../lib/core/git.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -37,8 +39,7 @@ const SCRATCHPAD_STATE_REF = "refs/scratchpad/state";
 const SCRIPT_VERSION = "1.1.0";
 
 function git(args: string[]): { status: number; out: string } {
-  const r = spawnSync("git", args, { encoding: "utf8" });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return gitCapture(null, args);
 }
 
 function usage(): never {
@@ -127,7 +128,7 @@ try {
   allowNonTty = parsed.values["allow-non-tty"] === true;
   msgFile = typeof parsed.values.file === "string" ? parsed.values.file : "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
@@ -236,13 +237,13 @@ if (!stagedOnly) {
   }
 }
 
-const commit = spawnSync("git", ["commit", "-m", `WIP: ${msg}`, "-n"], { stdio: "inherit" });
-if (commit.status !== 0) {
+const commit = gitInherit(null, ["commit", "-m", `WIP: ${msg}`, "-n"]);
+if (!commit.ok) {
   console.error("git-wip: commit failed (nothing to commit?) — no WIP snapshot was saved.");
   process.exit(EXIT_GENERAL_ERROR);
 }
-const push = spawnSync("git", ["push"], { stdio: "inherit" });
-if (push.status !== 0) {
+const push = gitInherit(null, ["push"]);
+if (!push.ok) {
   console.error("git-wip: push failed — the WIP commit exists locally but was NOT saved to the remote; refs/wip/last is unchanged.");
   process.exit(EXIT_GENERAL_ERROR);
 }

@@ -22,11 +22,13 @@ import { fileURLToPath } from "node:url";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logDebug, logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
 import { checkTargetRepo, requireRepoTarget, ghApiSync, providerRepoSplit, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { authStatusOk } from "../lib/providers/facade/urls.ts";
 import { issuesCreate, issuesSetType, issueGraphLink, issuesView } from "../lib/providers/facade/issues.ts";
 import { issueNumberFromRef, childOfMapFromConfig } from "../lib/domain/issues/refs.ts";
 
@@ -249,8 +251,11 @@ function parseParentRef(raw: string): ParentRef | null {
   return null;
 }
 
-function checkAuth(): void {
-  if (ghApiSync(["auth", "status"], { tolerateFailure: true }).status !== 0) {
+/** Fail fast when the active provider has no usable credential — through
+ * the facade's provider-neutral authStatusOk (gh path scrubs env tokens;
+ * azure path checks the PAT file) rather than a gh-only probe. */
+async function checkAuth(): Promise<void> {
+  if (!(await authStatusOk())) {
     logError("Not authenticated with the active provider");
     logInfo("Run: key-update-provider");
     process.exit(EXIT_GENERAL_ERROR);
@@ -383,7 +388,7 @@ async function createIssue(st: CreateState): Promise<number> {
   } catch (err) {
     logError("Issue created but type could not be set");
     logError(`Remediation: issue-update ${issueNumber} --type ${st.type}`);
-    logDebug(err instanceof Error ? err.message : String(err));
+    logDebug(errorMessage(err));
     enrichFailed = 1;
   }
 
@@ -400,7 +405,7 @@ async function createIssue(st: CreateState): Promise<number> {
       await issueGraphLink(spec, Number.parseInt(st.parent, 10), issueNumber, st.parentSpec);
       logDebug(`Linked sub-issue #${issueNumber} -> #${st.parent}`);
     } catch (err) {
-      logDebug(`sub-issue link failed: ${err instanceof Error ? err.message : String(err)}`);
+      logDebug(`sub-issue link failed: ${errorMessage(err)}`);
     }
   }
   // Birth rule: a Task under a parent is born Ready (its planning is part of
@@ -470,7 +475,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  checkAuth();
+  await checkAuth();
   checkTargetRepo(cli.common.devenv);
   probeTargetRepo();
 
@@ -621,7 +626,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_GENERAL_ERROR);
   },
 );

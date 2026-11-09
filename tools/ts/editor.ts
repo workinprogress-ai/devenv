@@ -4,6 +4,7 @@
 // (VS Code --wait, then PREF_EDITOR, then FALLBACK_EDITOR, then nano).
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 
@@ -36,7 +37,7 @@ try {
   }
   targets = cli.positionals;
 } catch (err) {
-  console.error(err instanceof Error ? err.message : String(err));
+  console.error(errorMessage(err));
   usage();
 }
 

@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
@@ -80,7 +81,7 @@ try {
   }
   repoRoot = cli.positionals[0] ?? defaultRoot;
 } catch (err) {
-  console.error(`SK-FAIL ${err instanceof Error ? err.message : String(err)}`);
+  console.error(`SK-FAIL ${errorMessage(err)}`);
   console.log("Use --help for usage information");
   process.exit(2);
 }

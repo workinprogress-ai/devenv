@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -44,7 +45,7 @@ try {
   repoUrl = cli.positionals[0] ?? process.env.SERVICES_CONFIG_REPO ?? "";
   branch = cli.positionals[1] ?? "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 

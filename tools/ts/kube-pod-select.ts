@@ -5,6 +5,7 @@
 // test contract requires; otherwise errors naming the candidates).
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -47,7 +48,7 @@ try {
   filter = cli.positionals[0] ?? "";
   header = cli.positionals[1] ?? "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 
@@ -70,7 +71,7 @@ let pods: string[];
 try {
   pods = filter === "" ? listPods({ namespace: ns }) : listPods({ namespace: ns, filter });
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   process.exit(EXIT_GENERAL_ERROR);
 }
 

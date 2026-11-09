@@ -19,6 +19,7 @@ import { spawnSync } from "node:child_process";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
@@ -97,7 +98,7 @@ function parseCliArgs(argv: string[]): { parsed: Parsed; positional: string[] } 
       positional: cli.positionals,
     };
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }
@@ -216,7 +217,7 @@ async function main(argv: string[]): Promise<number> {
     logInfo(`Comment posted on issue #${issueNumber}`);
     return 0;
   } catch (err) {
-    logError(`Failed to post comment on issue #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);
+    logError(`Failed to post comment on issue #${issueNumber}: ${errorMessage(err)}`);
     return EXIT_API_FAILURE;
   }
 }
@@ -224,7 +225,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_API_FAILURE);
   },
 );

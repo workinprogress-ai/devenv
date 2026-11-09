@@ -6,6 +6,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { invalidArgs } from "../lib/core/args.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
@@ -103,7 +104,7 @@ try {
   customMarker = marker !== "";
   paths.push(...cli.positionals);
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(2);
 }

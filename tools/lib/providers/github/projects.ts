@@ -5,7 +5,8 @@
 // bash line-protocol shape (first line "hasMore CURSOR", following lines are
 // matches) — one gh call per page.
 
-import { ghApiSync, providerDeclareCapability, providerRequireCapability } from "../provider-core.ts";
+import { providerDeclareCapability, providerRequireCapability } from "../provider-core.ts";
+import { ghApiSync } from "./transport.ts";
 import { logWarn } from "../../core/logging.ts";
 
 providerDeclareCapability("project-boards");

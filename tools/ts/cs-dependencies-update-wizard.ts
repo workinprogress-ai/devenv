@@ -13,6 +13,7 @@ import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveToolsRoot, selfRoot } from "../lib/core/self-root.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -322,7 +323,7 @@ function parseArgs_main(): WizardArgs {
     }
     a.targetDir = positionals[0] ?? "";
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }
@@ -429,7 +430,7 @@ async function main(): Promise<void> {
     try {
       rows = getReverseDependencyTree(rootRepo);
     } catch (err) {
-      logError(err instanceof Error ? err.message : String(err));
+      logError(errorMessage(err));
       process.exit(EXIT_GENERAL_ERROR);
     }
     for (const r of rows) {
@@ -459,7 +460,7 @@ async function main(): Promise<void> {
     try {
       targetPackages.push(...listRepoPackages(rootRepo));
     } catch (err) {
-      logError(err instanceof Error ? err.message : String(err));
+      logError(errorMessage(err));
       process.exit(EXIT_GENERAL_ERROR);
     }
     if (targetPackages.length === 0) {
@@ -640,6 +641,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   process.exit(EXIT_GENERAL_ERROR);
 });

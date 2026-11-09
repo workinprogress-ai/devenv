@@ -6,11 +6,12 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { confirm } from "../lib/ui/prompts.ts";
-import { KUBE_CONFIRM_DECLINED_STATUS } from "../lib/domain/kube/kube.ts";
+import { KUBE_CONFIRM_DECLINED_STATUS, spawnKubectlInherit } from "../lib/domain/kube/kube.ts";
 import { listDeployments, resolveNamespace, resolveSingleMatch } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
@@ -47,7 +48,7 @@ try {
   replicas = cli.positionals[1] ?? "";
   nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 
@@ -102,5 +103,5 @@ if (!confirmed) {
 }
 
 console.log(`Scaling deployment: ${deployment} to ${replicas} replicas...`);
-const r = spawnSync("kubectl", ["scale", "deployment", deployment, `--replicas=${replicas}`, "-n", ns], { stdio: "inherit" });
-process.exit(r.status ?? 1);
+const r = spawnKubectlInherit(["scale", "deployment", deployment, `--replicas=${replicas}`, "-n", ns]);
+process.exit(r.status);

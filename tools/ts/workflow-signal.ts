@@ -18,6 +18,7 @@ import { basename, join } from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli } from "../lib/core/cli.ts";
@@ -259,7 +260,7 @@ async function main(): Promise<void> {
     list = cli.values["list"] === true;
     positionals = cli.positionals;
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.error("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }

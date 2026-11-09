@@ -14,6 +14,8 @@ import { spawnSync, execFileSync } from "node:child_process";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCheck, gitInherit } from "../lib/core/git.ts";
 import { toolCli } from "../lib/core/cli.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsCreate } from "../lib/providers/facade/prs.ts";
@@ -43,12 +45,14 @@ Options:
   process.exit(0);
 }
 
-function git(args: string[], opts: { quiet?: boolean; capture?: boolean } = {}): { ok: boolean; out: string } {
-  const r = spawnSync("git", args, {
-    encoding: "utf8",
-    ...(opts.capture ? {} : opts.quiet ? { stdio: ["ignore", "ignore", "ignore"] } : { stdio: ["ignore", "inherit", "inherit"] }),
-  });
-  return { ok: r.status === 0, out: (r.stdout ?? "").trim() };
+function git(args: string[], opts: { capture?: boolean; quiet?: boolean } = {}): { ok: boolean; out: string } {
+  // quiet: output captured and dropped — callers read only .ok (the old
+  // all-ignore stdio shape's contract for these call sites).
+  const r = gitCheck(null, args);
+  if (opts.capture || opts.quiet) {
+    return { ok: r.ok, out: opts.capture ? r.out.trim() : "" };
+  }
+  return gitInherit(null, args);
 }
 
 function randomName(): string {
@@ -86,7 +90,7 @@ async function main(argv: string[]): Promise<number> {
     firstCommit = cli.positionals[2] ?? "";
     finalCommit = cli.positionals[3] ?? "";
   } catch (err) {
-    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(`Error: ${errorMessage(err)}`);
     return EXIT_MISUSE;
   }
 
@@ -97,13 +101,13 @@ async function main(argv: string[]): Promise<number> {
   const repoDir = repoDirArg !== "" ? repoDirArg : process.cwd();
 
   // Git context: repo + clean working tree; never on a review branch.
-  const inside = spawnSync("git", ["-C", repoDir, "rev-parse", "--is-inside-work-tree"], { encoding: "utf8" });
-  if (inside.status !== 0) {
+  const inside = gitCheck(repoDir, ["rev-parse", "--is-inside-work-tree"]);
+  if (!inside.ok) {
     console.error(`Error: Invalid git context. Check that: 1) ${repoDir} is a git repo, 2) working directory is clean`);
     return EXIT_GENERAL_ERROR;
   }
-  const status = spawnSync("git", ["-C", repoDir, "status", "--porcelain"], { encoding: "utf8" });
-  if ((status.stdout ?? "").trim() !== "") {
+  const status = gitCheck(repoDir, ["status", "--porcelain"]);
+  if (status.out.trim() !== "") {
     console.error(`Error: Invalid git context. Check that: 1) ${repoDir} is a git repo, 2) working directory is clean`);
     return EXIT_GENERAL_ERROR;
   }
@@ -127,8 +131,8 @@ async function main(argv: string[]): Promise<number> {
 
   // Out-of-order check: TO must not be an ancestor of FROM.
   if (firstCommit !== finalCommit) {
-    const ancestor = spawnSync("git", ["-C", repoDir, "merge-base", "--is-ancestor", finalCommit, firstCommit], { encoding: "utf8" });
-    if (ancestor.status === 0) {
+    const ancestor = gitCheck(repoDir, ["merge-base", "--is-ancestor", finalCommit, firstCommit]);
+    if (ancestor.ok) {
       console.error("Error: The FROM and TO commits appear out of order.");
       return EXIT_GENERAL_ERROR;
     }
@@ -190,7 +194,7 @@ async function main(argv: string[]): Promise<number> {
     ).stdout;
     prUrl = (await extractUrl(out)) ?? "";
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
   }
   if (prUrl === null || prUrl === "") {
     console.error("Error: Failed to create pull request");
@@ -215,7 +219,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
     process.exit(EXIT_API_FAILURE);
   },
 );

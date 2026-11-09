@@ -9,7 +9,8 @@
 
 import { readFileSync } from "node:fs";
 
-import { providerRepoSplit, providerRepoTarget, ghApi } from "../provider-core.ts";
+import { providerRepoSplit, providerRepoTarget } from "../provider-core.ts";
+import { ghApi } from "./transport.ts";
 import type { GhOptions, GhResult } from "../provider-core.ts";
 import { neutralComment } from "./issues.ts";
 

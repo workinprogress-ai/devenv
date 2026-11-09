@@ -14,18 +14,8 @@
 // issues.bash's declaration). The module never exits; failures throw
 // ProviderError and callers decide.
 
-import {
-  ProviderError,
-  providerDeclareCapability,
-  providerRepoSplit,
-  providerRequireCapability,
-  ghApi,
-  ghApiSync,
-  ghApiPaginate,
-  unknownOption,
-  needValue,
-  type GhOptions,
-} from "../provider-core.ts";
+import { ProviderError, providerDeclareCapability, providerRepoSplit, providerRequireCapability, unknownOption, needValue, type GhOptions } from "../provider-core.ts";
+import { ghApi, ghApiPaginate, ghApiSync } from "./transport.ts";
 
 providerDeclareCapability("native-issue-types");
 

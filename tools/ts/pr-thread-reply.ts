@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { openInEditor } from "../lib/core/editor.ts";
@@ -122,7 +123,7 @@ async function main(argv: string[]): Promise<number> {
     bodyText = ((cli.values["body"] as string | undefined) ?? "");
     bodyFile = ((cli.values["body-file"] as string | undefined) ?? (cli.values["body_file"] as string | undefined) ?? "");
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
@@ -217,7 +218,7 @@ async function main(argv: string[]): Promise<number> {
     const r = await prsThreadReply(`${repo.owner}/${repo.name}`, Number.parseInt(prNumber, 10), Number.parseInt(commentId.split("/")[0] ?? "0", 10), body);
     response = r.stdout;
   } catch (err) {
-    logError(`Failed to post reply: ${err instanceof Error ? err.message : String(err)}`);
+    logError(`Failed to post reply: ${errorMessage(err)}`);
     return EXIT_API_FAILURE;
   }
 
@@ -234,7 +235,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_API_FAILURE);
   },
 );

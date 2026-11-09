@@ -5,11 +5,12 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { select } from "../lib/ui/prompts.ts";
-import { kubeInteractive } from "../lib/domain/kube/kube.ts";
+import { kubeInteractive, spawnKubectl } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
 
@@ -39,13 +40,12 @@ try {
   }
   filter = cli.positionals[0] ?? "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage(EXIT_MISUSE);
 }
 
 function kubectl(args: string[]): { stdout: string; status: number } {
-  const r = spawnSync("kubectl", args, { encoding: "utf8" });
-  return { stdout: r.stdout ?? "", status: r.status ?? 1 };
+  return spawnKubectl(args);
 }
 
 const all = kubectl(["config", "get-contexts", "-o", "name"]).stdout.trim().split("\n").filter((l) => l !== "");

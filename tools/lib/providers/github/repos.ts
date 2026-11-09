@@ -8,7 +8,7 @@
 // Contract: throw or return non-zero-shaped results on failure; never
 // process.exit.
 
-import { ghApi, ghApiSync } from "../provider-core.ts";
+import { ghApi, ghApiSync } from "./transport.ts";
 
 export const REPO_SEAM_FIELD_MAP: Record<string, string> = { repoSpec: "nameWithOwner" };
 

@@ -4,6 +4,7 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { loadConfig, upstreamMatches } from "../lib/domain/fork/index.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
@@ -46,7 +47,7 @@ try {
   if (cli.common.help) usage();
   dryRun = cli.common.dryRun;
 } catch (err) {
-  die(err instanceof Error ? err.message : String(err), EXIT_MISUSE);
+  die(errorMessage(err), EXIT_MISUSE);
 }
 
 const config = loadConfig();

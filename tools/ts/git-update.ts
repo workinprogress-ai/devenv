@@ -10,6 +10,8 @@
 import { spawnSync } from "node:child_process";
 import { readSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCheck } from "../lib/core/git.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { rewriteDetectState } from "../lib/core/git.ts";
@@ -23,8 +25,8 @@ interface Run {
 }
 
 function git(args: string[], input?: string): Run {
-  const r = spawnSync("git", args, { encoding: "utf8", input });
-  return { status: r.status ?? 1, out: r.stdout ?? "" };
+  const r = gitCheck(null, args, input);
+  return { status: r.ok ? 0 : 1, out: r.out };
 }
 
 function fail(...lines: string[]): never {
@@ -60,7 +62,7 @@ try {
 } catch (err) {
   // Bash-parity refusal: the full usage block with a non-zero exit (the
   // helper-args suite pins both 'Usage' in the output and status != 0).
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log(USAGE_TEXT);
   process.exit(EXIT_MISUSE);
 }
@@ -155,10 +157,10 @@ if (localSha === remoteSha) {
   if (rebase.status !== 0) {
     // Only abort when a rebase is actually in progress (a pre-rebase
     // failure would otherwise print "No rebase in progress" noise).
-    const inMerge = spawnSync("git", ["rev-parse", "--git-path", "rebase-merge"], { encoding: "utf8" });
-    const inApply = spawnSync("git", ["rev-parse", "--git-path", "rebase-apply"], { encoding: "utf8" });
-    const mergePath = inMerge.stdout?.trim() ?? "";
-    const applyPath = inApply.stdout?.trim() ?? "";
+    const inMerge = gitCheck(null, ["rev-parse", "--git-path", "rebase-merge"]);
+    const inApply = gitCheck(null, ["rev-parse", "--git-path", "rebase-apply"]);
+    const mergePath = inMerge.out.trim();
+    const applyPath = inApply.out.trim();
     const inProgress =
       (mergePath !== "" && existsGitPath(mergePath)) || (applyPath !== "" && existsGitPath(applyPath));
     if (inProgress) {

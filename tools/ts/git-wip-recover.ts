@@ -13,6 +13,7 @@
 import { spawnSync } from "node:child_process";
 import { readSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { gitCapture, gitCheck } from "../lib/core/git.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
@@ -23,8 +24,7 @@ const WIP_REF = "refs/wip/last";
 const SCRIPT_VERSION = "1.1.0";
 
 function git(args: string[]): { status: number; out: string } {
-  const r = spawnSync("git", args, { encoding: "utf8" });
-  return { status: r.status ?? 1, out: r.stdout ?? "" };
+  return gitCapture(null, args);
 }
 
 function usage(): never {
@@ -82,8 +82,8 @@ function showSummary(wipCommit: string): void {
   console.log(`  Message : ${msg}`);
   console.log(`  Date    : ${date}`);
   console.log("");
-  const stat = spawnSync("git", ["diff", `${wipCommit}^`, wipCommit, "--stat"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  if (stat.status === 0 && stat.stdout) process.stdout.write(stat.stdout);
+  const stat = gitCheck(null, ["diff", `${wipCommit}^`, wipCommit, "--stat"]);
+  if (stat.ok && stat.out) process.stdout.write(stat.out);
 }
 
 function checkoutBranch(name: string, wipCommit: string): void {

@@ -10,6 +10,7 @@ import { basename } from "node:path";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
 import { prsThreadResolve } from "../lib/providers/facade/prs.ts";
@@ -70,7 +71,7 @@ async function main(argv: string[]): Promise<number> {
     devenv = cli.common.devenv;
     threadId = cli.positionals[0] ?? "";
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
@@ -112,7 +113,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_API_FAILURE);
   },
 );

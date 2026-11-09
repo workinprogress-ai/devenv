@@ -19,6 +19,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
@@ -155,7 +156,7 @@ async function main(argv: string[]): Promise<number> {
     newMilestone = ((values["milestone"] as string | undefined) ?? "");
     newState = ((values["state"] as string | undefined) ?? "");
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
@@ -279,7 +280,7 @@ async function main(argv: string[]): Promise<number> {
         });
         logInfo(`Updated issue #${issueNumber}`);
       } catch (err) {
-        logError(`Failed to update issue #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);
+        logError(`Failed to update issue #${issueNumber}: ${errorMessage(err)}`);
         return 1;
       }
     }
@@ -300,7 +301,7 @@ async function main(argv: string[]): Promise<number> {
           for (const b of removeBlockers) logInfo(`Un-recorded #${issueNumber} blocked by #${b}`);
         }
       } catch (err) {
-        logError(`Failed to update blocked-by on #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);
+        logError(`Failed to update blocked-by on #${issueNumber}: ${errorMessage(err)}`);
         return 1;
       }
     }
@@ -316,7 +317,7 @@ async function main(argv: string[]): Promise<number> {
           await issuesClose(repo, num);
           logInfo(`Closed issue #${issueNumber}`);
         } catch (err) {
-          logError(`Failed to close issue #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);
+          logError(`Failed to close issue #${issueNumber}: ${errorMessage(err)}`);
           return 1;
         }
       }
@@ -328,7 +329,7 @@ async function main(argv: string[]): Promise<number> {
           await issuesReopen(repo, num);
           logInfo(`Reopened issue #${issueNumber}`);
         } catch (err) {
-          logError(`Failed to reopen issue #${issueNumber}: ${err instanceof Error ? err.message : String(err)}`);
+          logError(`Failed to reopen issue #${issueNumber}: ${errorMessage(err)}`);
           return 1;
         }
       }
@@ -344,7 +345,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_GENERAL_ERROR);
   },
 );

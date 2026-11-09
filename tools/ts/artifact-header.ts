@@ -5,6 +5,7 @@
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -66,7 +67,7 @@ try {
   stamp = cli.values["stamp"] === true;
   sets.push(...((cli.values["set"] as string[] | undefined) ?? []));
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
@@ -78,7 +79,7 @@ let body: string;
 try {
   body = readFileSync(file, "utf8");
 } catch (err) {
-  logError(`Failed to read ${file}: ${err instanceof Error ? err.message : String(err)}`);
+  logError(`Failed to read ${file}: ${errorMessage(err)}`);
   process.exit(4);
 }
 

@@ -9,6 +9,7 @@
 
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
@@ -64,7 +65,7 @@ try {
   fieldEntries = (cli.values["field"] as string[] | undefined) ?? [];
   rawPositionals = [...cli.positionals];
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
@@ -179,7 +180,7 @@ async function addIssueToProject(issueNum: string): Promise<void> {
     projectNumber = await projectsNumberByName(owner, projectName);
   } catch (err) {
     logError(`Could not resolve project '${projectName}' to a number`);
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errorMessage(err);
     if (msg !== "") logError(`provider: ${msg}`);
     logInfo("Pass the project by number, or check the title and org");
     throw err;
@@ -191,7 +192,7 @@ async function addIssueToProject(issueNum: string): Promise<void> {
     await ops.itemAdd(projectNumber, issueUrl, owner);
   } catch (err) {
     logError(`Failed to add issue #${issueNum} to project '${projectName}'`);
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = errorMessage(err);
     if (msg !== "") logError(`provider: ${msg}`);
     logInfo("Check that the project exists, you have permissions, and DEVENV_REPO points at the issue's repository");
     throw err;

@@ -5,6 +5,7 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
@@ -33,7 +34,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
     process.exit(1);
   }
 } catch (err) {
-  console.error(err instanceof Error ? err.message : String(err));
+  console.error(errorMessage(err));
   process.exit(2);
 }
 

@@ -13,6 +13,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCapture, gitCheck } from "../lib/core/git.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -91,11 +93,12 @@ function promptYesNo(question: string): boolean {
 // ── Git helper ───────────────────────────────────────────────────────────
 
 function git(repoDir: string, args: string[], opts: { quiet?: boolean } = {}): { ok: boolean; out: string } {
-  const r = spawnSync("git", ["-C", repoDir, ...args], {
-    encoding: "utf8",
-    stdio: ["ignore", opts.quiet === true ? "ignore" : "pipe", "pipe"],
-  });
-  return { ok: r.status === 0, out: `${r.stdout ?? ""}${r.stderr ?? ""}` };
+  // quiet only suppressed terminal display in the old shape; output was
+  // always captured into `out`. gitCapture captures both streams — callers
+  // that printed stdout under non-quiet still print from `out`.
+  void opts;
+  const r = gitCapture(repoDir, args);
+  return { ok: r.status === 0, out: r.out };
 }
 
 // ── Version snapshots ────────────────────────────────────────────────────
@@ -210,7 +213,7 @@ function main(): void {
     }
     repoDir = positionals[0] ?? "";
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }
@@ -263,7 +266,7 @@ function main(): void {
     }
 
     // Never destroy uncommitted work: ask before the hard reset / clean.
-    const dirtyStatus = spawnSync("git", ["-C", repoDir, "status", "--porcelain"], { encoding: "utf8" }).stdout ?? "";
+    const dirtyStatus = gitCheck(repoDir, ["status", "--porcelain"]).out;
     if (dirtyStatus.trim() !== "") {
       logWarn(`${repoName} has uncommitted changes:`);
       console.error(dirtyStatus.split("\n").map((l) => `    ${l}`).join("\n"));
@@ -278,12 +281,12 @@ function main(): void {
       logError(`Failed to checkout ${defaultBranch} in ${repoName}`);
       process.exit(EXIT_GIT_FAILED);
     }
-    spawnSync("git", ["-C", repoDir, "fetch", "origin", defaultBranch, "--quiet"], { stdio: "ignore" });
+    gitCheck(repoDir, ["fetch", "origin", defaultBranch, "--quiet"]);
     if (!git(repoDir, ["reset", "--hard", `origin/${defaultBranch}`, "--quiet"], { quiet: true }).ok) {
       logError(`Failed to reset ${defaultBranch} to origin/${defaultBranch} in ${repoName}`);
       process.exit(EXIT_GIT_FAILED);
     }
-    spawnSync("git", ["-C", repoDir, "clean", "-fd", "--quiet"], { stdio: "ignore" });
+    gitCheck(repoDir, ["clean", "-fd", "--quiet"]);
 
     // Step 2: create the update branch (handle a leftover from an aborted run).
     logInfo(`Creating branch ${updateBranch} in ${repoName}...`);
@@ -352,7 +355,7 @@ function main(): void {
   // the commit to chore(tests) (no release). Src snapshots exclude test
   // trees, so has_breaking/has_framework_change can only be src-driven.
   const changedCsprojs =
-    (spawnSync("git", ["-C", repoDir, "diff", "--name-only", "HEAD"], { encoding: "utf8" }).stdout ?? "")
+    (gitCheck(repoDir, ["diff", "--name-only", "HEAD"]).out)
       .split("\n")
       .filter((l) => l.endsWith(".csproj"));
   const testOnly = changedCsprojs.length > 0 && changedCsprojs.every((p) => /(^|\/)(test|tests)\//.test(p));
@@ -392,13 +395,13 @@ function main(): void {
 
   // ── Commit and push (git hook will run tests) ──
   git(repoDir, ["add", "-A"]);
-  let commit = spawnSync("git", ["-C", repoDir, "commit", "-m", `${prTitle} [skip ci]`, "--quiet"], { stdio: ["ignore", "ignore", "pipe"] });
-  if (commit.status !== 0) {
+  let commit = gitCheck(repoDir, ["commit", "-m", `${prTitle} [skip ci]`, "--quiet"]);
+  if (!commit.ok) {
     logWarn(`Commit failed for ${repoName} (likely a git hook failure)`);
     promptUser(`Please fix the issue in ${repoDir} so that COMMIT HOOKS PASS, then press Enter to retry.`);
     git(repoDir, ["add", "-A"]);
-    commit = spawnSync("git", ["-C", repoDir, "commit", "-m", `${prTitle} [skip ci]`, "--quiet"], { stdio: ["ignore", "ignore", "pipe"] });
-    if (commit.status !== 0) {
+    commit = gitCheck(repoDir, ["commit", "-m", `${prTitle} [skip ci]`, "--quiet"]);
+    if (!commit.ok) {
       logError(`Commit still failing for ${repoName} — aborting`);
       git(repoDir, ["checkout", "-f", defaultBranch], { quiet: true });
       git(repoDir, ["branch", "-D", updateBranch], { quiet: true });
@@ -407,11 +410,11 @@ function main(): void {
   }
 
   logInfo(`Pushing branch ${updateBranch}...`);
-  let push = spawnSync("git", ["-C", repoDir, "push", "-u", "origin", updateBranch, "--quiet"], { stdio: ["ignore", "ignore", "ignore"] });
-  if (push.status !== 0) {
+  let push = gitCheck(repoDir, ["push", "-u", "origin", updateBranch, "--quiet"]);
+  if (!push.ok) {
     // Force push in case the branch exists on the remote from an aborted run.
-    push = spawnSync("git", ["-C", repoDir, "push", "-u", "origin", updateBranch, "--force", "--quiet"], { stdio: ["ignore", "ignore", "ignore"] });
-    if (push.status !== 0) {
+    push = gitCheck(repoDir, ["push", "-u", "origin", updateBranch, "--force", "--quiet"]);
+    if (!push.ok) {
       logError(`Failed to push branch ${updateBranch} for ${repoName}`);
       git(repoDir, ["checkout", defaultBranch], { quiet: true });
       git(repoDir, ["branch", "-D", updateBranch], { quiet: true });
@@ -467,13 +470,13 @@ function main(): void {
   // ── Return to default branch ──
   spawnSync("sleep", ["3"]);
   git(repoDir, ["checkout", defaultBranch], { quiet: true });
-  spawnSync("git", ["-C", repoDir, "pull", "--quiet"], { stdio: "ignore" });
+  gitCheck(repoDir, ["pull", "--quiet"]);
   git(repoDir, ["branch", "-D", updateBranch], { quiet: true });
 }
 
 try {
   main();
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   process.exit(EXIT_GENERAL_ERROR);
 }

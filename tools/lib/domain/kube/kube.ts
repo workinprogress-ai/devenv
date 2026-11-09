@@ -9,12 +9,21 @@
 // binding exactly as the bash lib did (metacharacter-safe).
 
 import { spawnSync } from "node:child_process";
+import { errorMessage } from "../../core/logging.ts";
 
 /** The one seam for kubectl in this module: tests assert the argv through
  * this function; the recording-stub suites drive it via PATH. */
 export function spawnKubectl(args: string[]): { stdout: string; status: number } {
   const r = spawnSync("kubectl", args, { encoding: "utf8" });
   return { stdout: r.stdout ?? "", status: r.status ?? 1 };
+}
+
+/** Streaming kubectl run (stdio inherited — kubectl's live output reaches
+ * the terminal). The complement of spawnKubectl for the tools whose kubectl
+ * calls are interactive or long-running (exec/logs/delete/scale). */
+export function spawnKubectlInherit(args: string[]): { ok: boolean; status: number } {
+  const r = spawnSync("kubectl", args, { stdio: "inherit" });
+  return { ok: r.status === 0, status: r.status ?? 1 };
 }
 
 /** Exit status when the user declines a destructive-action confirmation */
@@ -167,7 +176,7 @@ export function resolveSingleMatch(
   try {
     matches = listFn(opts);
   } catch (err) {
-    return { kind: "none", message: err instanceof Error ? err.message : String(err) };
+    return { kind: "none", message: errorMessage(err) };
   }
   if (matches.length === 0) {
     return { kind: "none", message: `No matching resources found for pattern: ${opts.filter ?? ""}` };

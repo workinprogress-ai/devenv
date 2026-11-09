@@ -4,6 +4,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { invalidArgs } from "../lib/core/args.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
@@ -80,7 +81,7 @@ try {
   prefix = (cli.values["prefix"] as string | undefined) ?? "";
   full = cli.values["full"] === true;
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }

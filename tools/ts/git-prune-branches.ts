@@ -17,6 +17,7 @@
 import { spawnSync } from "node:child_process";
 import { readSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -26,9 +27,10 @@ assertNodeFloor();
 const GONE_MARKER = "|[gone]";
 const SCRIPT_VERSION = "1.2.0";
 
+import { gitCapture } from "../lib/core/git.ts";
+
 function git(args: string[], input?: string): { status: number; out: string } {
-  const r = spawnSync("git", args, { encoding: "utf8", input });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return gitCapture(null, args, input);
 }
 
 let force = false;
@@ -61,7 +63,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   }
   force = cli.values["force"] === true;
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
