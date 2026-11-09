@@ -15,6 +15,16 @@ The skill is empowered to answer its question by doing: adding code, removing co
 - **The skill NEVER runs mutating git commands itself** — restore is always the user's hands.
 - **All temporary in-repo modifications carry the skill's own `FIXME:DEVENV[<skill-key>]: ...` markers** so nothing empowered blends into permanent code unnoticed.
 
+## Scratch-artifact locations (deterministic)
+
+Every out-of-repo artifact an empowered session creates — POCs, prototypes, repro/harness projects, scratch scripts — lives under the workspace `tmp/` folder, deterministically, with no durability judgment at creation time:
+
+- **Create one session top folder first** — `tmp/<skill-key>-<topic>-<YYYY-MM-DD>/` (e.g. `devenv-research-parser-2026-11-09/`) — then put each POC or scratch piece in its own subfolder beneath it.
+- **Never `.local-artifacts/`** — that folder is for markdown artifacts (working copies, session memory, `tmpN.md` scratch notes, deliverable docs); runnable scratch does not belong there.
+- **Delete-when-done is optional, not a lane decision:** a session may clean up its own scratch before closeout, but keeping it is fine — `tmp/` is swept by the user. The location is the same either way, which is the point.
+
+A temporary artifact is **not** added to the local solution/workspace file (`.sln`, `.code-workspace`, workspace folders) unless the experiment genuinely cannot run without it — a standalone project that builds by itself is the default shape; when membership is unavoidable, say so at consent time and remove it at teardown. The closeout handback declares the location of every scratch artifact (one path each) so the user knows exactly what exists after the session ends.
+
 ## Recovery-route rule
 
 No aggressive measure without a clear recovery path stated *before* the action: what will be touched, and how it comes back (user-run `git reset`, plus teardown of any non-git state — spun-up containers, generated files). If recovery cannot be described, the measure is not taken; reframe the experiment as read-only or scratch-scoped instead.
