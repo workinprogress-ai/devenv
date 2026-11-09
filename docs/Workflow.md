@@ -256,6 +256,23 @@ Running two or more agent sessions at once is normal — these rules keep it fro
 - **Park deliberately at boundaries.** End of day or a context switch: wrap up or state-file-park each open session rather than leaving several half-open overnight. Stale half-open sessions are both a resume cost and a compaction-pollution risk.
 - **Same repo, multiple sessions: same plan or clear boundaries.** Two sessions in one working tree with no declared relationship is provenance chaos. The legitimate shape is sessions that **relate to the same plan** — delegating one phase while noodling through a later task, for example — where the plan is the shared boundary and the single-writer rule tells you who owns what. The **session coordination registry** (`session-state-<plan-stem>.md` in the repo's `.local-artifacts/`) is what makes this shape work without you as the message bus: each active pair or delegate session records its presence, mode, claimed coarse area, and local-only notes in its own section, and reads the others' before touching files — so sessions stay out of each other's way and recognize each other's edits instead of alarming on them. The registry is awareness only: the plan alone remains the record another person or agent needs to pick the work up. When sessions drift apart in scope or touch overlapping areas without registry territory, harden the boundary: declared territories (pair's parallel mode) or separate clones.
 
+### Running a supervised delegation alongside a pair session
+
+A supervised delegation and a pairing session are designed to run at the same time — in two chats, against the same repo. The pattern leans on supervised's parkable character: the delegate run parks at every hand-back (a wait state with no clock), and while it waits you drive `/devenv-pair` in another session. When the pair session reaches a natural stop, you carry the answer, direction, or skip-ahead back to the parked run, and it resumes from exactly where it stopped.
+
+The back-and-forth rhythm:
+
+1. **Commission supervised.** The delegate run starts; its first hand-back arrives quickly (kickoff decisions, per-task review — whichever cadence you commissioned).
+2. **Park and switch.** Leave the hand-back unanswered when the pair session can inform it. The run loses nothing while parked — the plan and state file hold its context.
+3. **Pair.** Work the pair session on what deserves two minds — usually the high-impact tasks the delegate agenda deliberately scheduled as `pair` or deferred.
+4. **Return with the ball.** Answer the parked hand-back with what the pair session produced — a decision, a correction, "skip 3.4, take 3.5 next" — and the run continues.
+
+What keeps it safe:
+
+- **The session coordination registry is the handshake.** Both sessions open a section in `.local-artifacts/session-state-<plan-stem>.md` — status line, mode, claimed territory — and read the other's before touching files. This is what lets the pair session's edits be recognized instead of alarmed on ("foreign working-tree changes") when the delegate resumes.
+- **Same plan, related territories.** The sanctioned shape is both sessions relating to the same plan with clear territory separation — the delegate executes its phase list while the pair session works a deferred or later task. Two *delegate* runs on one plan are prohibited outright; pair + delegate on one plan is the sanctioned mixed shape, and the registry is what makes it legible to both sides.
+- **Follow each handback through.** The attention advice above applies doubly here: drain the delegate's hand-back before diving deep into pair work, or you accumulate half-answered parks.
+
 ## Alternative delivery flows
 
 There are a few variations on the default flow that are still valid but less common. Some examples:
@@ -702,6 +719,21 @@ flowchart LR
 ```
 
 Reading the diagram: solid arrows are sanctioned hand-offs (artifacts travel, chat transcripts don't); dashed edges mark the two pollution traps — a reviewer that fixes its own findings becomes a second implementer, and exploration residue in a judgment lane is how bias sneaks past the two-tab discipline.
+
+**Scenario 5 — supervised parked, pair driving.** The sanctioned concurrency pattern from [Running a supervised delegation alongside a pair session](#running-a-supervised-delegation-alongside-a-pair-session): the delegate run parks at each hand-back while the pair session works; the registry keeps both sides legible:
+
+```mermaid
+flowchart TD
+    A["Session A<br/>delegate commission<br/>supervised — parks at hand-backs"] -->|"hand-back:<br/>decision needed"| U{{"You"}}
+    U -->|"while A is parked"| B["Session B<br/>/devenv-pair<br/>high-impact task"]
+    B -->|"findings land as<br/>plan edits / issue comments"| U
+    U -->|"answer · direction ·<br/>skip-ahead"| A
+    REG["session-state registry<br/>.local-artifacts/"]
+    A -.->|"status + territory<br/>before touching files"| REG
+    B -.->|"status + territory<br/>before touching files"| REG
+```
+
+Reading the diagram: the park is explicit — session A holds nothing but its wait; the ball lives with you between the two solid round-trips, and the dashed registry edges fire at each session's *next* file touch, not continuously.
 
 ## Upstream artifact routing
 

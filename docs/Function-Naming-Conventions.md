@@ -40,7 +40,6 @@ For library functions, use a consistent namespace prefix:
 
 - `config_*` - Configuration management (lib/config-reader.bash)
 - `log_*` - Logging functions (lib/error-handling.bash)
-- `version_*` - Version utilities (lib/versioning.bash)
 
 ### Examples
 

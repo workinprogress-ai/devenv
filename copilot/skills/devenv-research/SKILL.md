@@ -1,6 +1,6 @@
 ---
 name: devenv-research
-description: Run a timeboxed exploratory investigation of an open question — throwaway by design: a structured findings + recommendation doc, and a prototype under playground/devenv-research-<topic>-<YYYY-MM-DD>/ if code is needed to answer the question. All artifacts are NOT FOR PRODUCTION; the skill ends at the findings handback (next steps route to /devenv-plan). Empowered like /devenv-hunt: may create code to prove something and run destructive-class experiments with just-in-time user permission (user-run git reset as recovery). USE WHEN the user says "research X", "spike on X", "investigate whether we can Y", "explore the feasibility of Z", "do a quick proof-of-concept", or hands off an open question that needs research before any plan exists. Input: a free-form question or issue number. Produces a research-NNN-<topic>.md findings doc and a chat summary; optionally a draft issue. DO NOT USE for writing production code (use /devenv-pair or /devenv-delegate), for executing an approved plan (use /devenv-pair or /devenv-delegate), for verifying a specific suspected bug (use /devenv-hunt), or for work intended to ship — if it should survive into production, it is not research.
+description: Run a timeboxed exploratory investigation of an open question — throwaway by design: a structured findings + recommendation doc, and a prototype under tmp/devenv-research-<topic>-<YYYY-MM-DD>/ if code is needed to answer the question. All artifacts are NOT FOR PRODUCTION; the skill ends at the findings handback (next steps route to /devenv-plan). Empowered like /devenv-hunt: may create code to prove something and run destructive-class experiments with just-in-time user permission (user-run git reset as recovery). USE WHEN the user says "research X", "spike on X", "investigate whether we can Y", "explore the feasibility of Z", "do a quick proof-of-concept", or hands off an open question that needs research before any plan exists. Input: a free-form question or issue number. Produces a research-NNN-<topic>.md findings doc and a chat summary; optionally a draft issue. DO NOT USE for writing production code (use /devenv-pair or /devenv-delegate), for executing an approved plan (use /devenv-pair or /devenv-delegate), for verifying a specific suspected bug (use /devenv-hunt), or for work intended to ship — if it should survive into production, it is not research.
 argument-hint: A question / problem statement to investigate, OR an issue number containing the question
 user-invocable: true
 ---
@@ -11,7 +11,7 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
-> **Aggressive-measures gate, recovery-route rule, scope fence.** The research session runs under the shared [Empowered-Investigation Gate](../common/references/empowered-investigation-gate.md): just-in-time consent outlining what/why, category announcement before destructive-class actions, disapproval rejects the measure not the investigation, and no self-run mutating git commands. Mode-scoped deltas: the default lane is read-only plus a `playground/` prototype; temporary in-repo modifications carry `FIXME:DEVENV[research]: ...` markers; exhausted alternates end the run with the question reported **unanswerable as scoped**, reframed inside `playground/`.
+> **Aggressive-measures gate, recovery-route rule, scope fence.** The research session runs under the shared [Empowered-Investigation Gate](../common/references/empowered-investigation-gate.md): just-in-time consent outlining what/why, category announcement before destructive-class actions, disapproval rejects the measure not the investigation, and no self-run mutating git commands. Mode-scoped deltas: the default lane is read-only plus a `tmp/` prototype; temporary in-repo modifications carry `FIXME:DEVENV[research]: ...` markers; exhausted alternates end the run with the question reported **unanswerable as scoped**, reframed inside `tmp/`.
 >
 > **Scratchpad lane (preferred for in-repo experiments).** When the workspace provides the sandbox, propose entering it once — declaring the experiment classes (patching call paths, swapping dependency versions, deleting modules, instrumenting hot paths) — and run in-repo experiments under the gate's [scratchpad lane](../common/references/empowered-investigation-gate.md): within the declared scope, individual experiments don't re-ask, and `repo-scratchpad reset` restores the tree between experiments AI-safe. Dirty target repo: surface `git wip` to the USER (their hands — it commits a `WIP:` snapshot on the originating branch and pushes) or a normal commit before entering; the sandbox refuses dirty entry. Inside the sandbox raw git stays forbidden — `repo-scratchpad commit/reset/promote/exit` are the only unlocked wrappers. Anything worth keeping flows through `repo-scratchpad promote <sha>` (staged-uncommitted on the base branch, trailers re-acquired) at closeout, feeding the decide-modified-code-fate step below.
 >
@@ -71,7 +71,7 @@ Keep it loose. Research is non-linear by nature. Two pre-commitments are mandato
 Do the work:
 
 - Read code, docs, or external references as needed.
-- If a prototype is required, create it under `playground/devenv-research-<topic>-<YYYY-MM-DD>/` at the workspace root. Use a short slug for `<topic>`.
+- If a prototype is required, follow the gate's [deterministic scratch-location rule](../common/references/empowered-investigation-gate.md#scratch-artifact-locations-deterministic): create `tmp/devenv-research-<topic>-<YYYY-MM-DD>/` (short slug for `<topic>`; each POC in its own subfolder beneath it) — never `.local-artifacts/`, which is for markdown artifacts only. Do not add the prototype to the local solution/workspace file unless the experiment cannot run without it.
 - Add a `README.md` to the prototype directory with a prominent header:
 
   ```markdown
@@ -103,7 +103,7 @@ Write `research-NNN-<topic>.md` under the target repo's `.local-artifacts/` fold
 
 **Date**: YYYY-MM-DD
 **Source**: free-form question (or `issue #42`)
-**Prototype**: `playground/devenv-research-<topic>-<YYYY-MM-DD>/` (if applicable)
+**Prototype**: `tmp/devenv-research-<topic>-<YYYY-MM-DD>/` (if applicable)
 
 ## Question
 
@@ -142,7 +142,7 @@ Each recommendation cites what its case rests on — the findings and References
 
 ### 5. Summarise to chat
 
-Inline summary: 3–5 bullets covering the question, the verdict, and the artifacts produced (doc path, prototype path).
+Inline summary: 3–5 bullets covering the question, the verdict, and the artifacts produced (doc path, prototype path). **Declare the location of every scratch artifact** (per the gate's deterministic-location rule), noting any the session deleted itself.
 
 ### 6. Optional: file an issue
 
@@ -204,10 +204,11 @@ Per the shared [next-step offer](../common/references/execution-gates.md#next-st
 
 - **Drifting into production code** — research artifacts are throwaway. If the prototype is becoming clean and complete, stop and write a plan with `/devenv-plan`. Resist the urge to "just polish it a bit". (Empowered in-repo experiments are not production code — they are marked, consented, and reset away.)
 - **Unannounced aggression** — modifying target-repo code, deleting anything, or mutating environments without the consent gate and a stated recovery route. Powerful but announced, always.
-- **Treating a declined measure as a dead end** — disapproval reroutes the investigation (deeper reading, `playground/` prototype, different experiment); only exhausted alternates stop it, and any aggressive alternate re-enters the gate.
+- **Treating a declined measure as a dead end** — disapproval reroutes the investigation (deeper reading, `tmp/` prototype, different experiment); only exhausted alternates stop it, and any aggressive alternate re-enters the gate.
 - **Unmarked in-repo edits** — empowered changes without `FIXME:DEVENV[research]: ...` markers can slip into a commit; the marker keeps the reset clean and intentional.
 - **Running the reset yourself** — the research session never runs mutating git commands. Recovery is the user's hands, every time.
 - **Hiding the throwaway-ness** — every artifact must carry the "NOT FOR PRODUCTION" header. No exceptions.
+- **Scratch in the wrong home** — a runnable POC or harness outside the session's `tmp/` top folder (`.local-artifacts/` in particular — that folder is for markdown artifacts). The deterministic location plus the location declaration are what keep throwaway work findable and sweepable.
 - **Skipping the intake step** — an unframed research session sprawls, and an unconfirmed budget sprawls longer. Restate the question, clear ambiguities, and confirm the timebox before starting.
 - **Burying findings in chat** — always write the doc. Chat is ephemeral; the doc is the deliverable.
 - **Recommending without evidence** — every recommendation traces back to a finding, and every finding to a citable source (code path, external doc, or captured output — the doc's References section is where those sources live). If you can't show your work, you didn't research it, you guessed.

@@ -49,6 +49,7 @@ What are you trying to do?
 │   ├─ No plan yet                      →  /devenv-plan first
 │   ├─ High-impact work (any size)      →  /devenv-pair
 │   ├─ Mechanical, task-by-task collaboration →  /devenv-pair
+│   ├─ Long supervised run while pairing in another chat →  /devenv-delegate
 │   └─ Long mechanical run, commissioned autonomous execution →  /devenv-delegate
 │
 ├─ 🔎 Review / address feedback
@@ -129,7 +130,7 @@ Question-shaped prompts default to discussion/analysis mode; implementation star
 
 > **Commissioned autonomous run for mechanical work, with user review and ownership.**
 
-Analyzes a plan, proposes work-session groupings, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing, and stops on explicit decision gates before any mutating action resumes. Commissioning builds a **per-phase execution agenda** (delegate / gate / supervised / pair per phase) from the plan's recommendations or your direction, shown for approval before the run; hand-backs offer agenda-adaptive interview options, always including "stop and discuss". Ends each session with a summary including review hotspots. Entered only by explicit `/devenv-delegate` invocation — the explicit act of commissioning an autonomous run — never by drifting out of a pair-programming session. Accepts a bare issue by materializing a small plan first (issue intake gate).
+Analyzes a plan, proposes work-session groupings, implements phase-by-phase, keeps the user engaged with brief pings and inline concern surfacing, and stops on explicit decision gates before any mutating action resumes. Commissioning builds a **per-phase execution agenda** (delegate / gate / supervised / pair per phase) from the plan's recommendations or your direction, shown for approval before the run; hand-backs offer agenda-adaptive interview options, always including "stop and discuss". Ends each session with a summary including review hotspots. Entered only by explicit `/devenv-delegate` invocation — the explicit act of commissioning an autonomous run — never by drifting out of a pair-programming session. Accepts a bare issue by materializing a small plan first (issue intake gate). Supervised mode composes with pairing: the run parks at each hand-back while you drive `/devenv-pair` in another session, and the session coordination registry keeps the two sessions out of each other's way (see [Workflow](Workflow.md#running-a-supervised-delegation-alongside-a-pair-session)).
 
 **Use for:** refactors, renames, test scaffolding, cleanup, docs — mechanical, low-risk phases  
 **Don't use for:** high-impact work (→ `/devenv-pair`), ad-hoc work without a plan  
@@ -145,7 +146,7 @@ Investigates a question, builds a throwaway prototype if needed, and produces a 
 
 **Use for:** feasibility questions, proofs-of-concept, technical investigations before planning  
 **Don't use for:** thinking out loud with no artifact production code  
-**Tool deps:** none (reads codebase; writes only to `playground/devenv-research-*/`)
+**Tool deps:** none (reads codebase; writes only to `tmp/devenv-research-*/`)
 
 ---
 

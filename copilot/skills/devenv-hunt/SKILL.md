@@ -52,7 +52,7 @@ Classification rules:
 
 > **Scoped-TODO discovery (all modes, before investigation).** Run `devenv-marker-check --todo-report <target-scope>` before the hunt begins. Every reported TODO is a prior session's cross-plan message: surface it in chat and honor its condition — or explicitly resolve it with the user — before touching that file. A condition-satisfied TODO is removed in the same pass.
 
-> **Aggressive-measures gate, recovery-route rule, scope fence.** The hunter runs under the shared [Empowered-Investigation Gate](../common/references/empowered-investigation-gate.md): just-in-time consent outlining what/why, category announcement before destructive-class actions, disapproval rejects the measure not the hunt, and no self-run mutating git commands. Mode-scoped deltas: scratch harnesses go in the workspace `tmp/`; temporary in-repo code carries `FIXME:DEVENV[bug-hunt]: ...` markers; exhausted alternates end the trail as **blocked**.
+> **Aggressive-measures gate, recovery-route rule, scope fence.** The hunter runs under the shared [Empowered-Investigation Gate](../common/references/empowered-investigation-gate.md): just-in-time consent outlining what/why, category announcement before destructive-class actions, disapproval rejects the measure not the hunt, and no self-run mutating git commands. Mode-scoped deltas: scratch harnesses and repros go under `tmp/devenv-hunt-<topic>-<YYYY-MM-DD>/` per the gate's [deterministic scratch-location rule](../common/references/empowered-investigation-gate.md#scratch-artifact-locations-deterministic) (one session top folder, each harness in its own subfolder — never `.local-artifacts/`); temporary in-repo code carries `FIXME:DEVENV[bug-hunt]: ...` markers; exhausted alternates end the trail as **blocked**.
 >
 > **Proportionality.** Ruthless means as brutal as NECESSARY: always apply the minimum force that produces a discriminating result — then escalate without hesitation the moment it stops discriminating. Brutality is for necessity, not theater; asking for a chainsaw when a knife would discriminate erodes the consent trust the whole gate runs on.
 >
@@ -206,7 +206,7 @@ One of three verdicts, each a valid ending:
 
 "Pretty sure" is a lead strength, not a verdict. There is deliberately no LIKELY verdict.
 
-Write the report to the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)) as `bug-hunt-<topic>.md` (numbered when multiples accumulate) — offer first, show draft, wait for confirmation. Use the [report template](./references/report-template.md). Neutral voice in the file.
+Write the report to the target repo's `.local-artifacts/` folder (the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)) as `bug-hunt-<topic>.md` (numbered when multiples accumulate) — offer first, show draft, wait for confirmation. Use the [report template](./references/report-template.md). Neutral voice in the file. The report names every scratch artifact and its location (the gate's deterministic-location rule), noting any the session deleted itself.
 
 **Verdict challenge.** The user may challenge a NOT-FOUND verdict ONCE. Rework the oracle from their new observations and run a second pass. A second NOT-FOUND stands; re-challenging requires new evidence, not insistence. A **strong-lead INCONCLUSIVE** upgrades differently: if the user can supply the missing discriminator, run that specific check first.
 
