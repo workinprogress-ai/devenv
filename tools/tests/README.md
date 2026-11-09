@@ -1,15 +1,17 @@
 # Devenv Test Suite
 
-Two lanes, one gate:
+One lane, one gate:
 
-- **BATS** ([bats-core](https://github.com/bats-core/bats-core), installed
-  during bootstrap) — `tools/tests/**/*.bats`. During the bash-minimum
-  migration these move to vitest at coverage parity (see the
-  coverage-parity ledger in `.local-artifacts/`); the stay-bats set is
-  suites driving a real pty (`script -qec`), real git-hook execution, or
-  bats-in-bats machinery per the Tooling-Standards test-format rule —
-  stub-based fzf tests are vitest-portable like any other suite.
-- **vitest** — `tools/tests/ts/**/*.test.ts`, run by `pnpm test:ts`.
+- **vitest** — `tools/tests/ts/**/*.test.ts`, run by `pnpm test` (or
+  `pnpm test:ts`). The bats corpus retired with the Phase-11 port: the
+  fork×3 suites and the isolation canary run as vitest suites driving the
+  same pty machinery (`script -qec`) from the shared harness
+  (`tools/tests/ts/harness/`), and the parallel stub system lives in
+  `stubCli` (call-log convention included).
+
+The one stay-bats suite is the manual-only live lane (below): it hits real
+provider APIs and never runs in the gate — kept in bats behind an explicit
+runner invocation (the recorded Phase-11 lane decision).
 
 ### Shared vitest harness (`tools/tests/ts/harness/`)
 
@@ -32,8 +34,7 @@ A suite with behavioral stub modes passes the whole script body via
 `stubGh`/`stubGit`'s mode parameter — the factory owns only the
 boilerplate. `issue-comment-list.test.ts` is the reference migration.
 
-`bash tools/tests/run-devenv-tests.sh` runs the bats sweep and then the
-vitest lane — one command is the whole gate; `pnpm test` aliases it.
+`bash tools/tests/run-devenv-tests.sh` runs the vitest lane — one command is the whole gate; `pnpm test` aliases it.
 
 ## Test hygiene: scratch artifacts live in tmp, never in the repo
 
@@ -53,15 +54,10 @@ is a guard, not a convention. `tools/tests/ts/bootstrap-functions.test.ts`
 ./tools/tests/run-devenv-tests.sh
 ```
 
-The runner executes the bats corpus (`lib/`, `scripts/`, `devenv/`, `skills/`) in a single
-`bats --jobs` invocation, then the vitest lane (`tests/ts/`). Jobs default to `nproc`,
-capped by `MAX_PARALLEL_JOBS` (currently 8); `--jobs` sizes the bats pool, and the same
-cap bounds vitest's workers (`--sequential` runs both lanes single-worker) so the two
-sweeps cannot jointly exhaust the container's thread limit. An empty bats corpus
-(mid-migration) degrades to a vitest-only run instead of failing.
-
-`skills/` holds the provider-neutral skill-prose gate (skill bodies must not
-name a provider's transport), so it runs with everything else.
+The runner executes the vitest lane (`tests/ts/`). Jobs default to `nproc`,
+capped by `MAX_PARALLEL_JOBS` (currently 8); `--jobs` sizes the worker pool
+(`--sequential` runs single-worker) so a full sweep cannot exhaust the
+container's thread limit.
 
 ### Manual-only: `live/`
 
@@ -89,182 +85,58 @@ total duration.
 ### Run a specific test file
 
 ```bash
-bats tools/tests/lib/test_error_handling.bats
+pnpm exec vitest run tools/tests/ts/fork-export.test.ts
 ```
 
 ### Run tests with verbose output
 
 ```bash
-bats -t tools/tests/
-```
-
-### Run tests with debug output
-
-```bash
-DEBUG=1 bats tools/tests/
+pnpm exec vitest run --reporter=verbose
 ```
 
 ## Parallel-Safety Contract
 
 Every test must be safe to run concurrently with every other test. The shared
-[`test_helper.bash`](./test_helper.bash) provides this by default — each test
-gets its own `TEST_TEMP_DIR` (`mktemp -d`) and a redirected `HOME`, so global
-state writes land in per-test temp directories. The rules for new tests:
+harness (`tools/tests/ts/harness/`) provides this by default — each test
+derives its fixtures from scratch roots (`tmpDir`), so global state writes
+land in per-test temp directories. The rules for new tests:
 
-- **Use `test_helper.bash`** (`test_helper_setup` / `test_helper_teardown`) —
-  don't hand-roll setup that skips the `HOME`/`TEST_TEMP_DIR` redirect.
+- **Use the harness** (`tmpDir`, `tmpToolboxRoot`, `stubCli`, `runTool`) —
+  don't hand-roll setup that skips scratch isolation.
 - **Never write to real user state** — no `git config --global` against the
-  real `~/.gitconfig`; use `GIT_CONFIG_GLOBAL` or the redirected `HOME`.
+  real `~/.gitconfig`; use `GIT_CONFIG_GLOBAL` or a scratch `HOME`.
 - **Never use fixed shared paths** — no `/tmp/my-fixture` literals; derive
-  from `TEST_TEMP_DIR`. Path-assertion fixtures (asserting a string *equals*
-  a path without touching it) are fine.
+  from the suite's scratch root. Path-assertion fixtures (asserting a string
+  *equals* a path without touching it) are fine.
 - **Never `pkill -f` by name** — the pattern can match other tests'
   in-flight processes. Kill only PIDs recorded in your own PID file under
-  `TEST_TEMP_DIR`.
-- **No fixed shared filenames** for files written in `setup()` and removed in
-  `teardown()` — under `--jobs`, test cases of the same file run in separate
-  processes and will race. Use `mktemp` (see `test_fanout_semantics.bats` for
-  the pattern).
+  the scratch root.
+- **No fixed shared filenames** for files written in `beforeEach` and removed
+  in `afterEach` — under parallel workers, test cases run in separate
+  processes and will race. Use `mkdtempSync`.
 
 If a test cannot meet the contract, mark it and run it sequentially — don't
 make the suite flaky for everyone.
-
-## Test Structure
-
-- `test_helper.bash` - Common helper functions and setup/teardown for each test
-- `test_*.bats` - Individual test files for specific functionality
 
 ## Writing Tests
 
 ### Provider Seam vs. CLI Mocking
 
-Neutral-layer libraries (`tools/lib/*.bash`, wrapper scripts) call
-`provider_*` verbs, never a provider CLI directly — and their tests should
-stub at the same seam. Mocking the `gh` binary works only because github is
-the active provider; under any other provider the neutral code path never
-touches `gh` and the mock silently stops firing. Existing suites that mock
-`gh` at the neutral boundary are a known, accepted github-assumption (azure
-correctness is covered by the dedicated `test_provider_azure_*` suites);
-migrate them to `fixtures/provider-seam.bash` (`provider_seam_stub`) as they
-are touched, and write new neutral-layer tests against the provider seam
-from the start. Provider-scoped tests (e.g. `test_provider_github_*`)
-legitimately stub the CLI — that IS their boundary.
+Neutral-layer code (`tools/lib/*.ts` facades, wrapper scripts) calls the
+TS provider modules, never a provider CLI directly — and their tests stub
+at the same seam (`stubGh` with mode scripts, or the facade over a stubbed
+transport). Mocking the `gh` binary works only because github is the active
+provider; under any other provider the neutral code path never touches `gh`
+and the mock silently stops firing. Provider-scoped suites legitimately
+stub the CLI — that IS their boundary.
 
 ### Basic Test Structure
 
-Test files should follow this structure:
-
-```bash
-#!/usr/bin/env bats
-
-load test_helper
-
-@test "description of what is being tested" {
-    # Test code here
-    run some_command
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"expected string"* ]]
-}
-```
-
-### Testing Functions vs. Whole Scripts
-
-#### Testing Individual Functions
-
-When testing library functions, source the library and call functions directly:
-
-```bash
-@test "function_name returns expected value" {
-    # Source the library
-    source "$DEVENV_ROOT/lib/error-handling.bash"
-    
-    # Call function directly
-    result=$(log_info "test message")
-    
-    # Assert result
-    [ "$status" -eq 0 ]
-}
-
-@test "function_name handles errors" {
-    source "$DEVENV_ROOT/lib/error-handling.bash"
-    
-    # Test error condition
-    run my_function "invalid_arg"
-    [ "$status" -ne 0 ]
-    [[ "$output" =~ "ERROR" ]]
-}
-```
-
-#### Testing Whole Scripts
-
-When testing complete scripts, use `run` to execute them:
-
-```bash
-@test "script.sh succeeds with valid arguments" {
-    run bash "$DEVENV_TOOLS/my-script.sh" --arg value
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "Success" ]]
-}
-
-@test "script.sh has --help flag" {
-    run bash "$DEVENV_TOOLS/my-script.sh" --help
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage:" ]]
-}
-
-@test "script.sh validates syntax" {
-    # Syntax check without execution
-    run bash -n "$DEVENV_TOOLS/my-script.sh"
-    [ "$status" -eq 0 ]
-}
-```
-
-### Available Helper Functions
-
-From `test_helper.bash`:
-
-- `setup()` - Runs before each test (creates temp directory, sets env vars)
-- `teardown()` - Runs after each test (cleans up temp directory)
-- `create_mock_git_repo(path)` - Creates a mock git repository at the given path
-- `function_exists(name)` - Checks if a bash function is defined
-
-### Test Environment Variables
-
-The following environment variables are available in tests:
-
-- `TEST_TEMP_DIR` - Temporary directory for test artifacts
-- `ORIGINAL_PWD` - Original working directory
-- `DEVENV_ROOT` - Path to devenv root
-- `devenv` - Path to devenv root (lowercase alias)
-- `DEVENV_TOOLS` - Path to scripts/ directory
-- `GH_USER` - Mock GitHub username
-- `GH_ORG` - Mock GitHub organization
-- `GH_TOKEN` - Mock GitHub token
-- `USER_EMAIL` - Mock user email
-- `HUMAN_NAME` - Mock user name
-- `PROJECT_ROOT` - alias of DEVENV_ROOT
+Suites follow the established black-box pattern: spawn the tool (or source
+the seam) in a child process, assert on status and output. Use the shared
+harness for spawn/stub/tmp boilerplate; one `it` per pinned behavior.
 
 ## Test Coverage Areas
-
-### Libraries (`lib/`)
-
-- `lib/test_error_handling.bats` - Error handling and logging functions
-- `test_config.bats` - Configuration management
-- `test_git_config.bats` - Git configuration utilities
-- `test_versioning.bats` - Version parsing and comparison
-- `test_editor.bats` - Editor function and VS Code fallback behavior (with mocked code command)
-- `test_issues_config.bats` - GitHub issue type configuration and management functions
-
-### Repository & PR scripts (`scripts/`)
-
-- `test_repo_get_validation.bats` - Repo name validation and sourcing
-- `test_repo_update_all.bats` - Parallel update flags and usage
-- `test_repo_calc_version.bats` - Semantic version calculation from commits/tags
-- `test_repo_bump_version.bats` - Argument validation for forced bump commits
-- `test_pr_complete_merge.bats` - Conventional Commit enforcement and gh workflow (mocked)
-- `test_script_usage.bats` - --help flags and usage documentation across scripts
-- `test_script_versioning.bats` - Version headers and versioning library integration
-- `test_script_template.bats` - Script template validation and create-script.sh
 
 ### Bootstrap & Container
 

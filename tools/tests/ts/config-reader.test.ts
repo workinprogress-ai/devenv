@@ -435,17 +435,6 @@ describe("config reader", () => {
     }
   });
 
-  it("policy_resolve agrees on every variant", () => {
-    for (const v of PROVIDER_VARIANTS) {
-      writeVariant(v);
-      const r = sh(
-        `source '${TOOLS}/lib/policy/policy-core.bash'\n` +
-          `policy_core_init '${CFG}'\n` +
-          `policy_resolve NONE provider name fallback 2>/dev/null`,
-      );
-      expect(r.out.trim(), `variant: ${JSON.stringify(v)}`).toBe("azure");
-    }
-  });
 
   it("a value that contains = keeps everything after the first =", () => {
     writeFileSync(CFG, "[x]\nurl = https://h/p?a=b&c=d\n");
@@ -470,6 +459,7 @@ describe("config reader", () => {
     const r = sh(
       `export DEVENV_TOOLS='${TOOLS}'\n` +
         `source '${TOOLS}/lib/error-handling.bash'\n` +
+        `source '${TOOLS}/lib/config-reader.bash'\n` +
         `source '${TOOLS}/lib/providers/provider-core.bash'\n` +
         `config_init '${join(TMP, "a.config")}'\n` +
         `provider_detect '${join(TMP, "b.config")}'\n` +
@@ -480,53 +470,6 @@ describe("config reader", () => {
     expect(lines[1]).toBe("from-a");
   });
 
-  it("policy values keep reading the policy file after another file is initialised", () => {
-    writeFileSync(join(TMP, "policy.config"), "[provider]\nname=azure\n");
-    writeFileSync(join(TMP, "elsewhere.config"), "[provider]\nname=other\n");
-    const r = sh(
-      `source '${TOOLS}/lib/policy/policy-core.bash'\n` +
-        `policy_core_init '${join(TMP, "policy.config")}'\n` +
-        `source '${CR}'\n` +
-        `config_init '${join(TMP, "elsewhere.config")}'\n` +
-        `policy_resolve NONE provider name fallback`,
-    );
-    expect(r.out.trim()).toBe("azure");
-  });
 
-  it("policy_core_init with no argument and no DEVENV_ROOT uses the checkout's own devenv.config", () => {
-    const r = spawnSync(
-      "bash",
-      ["-c", `source '${TOOLS}/lib/policy/policy-core.bash'\npolicy_core_init 2>/dev/null || true\necho "$POLICY_CONFIG_FILE"`],
-      {
-        encoding: "utf8",
-        env: (() => {
-          const { DEVENV_ROOT: _d, ...rest } = process.env;
-          return rest as Record<string, string>;
-        })(),
-      },
-    );
-    expect(((r.stdout ?? "") + (r.stderr ?? "")).trim()).toBe(join(ROOT, "devenv.config"));
-  });
 
-  it("loading provider-core with DEVENV_ROOT unset does not point the policy layer at /devenv.config", () => {
-    const r = spawnSync(
-      "bash",
-      [
-        "-c",
-        `source '${TOOLS}/lib/error-handling.bash'\n` +
-          `source '${TOOLS}/lib/providers/provider-core.bash'\n` +
-          `echo "$POLICY_CONFIG_FILE"`,
-      ],
-      {
-        encoding: "utf8",
-        env: (() => {
-          const { DEVENV_ROOT: _d, ...rest } = process.env;
-          return { ...rest, DEVENV_TOOLS: TOOLS } as Record<string, string>;
-        })(),
-      },
-    );
-    const out = ((r.stdout ?? "") + (r.stderr ?? "")).trim();
-    expect(out).not.toBe("/devenv.config");
-    expect(out).toMatch(/\/devenv\.config$/);
-  });
 });

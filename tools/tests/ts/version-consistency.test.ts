@@ -53,13 +53,11 @@ describe("version consistency", () => {
     rmSync(fixtureDir, { recursive: true, force: true });
   });
 
-  it("no script calls script_version, and the library no longer gates output on SHOW_VERSION", () => {
+  it("no script calls script_version", () => {
     const r1 = sh(
       `grep -lE '^[[:space:]]*script_version[[:space:]]' '${ROOT}/tools/tests/run-devenv-tests.sh'`,
     );
     expect(r1.status).toBe(1);
-    const r2 = sh(`grep -n 'SHOW_VERSION\\|^script_version()' '${ROOT}/tools/lib/versioning.bash'`);
-    expect(r2.status).toBe(1);
   });
 
   it("every script that calls handle_global_flag defines show_usage, so --help is never silent", () => {

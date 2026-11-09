@@ -88,6 +88,19 @@ if ! declare -F policy_default_provider >/dev/null; then
         policy_core_init ${DEVENV_ROOT:+"$DEVENV_ROOT/devenv.config"} 2>/dev/null || true
         # shellcheck disable=SC1090,SC1091
         source "$_policy_dir/identity-policy.bash"
+    else
+        # No policy layer (the org-policy module retired with the bash verb
+        # layer): the config reader's CONFIG_FILE must still be initialized
+        # for config_read_value callers — the policy core used to do this as
+        # a side effect of policy_core_init. Load the reader inline (the
+        # _provider_config_reader helper is defined further down this file)
+        # and initialize the same file the detection would read; absent
+        # config stays unset (reads then fail defined).
+        declare -F config_get_raw >/dev/null || \
+            source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config-reader.bash"
+        _cfg="${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/devenv.config"
+        [ -f "$_cfg" ] && config_init "$_cfg"
+        unset _cfg
     fi
 fi
 

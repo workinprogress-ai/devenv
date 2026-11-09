@@ -14,16 +14,29 @@ cd "$script_folder" || exit 1
 readonly CHECK_INTERVAL_SECONDS=600  # Check every 10 minutes
 readonly SLEEP_CHUNK_SECONDS=10      # Sleep in small chunks for responsive signal handling
 
-# Source versioning library if available
-if [ -f "$toolbox_root/tools/lib/versioning.bash" ]; then
-    # shellcheck source=../tools/lib/versioning.bash
-    source "$toolbox_root/tools/lib/versioning.bash"
-    
-    # Check environment compatibility
-    if ! check_environment_requirements; then
-        echo "ERROR: Environment does not meet minimum requirements" >&2
-        exit 1
-    fi
+# Environment floor check (the retired versioning.bash's contract, inlined:
+# bash >= 4.0, git >= 2.0 — numeric MAJOR.MINOR compare, suffixes ignored).
+version_ge() {
+    # $1=installed, $2=required — both "N[.N[.N]][...]"
+    local IFS=.
+    local -a inst req
+    read -r -a inst <<< "$1"
+    read -r -a req <<< "$2"
+    local i a b
+    for i in "${!req[@]}"; do
+        a="${inst[i]:-0}"; a="${a%%[!0-9]*}"; a="${a:-0}"
+        b="${req[i]:-0}"; b="${b%%[!0-9]*}"; b="${b:-0}"
+        [ "$a" -lt "$b" ] && return 1
+    done
+    return 0
+}
+if ! version_ge "${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}" "4.0"; then
+    echo "ERROR: bash >= 4.0 required" >&2
+    exit 1
+fi
+if ! version_ge "$(git --version 2>/dev/null | awk '{print $3}')" "2.0"; then
+    echo "ERROR: git >= 2.0 required" >&2
+    exit 1
 fi
 
 # Configuration (can be overridden by environment variables)

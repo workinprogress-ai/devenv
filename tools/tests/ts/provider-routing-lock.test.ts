@@ -16,7 +16,9 @@ const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
 
 // Sanctioned direct-gh sites: file substring -> regex of allowed gh usages.
-const ALLOWED_EXCEPTIONS: Array<[string, string]> = [["issues.bash", "gh issue (view|edit)"]];
+// The bash verb twins retired with the verb layer (Phase 10); no transport
+// exception remains necessary outside the provider modules.
+const ALLOWED_EXCEPTIONS: Array<[string, string]> = [];
 
 // Transport patterns: any of these in executable code is a violation unless
 // the file+line matches an allowed exception.
@@ -48,9 +50,9 @@ const RESIDUE_PATTERNS = [
 ];
 
 // Sanctioned non-provider sites: directory-anchored path key -> regex of
-// allowed reads (see the bats source for the rationale per entry).
+// allowed reads (see the bats source for the rationale per entry). The
+// test_helper.bash entry retired with the helper (Phase 11).
 const RESIDUE_ALLOWED: Array<[string, string]> = [
-  ["tests/test_helper.bash", "export GH_(USER|ORG|TOKEN)="],
   ["lib/config-reader.bash", "GH_(ORG|USER):\\-\\}"],
 ];
 

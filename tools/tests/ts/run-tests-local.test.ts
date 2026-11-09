@@ -18,11 +18,10 @@ function runnerContent(): string {
   return readFileSync(RUNNER, "utf8");
 }
 
-// The runner executed with a stub `bats` first on PATH that only records its
-// arguments, so the real suite never runs but the collected file list is real.
-// A stub `pnpm` does the same for the vitest lane: the runner's invocation of
-// it is recorded without executing 2500 tests inside a probe (and without
-// letting any suite reach the network).
+// The runner executes the vitest lane only (the bats corpus retired with the
+// Phase-11 port). A stub `pnpm` on PATH records the runner's invocation
+// without executing the suite inside a probe (and without letting any suite
+// reach the network).
 function runnerCollectedFiles(): { status: number; out: string; vitestInvoked: boolean } {
   const t = mkdtempSync(join(tmpdir(), "runner-probe-"));
   const bin = join(t, "bin");
@@ -35,7 +34,12 @@ function runnerCollectedFiles(): { status: number; out: string; vitestInvoked: b
   chmodSync(pnpmStub, 0o755);
   const env = { ...process.env, PATH: `${bin}:${process.env["PATH"] ?? ""}` };
   spawnSync("bash", [RUNNER, "--sequential"], { encoding: "utf8", env, stdio: "ignore" });
-  const out = readFileSync(`${t}/bats.args`, "utf8");
+  let out = "";
+  try {
+    out = readFileSync(`${t}/bats.args`, "utf8");
+  } catch {
+    out = ""; // the runner no longer invokes bats at all
+  }
   let vitestInvoked = false;
   try {
     vitestInvoked = readFileSync(`${t}/pnpm.args`, "utf8").includes("vitest");
@@ -81,23 +85,21 @@ describe("run tests local (runner contract)", () => {
     expect(c).toContain("parallel_jobs=$MAX_PARALLEL_JOBS");
   });
 
-  it("run-devenv-tests.sh passes --jobs to bats only when parallel", () => {
-    expect(runnerContent()).toContain("bats_args+=(--jobs");
+  it("run-devenv-tests.sh passes worker count to vitest only when parallel", () => {
+    const c = runnerContent();
+    expect(c).toContain('vitest_args+=(--maxWorkers="$parallel_jobs")');
   });
 
-  it("run-devenv-tests.sh runs one bats invocation over collected files", () => {
+  it("run-devenv-tests.sh invokes vitest once as the whole gate", () => {
     const c = runnerContent();
-    // The single-invocation design is what enables parallel scheduling; the
-    // old three-globs shape would serialize the groups again. --verbose-run
-    // makes failing tests print their captured output (root-cause signal).
-    expect(c).not.toContain('bats "$TESTS_DIR/lib"/*.bats');
-    expect(c).toContain('bats --verbose-run "${bats_args[@]}" "${test_files[@]}"');
+    expect(c).not.toContain("bats --verbose-run");
+    expect(c).toContain('pnpm exec vitest run "${vitest_args[@]}"');
   });
 
   it("run-devenv-tests.sh echoes total duration", () => {
     const c = runnerContent();
     expect(c).toContain("start_time=$(date +%s)");
-    expect(c).toContain("duration: $((end_time - start_time))s");
+    expect(c).toContain("vitest: $((end_time - vitest_start_time))s");
   });
 
   it("run-devenv-tests.sh rejects unknown options with exit 1", () => {
@@ -112,29 +114,15 @@ describe("run tests local (runner contract)", () => {
     expect(r.status).toBe(1);
   });
 
-  it("the runner collects the skills/ suite", () => {
+  it("the runner invokes no bats (the corpus retired with the Phase-11 port)", () => {
     const r = runnerCollectedFiles();
     expect(r.status).toBe(0);
-    // test_provider_protocol_decoupling ported to TS (16.5); the skills corpus
-    // is drained — the runner must tolerate an empty skills/ directory (no
-    // bats args reference it, and the sweep must not fail on the absent file).
+    expect(r.out).not.toContain("/tests/scripts/");
+    expect(r.out).not.toContain("/tests/devenv/");
     expect(r.out).not.toContain("/tests/skills/");
-    expect(r.status).toBe(0);
   });
 
-  it("the runner still collects scripts/ and devenv/", () => {
-    const r = runnerCollectedFiles();
-    // lib/ is empty at this point in the migration (its suites all ported);
-    // the runner's --maxdepth-1 scan legitimately yields nothing for it and
-    // must not fail on the absent corpus. The pinned members below are suites
-    // that remain at the time of writing; each pin updates as its suite ports.
-    expect(r.out).toContain("/tests/scripts/");
-    // self-reference: this suite ported to TS still has the runner collect the
-    // devenv corpus — assert on the canary, which stays bats by design.
-    expect(r.out).toContain("/tests/devenv/test_helper_isolation_canary.bats");
-  });
-
-  it("the runner runs the vitest lane after the bats sweep", () => {
+  it("the runner runs the vitest lane as the whole gate", () => {
     const r = runnerCollectedFiles();
     // One command is the whole gate: the runner must invoke vitest itself
     // (not rely on `pnpm test`'s &&-composition), so hooks and CI get the
@@ -142,15 +130,14 @@ describe("run tests local (runner contract)", () => {
     expect(r.vitestInvoked, "runner did not invoke the vitest lane").toBe(true);
   });
 
-  it("the runner never collects the manual-only live/ suite", () => {
+  it("the runner never invokes the manual-only live/ suite", () => {
     const r = runnerCollectedFiles();
     expect(r.status).toBe(0);
     expect(r.out).not.toContain("/tests/live/");
   });
 
-  it("the tests README documents both the skills/ collection and the manual-only live/ suite", () => {
+  it("the tests README documents the manual-only live/ suite lane", () => {
     const readme = readFileSync(join(ROOT, "tools/tests/README.md"), "utf8");
-    expect(readme).toContain("skills/");
     expect(readme).toMatch(/manual-only.*live\/|live\/.*manual/i);
   });
 });

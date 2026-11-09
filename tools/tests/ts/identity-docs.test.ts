@@ -41,31 +41,23 @@ describe("identity docs", () => {
   it("a config carrying only github_org does not resolve an org", () => {
     const t = mkdtempSync(join(tmpdir(), "identity-"));
     writeFileSync(join(t, "devenv.config"), "[organization]\nname=t\ngithub_org=old-org\n");
+    // The org identity chain is TS now (provider-core.ts providerOrgGet:
+    // [organization] org → the setup seed file; github_org was never a leg).
     const r = sh(
-      `export DEVENV_ROOT='${t}'\n` +
-      "unset POLICY_ORG GH_ORG\n" +
-      `source '${ROOT}/tools/lib/policy/policy-core.bash'\n` +
-      `policy_core_init '${t}/devenv.config'\n` +
-      `source '${ROOT}/tools/lib/policy/identity-policy.bash'\n` +
-      "policy_org",
+      `node --input-type=module -e "import('${ROOT}/tools/lib/providers/provider-core.ts').then(m=>{process.env.DEVENV_ROOT='${t}';process.env.DEVENV_TOOLS='${ROOT}/tools';console.log(m.providerOrgGet()===''?'UNRESOLVED':'RESOLVED:'+m.providerOrgGet())})"`,
     );
-    expect(r.status).toBe(1);
-    expect(r.out).toBe("");
+    expect(r.out.trim()).toBe("UNRESOLVED");
     rmSync(t, { recursive: true, force: true });
   });
 
   it("GH_ORG in the environment does not override the configured org", () => {
     const t = mkdtempSync(join(tmpdir(), "identity-"));
     writeFileSync(join(t, "devenv.config"), "[organization]\nname=t\norg=cfg-org\n");
+    // Env legs (GH_ORG et al.) were never part of the TS chain; the
+    // configured org wins unconditionally.
     const r = sh(
-      `export DEVENV_ROOT='${t}'\n` +
-      "unset POLICY_ORG\n" +
-      `source '${ROOT}/tools/lib/policy/policy-core.bash'\n` +
-      `policy_core_init '${t}/devenv.config'\n` +
-      `source '${ROOT}/tools/lib/policy/identity-policy.bash'\n` +
-      "GH_ORG=env-org policy_org",
+      `GH_ORG=env-org node --input-type=module -e "import('${ROOT}/tools/lib/providers/provider-core.ts').then(m=>{process.env.DEVENV_ROOT='${t}';process.env.DEVENV_TOOLS='${ROOT}/tools';console.log(m.providerOrgGet())})"`,
     );
-    expect(r.status).toBe(0);
     expect(r.out.trim()).toBe("cfg-org");
     rmSync(t, { recursive: true, force: true });
   });

@@ -421,7 +421,7 @@ describe("wrapper suite additions (bats port)", () => {
 
 // ── special/repo-reset-merge-config ─────────────────────────────────────────
 
-const SRM = join(TOOLS, "special", "repo-reset-merge-config.sh");
+const SRM = join(TOOLS, "ts", "repo-reset-merge-config.ts");
 
 describe("repo-reset-merge-config (bats port)", () => {
   let BIN = "";
@@ -433,7 +433,7 @@ describe("repo-reset-merge-config (bats port)", () => {
     e["PATH"] = `${BIN}:${process.env.PATH ?? ""}`;
     if (GH_LOG) e["GH_CALL_LOG"] = GH_LOG;
     for (const [k, v] of Object.entries(extraEnv)) e[k] = v;
-    const r = spawnSync("bash", [SRM, ...args], { encoding: "utf8", env: e });
+    const r = spawnSync("node", [SRM, ...args], { encoding: "utf8", env: e });
     return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
   }
 
@@ -551,8 +551,8 @@ esac
     expect(srm(["repo-beta"]).status).toBe(0);
   });
 
-  it("has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", SRM]).status).toBe(0);
+  it("has valid syntax (TS port)", () => {
+    expect(spawnSync("node", ["--check", SRM]).status).toBe(0);
   });
 
   it("no target selected: usage error with guidance", () => {
@@ -577,7 +577,8 @@ esac
   it("--repo is no longer a recognized flag", () => {
     const r = srm(["--repo", "repo-beta"]);
     expect(r.status).not.toBe(0);
-    expect(r.out).toMatch(/Unknown argument: --repo/);
+    // toolCli's strict parse rejects unknown long flags naming the flag.
+    expect(r.out).toMatch(/--repo/);
   });
 });
 

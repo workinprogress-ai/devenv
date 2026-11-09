@@ -16,17 +16,11 @@ const isRuntimeWorkspace = existsSync(join(process.cwd(), "repos", "devenv"));
 export default defineConfig({
   test: {
     include: ["tools/tests/ts/**/*.test.ts"],
-    // Azure smoke-harness tests are special-case: they drive the live
-    // validation harness through dozens of scripted bash invocations and run
-    // for many minutes — excluded from the default lane. Run explicitly:
-    //   pnpm exec vitest run tools/tests/ts/azure-smoke-harness.test.ts
     exclude: [
-      "tools/tests/ts/azure-smoke-harness.test.ts",
       // Clone-context suites on the runtime workspace only (see above):
       ...(isRuntimeWorkspace
         ? [
             "tools/tests/ts/domain-cs-dependency-graph.test.ts",
-            "tools/tests/ts/test-helper-isolation.test.ts",
           ]
         : []),
     ],

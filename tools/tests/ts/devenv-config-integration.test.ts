@@ -167,13 +167,8 @@ describe("setup + test-helper email wiring", () => {
     expect(grepFile("email_domain", join(ROOT, "setup"))).toBe(0);
   });
 
-  it("test_helper.bash: uses generic test email", () => {
-    expect(grepFile('USER_EMAIL="test@example.com"', join(ROOT, "tools/tests/test_helper.bash"))).toBe(0);
-  });
-
-  it("test_helper.bash: does not use hardcoded organization email", () => {
-    expect(grepFile("@workinprogress.ai", join(ROOT, "tools/tests/test_helper.bash"))).not.toBe(0);
-  });
+  // The test_helper.bash pins retired with the helper (Phase 11: the bats
+  // corpus and its helper deleted; the vitest harness owns fixture hygiene).
 });
 
 describe("test fixture parity", () => {

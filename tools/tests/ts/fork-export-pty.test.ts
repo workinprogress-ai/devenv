@@ -25,7 +25,7 @@ function git(target: string, ...args: string[]): string {
   return r.stdout;
 }
 
-/** The fork fixture trio (port of test_helper's create_fork_fixture_trio):
+/** The fork fixture trio (port of the retired bats helper's create_fork_fixture_trio):
  * upstream bare, a working clone of an ado-origin bare, and a gh clone of
  * upstream — the fork-export shape. */
 function makeForkTrio(): void {

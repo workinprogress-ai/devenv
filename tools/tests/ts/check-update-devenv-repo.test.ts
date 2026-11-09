@@ -97,7 +97,10 @@ beforeEach(() => {
   mkdirSync(join(CLONE, "tools/lib"), { recursive: true });
   cpSync(join(ROOT, ".devcontainer/check-update-devenv-repo.sh"), join(CLONE, ".devcontainer/check-update-devenv-repo.sh"));
   cpSync(join(ROOT, ".devcontainer/post-update.bash"), join(CLONE, ".devcontainer/post-update.bash"));
-  cpSync(join(ROOT, "tools/lib/rewrite-detect.bash"), join(CLONE, "tools/lib/rewrite-detect.bash"));
+  // The rewrite classifier is TS (lib/core/git.ts); the script imports it
+  // from the clone's own tools tree — copy the core lib dir the classifier
+  // and its imports need.
+  cpSync(join(ROOT, "tools/lib/core"), join(CLONE, "tools/lib/core"), { recursive: true });
   // git-update stand-in: succeeds or fails on demand, records that it ran,
   // and (like the real tool after a rewritten update) moves HEAD to
   // origin/master when GIT_UPDATE_RESET is set — the post-update scan needs

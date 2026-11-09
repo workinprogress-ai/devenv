@@ -281,17 +281,8 @@ describe("provider core", () => {
     expect(r.out).toContain("name=[github]");
   });
 
-  it("the default provider is not read from the configured name (no circular binding)", () => {
-    writeConfig("[provider]", "name=azrue");
-    const r = coreRun("policy_default_provider", { DEVENV_ROOT: TMP });
-    expect(r.out.trim()).toBe("github");
-  });
-
-  it("POLICY_DEFAULT_PROVIDER still overrides the default", () => {
-    writeConfig("[workflows]", "status_workflow=A,B");
-    const r = coreRun("policy_default_provider", { DEVENV_ROOT: TMP, POLICY_DEFAULT_PROVIDER: "azure" });
-    expect(r.out.trim()).toBe("azure");
-  });
+  // The policy layer (policy_default_provider) retired with the bash verb
+  // layer; default-provider resolution is covered by the pins above.
 
   // ── Missing verb is a defined error (F052) ───────────────────────────────
 
