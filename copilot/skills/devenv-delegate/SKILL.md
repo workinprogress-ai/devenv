@@ -344,23 +344,26 @@ Wait for explicit go-ahead before starting the first session.
 
 If the immediately previous turn raised a `🔶` decision gate, a generic "go ahead" or navigation reply is not enough unless it clearly chooses one of the presented options or otherwise approves a specific path.
 
-**Execution agenda (set at commissioning, required):** the run's boundary behavior is a per-phase **execution agenda** — one mode per phase plus its scheduled hand-backs — commissioned from the plan's per-phase recommendations or the user's direction, and it replaces the old run-level boundary-mode question entirely. Ask via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections):
+**Execution agenda (set at commissioning, required):** the run's boundary behavior is a per-phase **execution agenda** — one mode per phase plus its scheduled hand-backs — commissioned from the plan's per-phase recommendations or the user's direction, and it replaces the old run-level boundary-mode question entirely. **Output the agenda segments as a table before asking** — render the plan's per-phase recommendations as a table (Phase | Plan recommendation | Mapped mode) in the same turn as the question, so the user sees the whole agenda at a glance instead of parsing prose; then ask via the structured interview per the shared [direct query style](../_conventions.md#direct-query-style-questions-and-selections):
 
-> *"How should this plan be executed? The plan's per-phase recommendations are: <from the Phase TOC / phase headers — e.g. 1 Delegation, 2 Pairing, 3 Supervised, …>.*
+> *"How should this plan be executed? The plan's per-phase recommendations are in the table above — follow them, or describe how you want it executed."
 >
 > - **Follow the recommendations** — I build the agenda from them: Delegation → `delegate` phases, Supervised → `supervised` phases, Pairing → `pair` phases (I pause before those for a pairing session).*
 > - **Describe how you want it executed** — freeform: name phases, modes, or cadence ("I'll pair on phase 4, do the rest yourself") and I draft a sensible agenda from it.*
 >
 > *Either way, I show you the full agenda for approval before anything runs. And: keep the plan synced to issue #N as the run progresses? **Auto-sync is the default** — a lint-gated `issue-artifact-upsert` at each phase boundary and after material plan revisions, with no per-boundary asking (every handback's Sync line reports what happened). Say "local-only" to opt out; nothing is posted without the standing grant."*
 
-Then draft the agenda and present it for approval — the full per-phase map in chat (referenced material), with a structured approve / edit-anything (freeform: name the changes) question. **The presentation is a hard gate: no phase starts — not even Phase 1 — until the map has been posted in chat and explicitly approved.** An agenda written into the session file without a presented map and an approval turn is a commissioning defect, not a shortcut; "the directive was clear" does not waive the gate — the map is where directive-vs-recommendation conflicts become visible (a presented `6 pair` next to "do the entire thing delegated" invites the correction five phases earlier than the boundary would). Shape:
+Then draft the agenda and present it for approval — the full per-phase map in chat (referenced material), with a structured approve / edit-anything (freeform: name the changes) question. **The presentation is a hard gate: no phase starts — not even Phase 1 — until the map has been posted in chat and explicitly approved.** An agenda written into the session file without a presented map and an approval turn is a commissioning defect, not a shortcut; "the directive was clear" does not waive the gate — the map is where directive-vs-recommendation conflicts become visible (a presented `6 pair` next to "do the entire thing delegated" invites the correction five phases earlier than the boundary would). Shape — a table, one row per segment:
 
-> *Execution agenda — Plan-issue-N-001:*
-> *- Phase 1 — `delegate` (boundary protocol runs; continue unless a forced stop fires)*
-> *- Phase 2 — `supervised` (per-task hand-backs)*
-> *- Phase 3 — `delegate`*
-> *- Phase 4 — `pair` (I stop before it and hand you a pairing handoff block; the run resumes at Phase 5 when you say so)*
-> *- Phase 5 — `gate` (stop at the boundary, wait for your review)*
+> **Execution agenda — Plan-issue-N-001:**
+>
+> | Phase | Mode | Boundary behavior |
+> |---|---|---|
+> | 1 | `delegate` | boundary protocol runs; continue unless a forced stop fires |
+> | 2 | `supervised` (per-task) | hand-back after every task |
+> | 3 | `delegate` | boundary protocol runs; continue unless a forced stop fires |
+> | 4 | `pair` | run pauses before it — pairing handoff block; resumes at Phase 5 on your word |
+> | 5 | `gate` | stop at the boundary, wait for your review |
 
 Agenda construction rules:
 
@@ -477,6 +480,7 @@ Stop and surface to the user when hitting:
 - Multiple existing patterns where the choice is consequential and non-obvious.
 - Anything that contradicts the plan in a significant way.
 - An unexpected obstacle that may change scope or phase structure.
+- **A pivot-class discovery** — a verified finding that supersedes the approach assumption behind the *remaining* phases while the goal survives (new library foundation, research result, user design decision, scope discovery). The shared [pivot protocol](../common/references/pivot-protocol.md) governs from here: classify on its gradient (torn → classify up), stabilize at a clean boundary (finish the current task only if its output survives the pivot; the phase still closes and commits), route decision mass through `/devenv-groom` before refining, record a marker-style escalation in the plan's `## Pending Questions`, hand back recommending `/devenv-refine-plan` (revision mode), and re-check the commissioned agenda on resumption — never grind superseded phases while refinement is pending.
 - **Foreign working-tree changes.** Working-tree edits outside the run's own tracked changes — whoever wrote them: the user in an editor, another commissioned session, or anything else. The run's files are presumed exclusively its own relative to the kickoff provenance baseline while the user is away, so fresh foreign edits (especially near the plan's `Files:` sets) risk clobbering concurrent work. **Attribution before alarm:** check the candidate edits against the kickoff baseline, the run's own recent actions, and the [session coordination registry](../common/references/session-coordination.md) first — in that order. A run that just edited a file and re-reads it can misclassify its own change as foreign (recall failure, not a foreign writer); edits inside an active registry colleague's recorded territory are sanctioned work — note them and reconcile at the boundary, no alarm; edits with no registry explanation still surface. Uncertain attribution (an edit the run can neither claim, rule out, nor registry-explain) surfaces — but as a question, not a foreign-changes verdict. Pause and surface; a `delegate`-mode phase defers the surface to the next boundary unless the changes collide with files the run has already edited. **Plan-file edits the run didn't make are always this trigger** (single-writer rule, kickoff section, including its registry-aware downgrade). **Staging and commits are never this trigger:** the user may be reviewing in real time, and files moving into the index or into commits (including the run's own outputs) are normal review activity — note them in the handback's working-tree provenance line and continue.
 - Any point where the next plausible move is workaround, placeholder, fallback, or other hack code whose real purpose is just to get unstuck.
 - Any point where the "temporary" implementation would be more than a tiny compile/test unblock and would effectively become a substantial alternate implementation path.
