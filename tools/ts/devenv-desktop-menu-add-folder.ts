@@ -3,6 +3,7 @@
 
 import { existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { addFolder, menuFile } from "../lib/domain/desktop-menu.ts";
@@ -48,7 +49,7 @@ try {
   folderName = cli.positionals[0] ?? "";
   parentFolder = cli.positionals[1] ?? "";
 } catch (err) {
-  console.error(err instanceof Error ? err.message : String(err));
+  console.error(errorMessage(err));
   usage();
 }
 

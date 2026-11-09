@@ -7,6 +7,8 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCapture, gitCheck } from "../lib/core/git.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -14,8 +16,7 @@ import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 assertNodeFloor();
 
 function git(args: string[]): { status: number; out: string } {
-  const r = spawnSync("git", args, { encoding: "utf8" });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return gitCapture(null, args);
 }
 
 const SCRIPT_VERSION = "1.1.0";
@@ -46,7 +47,7 @@ try {
 } catch (err) {
   // Bash-parity refusal: the full usage block with a non-zero exit (the
   // helper-args suite pins both 'Usage' in the output and status != 0).
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log(USAGE_TEXT);
   process.exit(EXIT_MISUSE);
 }
@@ -112,7 +113,7 @@ if (push.status !== 0) {
 }
 
 function spawnUpstreamSubject(): string | null {
-  const r = spawnSync("git", ["log", "@{u}", "-1", "--format=%s"], { encoding: "utf8" });
-  if (r.status !== 0) return null;
-  return r.stdout ?? "";
+  const r = gitCheck(null, ["log", "@{u}", "-1", "--format=%s"]);
+  if (!r.ok) return null;
+  return r.out;
 }

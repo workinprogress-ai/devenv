@@ -8,6 +8,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -48,7 +49,7 @@ try {
   nsInput = (cli.values["namespace"] as string | undefined) ?? "";
   mappingsRaw = [...cli.positionals];
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 const resolution = resolveNamespace(nsInput);
@@ -75,7 +76,7 @@ if (args.length > 0 && statSync(args[0] as string, { throwIfNoEntry: false })?.i
   try {
     content = readFileSync(file, "utf8");
   } catch (err) {
-    logError(`Cannot read mapping file ${file}: ${err instanceof Error ? err.message : String(err)}`);
+    logError(`Cannot read mapping file ${file}: ${errorMessage(err)}`);
     process.exit(EXIT_GENERAL_ERROR);
   }
   for (const line of content.split("\n")) {
@@ -124,7 +125,7 @@ for (const mapping of mappings) {
   try {
     pods = listPods({ namespace: ns, filter: podId });
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
     process.exit(EXIT_GENERAL_ERROR);
   }
   if (pods.length === 0) {

@@ -9,10 +9,11 @@ import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { listPods, resolveNamespace } from "../lib/domain/kube/kube.ts";
+import { listPods, resolveNamespace, spawnKubectl } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
 
@@ -51,7 +52,7 @@ try {
   nsInput = (cli.values["namespace"] as string | undefined) ?? "";
   mappingsRaw = [...cli.positionals];
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 const resolution = resolveNamespace(nsInput);
@@ -78,7 +79,7 @@ if (args.length > 0 && statSync(args[0] as string, { throwIfNoEntry: false })?.i
   try {
     content = readFileSync(file, "utf8");
   } catch (err) {
-    logError(`Cannot read mapping file ${file}: ${err instanceof Error ? err.message : String(err)}`);
+    logError(`Cannot read mapping file ${file}: ${errorMessage(err)}`);
     process.exit(EXIT_GENERAL_ERROR);
   }
   for (const line of content.split("\n")) {
@@ -113,7 +114,7 @@ for (const mapping of mappings) {
   try {
     pods = listPods({ namespace: ns, filter: depId });
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
     process.exit(EXIT_GENERAL_ERROR);
   }
   if (pods.length === 0) {
@@ -209,9 +210,7 @@ process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
 
 // Ensure traffic-manager exists (install when missing).
-const tm = spawnSync("kubectl", ["get", "deployment", "traffic-manager", "-n", "ambassador", "--no-headers"], {
-  stdio: ["ignore", "ignore", "ignore"],
-});
+const tm = spawnKubectl(["get", "deployment", "traffic-manager", "-n", "ambassador", "--no-headers"]);
 if (tm.status !== 0) {
   console.log("Installing traffic-manager on cluster...");
   spawnSync("telepresence", ["helm", "install"], { stdio: "inherit" });

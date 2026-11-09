@@ -74,3 +74,10 @@ export const logFatal = (...p: unknown[]): void => logMessage("FATAL", ...p);
 export const logSuccess = (...p: unknown[]): void => logMessage("SUCCESS", ...p);
 /** Legacy alias some bash libs used; preserved for translation parity. */
 export const errorMsg = logError;
+
+
+/** Coerce a caught unknown to its message: Error.message when present,
+ * else String(err). The one-line catch-block coercion every tool repeats. */
+export function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}

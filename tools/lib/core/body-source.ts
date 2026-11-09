@@ -25,6 +25,7 @@
 // Strip-only compatible: no parameter properties, enums, or namespaces.
 
 import { readFileSync, existsSync, statSync } from "node:fs";
+import { errorMessage } from "./logging.ts";
 
 /** Error codes the resolver can return. Stable contract: tools switch on
  * these to preserve their historical exit codes and message wording. */
@@ -141,7 +142,7 @@ export function resolveBodySource(opts: {
         ok: false,
         error: {
           code: "file-read-failed",
-          message: `Could not read ${file}: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Could not read ${file}: ${errorMessage(err)}`,
         },
       };
     }

@@ -6,6 +6,7 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { changeIdGetFromCommit } from "../lib/core/change-id.ts";
@@ -111,7 +112,7 @@ try {
     die("--rebase was renamed --replay (the sync applies upstream's commits on top of the branch; it no longer describes itself as a rebase)", EXIT_MISUSE);
   }
 } catch (err) {
-  die(err instanceof Error ? err.message : String(err), EXIT_MISUSE);
+  die(errorMessage(err), EXIT_MISUSE);
 }
 
 if (yes && !push && !replay) die("--yes requires --push-to-origin or --replay", EXIT_MISUSE);

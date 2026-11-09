@@ -16,6 +16,7 @@ import { basename } from "node:path";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { formatTable } from "../lib/ui/panels.ts";
@@ -132,7 +133,7 @@ async function main(argv: string[]): Promise<number> {
     web = Boolean(values["web"]);
     devenv = cli.common.devenv;
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
@@ -145,7 +146,7 @@ async function main(argv: string[]): Promise<number> {
     try {
       await issuesList(repo, { web: true });
     } catch (err) {
-      logError(`Failed to open the issue list: ${err instanceof Error ? err.message : String(err)}`);
+      logError(`Failed to open the issue list: ${errorMessage(err)}`);
       return 1;
     }
     return 0;
@@ -200,7 +201,7 @@ async function main(argv: string[]): Promise<number> {
     }
     return 0;
   } catch (err) {
-    logError(`Failed to list issues: ${err instanceof Error ? err.message : String(err)}`);
+    logError(`Failed to list issues: ${errorMessage(err)}`);
     return 1;
   }
 }
@@ -208,7 +209,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(1);
   },
 );

@@ -14,6 +14,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { orgIssueTypes } from "../lib/providers/facade/issues.ts";
@@ -74,7 +75,7 @@ async function main(argv: string[]): Promise<number> {
     if (cli.common.help) showUsage();
     format = ((cli.values["format"] as string | undefined) ?? "table");
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return 1;
   }
@@ -86,7 +87,7 @@ async function main(argv: string[]): Promise<number> {
   try {
     types = await orgIssueTypes(org);
   } catch (err) {
-    logError(`Failed to query issue types for org ${org}: ${err instanceof Error ? err.message : String(err)}`);
+    logError(`Failed to query issue types for org ${org}: ${errorMessage(err)}`);
     return 1;
   }
 
@@ -118,7 +119,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(1);
   },
 );

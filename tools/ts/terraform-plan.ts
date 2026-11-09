@@ -4,6 +4,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
@@ -39,7 +40,7 @@ try {
   if (cli.positionals.length > 1) usage();
   tfDir = cli.positionals[0] ?? ".";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 const extraArgs = extraSide;

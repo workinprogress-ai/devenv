@@ -10,6 +10,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { calculateNextVersion, getLatestVersionTag } from "../lib/domain/release/version.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -76,7 +77,7 @@ function main(): void {
     if (cli.common.help) usage();
     argv = cli.positionals;
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
     console.log("Use --help for usage information");
     process.exit(2);
   }
@@ -156,7 +157,7 @@ function main(): void {
       }
     }
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
     process.exit(1);
   }
 

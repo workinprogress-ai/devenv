@@ -7,6 +7,7 @@
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -38,7 +39,7 @@ try {
   });
   if (cli.common.help) usage();
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }

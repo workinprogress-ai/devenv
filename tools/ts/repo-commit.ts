@@ -21,6 +21,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { gitCapture, gitCheck } from "../lib/core/git.ts";
 import { toolCli } from "../lib/core/cli.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 
@@ -34,11 +35,18 @@ function die(...lines: string[]): never {
 }
 
 function git(args: string[], opts: { cwd?: string } = {}): { status: number; out: string } {
-  const r = spawnSync("git", args, { encoding: "utf8", ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}) });
-  // stdout AND stderr: hook failures (the commit gates) write to stderr, so
-  // an out.trim() built from stdout alone reports an empty diagnostic.
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  // gitCapture merges stdout+stderr: hook failures (the commit gates) write
+  // to stderr, so an out.trim() built from stdout alone reports an empty
+  // diagnostic.
+  return gitCapture(opts.cwd ?? null, args);
 }
+
+// Editor-gated git spawns (amend/commit/fold/reword) stay on raw spawnSync
+// with a named reason: each injects GIT_EDITOR/GIT_SEQUENCE_EDITOR env and
+// needs editor-shaped stdio (full inherit, or stderr-piped to separate a
+// hook rejection from an editor abort) — shapes the shared runners
+// deliberately do not model. Everything else in this file routes through
+// gitCapture/gitCheck.
 
 // --- The fold-window boundary: master-reachability, not remote-ref presence.
 // This workflow's PR branches are rebased and force-pushed routinely, so a
@@ -578,7 +586,7 @@ if (fixLane) {
   if (fold.status !== 0) {
     // Fail to a describable state: abort the rebase (the fixup commit
     // survives at HEAD — the work is an ordinary commit, nothing lost).
-    spawnSync("git", ["rebase", "--abort"], { encoding: "utf8" });
+    gitCheck(null, ["rebase", "--abort"]);
     const fixupAtHead = git(["log", "-1", "--format=%s"]).out.trim().startsWith("fixup!");
     die(
       `autosquash rebase failed (conflict) — rebase aborted${fixupAtHead ? "; the fixup commit is preserved at HEAD" : ""}`,
@@ -702,7 +710,7 @@ if (rewordLane) {
   );
   rmSync(dirname(seqEditor), { recursive: true, force: true });
   if (reword.status !== 0) {
-    spawnSync("git", ["rebase", "--abort"], { encoding: "utf8" });
+    gitCheck(null, ["rebase", "--abort"]);
     die(
       "reword rebase failed (conflict or editor abort) — rebase aborted; the stack is unchanged",
       `recovery: git reset --hard ${backup}`,

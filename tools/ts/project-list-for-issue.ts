@@ -6,6 +6,7 @@
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -52,7 +53,7 @@ try {
   const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
   if (positionals.length > 0) issueNumber = positionals[0] ?? "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 

@@ -4,6 +4,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
@@ -44,7 +45,7 @@ try {
   target = cli.positionals[0] ?? "";
   tunnelArgs = cli.positionals.slice(1);
 } catch (err) {
-  console.error(err instanceof Error ? err.message : String(err));
+  console.error(errorMessage(err));
   usage();
 }
 

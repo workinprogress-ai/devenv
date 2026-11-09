@@ -14,6 +14,7 @@ import { existsSync, chmodSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -374,7 +375,7 @@ try {
     usage();
   }
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 
@@ -386,7 +387,7 @@ if (interactiveMode) {
     logError("Pass --type <type> <name> for non-interactive creation.");
     process.exit(EXIT_MISUSE);
   }
-  const { select, text } = await import("../lib/ui/index.ts");
+  const { select, text } = await import("../lib/ui/prompts.ts");
   const typeKeys = Object.keys(config.types);
   const selected = await select<string>({
     message: "Select repository type:",

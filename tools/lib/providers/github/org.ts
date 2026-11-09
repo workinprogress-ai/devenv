@@ -6,7 +6,8 @@
 // consuming batch per the family-batch doctrine. All ruleset endpoints are
 // repository-scoped REST (`repos/{repo}/rulesets`).
 
-import { ghApi, ghApiSync, providerDeclareCapability, providerRequireCapability } from "../provider-core.ts";
+import { providerDeclareCapability, providerRequireCapability } from "../provider-core.ts";
+import { ghApi, ghApiSync } from "./transport.ts";
 
 // Capability declarations (bash org.bash's declarations, carried over).
 providerDeclareCapability("rulesets");

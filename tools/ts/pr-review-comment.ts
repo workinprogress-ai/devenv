@@ -13,6 +13,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadCreate, prsView } from "../lib/providers/facade/prs.ts";
@@ -95,7 +96,7 @@ async function main(argv: string[]): Promise<number> {
     bodyFile = ((cli.values["body-file"] as string | undefined) ?? "");
     if (cli.positionals.length > 0) prNumber = cli.positionals[0] ?? "";
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
@@ -177,7 +178,7 @@ async function main(argv: string[]): Promise<number> {
     ).stdout;
   } catch (err) {
     logError(`Failed to post inline review comment on PR #${prNumber}`);
-    console.error(err instanceof Error ? err.message : String(err));
+    console.error(errorMessage(err));
     return EXIT_API_FAILURE;
   }
 
@@ -209,7 +210,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_API_FAILURE);
   },
 );

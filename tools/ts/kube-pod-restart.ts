@@ -6,6 +6,7 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -15,8 +16,7 @@ import {
   getResourceJson,
   listDeployments,
   resolveNamespace,
-  resolveSingleMatch,
-} from "../lib/domain/kube/kube.ts";
+  resolveSingleMatch, spawnKubectlInherit } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
 
@@ -50,7 +50,7 @@ try {
   depPart = cli.positionals[0] ?? "";
   nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 
@@ -111,14 +111,14 @@ try {
 console.log(`Restarting deployment: ${deployment} (Current replicas: ${currentReplicas})`);
 
 console.log(`Scaling ${deployment} to 0 replicas...`);
-const down = spawnSync("kubectl", ["scale", "deployment", deployment, "--replicas=0", "-n", ns], { stdio: "inherit" });
-if (down.status !== 0) process.exit(down.status ?? 1);
+const down = spawnKubectlInherit(["scale", "deployment", deployment, "--replicas=0", "-n", ns]);
+if (!down.ok) process.exit(down.status);
 
 console.log("Waiting for pods to terminate...");
 spawnSync("sleep", ["5"]);
 
 console.log(`Scaling ${deployment} back to ${currentReplicas} replicas...`);
-const up = spawnSync("kubectl", ["scale", "deployment", deployment, `--replicas=${currentReplicas}`, "-n", ns], { stdio: "inherit" });
-if (up.status !== 0) process.exit(up.status ?? 1);
+const up = spawnKubectlInherit(["scale", "deployment", deployment, `--replicas=${currentReplicas}`, "-n", ns]);
+if (!up.ok) process.exit(up.status);
 
 console.log(`Deployment ${deployment} restarted successfully.`);

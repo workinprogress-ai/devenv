@@ -6,6 +6,7 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -14,8 +15,7 @@ import {
   KUBE_CONFIRM_DECLINED_STATUS,
   listPods,
   resolveNamespace,
-  resolveSingleMatch,
-} from "../lib/domain/kube/kube.ts";
+  resolveSingleMatch, spawnKubectlInherit } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
 
@@ -48,7 +48,7 @@ try {
   podPart = cli.positionals[0] ?? "";
   nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? cli.positionals[1] ?? "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 
@@ -97,5 +97,5 @@ if (!confirmed) {
 }
 
 console.log(`Deleting pod: ${pod}`);
-const r = spawnSync("kubectl", ["delete", "pod", pod, "-n", ns], { stdio: "inherit" });
-process.exit(r.status ?? 1);
+const r = spawnKubectlInherit(["delete", "pod", pod, "-n", ns]);
+process.exit(r.status);

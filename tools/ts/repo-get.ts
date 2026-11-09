@@ -12,6 +12,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCapture, gitCheck } from "../lib/core/git.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
@@ -56,8 +58,7 @@ function usage(): never {
 }
 
 function git(args: string[], cwd?: string): { status: number; out: string } {
-  const r = spawnSync("git", args, { encoding: "utf8", ...(cwd !== undefined ? { cwd } : {}) });
-  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+  return gitCapture(cwd ?? null, args);
 }
 
 // True when the argument is a repository URL (foreign repo) rather than an
@@ -211,7 +212,7 @@ try {
   }
   }
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 
@@ -227,7 +228,7 @@ if (selectMode) {
     console.error("List candidates instead with: repo-get --all (dry) or `gh repo list <org>`.");
     process.exit(EXIT_GENERAL_ERROR);
   }
-  const { multiSelect } = await import("../lib/ui/index.ts");
+  const { multiSelect } = await import("../lib/ui/prompts.ts");
   void multiSelect; // interactive selection lands with the interactive polish pass
   console.error("ERROR: interactive selection is not available in this build; pass a repository name.");
   process.exit(EXIT_GENERAL_ERROR);
@@ -296,10 +297,10 @@ function detectDefaultBranch(dir: string): string {
 
 // Global safe.directory entry: idempotent.
 function addGitSafeDirectory(dir: string): void {
-  const existing = spawnSync("git", ["config", "--global", "--get-all", "safe.directory"], { encoding: "utf8" });
-  const lines = (existing.stdout ?? "").split("\n");
+  const existing = gitCheck(null, ["config", "--global", "--get-all", "safe.directory"]);
+  const lines = existing.out.split("\n");
   if (!lines.includes(dir)) {
-    spawnSync("git", ["config", "--global", "--add", "safe.directory", dir], { stdio: "ignore" });
+    gitCheck(null, ["config", "--global", "--add", "safe.directory", dir]);
   }
 }
 
@@ -308,16 +309,16 @@ function addGitSafeDirectory(dir: string): void {
 // left alone (ambiguity treated as foreign, safety-first).
 async function configureGitRepo(dir: string, remoteUrl: string): Promise<void> {
   addGitSafeDirectory(dir);
-  spawnSync("git", ["config", "core.autocrlf", "false"], { cwd: dir, stdio: "ignore" });
-  spawnSync("git", ["config", "core.eol", "lf"], { cwd: dir, stdio: "ignore" });
-  spawnSync("git", ["config", "pull.ff", "only"], { cwd: dir, stdio: "ignore" });
+  gitCheck(dir, ["config", "core.autocrlf", "false"]);
+  gitCheck(dir, ["config", "core.eol", "lf"]);
+  gitCheck(dir, ["config", "pull.ff", "only"]);
   if (remoteUrl !== "") {
-    const current = spawnSync("git", ["remote", "get-url", "origin"], { encoding: "utf8", cwd: dir });
-    const currentUrl = (current.stdout ?? "").trim();
+    const current = gitCheck(dir, ["remote", "get-url", "origin"]);
+    const currentUrl = current.out.trim();
     if (currentUrl !== "" && !(await isOrgMember(currentUrl))) {
       logWarn(`configure_git_repo: foreign repo (origin '${currentUrl}') — skipping remote URL rewrite`);
     } else {
-      spawnSync("git", ["remote", "set-url", "origin", remoteUrl], { cwd: dir, stdio: "ignore" });
+      gitCheck(dir, ["remote", "set-url", "origin", remoteUrl]);
     }
   }
 }

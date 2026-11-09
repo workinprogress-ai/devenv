@@ -16,6 +16,7 @@ import { basename } from "node:path";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issueGraphLink, issueGraphUnlink, issuesExists } from "../lib/providers/facade/issues.ts";
@@ -85,7 +86,7 @@ async function main(argv: string[]): Promise<number> {
     devenv = cli.common.devenv;
     refs = cli.positionals;
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
@@ -129,7 +130,7 @@ async function main(argv: string[]): Promise<number> {
     }
     return 0;
   } catch (err) {
-    logError(`Failed to ${unlink ? "unlink" : "link"}: ${err instanceof Error ? err.message : String(err)}`);
+    logError(`Failed to ${unlink ? "unlink" : "link"}: ${errorMessage(err)}`);
     return EXIT_GENERAL_ERROR;
   }
 }
@@ -137,7 +138,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_GENERAL_ERROR);
   },
 );

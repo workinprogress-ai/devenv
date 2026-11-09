@@ -7,6 +7,7 @@ import { mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot, resolveToolsRoot } from "../lib/core/self-root.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -46,7 +47,7 @@ try {
   if (cli.common.help) usage();
   if (cli.positionals.length > 0) newToken = cli.positionals[0] as string;
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }

@@ -5,6 +5,7 @@
 
 import { ProviderError } from "../provider-core.ts";
 import { azureHttp } from "./http.ts";
+import { witBase } from "./wit-urls.ts";
 import { azureOrgProject, azureUri } from "./urls.ts";
 
 /** The default team's GUID (the boards API's route segment): the configured
@@ -272,8 +273,4 @@ export async function projectsForIssue(
   return `${boardNameForType(type)}\t${number}\t${status}`;
 }
 
-// local import to avoid a cycle through issues.ts's witBase (identical logic)
-function witBase(): { base: string } {
-  const { org, project } = azureOrgProject();
-  return { base: `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}/_apis/wit` };
-}
+

@@ -4,10 +4,11 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { listPods, resolveNamespace } from "../lib/domain/kube/kube.ts";
+import { listPods, resolveNamespace, spawnKubectlInherit } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
 
@@ -42,7 +43,7 @@ try {
   command = cli.positionals.slice(1);
   nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
 }
 
@@ -70,7 +71,7 @@ let pods: string[];
 try {
   pods = listPods({ namespace: ns, filter: podPart });
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   process.exit(EXIT_GENERAL_ERROR);
 }
 if (pods.length === 0) {
@@ -83,7 +84,5 @@ const cmd = command.length > 0 ? command : ["/bin/bash"];
 console.log(`Executing command on console for pod: ${pod} in namespace: ${ns}`);
 
 // Interactive exec: inherit stdio so the shell works.
-const r = spawnSync("kubectl", ["exec", "-it", pod, "-n", ns, "--", ...cmd], {
-  stdio: "inherit",
-});
-process.exit(r.status ?? 1);
+const r = spawnKubectlInherit(["exec", "-it", pod, "-n", ns, "--", ...cmd]);
+process.exit(r.status);

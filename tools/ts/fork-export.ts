@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { confirm, multiSelect } from "../lib/ui/prompts.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import {
@@ -214,7 +215,7 @@ try {
   }
 } catch (err) {
   if (err instanceof Error && err.message.startsWith("invalid format")) throw err;
-  die(err instanceof Error ? err.message : String(err), EXIT_MISUSE);
+  die(errorMessage(err), EXIT_MISUSE);
 }
 if (all && startRef !== "") die("--all cannot be combined with --start-ref", EXIT_MISUSE);
 if (exportOnly && applyTo !== "") die("--export-only cannot be combined with --apply-to", EXIT_MISUSE);

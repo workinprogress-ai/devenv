@@ -10,6 +10,7 @@ import { basename } from "node:path";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
 import { prsList } from "../lib/providers/facade/prs.ts";
@@ -95,7 +96,7 @@ async function main(argv: string[]): Promise<number> {
     headBranch = ((values["head"] as string | undefined) ?? "");
     limit = ((values["limit"] as string | undefined) ?? "30");
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
@@ -158,7 +159,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_API_FAILURE);
   },
 );

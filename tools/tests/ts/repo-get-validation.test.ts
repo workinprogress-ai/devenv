@@ -201,6 +201,8 @@ describe("scripts/repo-get-validation", () => {
     expect(r.status).toBe(0);
     expect(r.out).not.toContain("Invalid repository name");
     const log = spawnSync("cat", [STUB_LOG], { encoding: "utf8" }).stdout ?? "";
-    expect(log.split("\n").some((l) => l.startsWith("git fetch"))).toBe(true);
+    // The shared git runner scopes runs with a -C <dir> argv prefix; match
+    // the fetch wherever it appears in the logged argv.
+    expect(log.split("\n").some((l) => /(^| )fetch /.test(l.replace(/^git /, "")))).toBe(true);
   });
 });

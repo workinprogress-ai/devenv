@@ -8,6 +8,8 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCapture } from "../lib/core/git.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -39,7 +41,7 @@ try {
   });
   if (cli.common.help) usage();
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
@@ -53,8 +55,7 @@ const BLUE = "\x1b[1;34m";
 const RESET = "\x1b[0m";
 
 function git(args: string[]): { status: number; out: string } {
-  const r = spawnSync("git", args, { encoding: "utf8" });
-  return { status: r.status ?? 1, out: r.stdout ?? "" };
+  return gitCapture(null, args);
 }
 
 if (git(["rev-parse", "--is-inside-work-tree"]).status !== 0) {

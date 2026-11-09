@@ -15,6 +15,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCapture } from "../lib/core/git.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { changedFiles } from "../lib/core/git.ts";
@@ -68,15 +70,15 @@ try {
   // (strict parse throws on the missing value → the catch below).
   planFile = typeof cli.values.plan === "string" ? cli.values.plan : "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
   process.exit(EXIT_MISUSE);
 }
 
 // --- repo root
-const rootProbe = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" });
+const rootProbe = gitCapture(null, ["rev-parse", "--show-toplevel"]);
 if (rootProbe.status !== 0) die("not inside a git repository");
-const repoRoot = rootProbe.stdout.trim();
+const repoRoot = rootProbe.out.trim();
 
 // --- extract TaskClaims from the plan markdown
 function extractClaims(content: string): TaskClaim[] {

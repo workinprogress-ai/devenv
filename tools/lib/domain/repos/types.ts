@@ -24,6 +24,7 @@ import {
   reposTeamPut,
   reposCollaboratorPut,
 } from "../../providers/github/repos.ts";
+import { errorMessage } from "../../core/logging.ts";
 
 /** The repo-creation readiness decision (15.13's two-stage parity probe):
  * ready only when BOTH tree counts are known and equal — null (a truncated
@@ -328,7 +329,7 @@ export function buildRulesetPayload(
   try {
     parsed = JSON.parse(template);
   } catch (err) {
-    logWarn(`Ruleset template did not produce valid JSON: ${err instanceof Error ? err.message : String(err)}`);
+    logWarn(`Ruleset template did not produce valid JSON: ${errorMessage(err)}`);
     return "{}";
   }
   const named: Record<string, string> = {

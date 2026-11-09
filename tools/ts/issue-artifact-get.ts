@@ -18,6 +18,7 @@ import { writeFileSync, existsSync } from "node:fs";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesComments } from "../lib/providers/facade/issues.ts";
 
@@ -118,7 +119,7 @@ function parseCliArgs(argv: string[]): Parsed {
       repo: ((v["repo"] as string | undefined) ?? ""),
     };
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_MISUSE);
   }
 }
@@ -182,7 +183,7 @@ async function main(argv: string[]): Promise<number> {
   try {
     raw = await issuesComments(repo, Number.parseInt(args.issue, 10));
   } catch (err) {
-    logError(`Failed to fetch comments for issue #${args.issue}: ${err instanceof Error ? err.message : String(err)}`);
+    logError(`Failed to fetch comments for issue #${args.issue}: ${errorMessage(err)}`);
     return 4;
   }
 
@@ -256,7 +257,7 @@ async function main(argv: string[]): Promise<number> {
     try {
       writeFileSync(args.writeBody, matches[0]?.["body"] as string);
     } catch (err) {
-      logError(`Failed to write body to ${args.writeBody}: ${err instanceof Error ? err.message : String(err)}`);
+      logError(`Failed to write body to ${args.writeBody}: ${errorMessage(err)}`);
       return 4;
     }
   }
@@ -279,7 +280,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_GENERAL_ERROR);
   },
 );

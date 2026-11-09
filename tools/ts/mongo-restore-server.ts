@@ -8,6 +8,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
 import { requireCommandOrExit } from "../lib/core/commands.ts";
@@ -52,7 +53,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
   connectionString = positionals[0] ?? "";
   backupDir = positionals[1] ?? "";
 } catch (err) {
-  console.error(err instanceof Error ? err.message : String(err));
+  console.error(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }

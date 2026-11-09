@@ -14,6 +14,7 @@ import { spawnSync } from "node:child_process";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
@@ -51,7 +52,7 @@ function main(argv: string[]): number {
     positionals = cli.positionals;
     if (cli.common.help) showUsage();
   } catch (err) {
-    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(`Error: ${errorMessage(err)}`);
     return EXIT_MISUSE;
   }
 

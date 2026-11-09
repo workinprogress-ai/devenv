@@ -6,9 +6,10 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
-import { listPods, resolveNamespace } from "../lib/domain/kube/kube.ts";
+import { listPods, resolveNamespace, spawnKubectlInherit } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
 
@@ -77,7 +78,7 @@ let pods: string[];
 try {
   pods = listPods({ namespace: ns, filter: podPart });
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   process.exit(EXIT_GENERAL_ERROR);
 }
 if (pods.length === 0) {
@@ -87,5 +88,5 @@ if (pods.length === 0) {
 const pod = pods[0] as string;
 
 console.log(`Executing command for pod: ${pod} in namespace: ${ns}`);
-const r = spawnSync("kubectl", ["exec", pod, "-n", ns, "--", ...command], { stdio: "inherit" });
-process.exit(r.status ?? 1);
+const r = spawnKubectlInherit(["exec", pod, "-n", ns, "--", ...command]);
+process.exit(r.status);

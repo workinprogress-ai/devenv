@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { logDebug, logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { childOfMapFromConfig, issueNumberFromRef } from "../lib/domain/issues/refs.ts";
 import { spawnSync } from "node:child_process";
@@ -727,7 +728,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_GENERAL_ERROR);
   },
 );

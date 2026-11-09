@@ -28,6 +28,7 @@ import { fileURLToPath } from "node:url";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logInfo, logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 
 assertNodeFloor();
 
@@ -170,7 +171,7 @@ async function main(argv: string[]): Promise<number> {
     skipArg = cli.values["skip"] as string | undefined;
     requested.push(...cli.positionals);
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     return EXIT_MISUSE;
   }
 
@@ -262,7 +263,7 @@ async function main(argv: string[]): Promise<number> {
           .map((v) => (typeof v === "string" ? v : v instanceof Buffer ? v.toString() : ""))
           .join("")
           .trim();
-        logError(`[setup] ${step.name} failed${detail ? `:\n${detail}` : `: ${err instanceof Error ? err.message : String(err)}`}`);
+        logError(`[setup] ${step.name} failed${detail ? `:\n${detail}` : `: ${errorMessage(err)}`}`);
         results.push({ step: step.name, status: "failed" });
         failed = true;
       } else if (!results.some((r) => r.step === step.name)) {
@@ -291,7 +292,7 @@ function basename(s: string): string {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_GENERAL_ERROR);
   },
 );

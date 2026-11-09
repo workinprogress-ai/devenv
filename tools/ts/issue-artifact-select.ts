@@ -22,6 +22,7 @@ import { basename } from "node:path";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT, EXIT_API_FAILURE, EXIT_AMBIGUITY } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesComments } from "../lib/providers/facade/issues.ts";
 
@@ -110,7 +111,7 @@ function parseCliArgs(argv: string[]): Parsed {
       repo: ((v["repo"] as string | undefined) ?? ""),
     };
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_MISUSE);
   }
 }
@@ -298,7 +299,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(5);
   },
 );

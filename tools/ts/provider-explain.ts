@@ -15,6 +15,7 @@
 
 import { basename } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -79,7 +80,7 @@ async function main(): Promise<void> {
       if (cli.common.help) return null;
       return cli.positionals;
     } catch (err) {
-      logError(err instanceof Error ? err.message : String(err));
+      logError(errorMessage(err));
       process.exit(EXIT_MISUSE);
     }
   })();
@@ -100,7 +101,7 @@ async function main(): Promise<void> {
   } catch (err) {
     // providerDetect's named errors (missing config, unshipped name) are
     // exactly what this tool exists to surface — print them as-is.
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_MISUSE);
   }
 

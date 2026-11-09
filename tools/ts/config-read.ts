@@ -4,6 +4,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { configGet } from "../lib/core/config.ts";
@@ -63,7 +64,7 @@ try {
     ? cli.values.config
     : configFile;
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   process.exit(1);
 }
 

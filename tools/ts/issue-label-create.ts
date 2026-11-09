@@ -20,6 +20,7 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesLabelList, issuesLabelCreate, issuesLabelUpdate } from "../lib/providers/facade/issues.ts";
@@ -92,7 +93,7 @@ async function main(argv: string[]): Promise<number> {
       }
     }
   } catch (err) {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     console.log("Use --help for usage information");
     return EXIT_MISUSE;
   }
@@ -115,7 +116,7 @@ async function main(argv: string[]): Promise<number> {
     try {
       listed = await issuesLabelList(repo, { limit: 200, json: "name" });
     } catch (err) {
-      logError(`Failed to list labels: ${err instanceof Error ? err.message : String(err)}`);
+      logError(`Failed to list labels: ${errorMessage(err)}`);
       return EXIT_API_FAILURE;
     }
     let names: string[] = [];
@@ -139,7 +140,7 @@ async function main(argv: string[]): Promise<number> {
           logInfo(`Updated label: ${name}`);
           return 0;
         } catch (err) {
-          logError(`Failed to update label: ${name} — ${err instanceof Error ? err.message : String(err)}`);
+          logError(`Failed to update label: ${name} — ${errorMessage(err)}`);
           return 1;
         }
       }
@@ -158,7 +159,7 @@ async function main(argv: string[]): Promise<number> {
       logInfo(`Created label: ${name}`);
       return 0;
     } catch (err) {
-      logError(`Failed to create label: ${name} — ${err instanceof Error ? err.message : String(err)}`);
+      logError(`Failed to create label: ${name} — ${errorMessage(err)}`);
       return 1;
     }
   }
@@ -203,7 +204,7 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
-    logError(err instanceof Error ? err.message : String(err));
+    logError(errorMessage(err));
     process.exit(EXIT_API_FAILURE);
   },
 );

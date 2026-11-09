@@ -8,6 +8,7 @@
 
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { ensureProviderAuth, providerOrgGet, } from "../lib/providers/provider-core.ts";
@@ -78,7 +79,7 @@ try {
   const st = (cli.values["state"] as string | undefined) ?? "";
   if (st !== "") stateFilter = st;
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }

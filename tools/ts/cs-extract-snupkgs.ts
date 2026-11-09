@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
@@ -38,7 +39,7 @@ try {
   snupkgPath = cli.positionals[0] ?? "";
   outputRoot = cli.positionals[1] ?? "snupkg-extracted";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage(EXIT_MISUSE);
 }
 

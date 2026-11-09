@@ -8,6 +8,7 @@ import { copyFileSync, existsSync, mkdirSync, chmodSync, readFileSync, writeFile
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -64,7 +65,7 @@ try {
   }
   scriptName = positionals[0] ?? "";
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }

@@ -13,6 +13,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { relative } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
@@ -129,7 +130,7 @@ try {
   positionalCount = cli.positionals.length;
   targetDir = cli.positionals[0] ?? "";
 } catch (err) {
-  console.error(`ERROR: ${err instanceof Error ? err.message : String(err)}. Use --help for usage.`);
+  console.error(`ERROR: ${errorMessage(err)}. Use --help for usage.`);
   process.exit(EXIT_MISUSE);
 }
 if (positionalCount > 1) {

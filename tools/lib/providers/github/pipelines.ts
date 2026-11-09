@@ -6,7 +6,8 @@
 // argument that is not an option/numeric rides as the repository (gh's -R);
 // flags forward verbatim — the facade adds nothing.
 
-import { ghApi, ghApiSync, providerDeclareCapability, type GhOptions } from "../provider-core.ts";
+import { providerDeclareCapability, type GhOptions } from "../provider-core.ts";
+import { ghApi, ghApiSync } from "./transport.ts";
 import { applyJq } from "./repos.ts";
 
 // Capability declaration (bash pipelines.bash's declaration, carried over).

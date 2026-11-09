@@ -5,6 +5,8 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCheck, gitInherit } from "../lib/core/git.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -40,8 +42,8 @@ Exit codes:
 }
 
 function git(args: string[]): { out: string; ok: boolean } {
-  const r = spawnSync("git", args, { encoding: "utf8" });
-  return { out: r.stdout ?? "", ok: r.status === 0 };
+  const r = gitCheck(null, args);
+  return { out: r.out, ok: r.ok };
 }
 
 let cmd = "";
@@ -69,13 +71,13 @@ try {
   cmd = positionals[0] ?? "";
   rest = positionals.slice(1);
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   console.log("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
 const scratchpadActive = (): boolean =>
-  spawnSync("git", ["show-ref", "--verify", "--quiet", "refs/scratchpad/state"], { stdio: "ignore" }).status === 0;
+  gitCheck(null, ["show-ref", "--verify", "--quiet", "refs/scratchpad/state"]).ok;
 
 const requireGitRepo = (): boolean =>
   git(["rev-parse", "--git-dir"]).ok;
@@ -83,7 +85,7 @@ const requireGitRepo = (): boolean =>
 if (cmd === "status") {
   if (!requireGitRepo()) process.exit(EXIT_GENERAL_ERROR);
   if (git(["show-ref", "--verify", "--quiet", "refs/bisect/start"]).ok) {
-    spawnSync("git", ["bisect", "log"], { stdio: "inherit" });
+    gitInherit(null, ["bisect", "log"]);
   } else {
     console.log("No bisect session in flight.");
   }
@@ -96,7 +98,7 @@ if (cmd === "reset") {
     console.log("No bisect session in flight — nothing to reset.");
     process.exit(0);
   }
-  spawnSync("git", ["bisect", "reset"], { stdio: "inherit" });
+  gitInherit(null, ["bisect", "reset"]);
   console.log("Bisect session ended.");
   process.exit(0);
 }
@@ -120,8 +122,8 @@ if (probe.length === 0) {
 if (!requireGitRepo()) process.exit(EXIT_GENERAL_ERROR);
 
 // Dirty-tree refusal (uniform fail-closed rule).
-const status = spawnSync("git", ["status", "--porcelain"], { encoding: "utf8" });
-if ((status.stdout ?? "") !== "") {
+const status = gitCheck(null, ["status", "--porcelain"]);
+if (status.out !== "") {
   console.error("Error: working tree is dirty — repo-bisect refuses (bisect checkouts + dirty tree = failure churn). Commit or save first.");
   process.exit(EXIT_GENERAL_ERROR);
 }
@@ -142,10 +144,10 @@ if (!scratchpadActive()) {
   console.error(`notice: operating on '${branch}' directly — AI hunts should start from: repo-scratchpad enter`);
 }
 
-if (spawnSync("git", ["bisect", "start", bad, good as string], { stdio: "ignore" }).status !== 0) {
+if (!gitCheck(null, ["bisect", "start", bad, good as string]).ok) {
   console.error("Error: git bisect start failed:");
   spawnSync("bash", ["-c", `git bisect start ${bad} ${good} 2>&1 | tail -3`], { stdio: "inherit" });
-  spawnSync("git", ["bisect", "reset"], { stdio: "ignore" });
+  gitCheck(null, ["bisect", "reset"]);
   process.exit(EXIT_GENERAL_ERROR);
 }
 
@@ -153,18 +155,18 @@ if (spawnSync("git", ["bisect", "start", bad, good as string], { stdio: "ignore"
 const badSha = git(["rev-parse", "--verify", `${bad}^{commit}`]).out.trim();
 const goodSha = git(["rev-parse", "--verify", `${good as string}^{commit}`]).out.trim();
 if (badSha === goodSha) {
-  spawnSync("git", ["bisect", "reset"], { stdio: "ignore" });
+  gitCheck(null, ["bisect", "reset"]);
   console.error("Error: bad-ref and good-ref resolve to the same commit — nothing to search");
   process.exit(EXIT_MISUSE);
 }
 
-const run = spawnSync("git", ["bisect", "run", ...probe], { encoding: "utf8" });
-const firstBad = run.stdout ?? "";
+const run = gitCheck(null, ["bisect", "run", ...probe]);
+const firstBad = run.out;
 
 // Probe could not EXECUTE somewhere (126/127 class): git treats that as 'bad',
 // which would fabricate a verdict from a broken probe.
 if (/(failed to run|command not found|permission denied|exit code 12[67])/.test(firstBad)) {
-  spawnSync("git", ["bisect", "reset"], { stdio: "ignore" });
+  gitCheck(null, ["bisect", "reset"]);
   console.error("repo-bisect: probe execution failed (exit 126/127 class) — the walk's conclusion would be fabricated. Fix the probe; full output above.");
   console.error(firstBad.split("\n").slice(-8).join("\n"));
   process.exit(EXIT_GENERAL_ERROR);
@@ -180,13 +182,13 @@ if (definitive) {
   if (sha === "") {
     sha = firstBad.match(/[0-9a-f]{7,}/g)?.pop() ?? "";
   }
-  spawnSync("git", ["bisect", "reset"], { stdio: "ignore" });
+  gitCheck(null, ["bisect", "reset"]);
   console.log(`FIRST-BAD: ${sha}`);
-  spawnSync("git", ["show", "--no-patch", "--format=culprit: %h %s (%an, %ad)", sha], { stdio: "inherit" });
+  gitInherit(null, ["show", "--no-patch", "--format=culprit: %h %s (%an, %ad)", sha]);
   process.exit(0);
 }
 
-spawnSync("git", ["bisect", "reset"], { stdio: "ignore" });
+gitCheck(null, ["bisect", "reset"]);
 if (firstBad.includes("could be any of")) {
   console.error("repo-bisect: AMBIGUOUS — the probe skipped (exit 125) too many commits; the first bad commit could be any of those listed above.");
 } else {

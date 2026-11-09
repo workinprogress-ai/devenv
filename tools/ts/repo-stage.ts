@@ -22,6 +22,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { gitCheck } from "../lib/core/git.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { changedFiles } from "../lib/core/git.ts";
@@ -31,8 +33,8 @@ import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 assertNodeFloor();
 
 function gitRaw(args: string[], cwd?: string): { status: number; out: string; err: string } {
-  const r = spawnSync("git", args, { encoding: "utf8", ...(cwd !== undefined ? { cwd } : {}) });
-  return { status: r.status ?? 1, out: r.stdout ?? "", err: r.stderr ?? "" };
+  const r = gitCheck(cwd ?? null, args);
+  return { status: r.ok ? 0 : 1, out: r.out, err: r.err };
 }
 
 let repoRoot = "";
@@ -110,7 +112,7 @@ try {
   }
   paths.push(...cli.positionals);
 } catch (err) {
-  logError(err instanceof Error ? err.message : String(err));
+  logError(errorMessage(err));
   usage();
   process.exit(EXIT_MISUSE);
 }
