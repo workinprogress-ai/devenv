@@ -350,3 +350,193 @@ describe("validateCommitBatch consumedGroups exemption", () => {
     expect(messages.some((m) => m.startsWith("group 2:") && m.includes("live.txt"))).toBe(true);
   });
 });
+
+describe("parseCommitBatch hunk-selector entries", () => {
+  it("parses '- path @ spec' into the group's hunkClaims", () => {
+    const r = ok(`# Commit batch: t
+
+## group 1 — feat: first
+- src/b.ts @ 1-2,4
+- whole.txt
+`);
+    expect("batch" in r).toBe(true);
+    if (!("batch" in r)) throw new Error("unreachable");
+    const g = r.batch.groups[0]!;
+    expect(g.files).toEqual(["whole.txt"]);
+    expect([...g.hunkClaims.entries()]).toEqual([["src/b.ts", [1, 2, 4]]]);
+  });
+
+  it("expands ranges and dedupes: '4,2,2-3' → [2,3,4]", () => {
+    const r = ok(`# Commit batch: t
+
+## group 1 — s
+- f.ts @ 4,2,2-3
+`);
+    if (!("batch" in r)) throw new Error("unreachable");
+    expect(r.batch.groups[0]!.hunkClaims.get("f.ts")).toEqual([2, 3, 4]);
+  });
+
+  it("two groups may claim different hunks of the SAME file", () => {
+    const r = ok(`# Commit batch: t
+
+## group 1 — feat: a
+- shared.ts @ 1
+
+## group 2 — fix: b
+- shared.ts @ 2
+`);
+    if (!("batch" in r)) throw new Error("unreachable");
+    expect(r.batch.groups[0]!.hunkClaims.get("shared.ts")).toEqual([1]);
+    expect(r.batch.groups[1]!.hunkClaims.get("shared.ts")).toEqual([2]);
+    expect(batchClaimedPaths(r.batch)).toContain("shared.ts");
+  });
+
+  it("refuses selectors in the excluded section", () => {
+    const r = ok(`# Commit batch: t
+
+## group 1 — s
+- a.txt
+
+## excluded
+- b.ts @ 1
+`);
+    expect(errs(r).some((m) => m.includes("hunk selectors are not valid in '## excluded'"))).toBe(true);
+  });
+
+  it("refuses malformed specs with the line number: spaces, zero, reversed", () => {
+    for (const bad of ["- f.ts @ 1, 2", "- f.ts @ 0", "- f.ts @ 5-2", "- f.ts @ 1;", "- f.ts @"]) {
+      const r = ok(`# Commit batch: t
+
+## group 1 — s
+${bad}
+`);
+      expect(errs(r), bad).toContainEqual(
+        expect.stringMatching(/malformed hunk selector on 'f\.ts'/),
+      );
+    }
+  });
+});
+
+describe("validateCommitBatch hunk-grain validators", () => {
+  const HUNK_MANIFEST = `# Commit batch: hunk batch
+
+## group 1 — feat: first half
+- shared.ts @ 1
+
+## group 2 — fix: second half
+- shared.ts @ 2
+- solo.md
+`;
+
+  function validateCommitBatch_raw(b: Parameters<typeof validateCommitBatch>[0], o: Parameters<typeof validateCommitBatch>[1]): string[] {
+    return validateCommitBatch(b, o).map((e) => e.message);
+  }
+
+  function hunkBatch() {
+    const r = ok(HUNK_MANIFEST);
+    if ("errors" in r) throw new Error(`fixture must parse: ${errs(r).join("; ")}`);
+    return r.batch;
+  }
+
+  function facts(over: Partial<NonNullable<Parameters<typeof validateCommitBatch>[1]["hunkFacts"]>> = {}) {
+    return {
+      liveCounts: new Map([["shared.ts", 2]]),
+      refusalClasses: new Map(),
+      stagedPayloads: new Map(),
+      payloadByNumber: new Map([["shared.ts", ["-a\n+A", "-b\n+B"]]]),
+      ...over,
+    };
+  }
+
+  it("a valid hunk batch passes every validator", () => {
+    const messages = validateCommitBatch_raw(hunkBatch(), {
+      changedPaths: ["shared.ts", "solo.md"],
+      stagedPaths: [],
+      exists: new Set(["shared.ts", "solo.md"]),
+      hunkFacts: facts(),
+    });
+    expect(messages).toEqual([]);
+  });
+
+  it("refuses partial claims on binary / rename / new-file paths", () => {
+    for (const klass of ["binary", "rename", "new-file"] as const) {
+      const messages = validateCommitBatch_raw(hunkBatch(), {
+        changedPaths: ["shared.ts", "solo.md"],
+        stagedPaths: [],
+        exists: new Set(["shared.ts", "solo.md"]),
+        hunkFacts: facts({ refusalClasses: new Map([["shared.ts", klass]]) }),
+      });
+      expect(messages.some((m) => m.includes(`is a ${klass} diff`) && m.includes("refused in v1")), klass).toBe(true);
+    }
+  });
+
+  it("selector drift: claimed hunk beyond the live count refuses with remediation", () => {
+    const messages = validateCommitBatch_raw(hunkBatch(), {
+      changedPaths: ["shared.ts", "solo.md"],
+      stagedPaths: [],
+      exists: new Set(["shared.ts", "solo.md"]),
+      hunkFacts: facts({ liveCounts: new Map([["shared.ts", 1]]) }),
+    });
+    expect(messages.some((m) => m.includes("selector drift") && m.includes("now has 1 hunk"))).toBe(true);
+  });
+
+  it("hunk duplicate membership: same hunk in two groups refuses naming both", () => {
+    const dup = `# Commit batch: t
+
+## group 1 — a
+- s.ts @ 1
+
+## group 2 — b
+- s.ts @ 1-2
+`;
+    const r = ok(dup);
+    if ("errors" in r) throw new Error("fixture must parse");
+    const messages = validateCommitBatch_raw(r.batch, {
+      changedPaths: ["s.ts"],
+      stagedPaths: [],
+      exists: new Set(["s.ts"]),
+      hunkFacts: facts({ liveCounts: new Map([["s.ts", 2]]), payloadByNumber: new Map([["s.ts", ["-a\n+A", "-b\n+B"]]]) }),
+    });
+    expect(messages.some((m) => m.includes("hunk 1 is claimed by both group 1 and group 2"))).toBe(true);
+  });
+
+  it("hunk coverage: an unclaimed hunk of a partially-claimed file refuses", () => {
+    const three = `# Commit batch: t
+
+## group 1 — a
+- s.ts @ 1
+`;
+    const r = ok(three);
+    if ("errors" in r) throw new Error("fixture must parse");
+    const messages = validateCommitBatch_raw(r.batch, {
+      changedPaths: ["s.ts"],
+      stagedPaths: [],
+      exists: new Set(["s.ts"]),
+      hunkFacts: facts({
+        liveCounts: new Map([["s.ts", 3]]),
+        payloadByNumber: new Map([["s.ts", ["-a\n+A", "-b\n+B", "-c\n+C"]]]),
+      }),
+    });
+    expect(messages.filter((m) => m.includes("hunk") && m.includes("claimed by no group"))).toHaveLength(2);
+  });
+
+  it("hunk purity: staged content no group claimed refuses (set-membership)", () => {
+    const messages = validateCommitBatch_raw(hunkBatch(), {
+      changedPaths: ["shared.ts", "solo.md"],
+      stagedPaths: ["shared.ts"],
+      exists: new Set(["shared.ts", "solo.md"]),
+      hunkFacts: facts({ stagedPayloads: new Map([["shared.ts", ["-smuggled\n+content"]]]) }),
+    });
+    expect(messages.some((m) => m.includes("staged hunk content no group claimed"))).toBe(true);
+  });
+
+  it("hunk purity: staged content a group DID claim passes", () => {
+    const messages = validateCommitBatch_raw(hunkBatch(), {
+      changedPaths: ["shared.ts", "solo.md"],
+      stagedPaths: ["shared.ts"],
+      exists: new Set(["shared.ts", "solo.md"]),
+      hunkFacts: facts({ stagedPayloads: new Map([["shared.ts", ["-a\n+A"]]]) }),
+    });
+    expect(messages).toEqual([]);
+  });
+});

@@ -94,6 +94,7 @@ function extractClaims(content: string): TaskClaim[] {
     const id = m[2] ?? "";
     const title = (m[4] ?? "").trim();
     const files: string[] = [];
+    const hunkSpecs = new Map<string, string>();
     let commitSubject: string | undefined;
     // walk metadata bullets under the task
     for (let j = i + 1; j < lines.length; j += 1) {
@@ -103,22 +104,33 @@ function extractClaims(content: string): TaskClaim[] {
       const fm = /^ {2}- Files: (.*)$/.exec(l);
       if (fm) {
         // claims are backtick-delimited segments: split on the backticks
-        // and keep inner segments (paths may contain spaces or commas)
-        // backticks alternate: outside-glue, path, outside-glue, path, ...
-        // keep only the INSIDE segments (odd indices) so glue text between
-        // paths ("a`, and `b") never leaks as a claim
+        // and keep inner segments (paths may contain spaces or commas);
+        // backticks alternate outside-glue/path. A segment carrying
+        // ' @ <spec>' is a hunk-selector claim: path into files (for claim
+        // matching), path+spec into hunkSpecs (verbatim passthrough — the
+        // draft generator makes no content decisions).
         const segs = (fm[1] ?? "").split("`");
         for (let k = 1; k < segs.length; k += 2) {
           const p = (segs[k] ?? "").trim();
           if (p === "") continue;
-          files.push(p.replace(/\s*\(new\)\s*$/, ""));
+          const cleaned = p.replace(/\s*\(new\)\s*$/, "");
+          const hm = /^(.+?) @ ([1-9][0-9]*(?:-[1-9][0-9]*)?(?:,[1-9][0-9]*(?:-[1-9][0-9]*)?)*)$/.exec(cleaned);
+          if (hm) {
+            // Selector entries claim hunks, not the whole path — they ride
+            // hunkSpecs only (claim matching routes them in the hunk pass;
+            // pushing them into files would make every selector a whole-file
+            // claim and every same-file split a spurious conflict).
+            hunkSpecs.set((hm[1] ?? "").trim(), (hm[2] ?? "").trim());
+          } else {
+            files.push(cleaned);
+          }
         }
         continue;
       }
       const cm = /^ {2}- commit: (.*)$/.exec(l);
       if (cm) commitSubject = (cm[1] ?? "").trim();
     }
-    claims.push({ id, done, title, files, ...(commitSubject !== undefined ? { commitSubject } : {}) });
+    claims.push({ id, done, title, files, ...(hunkSpecs.size > 0 ? { hunkSpecs } : {}), ...(commitSubject !== undefined ? { commitSubject } : {}) });
   }
   return claims;
 }
@@ -151,7 +163,7 @@ while (existsSync(outPath)) {
 const title = planFile !== "" ? `draft from ${planFile.split("/").pop()}` : "draft (no plan)";
 writeFileSync(outPath, renderDraft(draft, title));
 
-const assigned = draft.groups.reduce((a, g) => a + g.files.length, 0);
+const assigned = draft.groups.reduce((a, g) => a + g.files.length + g.hunkSpecs.length, 0);
 logInfo(`draft written: ${outPath}`);
 logInfo(
   `groups ${draft.groups.length} · assigned ${assigned} · unassigned ${draft.unassigned.length} · conflicts ${draft.conflicts.length}`,

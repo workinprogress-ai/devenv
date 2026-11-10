@@ -12,10 +12,21 @@
 // Grammar (strict; anything else refuses in the parser):
 //   # Commit batch: <free-form title>            exactly one, first line
 //   ## group <n> — <suggested subject>           sequential from 1, no gaps
-//   - <repo-root-relative path>                  one file per line, exactly
+//   - <repo-root-relative path>                  whole-file claim
+//   - <path> @ <hunk-spec>                       partial-file claim (spec:
+//                                                comma-separated 1-based hunk
+//                                                numbers / a-b ranges over
+//                                                the file's live git diff,
+//                                                default U3 context — the
+//                                                tool's own enumeration)
 //   ## excluded                                  optional, exactly one, last
 //   - <path>                                     same entry grammar
 //   <!-- ... --> and blank lines                 allowed anywhere
+//
+// A partial claim carries the hunk spec but NOT the hunks themselves —
+// selectors resolve against the live diff at staging time (regenerate +
+// echo protocol: the tool echoes what actually staged, and the skill's
+// staged-glance shows the user the real staged diff before committing).
 //
 // Entries are FILES ONLY (a directory entry refuses — implicit sweeps are
 // how unreviewed content rides along) and must not start with "-" beyond
@@ -31,6 +42,10 @@ export interface CommitBatchGroup {
   readonly subject: string;
   /** Files only; repo-root-relative literals. */
   readonly files: string[];
+  /** Partial claims: path → parsed hunk spec (1-based positions in the
+   * file's live unstaged diff, default U3). A path appears here only via
+   * a `- path @ spec` entry; whole-file entries stay in `files`. */
+  readonly hunkClaims: ReadonlyMap<string, number[]>;
 }
 
 /** A parsed commit-batch manifest. `excluded` holds deliberately-omitted
@@ -45,12 +60,18 @@ export interface CommitBatch {
 /** All paths the manifest claims, in order: every group's files plus the
  * excluded set. Coverage and index-purity checks run against this union. */
 export function batchClaimedPaths(batch: CommitBatch): string[] {
-  return [...batch.groups.flatMap((g) => g.files), ...batch.excluded];
+  return [
+    ...batch.groups.flatMap((g) => g.files),
+    ...batch.groups.flatMap((g) => [...g.hunkClaims.keys()]),
+    ...batch.excluded,
+  ];
 }
 
 // ---------------------------------------------------------------------------
 // strict parser + validators (pure functions over text; no I/O)
 // ---------------------------------------------------------------------------
+
+import { parseHunkSpec } from "./hunk-select.ts";
 
 /** A named refusal from parsing or validation. Remediation text is part of
  * the contract: every error names what failed and what to do. */
@@ -58,10 +79,16 @@ export interface BatchError {
   message: string;
 }
 
+
 const GROUP_RE = /^## group ([0-9]+) — (.*)$/;
 const EXCLUDED_RE = /^## excluded$/;
 const TITLE_RE = /^# Commit batch: (.*)$/;
 const COMMENT_RE = /^<!--.*-->$/;
+/** `- <path> @ <spec>` — partial-file claim. The ` @ ` separator keeps the
+ * grammar unambiguous (paths may not contain ` @ ` in practice; a path that
+ * does refuses as non-literal). */
+const HUNK_CLAIM_RE = /^- (.+) @ ([1-9][0-9]*(?:-[1-9][0-9]*)?(?:,[1-9][0-9]*(?:-[1-9][0-9]*)?)*)$/;
+
 
 /** Strict parse of a commit-batch manifest. Refuses (never best-effort) on
  * any construct outside the grammar: bad title line, non-sequential group
@@ -100,18 +127,64 @@ export function parseCommitBatch(text: string): { batch: CommitBatch } | { error
           message: `line ${i + 1}: group numbers must be sequential from 1 — expected 'group ${expected}', got 'group ${num}'`,
         });
       }
-      groups.push({ number: num, subject, files: [] });
+      groups.push({ number: num, subject, files: [], hunkClaims: new Map() });
       expected += 1;
       continue;
     }
     if (EXCLUDED_RE.test(line)) {
-      if (inExcluded) errors.push({ message: `line ${i + 1}: duplicate '## excluded' section` });
+      if (inExcluded) errors.push({ message: `line ${i + 1}: duplicate '## excluded' section — the section repeats; excluded entries themselves may not carry selectors` });
       if (groups.length === 0) errors.push({ message: `line ${i + 1}: '## excluded' before any group — a batch needs at least one group` });
       inExcluded = true;
       continue;
     }
     if (line.startsWith("- ")) {
-      const path = line.slice(2).trim();
+      const entry = line.slice(2).trim();
+      const hunkMatch = HUNK_CLAIM_RE.exec(line);
+      if (hunkMatch) {
+        const path = (hunkMatch[1] ?? "").trim();
+        const spec = hunkMatch[2] ?? "";
+        if (groups.length === 0) {
+          errors.push({ message: `line ${i + 1}: entry '${path}' before any group heading` });
+          continue;
+        }
+        if (inExcluded) {
+          errors.push({ message: `line ${i + 1}: hunk selectors are not valid in '## excluded' — excluded entries are whole files` });
+          continue;
+        }
+        const group = groups[groups.length - 1];
+        if (!group) {
+          errors.push({ message: `line ${i + 1}: entry before any group heading` });
+          continue;
+        }
+        try {
+          // Parse builds into the group's claim map; the interface exposes
+          // it readonly to consumers — parse-time population is the writer.
+          // parseHunkSpec is THE selector parser (one grammar, one ceiling
+          // set — hunk-select owns it; commit-batch carries no divergent copy).
+          (group.hunkClaims as Map<string, number[]>).set(path, parseHunkSpec(spec));
+        } catch (e) {
+          // Carry the parser's specific reason (range ceiling, total
+          // ceiling, 1-based) through — a generic "malformed" would hide
+          // which cap fired.
+          const reason = e instanceof Error ? e.message.replace(/^line 1: /, "").replace(/ \(got: .*\)$/, "") : "not a valid spec";
+          errors.push({
+            message: `line ${i + 1}: malformed hunk selector on '${path}' — ${reason}`,
+          });
+        }
+        continue;
+      }
+      // An entry CONTAINING ' @ ' (or ENDING in a bare ' @') that failed the
+      // strict selector regex is a malformed selector, never a whole-file
+      // path: refuse it by name so a typo'd spec cannot silently stage an
+      // entire file.
+      if (entry.includes(" @ ") || entry.endsWith(" @")) {
+        const path = entry.split(" @ ")[0]!.split(" @")[0]!.trim();
+        errors.push({
+          message: `line ${i + 1}: malformed hunk selector on '${path}' — the spec is comma-separated 1-based hunk numbers / a-b ranges with no spaces (e.g. '@ 1-2,4')`,
+        });
+        continue;
+      }
+      const path = entry;
       if (groups.length === 0) {
         errors.push({ message: `line ${i + 1}: entry '${path}' before any group heading` });
         continue;
@@ -165,6 +238,29 @@ export interface ValidateOptions {
    * renamed or deleted by later commits, which is evidence of consumption,
    * not a manifest typo. */
   consumedGroups?: Set<number>;
+  /** Hunk-level validation inputs. When the batch carries any hunk claims,
+   * the tool layer supplies per-file hunk facts and the validators below
+   * extend coverage/purity to hunk grain. Omit the whole object (or leave
+   * `refusalClasses` undefined) for whole-file-only batches — the hunk
+   * validators are additive and never weaken the path-level rules. */
+  hunkFacts?: {
+    /** Live hunk count per partially-claimed path (from the file's current
+     * unstaged diff). A claimed hunk number above this count is drift. */
+    liveCounts: ReadonlyMap<string, number>;
+    /** Refusal-class paths among the claimed files: "binary", "rename",
+     * "new-file" — partial claims on these refuse (v1 doctrine). */
+    refusalClasses: ReadonlyMap<string, "binary" | "rename" | "new-file">;
+    /** Staged hunk payloads per path: identity strings for the hunks
+     * CURRENTLY in the index (from `git diff --cached`, hunkPayload-shaped).
+     * Purity = every staged payload ∈ the union of all groups' claims for
+     * that file (set-membership; the stateless model cannot attribute a
+     * staged hunk to a specific group — documented residual risk). */
+    stagedPayloads: ReadonlyMap<string, readonly string[]>;
+    /** Payload per hunk number per path, from the tool's own enumeration of
+     * the live unstaged diff: selector numbers → content identity, so
+     * coverage can check that every unstaged hunk is claimed or excluded. */
+    payloadByNumber: ReadonlyMap<string, readonly string[]>;
+  };
 }
 
 /** Run every validator over a parsed batch: literal paths, deletion-aware
@@ -180,6 +276,14 @@ export function validateCommitBatch(batch: CommitBatch, opts: ValidateOptions): 
         errors.push({ message: `group ${g.number}: '${p}' is not a literal repo-root-relative file path (no globs, dirs, absolute, or traversal paths)` });
       }
     }
+    // Hunk-claim paths are paths too: the literal-path rule applies at
+    // selector grain (a glob or traversal claim must refuse HERE, with a
+    // named class — not later as enumerate noise).
+    for (const p of g.hunkClaims.keys()) {
+      if (!isLiteralFilePath(p)) {
+        errors.push({ message: `group ${g.number}: '${p} @ …' is not a literal repo-root-relative file path (no globs, dirs, absolute, or traversal paths)` });
+      }
+    }
   }
   for (const p of batch.excluded) {
     if (!isLiteralFilePath(p)) {
@@ -187,7 +291,11 @@ export function validateCommitBatch(batch: CommitBatch, opts: ValidateOptions): 
     }
   }
 
-  // duplicate membership across all sections
+  // duplicate membership across all sections — both grains: a path in two
+  // whole-file claims, or in any whole-file claim AND any selector claim
+  // (the whole-file claim would swallow the selector's hunks at stage
+  // time — exactly the silent re-attribution this validator exists to
+  // prevent), or the same selector-claimed path in two groups.
   const seen = new Map<string, string>();
   const sectionOf = (g: CommitBatchGroup | "excluded"): string => (g === "excluded" ? "excluded" : `group ${g.number}`);
   for (const g of batch.groups) {
@@ -200,6 +308,22 @@ export function validateCommitBatch(batch: CommitBatch, opts: ValidateOptions): 
   for (const p of batch.excluded) {
     const prior = seen.get(p);
     if (prior !== undefined) errors.push({ message: `'${p}' appears in both ${prior} and excluded` });
+    seen.set(p, "excluded");
+  }
+  // Selector-grain membership vs whole-file claims AND the excluded set —
+  // a path both excluded and selector-claimed would stage content the
+  // manifest says is deliberately left out (the exact hand-edit mistake
+  // the validator exists to catch). Selector-vs-selector on the SAME path
+  // in different groups is the intended shape (different hunks of one
+  // file in different commits); the hunk-duplicate-membership validator
+  // refuses same-HUNK overlap, which is the actual grain of conflict.
+  for (const g of batch.groups) {
+    for (const p of g.hunkClaims.keys()) {
+      const wholePrior = seen.get(p);
+      if (wholePrior !== undefined) {
+        errors.push({ message: `'${p}' appears as ${wholePrior === "excluded" ? "an excluded entry" : `a whole-file claim in ${wholePrior}`} and as a hunk-selector claim in ${sectionOf(g)} — a path is claimed whole, claimed by hunks, or excluded, never two of these` });
+      }
+    }
   }
 
   // existence, deletion-aware: on disk OR in the changed set (a deleted
@@ -212,6 +336,13 @@ export function validateCommitBatch(batch: CommitBatch, opts: ValidateOptions): 
     for (const p of g.files) {
       if (!opts.exists?.has(p) && !changed.has(p)) {
         errors.push({ message: `group ${g.number}: '${p}' exists neither on disk nor as a changed/deleted file — typo?` });
+      }
+    }
+    // Selector-claimed paths are deletion-aware too (existence at path
+    // grain; the hunk-level live-count check below handles the rest).
+    for (const p of g.hunkClaims.keys()) {
+      if (!opts.exists?.has(p) && !changed.has(p)) {
+        errors.push({ message: `group ${g.number}: '${p} @ …' exists neither on disk nor as a changed/deleted file — typo?` });
       }
     }
   }
@@ -234,6 +365,99 @@ export function validateCommitBatch(batch: CommitBatch, opts: ValidateOptions): 
       errors.push({ message: `index: '${p}' is staged but not in the batch — unstage it (repo-stage --unstage) or add it to a group` });
     }
   }
+
+  // --- hunk-level validators (additive; run when the batch carries hunk
+  // claims and the tool layer supplied hunk facts) ---
+  const hunkClaimsByFile = new Map<string, { group: number; numbers: number[] }[]>();
+  for (const g of batch.groups) {
+    for (const [path, numbers] of g.hunkClaims) {
+      const list = hunkClaimsByFile.get(path) ?? [];
+      list.push({ group: g.number, numbers });
+      hunkClaimsByFile.set(path, list);
+    }
+  }
+  if (hunkClaimsByFile.size === 0) return errors;
+  const facts = opts.hunkFacts;
+  if (!facts) {
+    errors.push({ message: "hunk claims present but no hunk facts supplied — the tool layer must enumerate the live diff (internal error)" });
+    return errors;
+  }
+
+  // refusal classes: binary / rename / new-file refuse partial claims (v1)
+  for (const [path, klass] of facts.refusalClasses) {
+    if (hunkClaimsByFile.has(path)) {
+      errors.push({
+        message: `group ${hunkClaimsByFile.get(path)![0]!.group}: '${path}' is a ${klass} diff — partial staging of ${klass === "new-file" ? "new files" : klass === "rename" ? "rename pairs" : "binary files"} is refused in v1; claim the whole file in one group or split the work by hand`,
+      });
+    }
+  }
+
+  // selector drift: claimed hunk numbers must exist in the live enumeration
+  for (const [path, claims] of hunkClaimsByFile) {
+    const live = facts.liveCounts.get(path);
+    if (live === undefined) continue; // not currently changed — consumed-group logic owns it
+    for (const { group, numbers } of claims) {
+      const over = numbers.filter((n) => n > live);
+      if (over.length > 0) {
+        errors.push({
+          message: `group ${group}: selector drift on '${path}' — hunk ${over[0]} claimed but the file now has ${live} hunk${live === 1 ? "" : "s"}; renumber after earlier commits (the live diff regenerates per group) or edit the selectors`,
+        });
+      }
+    }
+  }
+
+  // hunk duplicate membership: the same hunk of a file in two groups
+  for (const [path, claims] of hunkClaimsByFile) {
+    const seen = new Map<number, number>();
+    for (const { group, numbers } of claims) {
+      for (const n of numbers) {
+        const prior = seen.get(n);
+        if (prior !== undefined) {
+          errors.push({ message: `'${path}' hunk ${n} is claimed by both group ${prior} and group ${group}` });
+        } else {
+          seen.set(n, group);
+        }
+      }
+    }
+  }
+
+  // hunk coverage: every unstaged hunk of a partially-claimed file is
+  // claimed by some group (excluded hunks are not a concept — the file
+  // itself is either claimed (partially) or excluded whole)
+  for (const [path, claims] of hunkClaimsByFile) {
+    const claimedNums = new Set(claims.flatMap((c) => c.numbers));
+    const live = facts.liveCounts.get(path);
+    const payloads = facts.payloadByNumber.get(path) ?? [];
+    if (live === undefined) continue;
+    for (let n = 1; n <= live; n += 1) {
+      if (!claimedNums.has(n)) {
+        const payload = payloads[n - 1] ?? "";
+        errors.push({
+          message: `coverage: '${path}' hunk ${n} is changed but claimed by no group${payload ? ` (${payload.split("\n")[0]?.slice(0, 40)}…)` : ""} — every hunk of a partially-claimed file must belong to a group; move the work or re-check the grouping`,
+        });
+      }
+    }
+  }
+
+  // hunk purity (set-membership): every staged payload ∈ union of claims.
+  // The staged payloads are identified by CONTENT, not number — a staged
+  // hunk whose content no group claimed is smuggled content.
+  for (const [path, staged] of facts.stagedPayloads) {
+    if (!hunkClaimsByFile.has(path)) continue; // path-grain purity above already covers whole-file paths
+    const claimedPayloads = new Set<string>();
+    for (const [n, payload] of (facts.payloadByNumber.get(path) ?? []).entries()) {
+      // only hunks some group claimed contribute their payloads
+      const claimedNums = new Set((hunkClaimsByFile.get(path) ?? []).flatMap((c) => c.numbers));
+      if (claimedNums.has(n + 1)) claimedPayloads.add(payload);
+    }
+    for (const sp of staged) {
+      if (!claimedPayloads.has(sp)) {
+        errors.push({
+          message: `index: '${path}' has staged hunk content no group claimed — unstage it (repo-stage --unstage '<path>') or claim the whole file in a group; selectors only name unstaged hunks, so hand-staged content needs a whole-file claim`,
+        });
+      }
+    }
+  }
   return errors;
 }
 
@@ -253,6 +477,10 @@ export interface TaskClaim {
   readonly title: string;
   /** Files: bullet paths, verbatim (files or directories, plan-relative). */
   readonly files: string[];
+  /** Hunk-selector claims from Files: bullets: 'path @ spec' entries parsed
+   * into path → spec. Rendered as selector entries in the draft; the draft
+   * generator makes no content decisions — specs pass through verbatim. */
+  readonly hunkSpecs?: ReadonlyMap<string, string>;
   /** commit: bullet subject, when the plan declared one. */
   readonly commitSubject?: string;
 }
@@ -283,7 +511,7 @@ export function groupReadiness(files: string[], claims: TaskClaim[]): GroupReadi
  * group, in unassigned (with claiming task ids as hint), or in conflicts
  * (multi-claimed, parked with both claimants named). */
 export interface BatchDraft {
-  readonly groups: { number: number; subject: string; files: string[]; readiness: GroupReadiness }[];
+  readonly groups: { number: number; subject: string; files: string[]; hunkSpecs: { path: string; spec: string }[]; readiness: GroupReadiness }[];
   /** Changed files no task claims — a parking lot, never a silent exclusion. */
   readonly unassigned: { path: string }[];
   /** Changed files claimed by two or more tasks — parked, both named. */
@@ -296,7 +524,7 @@ export interface BatchDraft {
  * unassigned. One group per claiming task, in first-claim order, subjects
  * from commitSubject ?? title. Readiness derived per group. */
 export function draftFromClaims(changedPaths: string[], claims: TaskClaim[]): BatchDraft {
-  const groups = new Map<string, { subject: string; files: string[] }>();
+  const groups = new Map<string, { subject: string; files: string[]; hunkSpecs: { path: string; spec: string }[] }>();
   const unassigned: { path: string }[] = [];
   const conflicts: { path: string; tasks: string[] }[] = [];
 
@@ -310,7 +538,15 @@ export function draftFromClaims(changedPaths: string[], claims: TaskClaim[]): Ba
     return out;
   };
 
+  // Selector-claiming tasks for a path (hunk-grain ownership).
+  const selectorClaimants = (path: string): string[] =>
+    claims.filter((c) => c.hunkSpecs?.has(path)).map((c) => c.id);
+
   for (const path of changedPaths) {
+    // Paths claimed via selectors route through the hunk pass below —
+    // different hunks of one file in different groups is the intended
+    // shape (same-hunk duplication refuses at stage time, never silently).
+    if (selectorClaimants(path).length > 0 && claimOf(path).length === 0) continue;
     const owners = claimOf(path);
     if (owners.length === 0) {
       unassigned.push({ path });
@@ -323,20 +559,46 @@ export function draftFromClaims(changedPaths: string[], claims: TaskClaim[]): Ba
     const owner = owners[0] ?? "";
     const claim = claims.find((c) => c.id === owner);
     if (claim && !groups.has(owner)) {
-      groups.set(owner, { subject: claim.commitSubject ?? claim.title, files: [] });
+      groups.set(owner, { subject: claim.commitSubject ?? claim.title, files: [], hunkSpecs: [] });
     }
     groups.get(owner)?.files.push(path);
+  }
+
+  // Hunk-selector claims: each claimant's specs land in its own group,
+  // verbatim. A path both whole-file-claimed AND selector-claimed (by any
+  // task mix) is a conflict — the whole-file claim would swallow the
+  // selectors' hunks at stage time.
+  for (const c of claims) {
+    if (!c.hunkSpecs) continue;
+    for (const [path, spec] of c.hunkSpecs) {
+      if (claimOf(path).length > 0) {
+        conflicts.push({ path, tasks: [...claimOf(path), `${c.id} (@ hunks)`] });
+        continue;
+      }
+      if (!groups.has(c.id)) {
+        groups.set(c.id, { subject: c.commitSubject ?? c.title, files: [], hunkSpecs: [] });
+      }
+      const g = groups.get(c.id)!;
+      if (!g.hunkSpecs.some((h) => h.path === path)) g.hunkSpecs.push({ path, spec });
+    }
   }
 
   // Groups in CLAIM order (plan task order), not file-iteration order —
   // deterministic, readable drafts that mirror the plan.
   const orderedIds = claims.filter((c) => groups.has(c.id)).map((c) => c.id);
   const numbered = orderedIds.map((id, i) => {
-    const g = groups.get(id) as { subject: string; files: string[] };
+    const g = groups.get(id) as { subject: string; files: string[]; hunkSpecs: { path: string; spec: string }[] };
+    // A path with a selector entry drops its whole-file entry within the
+    // same group (the selector is the tighter claim); whole-file entries in
+    // OTHER groups stay and repo-stage validation refuses the duplicate at
+    // stage time (visible in the draft, never silent).
+    const selectorPaths = new Set(g.hunkSpecs.map((h) => h.path));
+    const files = g.files.filter((f) => !selectorPaths.has(f));
     return {
       number: i + 1,
       subject: `${id} — ${g.subject}`,
-      files: g.files,
+      files,
+      hunkSpecs: g.hunkSpecs,
       readiness: groupReadiness(g.files, claims),
     };
   });
@@ -358,6 +620,7 @@ export function renderDraft(draft: BatchDraft, title: string): string {
     lines.push(`## group ${g.number} — ${g.subject}`);
     lines.push(hold);
     for (const f of g.files) lines.push(`- ${f}`);
+    for (const h of g.hunkSpecs) lines.push(`- ${h.path} @ ${h.spec}`);
     lines.push(``);
   }
   if (draft.conflicts.length > 0) {
