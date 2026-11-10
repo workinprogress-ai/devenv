@@ -224,6 +224,17 @@ describe("issue-create", () => {
     expect(ghCalls().some((c) => c.includes("issue create"))).toBe(false);
   });
 
+  it("placement: a Task under a Task parent creates (task-under-task sub-issue)", () => {
+    // GitHub allows sub-issues under any type; the org convention's child_of
+    // list for Task includes Task itself, so a task may decompose into tasks.
+    const cfg = join(workDir, "issues-config.yml");
+    writeFileSync(cfg, "types:\n  - name: Bug\n  - name: Task\n    child_of: [Epic, Feature, Bug, Task]\n");
+    const r = runTool({ args: ["--title", "Sub-task", "--type", "Task", "--no-interactive", "--body", "b", "--parent", "12"], issuesConfig: cfg, parentType: "Task" });
+    expect(r.status).toBe(0);
+    expect(ghCalls().some((c) => c.includes("issue create"))).toBe(true);
+    expect(r.stdout).toContain("https://github.com/org/repo/issues/777");
+  });
+
   it("placement: a cross-repo parent validates the type against its own repo, then links", () => {
     // The child_of probe runs against the PARENT's repo (org/other#50) — the
     // stub serves PARENT_TYPE for any `issue view ... issueType` call, so the
