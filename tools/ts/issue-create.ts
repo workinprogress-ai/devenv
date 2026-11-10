@@ -63,7 +63,8 @@ Optional:
     -a, --assignee USER         Assign to user (can be specified multiple times)
     -m, --milestone NAME        Assign to milestone
     -p, --project NAME          Add to project (name or number)
-    --parent ISSUE_NUM          Link to parent issue (for stories/bugs under epics)
+    --parent ISSUE_NUM          Link to parent issue (any type per issues-config
+                                child_of; Task-under-Task sub-issues included)
     --blocked-by ISSUE_NUM      Mark as blocked by prerequisite issue (repeatable)
     --template FILE             Opt in to a specific template file (opens in editor;
                                 without it, no template is used)
