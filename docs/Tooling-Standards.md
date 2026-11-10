@@ -94,7 +94,9 @@ workspace modules.
 | `lib/domain/kube/` | kubectl listing/state helpers |
 | `lib/domain/cs/` | .NET dependency graph |
 | `lib/domain/markdown.ts` | markdown read/manipulate + body resolution |
-| `lib/domain/commit-batch.ts` | commit-batch manifest model: strict parse + validators (coverage, index purity, duplicate membership, literal/deletion-aware existence) |
+| `lib/domain/commit-batch.ts` | commit-batch manifest model: strict parse + validators (coverage, index purity, duplicate membership, literal/deletion-aware existence — path-grain and hunk-grain) |
+| `lib/domain/hunk-select.ts` | hunk-selection primitives over a unified diff: split, spec parse, selection patch build, payload identity (pure) |
+| `lib/domain/hunk-stage.ts` | partial-staging engine: enumerate live hunks, resolve selectors, apply --cached with preflight + three-part-invariant verification |
 | `lib/domain/fork/` | fork family: config/URI basics (`index`), patch identity (`twin`), surfaces |
 | `lib/domain/scratchpad.ts` | sandbox lifecycle state |
 | `lib/domain/artifacts.ts` | issue-artifact header/census model |
