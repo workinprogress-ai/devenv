@@ -7,17 +7,16 @@
 
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { siblingInvocation } from "../lib/core/sibling.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
-const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const MAX_PARALLEL_JOBS = 4;
 const DEFAULT_PARALLEL_JOBS = 2;
 const SCRIPT_VERSION = "1.1.0";
@@ -116,7 +115,8 @@ function updateSingleRepo(repoName: string): Promise<number> {
     const repoPath = join(reposDir, repoName);
     console.error(`[${repoName}] Starting update...`);
     // pipefail analogue: repo-get's exit status decides, never the sed pipe.
-    const child = spawn(join(toolsDir, "repo-get"), [], { cwd: repoPath });
+    const get = siblingInvocation("repo-get", []);
+    const child = spawn(get.command, get.args, { cwd: repoPath });
     // Both streams stream live through the [repo] prefixer (clone progress
     // visible; bash's sed-pipe equivalent).
     for (const stream of [child.stdout, child.stderr]) {

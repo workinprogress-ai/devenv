@@ -3,7 +3,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { selfRoot } from "../../core/self-root.ts";
+import { resolveToolsRoot } from "../../core/self-root.ts";
 
 export interface SurfaceEntry { description: string; paths: string[] }
 export interface SurfacesDecl {
@@ -16,8 +16,7 @@ export function surfacesConfigPath(_devenvRoot?: string): string {
   // (the devenv checkout's own declaration — fork machinery is developed
   // here), never the ambient DEVENV_ROOT (forks run against arbitrary clones).
   if (process.env.FORK_SURFACES_CONFIG) return process.env.FORK_SURFACES_CONFIG;
-  const tools = process.env.DEVENV_TOOLS ?? selfRoot(process.cwd());
-  return join(tools, "config", "fork-surfaces.yml");
+  return join(resolveToolsRoot(import.meta.url), "config", "fork-surfaces.yml");
 }
 
 /** Minimal YAML reader for the declaration's flat shape: version + two class

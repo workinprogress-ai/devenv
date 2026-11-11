@@ -118,13 +118,13 @@ describe("issue-comment-list", () => {
     expect(r.stdout.trim()).toBe("");
   });
 
-  it("a missing issue number exits 1 with the usage hint (bash parity)", () => {
+  it("a missing issue number is misuse (exit 2) with the usage hint", () => {
     const r = run([], { clearRepo: true });
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
     expect(r.output).toContain("Issue number is required");
   });
 
-  it("an unknown flag exits 1 (bash parity for this tool)", () => {
-    expect(run(["42", "--bogus"]).status).toBe(1);
+  it("an unknown flag is misuse (exit 2)", () => {
+    expect(run(["42", "--bogus"]).status).toBe(2);
   });
 });

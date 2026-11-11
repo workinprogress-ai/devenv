@@ -7,6 +7,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -62,7 +63,7 @@ function kubeEnv(): Record<string, string> {
 }
 
 function runKube(script: string, args: string[]): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync("bash", [join(TOOLS, script), ...args], { encoding: "utf8", env: kubeEnv() });
+  const r = spawnSync("node", [toolScript(script), ...args], { encoding: "utf8", env: kubeEnv() });
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 

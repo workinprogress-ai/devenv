@@ -5,13 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const TOOLS = join(ROOT, "tools");
 
 let TMP = "";
 let GH_CALL_LOG = "";
@@ -48,7 +46,7 @@ beforeEach(() => {
 const { DEVENV_REPO: _dr, ...procEnv } = process.env;
 
 function runRerun(args: string[]): { status: number; out: string } {
-  const r = spawnSync(join(TOOLS, "pipelines-rerun"), args, {
+  const r = spawnSync("node", [toolScript("pipelines-rerun"), ...args], {
     encoding: "utf8",
     env: {
       ...procEnv,

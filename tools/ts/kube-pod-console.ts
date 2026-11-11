@@ -2,12 +2,12 @@
 // Port of kube-pod-console.sh: resolve the namespace, first matching pod,
 // default to /bin/bash when no command is given, then kubectl exec -it.
 
-import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { splitAfterPodWord } from "../lib/core/forward-argv.ts";
 import { listPods, resolveNamespace, spawnKubectlInherit } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
@@ -24,32 +24,33 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
   process.exit(0);
 }
 
+// Option scanning stops after the pod word and the namespace option that may
+// directly follow it: the command's own dashed arguments (ls -la) are
+// forwarded untouched. `--` ends scanning.
+const { head, rest: command } = splitAfterPodWord(process.argv.slice(2), ["-n", "--namespace"]);
+
 let podPart = "";
-let command: string[] = [];
 let nsInput = "";
 try {
   const cli = toolCli({
     name: "kube-pod-console",
     version: "1.0.0",
-    argv: process.argv.slice(2),
+    argv: head,
     noDryRun: true,
-    options: {
-      namespace: { type: "string" },
-      n: { type: "string" },
-    },
+    options: { namespace: { type: "string", short: "n" } },
   });
   if (cli.common.help) usage();
   podPart = cli.positionals[0] ?? "";
-  command = cli.positionals.slice(1);
-  nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
+  nsInput = (cli.values["namespace"] as string | undefined) ?? "";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (podPart === "") {
   logError("usage: kube-pod-console <pod-name-part> [-n|--namespace <ns>] [command...]");
-  process.exit(EXIT_GENERAL_ERROR);
+  process.exit(EXIT_MISUSE);
 }
 
 const resolution = resolveNamespace(nsInput);

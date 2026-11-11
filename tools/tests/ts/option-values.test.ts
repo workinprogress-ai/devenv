@@ -9,6 +9,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -78,7 +79,7 @@ describe("scripts/option-values", () => {
       ["pipelines-status", "--status"],
     ];
     for (const [script, opt] of pairs) {
-      const r = spawnSync(join(TOOLS, script), [opt], { encoding: "utf8" });
+      const r = spawnSync("node", [toolScript(script), opt], { encoding: "utf8" });
       expect(r.status, `${script} ${opt}: status ${r.status}`).toBe(2);
       const out = (r.stdout ?? "") + (r.stderr ?? "");
       expect(out, `${script}: ${out}`).not.toContain("unbound variable");

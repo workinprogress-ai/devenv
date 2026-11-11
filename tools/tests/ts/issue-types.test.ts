@@ -6,7 +6,6 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
-import { fileURLToPath } from "node:url";
 
 const TOOL = "issue-types";
 
@@ -126,7 +125,7 @@ describe("issue-types", () => {
 
   it("an invalid format is a defined failure", () => {
     const r = runTool(["--format", "bogus"]);
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
     expect(r.output).toContain("Invalid format");
   });
 });

@@ -3,10 +3,12 @@
 // module is a thin loader over policies.bash + releases.bash; the TS module
 // composes the same surface). Contract: throw ProviderError; never exit.
 
-import { ProviderError } from "../provider-core.ts";
+import { ProviderError, providerDeclareCapability } from "../provider-core.ts";
 import { azureHttp, azureHttpPaginate } from "./http.ts";
 import { azureOrgProject, azureUri } from "./urls.ts";
 import { applyListFlags } from "./repos.ts";
+
+providerDeclareCapability("rulesets");
 
 export {
   orgRulesetsList,

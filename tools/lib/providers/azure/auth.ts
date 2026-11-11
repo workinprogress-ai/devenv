@@ -26,8 +26,12 @@ export function azurePatFile(): string {
 
 /** The provider's auth status, exit-code form (auth.bash
  * provider_auth_status_impl parity): a resolvable token with a sane file mode
- * means the provider can operate. Never reads the token's value. */
+ * means the provider can operate, as does a set AZURE_PAT. Never reads
+ * the token's value. */
 export function authStatusOk(): boolean {
+  // The AZURE_PAT env leg is a credential in its own right (azurePatGet reads
+  // it before the file), so it needs no PAT file.
+  if ((process.env.AZURE_PAT ?? "") !== "") return true;
   const patFile = azurePatFile();
   if (!existsSync(patFile)) return false;
   try {

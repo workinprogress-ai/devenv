@@ -4,7 +4,6 @@
 // skips; a TTY prompt asks; non-TTY without YES refuses), then delete.
 // Guard contract: multi-match exits 3, refusal exits 2, declined exits 130.
 
-import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -49,7 +48,8 @@ try {
   nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? cli.positionals[1] ?? "";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (podPart === "") {

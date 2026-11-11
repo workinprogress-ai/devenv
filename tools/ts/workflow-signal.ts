@@ -22,7 +22,7 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli } from "../lib/core/cli.ts";
-import { onEvent, type WorkflowWriteContext } from "../lib/domain/issues/graph.ts";
+import { fireEvent, type WorkflowWriteContext } from "../lib/domain/issues/graph.ts";
 import { eventNames } from "../lib/domain/events.ts";
 import { select } from "../lib/ui/prompts.ts";
 
@@ -188,40 +188,30 @@ async function runGroups(groups: EventIssueGroup[], root: string): Promise<void>
         rc = 1;
         continue;
       }
-      let warnings: string[] = [];
+      const warnings: string[] = [];
+      let failed: boolean;
       // Two dispatch modes: with the WORKFLOW_SIGNAL_TOOLS seam set, exec
       // the _on_*.sh entry scripts (the test contract — fakes log their
-      // argv); on the real path, dispatch in-process through the graph
-      // port (same semantics, no bash hop).
+      // argv); otherwise dispatch in-process through the shared fireEvent
+      // path (the same one triage uses), with no bash hop.
       const seam = process.env["WORKFLOW_SIGNAL_TOOLS"];
-      let failed = false;
       if (seam !== undefined && seam !== "") {
         const { spawnSync } = await import("node:child_process");
         const script = join(seam, `${group.event}.sh`);
         const r = spawnSync("bash", [script, String(issue)], { encoding: "utf8" });
         if ((r.stderr ?? "").trim() !== "") process.stderr.write(`${(r.stderr ?? "").trim()}\n`);
-        // Structural failure signal: the entry script's exit status. (The
-        // old stderr string-match for "workflow write " was the vocabulary
-        // of one warning producer, not a contract — a seam script that
-        // failed a write but exited 0 reported success.)
+        // Structural failure signal: the entry script's exit status.
         failed = r.status !== 0;
       } else {
-        try {
-          const ctx: WorkflowWriteContext = {
-            onWarning: (m) => {
-              warnings.push(m);
-            },
-          };
-          await onEvent(group.event, issue, ctx);
-          // Structural failure flag (F34) — never a stderr string-match.
-          failed = ctx.failed === true;
-        } catch {
-          failed = true;
+        const ctx: WorkflowWriteContext = { onWarning: (m) => warnings.push(m) };
+        const result = await fireEvent(group.event, issue, ctx);
+        failed = !result.ok;
+        if (result.error !== undefined) {
+          warnings.push(`event handler for ${group.event} threw: ${result.error}`);
         }
       }
-      // Surface ALL collected warnings (they were void-ed before).
+      // Surface every collected warning.
       for (const w of warnings) process.stderr.write(`${w}\n`);
-      warnings = [];
       if (!failed) {
         console.log(`signalled ${group.event} for issue #${issue}`);
       } else {

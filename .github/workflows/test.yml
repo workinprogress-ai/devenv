@@ -127,7 +127,9 @@ jobs:
       - uses: actions/setup-node@v4
         if: steps.changed.outputs.files != ''
         with:
-          node-version: "20.14.0"
+          # TypeScript tools run natively under node: keep in lockstep with NODE_VERSION
+          # in .devcontainer/tool-versions.bash (Node 20 cannot execute .ts files).
+          node-version: "24.18.0"
 
       - name: Install the pinned linters
         if: steps.changed.outputs.files != ''
@@ -168,7 +170,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20.14.0"
+          # TypeScript tools run natively under node: keep in lockstep with NODE_VERSION
+          # in .devcontainer/tool-versions.bash (Node 20 cannot execute .ts files).
+          node-version: "24.18.0"
 
 
       - name: Install the pinned linters

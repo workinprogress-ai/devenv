@@ -16,6 +16,7 @@ async function loadGraph(): Promise<Graph> {
 }
 
 let cacheDir = "";
+let rootDir = "";
 const savedEnv: { cache?: string | undefined; prefix?: string | undefined; root?: string | undefined } = {};
 
 function touch(path: string, content = "ts"): void {
@@ -44,11 +45,16 @@ beforeEach(() => {
   savedEnv.root = process.env.DEVENV_ROOT;
   process.env.REPO_CACHE_DIR = cacheDir;
   process.env.CS_DEP_ORG_PREFIX = "WIP.";
-  delete process.env.DEVENV_ROOT;
+  // A fixture devenv root whose config configures no package prefix, so the
+  // "no prefix" case never depends on the layout of the checkout hosting the suite.
+  rootDir = mkdtempSync(join(tmpdir(), "csdep-root-"));
+  writeFileSync(join(rootDir, "devenv.config"), "[nuget]\nfeed_url=https://nuget.example.test/v3/index.json\n");
+  process.env.DEVENV_ROOT = rootDir;
 });
 
 afterEach(() => {
   rmSync(cacheDir, { recursive: true, force: true });
+  rmSync(rootDir, { recursive: true, force: true });
   if (savedEnv.cache === undefined) delete process.env.REPO_CACHE_DIR;
   else process.env.REPO_CACHE_DIR = savedEnv.cache;
   if (savedEnv.prefix === undefined) delete process.env.CS_DEP_ORG_PREFIX;

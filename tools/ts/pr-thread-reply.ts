@@ -8,7 +8,7 @@
 
 import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -64,16 +64,16 @@ Examples:
   process.exit(0);
 }
 
-/** owner/name for the REST reply route: explicit spec > DEVENV_REPO/cwd >
- * the origin remote normalized through the provider URL seam. A multi-part
- * spec keeps the LAST component as the repository (bash's tail-slice parity:
- * an azure-shaped acme/proj/widgets names the repo widgets). */
-async function resolveOwnerName(): Promise<{ owner: string; name: string } | null> {
+/** The reply target: explicit spec > DEVENV_REPO/cwd > the origin remote
+ * normalized through the provider URL seam. `owner` and `name` are the first
+ * and last spec components; the provider receives the FULL `spec`, because an
+ * Azure spec (acme/proj/widgets) carries the project in the middle. */
+async function resolveOwnerName(): Promise<{ owner: string; name: string; spec: string } | null> {
   const spec = requireRepoTarget(providerRepoTarget(""), "pr-thread-reply", "pr");
   if (spec.includes("/")) {
     const owner = spec.split("/")[0] ?? "";
     const name = spec.split("/").pop() ?? "";
-    if (owner !== "" && name !== "") return { owner, name };
+    if (owner !== "" && name !== "") return { owner, name, spec };
   }
   const remote = spawnSync("git", ["remote", "get-url", "origin"], { encoding: "utf8" });
   if (remote.status === 0) {
@@ -81,7 +81,7 @@ async function resolveOwnerName(): Promise<{ owner: string; name: string } | nul
     if (specFromRemote !== null) {
       const owner = specFromRemote.split("/")[0] ?? "";
       const name = specFromRemote.split("/").pop() ?? "";
-      if (owner !== "" && name !== "") return { owner, name };
+      if (owner !== "" && name !== "") return { owner, name, spec: specFromRemote };
     }
   }
   return null;
@@ -194,7 +194,7 @@ async function main(argv: string[]): Promise<number> {
 
   checkTargetRepo(devenv);
 
-  if (!authStatusOk()) {
+  if (!(await authStatusOk())) {
     logError("Not authenticated with the active provider");
     process.stderr.write("Run: key-update-provider\n");
     return EXIT_API_FAILURE;
@@ -215,7 +215,7 @@ async function main(argv: string[]): Promise<number> {
   let response: string;
   try {
     const body = bodyText;
-    const r = await prsThreadReply(`${repo.owner}/${repo.name}`, Number.parseInt(prNumber, 10), Number.parseInt(commentId.split("/")[0] ?? "0", 10), body);
+    const r = await prsThreadReply(repo.spec, Number.parseInt(prNumber, 10), commentId, body);
     response = r.stdout;
   } catch (err) {
     logError(`Failed to post reply: ${errorMessage(err)}`);

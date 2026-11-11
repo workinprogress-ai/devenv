@@ -10,9 +10,8 @@
 //              the old exit 0 or a fixed 1 must match the forwarded code).
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { spawnSync } from "node:child_process";
-import { readSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { readLineStdin } from "../lib/core/stdin-line.ts";
 import { gitCapture, gitCheck } from "../lib/core/git.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -61,7 +60,7 @@ try {
   if (cli.values["show"] === true) mode = "--show";
   else if (cli.values["branch"] === true) mode = "--branch";
   branchNameArg = cli.positionals[0] ?? "";
-} catch (err) {
+} catch {
   // The bash original refused unknown options with exit 1 (general error),
   // not exit 2 — preserved on adoption.
   logError(`git-wip-recover: unknown option. Use --help for usage.`);
@@ -105,29 +104,13 @@ if (mode === "--show") {
   console.log("");
   // Interactive restore prompt. Lines come from stdin; loop exits at EOF
   // (the non-interactive answer is "no").
-  const readLine = (): string | null => {
-    let buf = Buffer.alloc(0);
-    const chunk = Buffer.alloc(1);
-    while (true) {
-      const idx = buf.indexOf(0x0a);
-      if (idx !== -1) return buf.subarray(0, idx).toString("utf8").trim();
-      let n = 0;
-      try {
-        n = readSync(0, chunk, 0, 1, null);
-      } catch {
-        return buf.length > 0 ? buf.toString("utf8").trim() : null;
-      }
-      if (n <= 0) return buf.length > 0 ? buf.toString("utf8").trim() : null;
-      buf = Buffer.concat([buf, chunk.subarray(0, n)]);
-    }
-  };
   while (true) {
     process.stdout.write(">>> Restore to a branch? [y/n]: ");
-    const answer = readLine();
+    const answer = readLineStdin();
     if (answer === null) break;
     if (/^[Yy]/.test(answer)) {
       process.stdout.write("    Branch name [wip-recovered]: ");
-      const nameAnswer = readLine();
+      const nameAnswer = readLineStdin();
       const branchName = nameAnswer === null || nameAnswer === "" ? "wip-recovered" : nameAnswer;
       checkoutBranch(branchName, wipCommit);
       break;

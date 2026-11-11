@@ -7,7 +7,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
-import { EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
+import { EXIT_CONFLICT, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
@@ -21,8 +21,8 @@ const WATCHDOG_INTERVAL_MS = 5000;
 const PREFIX = "[telepresence-watchdog]";
 const SCRIPT_VERSION = "1.0.0";
 
-function usage(): never {
-  console.log(`Usage: kube-intercept [-n|--namespace <ns>] [mapping_file] DEPLOYMENT=PORT[,PORT...] [DEPLOYMENT=PORT ...]
+function usage(status = 0): never {
+  (status === 0 ? console.log : console.error)(`Usage: kube-intercept [-n|--namespace <ns>] [mapping_file] DEPLOYMENT=PORT[,PORT...] [DEPLOYMENT=PORT ...]
 
 Intercept cluster traffic into local services via telepresence. Mappings
 come from a mapping file (one DEPLOYMENT=PORT per line, # comments allowed)
@@ -32,7 +32,7 @@ pod in the namespace. A watchdog reconnects the daemon while intercepts run.
 Options:
   -n, --namespace NS   Namespace
 ${usageCommonFlags({ noDryRun: true })}`);
-  process.exit(1);
+  process.exit(status);
 }
 
 let nsInput = "";
@@ -43,7 +43,6 @@ try {
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
     noDryRun: true,
-    strict: false,
     options: {
       namespace: { type: "string", short: "n" },
     },
@@ -53,7 +52,8 @@ try {
   mappingsRaw = [...cli.positionals];
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {
@@ -90,7 +90,7 @@ if (args.length > 0 && statSync(args[0] as string, { throwIfNoEntry: false })?.i
 mappings.push(...args);
 
 if (mappings.length === 0) {
-  usage();
+  usage(EXIT_MISUSE);
 }
 
 interface Intercept {
@@ -106,7 +106,7 @@ for (const mapping of mappings) {
   const portMapping = eq === -1 ? "" : mapping.slice(eq + 1);
   if (depId === "" || portMapping === "") {
     console.error(`Invalid mapping format: ${mapping}`);
-    process.exit(EXIT_GENERAL_ERROR);
+    process.exit(EXIT_MISUSE);
   }
   // Resolve the deployment's pod (the bash tool used get_deployment_info's
   // picker; the listing contract here is first matching pod, failing loud).
@@ -148,7 +148,7 @@ for (const mapping of mappings) {
     }
     if (!/^[0-9]+$/.test(localPort) || !/^[0-9]+$/.test(podPort)) {
       console.error(`Ports must be numeric in mapping: ${mapping}`);
-      process.exit(EXIT_GENERAL_ERROR);
+      process.exit(EXIT_MISUSE);
     }
     portArgs.push("--port", `${localPort}:${podPort}`);
   }

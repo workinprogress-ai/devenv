@@ -5,7 +5,6 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
 const TOOL = "issue-update";
@@ -19,7 +18,7 @@ function installGhStub(opts: { missingIssue?: boolean } = {}): void {
     [
       "#!/usr/bin/env bash",
       'printf \'%s\\n\' "gh $*" >> "__LOG__"',
-      `if [ "${opts.missingIssue ? "1" : "0"}" = "1" ] && [ "$1 $2" = "issue view" ]; then exit 1; fi`,
+      `if [ "${opts.missingIssue ? "1" : "0"}" = "1" ] && [ "$1 $2" = "issue view" ]; then echo "GraphQL: Could not resolve to an Issue with the number of $3." >&2; exit 1; fi`,
       "exit 0",
       "",
     ].join("\n").replaceAll("__LOG__", join(stubDir, "calls.log")),
@@ -77,7 +76,7 @@ describe("issue-update", () => {
 
   it("rejects an invalid type naming the allowed set", () => {
     const r = runTool(["123", "--type", "Narrative"]);
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
     expect(r.output).toContain("Invalid issue type: Narrative");
     expect(r.output).toContain("Bug, Feature, Task, Epic");
     expect(ghCalls().join("\n")).not.toContain("issue edit");
@@ -101,6 +100,35 @@ describe("issue-update", () => {
     const calls = ghCalls().join("\n");
     expect(calls).toContain("--add-label bug");
     expect(calls).toContain("--remove-label wip");
+  });
+
+  it("every value of each repeatable edit flag reaches gh", () => {
+    const r = runTool([
+      "42",
+      "--add-label", "a1", "--add-label", "a2",
+      "--remove-label", "r1", "--remove-label", "r2",
+      "--add-assignee", "u1", "--add-assignee", "u2",
+      "--remove-assignee", "v1", "--remove-assignee", "v2",
+    ]);
+    expect(r.status).toBe(0);
+    const edit = ghCalls().find((c) => c.startsWith("gh issue edit 42")) ?? "";
+    for (const v of ["a1", "a2"]) expect(edit).toContain(`--add-label ${v}`);
+    for (const v of ["r1", "r2"]) expect(edit).toContain(`--remove-label ${v}`);
+    for (const v of ["u1", "u2"]) expect(edit).toContain(`--add-assignee ${v}`);
+    for (const v of ["v1", "v2"]) expect(edit).toContain(`--remove-assignee ${v}`);
+  });
+
+  it("every value of the repeatable blocked-by flags is honored", () => {
+    const r = runTool([
+      "42", "--dry-run",
+      "--add-blocked-by", "7", "--add-blocked-by", "9",
+      "--remove-blocked-by", "11", "--remove-blocked-by", "13",
+    ]);
+    expect(r.status).toBe(0);
+    for (const n of ["7", "9"]) expect(r.output).toContain(`blocked by #${n}`);
+    for (const n of ["11", "13"]) expect(r.output).toContain(`un-record #42 blocked by #${n}`);
+    const viewed = ghCalls().filter((c) => c.startsWith("gh issue view"));
+    for (const n of ["7", "9", "11", "13"]) expect(viewed.join("\n")).toContain(`issue view ${n}`);
   });
 
   it("state closed closes, state reopen reopens", () => {

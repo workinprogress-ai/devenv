@@ -34,6 +34,8 @@ PR mode (remote, via gh):
 Ref mode (local, via git):
     --base BASE_REF             Base ref
     --head HEAD_REF             Head ref
+    (the diff is BASE...HEAD: changes on HEAD since its merge base with BASE,
+    which is what a PR shows; changes that landed on BASE afterwards are omitted)
 
 Options:
 ${usageCommonFlags({ noDryRun: true })}
@@ -65,7 +67,8 @@ function diffRefs(base: string, head: string, nameOnly: boolean): number {
     logError(`Head ref not found: ${head}`);
     return EXIT_API_FAILURE;
   }
-  const range = `${base}..${head}`;
+  // Three-dot: the merge-base diff, which is what a PR shows.
+  const range = `${base}...${head}`;
   const r = nameOnly
     ? spawnSync("git", ["--no-pager", "diff", "--name-only", range], { encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] })
     : spawnSync("git", ["--no-pager", "diff", range], { encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] });

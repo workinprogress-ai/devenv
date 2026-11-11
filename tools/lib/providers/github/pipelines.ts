@@ -65,16 +65,21 @@ export async function pipelinesRunList(
   return (await ghApi(args)).stdout;
 }
 
-/** View a workflow run. */
+/** View a workflow run. `json` (fields) and `jq` (program) ride to gh as
+ * `--json`/`-q`; the remaining options are transport options. */
 export async function pipelinesRunView(
   spec: string | undefined,
   runId: string,
-  opts: GhOptions = {},
+  opts: GhOptions & { json?: string; jq?: string } = {},
 ): Promise<string> {
+  const { json, jq, ...transport } = opts;
   const parts = spec !== undefined ? [spec, runId] : [runId];
   const { repo, rest } = splitOptionalRepo(parts, true);
   const runIdArg = rest[0] ?? runId;
-  return (await ghApi(["run", "view", runIdArg, ...repoArgs(repo)], opts)).stdout;
+  const args = ["run", "view", runIdArg, ...repoArgs(repo)];
+  if (json !== undefined && json !== "") args.push("--json", json);
+  if (jq !== undefined && jq !== "") args.push("-q", jq);
+  return (await ghApi(args, transport)).stdout;
 }
 
 /** Watch a run to completion (gh streams progress; the caller owns polling

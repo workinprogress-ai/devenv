@@ -6,15 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, appendFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { runTool as runHarness } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const TOOLS = join(ROOT, "tools");
-const TOOL = join(TOOLS, "pr-create");
 
 let TMP = "";
 let REPO_DIR = "";
@@ -82,6 +78,7 @@ function writeGhStub(): void {
       "    fi",
       "    ;;",
       '  "issue view")',
+      '    [ -n "${ISSUE_VIEW_FAIL:-}" ] && { echo "issue not found" >&2; exit 1; }',
       "    has_title=0; has_jq=0",
       '    for a in "$@"; do',
       '      [ "$a" = "title" ] && has_title=1',
@@ -155,6 +152,11 @@ beforeEach(() => {
   spawnSync("git", ["commit", "-q", "-m", "chore: initial"], { cwd: REPO_DIR, env: GIT_ENV() });
   spawnSync("git", ["branch", "-M", "main"], { cwd: REPO_DIR, env: GIT_ENV() });
   spawnSync("git", ["remote", "add", "origin", "https://github.com/mock-owner/mock-repo.git"], { cwd: REPO_DIR, env: GIT_ENV() });
+  // Every fixture reaches a local bare repo, never the https URL: the tool
+  // refreshes the PR branch from origin before scanning it.
+  REMOTE = join(TMP, "remote.git");
+  spawnSync("git", ["init", "-q", "--bare", "-b", "main", REMOTE], { env: GIT_ENV() });
+  spawnSync("git", ["config", `url.${REMOTE}.insteadOf`, "https://github.com/mock-owner/mock-repo.git"], { cwd: REPO_DIR, env: GIT_ENV() });
   spawnSync("git", ["update-ref", "refs/remotes/origin/main", "HEAD"], { cwd: REPO_DIR, env: GIT_ENV() });
   spawnSync("git", ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"], { cwd: REPO_DIR, env: GIT_ENV() });
   branch("feature/test");
@@ -407,5 +409,131 @@ describe("pr-create (behavioral port)", () => {
     const log = readFileSync(GH_CALL_LOG, "utf8");
     const createLine = log.split("\n").find((l) => l.includes("gh create")) ?? "";
     expect(createLine).toContain("--label ci");
+  });
+
+  // --- gate and inference correctness ---
+
+  it("inference requires digits followed by a dash (a bare leading number is not an issue)", () => {
+    branch("42fix-thing");
+    const r = prCreate(["some title", "--repo-dir", REPO_DIR]);
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("none inferable from branch name");
+    expect(readFileSync(GH_CALL_LOG, "utf8")).not.toContain("gh create");
+  });
+
+  it("an inferred issue number that does not exist is refused, never written into a Closes line", () => {
+    branch("2025-cleanup");
+    const r = prCreate(["some title", "--repo-dir", REPO_DIR], { ISSUE_VIEW_FAIL: "1" });
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("#2025");
+    expect(readFileSync(GH_CALL_LOG, "utf8")).not.toContain("gh create");
+  });
+
+  it("an inferred issue that exists adds the Closes line", () => {
+    branch("42-fix-thing");
+    const r = prCreate(["some title", "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("Inferred issue #42");
+  });
+
+  it("--branch scans the named branch, not HEAD", () => {
+    branch("feature/wip-named");
+    appendFileSync(join(REPO_DIR, "README.md"), "scratch\n");
+    git(["add", "README.md"]);
+    git(["commit", "-q", "-m", "WIP: named branch save"]);
+    branch("feature/clean-head");
+    const r = prCreate(["feat: something", "--no-issue", "--branch", "feature/wip-named", "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("WIP: named branch save");
+    expect(readFileSync(GH_CALL_LOG, "utf8")).not.toContain("gh create");
+  });
+
+  it("fails closed when the branch to scan does not exist", () => {
+    const r = prCreate(["feat: something", "--no-issue", "--branch", "ghost/nosuchref", "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(1);
+    expect(readFileSync(GH_CALL_LOG, "utf8")).not.toContain("gh create");
+  });
+
+  it("scans origin/<branch> when it exists: a clean local rewrite does not hide a pushed WIP", () => {
+    atFixture(); // feature/partial carries a WIP tip
+    git(["push", "-q", "origin", "feature/partial:feature/partial"]);
+    git(["fetch", "-q", "origin"]);
+    git(["reset", "-q", "--hard", "HEAD~1"]); // local now clean; origin still has the WIP
+    const r = prCreate(["feat: something", "--no-issue", "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("WIP: continues");
+  });
+
+  it("refreshes origin/<branch> first: a WIP pushed from another clone after our last fetch is caught", () => {
+    git(["push", "-q", "origin", "main"]);
+    branch("feature/stale");
+    appendFileSync(join(REPO_DIR, "README.md"), "clean\n");
+    git(["add", "README.md"]);
+    git(["commit", "-q", "-m", "feat: clean work"]);
+    git(["push", "-q", "origin", "feature/stale"]);
+    git(["fetch", "-q", "origin"]);
+    const other = join(TMP, "other-clone");
+    spawnSync("git", ["clone", "-q", REMOTE, other], { env: GIT_ENV() });
+    spawnSync("git", ["-C", other, "checkout", "-q", "feature/stale"], { env: GIT_ENV() });
+    appendFileSync(join(other, "README.md"), "wip\n");
+    spawnSync("git", ["-C", other, "add", "README.md"], { env: GIT_ENV() });
+    spawnSync("git", ["-C", other, "commit", "-q", "-m", "WIP: pushed from elsewhere"], { env: GIT_ENV() });
+    spawnSync("git", ["-C", other, "push", "-q", "origin", "feature/stale"], { env: GIT_ENV() });
+    const r = prCreate(["feat: something", "--no-issue", "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("WIP: pushed from elsewhere");
+    expect(readFileSync(GH_CALL_LOG, "utf8")).not.toContain("gh create");
+  });
+
+  it("blocks when the refresh fails for a reason other than a missing remote branch", () => {
+    git(["push", "-q", "origin", "main"]);
+    branch("feature/unreachable");
+    appendFileSync(join(REPO_DIR, "README.md"), "x\n");
+    git(["add", "README.md"]);
+    git(["commit", "-q", "-m", "feat: x"]);
+    git(["push", "-q", "origin", "feature/unreachable"]);
+    git(["config", `url.${join(TMP, "gone.git")}.insteadOf`, "https://github.com/mock-owner/mock-repo.git"]);
+    git(["config", "--unset-all", `url.${REMOTE}.insteadOf`]);
+    const r = prCreate(["feat: something", "--no-issue", "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(1);
+    expect(r.out).toMatch(/refresh|fetch/i);
+    expect(readFileSync(GH_CALL_LOG, "utf8")).not.toContain("gh create");
+  });
+
+  it("proceeds when the branch does not exist on the remote yet", () => {
+    branch("feature/unpushed");
+    appendFileSync(join(REPO_DIR, "README.md"), "x\n");
+    git(["add", "README.md"]);
+    git(["commit", "-q", "-m", "feat: x"]);
+    const r = prCreate(["feat: something", "--no-issue", "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(0);
+  });
+
+  it("does not block a subject that only mentions WIP: mid-line", () => {
+    branch("feature/mention");
+    appendFileSync(join(REPO_DIR, "README.md"), "m\n");
+    git(["add", "README.md"]);
+    git(["commit", "-q", "-m", "fix: handle WIP: markers"]);
+    const r = prCreate(["feat: something", "--no-issue", "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(0);
+  });
+
+  it("--at: a merge-branch WIP refusal uses the general-error exit code", () => {
+    atFixture();
+    const wipHash = (git(["rev-parse", "--short", "HEAD"]).stdout ?? "").trim();
+    const r = prCreate(["feat: x", "--no-issue", "--at", wipHash, "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(1);
+  });
+
+  it("--at refuses to reuse a merge branch whose tip is not the resolved commit", () => {
+    atFixture();
+    // A pre-existing merge branch with the same name but a different tip.
+    git(["branch", `merge/${READY_HASH}-feature/partial`, "main"]);
+    const r = prCreate(["feat: ready prefix", "--no-issue", "--at", READY_HASH, "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("does not point at");
+    expect(readFileSync(GH_CALL_LOG, "utf8")).not.toContain("gh create");
+    expect(spawnSync("git", ["-C", REMOTE, "show-ref", "--verify", "--quiet", `refs/heads/merge/${READY_HASH}-feature/partial`]).status).not.toBe(0);
+    expect((git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout ?? "").trim()).toBe("feature/partial");
   });
 });

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 
 function tool(toolName: string, ...args: string[]): { status: number; out: string } {
-  const r = spawnSync(join(ROOT, "tools", toolName), args, { encoding: "utf8" });
+  const r = spawnSync("node", [join(ROOT, "tools", "ts", `${toolName}.ts`), ...args], { encoding: "utf8" });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
@@ -67,11 +67,11 @@ describe("script usage surfaces", () => {
   });
 
   it("lint-scripts.sh has valid syntax", () => {
-    expect(spawnSync("bash", ["-n", join(ROOT, "tools/lint-scripts")]).status).toBe(0);
+    expect(spawnSync("node", ["--check", join(ROOT, "tools/ts/lint-scripts.ts")]).status).toBe(0);
   });
 
   it("repo-version-list.sh has valid syntax", () => {
-    expect(spawnSync("bash", ["-n", join(ROOT, "tools/repo-version-list")]).status).toBe(0);
+    expect(spawnSync("node", ["--check", join(ROOT, "tools/ts/repo-version-list.ts")]).status).toBe(0);
   });
 
   it("issue-create.sh has usage output", () => {

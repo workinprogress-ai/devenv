@@ -16,11 +16,9 @@ import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { ensureProviderAuth, } from "../lib/providers/provider-core.ts";
 import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
-import { pipelinesWorkflowRun, pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
+import { pipelinesWorkflowRun, pipelinesRunList, pipelinesRunView } from "../lib/providers/facade/pipelines.ts";
 
 assertNodeFloor();
-
-await requireFamilyCapability("pipelines", "pipelines");
 
 let workflow = "";
 let repo = "";
@@ -37,7 +35,7 @@ Arguments:
     WORKFLOW                    Workflow file name (e.g. ci.yml) or display name
 
 Options:
-${usageCommonFlags({ noDryRun: true })}
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --repo OWNER/REPO           Repository to run workflow in (required)
     --ref REF                   Branch or tag to run on (default: repo default branch)
     --input KEY=VALUE           Workflow dispatch input (repeatable)
@@ -66,7 +64,7 @@ try {
   for (const i of (cli.values.input as string[] | undefined) ?? []) {
     if (typeof i === "string") inputs.push(i);
   }
-  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  const positionals = cli.positionals;
   if (positionals.length !== 1) {
     logError("WORKFLOW (exactly one positional) is required");
     console.error("Use --help for usage information");
@@ -75,22 +73,32 @@ try {
   workflow = positionals[0] ?? "";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (repo === "" || !repo.includes("/")) {
   logError("--repo OWNER/REPO is required");
   process.exit(EXIT_MISUSE);
 }
+for (const input of inputs) {
+  if (!input.includes("=") || input.startsWith("=")) {
+    logError(`Invalid --input: ${input} (expected KEY=VALUE)`);
+    process.exit(EXIT_MISUSE);
+  }
+}
 
-// Auth after argv validation: a usage error must exit 2 without touching gh
-// (no network probe on the misuse path).
+// Provider resolution and authentication happen only after the arguments
+// parsed: help and misuse need neither config nor network.
+await requireFamilyCapability("pipelines", "pipelines");
 ensureProviderAuth();
 
 const triggerFlags: string[] = [];
 if (ref !== "") triggerFlags.push("--ref", ref);
 for (const input of inputs) {
-  triggerFlags.push("--field", input);
+  // -f is gh's --raw-field: the value is always a literal string. -F would read
+  // "@file" from the local disk into the workflow input.
+  triggerFlags.push("-f", input);
 }
 
 const queued = await pipelinesWorkflowRun(repo, workflow, triggerFlags);
@@ -101,15 +109,27 @@ if (queued.status !== 0) {
 
 logInfo("Workflow queued. Fetching run URL...");
 
-// gh workflow run does not return a run ID or URL. Poll after a short delay.
-spawnSleep(2);
-
+// gh workflow run does not return a run ID or URL: poll for the latest run
+// after a short delay. A provider that does hand back the queued run's id (a
+// bare positive integer on stdout) is asked for that run's URL instead, so the
+// URL is never another run's.
 let runUrl = "";
-try {
-  const raw = await pipelinesRunList(repo, { json: "url", jq: ".[0].url // empty" });
-  runUrl = raw.trim();
-} catch {
-  runUrl = "";
+const queuedId = queued.stdout.trim();
+if (/^[1-9][0-9]*$/.test(queuedId)) {
+  try {
+    runUrl = (await pipelinesRunView(repo, queuedId, { json: "url", jq: ".url" })).trim();
+  } catch {
+    runUrl = "";
+  }
+}
+if (runUrl === "") {
+  spawnSleep(2);
+  try {
+    const raw = await pipelinesRunList(repo, { json: "url", jq: ".[0].url // empty" });
+    runUrl = raw.trim();
+  } catch {
+    runUrl = "";
+  }
 }
 
 if (runUrl !== "" && runUrl !== "null") {

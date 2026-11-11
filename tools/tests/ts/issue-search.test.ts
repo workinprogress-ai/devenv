@@ -2,10 +2,9 @@
 // stubbed gh: any-term OR matching, case-insensitivity, literal
 // metacharacters, ranking by hit count, limit, and formats.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
 const TOOL = "issue-search";
@@ -29,6 +28,7 @@ function installGhStub(): void {
     join(stubDir, "gh"),
     [
       "#!/usr/bin/env bash",
+      'printf \'%s\\n\' "gh $*" >> "__CALLS__"',
       `if [ "$1" = "rev-parse" ]; then printf '%s\\n' "${repoRoot}"; exit 0; fi`,
       'if [ -s "__RESPONSES__" ]; then',
       "  while IFS= read -r line; do",
@@ -43,7 +43,7 @@ function installGhStub(): void {
       "printf '[]\\n'",
       "exit 0",
       "",
-    ].join("\n").replaceAll("__RESPONSES__", responses),
+    ].join("\n").replaceAll("__RESPONSES__", responses).replaceAll("__CALLS__", join(stubDir, "calls.log")),
     { mode: 0o755 },
   );
 }
@@ -122,6 +122,14 @@ describe("issue-search", () => {
   it("simple format renders the count bracket", () => {
     const r = runTool(["token", "--format", "simple"]);
     expect(r.stdout).toContain("[1 term]");
+  });
+
+  it("every repeated --label value reaches gh", () => {
+    const r = runTool(["token", "--label", "bug", "--label", "area/auth", "-l", "p1", "--format", "json"]);
+    expect(r.status).toBe(0);
+    const log = join(stubDir, "calls.log");
+    const calls = existsSync(log) ? readFileSync(log, "utf8") : "";
+    for (const l of ["bug", "area/auth", "p1"]) expect(calls).toContain(`--label ${l}`);
   });
 
   it("no terms is a misuse failure", () => {

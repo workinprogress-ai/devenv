@@ -11,6 +11,7 @@
 // token-never-in-argv rule (stdin only, prompt or pipe).
 
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { assertNodeFloor } from "../../core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../../core/exit-codes.ts";
 import { logWarn } from "../../core/logging.ts";
@@ -63,7 +64,7 @@ console.log("");
 // keeps the hidden-input contract on a TTY; piped stdin passes through.
 let newToken = "";
 if (process.stdin.isTTY !== true) {
-  newToken = require("node:fs").readFileSync(0, "utf8");
+  newToken = readFileSync(0, "utf8");
 } else {
   const r = spawnSync(
     "bash",

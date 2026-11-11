@@ -7,13 +7,14 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createForkFixtureTrio, git, installChangeIdHook, scenarioCommit, scenarioPreChangeIdBacklog, type ForkFixture } from "./harness/fork-fixture.ts";
+import { toolScript } from "./harness/index.ts";
+import { createForkFixtureTrio, git, scenarioPreChangeIdBacklog, type ForkFixture } from "./harness/fork-fixture.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const SCRIPT = join(TOOLS, "fork-sync");
+const SCRIPT = toolScript("fork-sync");
 
 let TMP = "";
 let FX: ForkFixture | undefined;
@@ -25,7 +26,7 @@ function fx(): ForkFixture {
 }
 
 function runScript(args: string[], env: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync("bash", [SCRIPT, ...args], {
+  const r = spawnSync("node", [SCRIPT, ...args], {
     cwd: FX ? FX.workingClone : process.cwd(),
     encoding: "utf8",
     env: { ...process.env, DEVENV_ROOT, DEVENV_ROOT_SET: "1", DEVENV_TOOLS: TOOLS, ...env },
@@ -71,6 +72,22 @@ describe("fork-sync links", () => {
     expect(readFileSync(map, "utf8")).toContain(`${localL} ${localU}`);
   });
 
+  it("--link=<sha> and --unlink=<sha> accept the attached form", () => {
+    setupLinksFixture();
+    scenarioPreChangeIdBacklog(fx(), 2);
+    const localL = git(fx().workingClone, ["log", "--format=%H", "--grep=backlog: pre-change-id commit 1", "-1"]).out.trim();
+    spawnSync("bash", ["-c", `git -C '${fx().workingClone}' format-patch -1 --stdout '${localL}' | git -C '${fx().ghClone}' am -q`], { encoding: "utf8" });
+    const localU = git(fx().ghClone, ["log", "--format=%H", "--grep=backlog: pre-change-id commit 1", "-1"]).out.trim();
+    const map = join(git(fx().workingClone, ["rev-parse", "--path-format=absolute", "--git-common-dir"]).out.trim(), "fork-adoption-map");
+    const linked = runScript([`--link=${localL}`, localU], linksEnv());
+    expect(linked.status, linked.out).toBe(0);
+    expect(readFileSync(map, "utf8")).toContain(`${localL} ${localU}`);
+    const unlinked = runScript([`--unlink=${localL}`], linksEnv());
+    expect(unlinked.status, unlinked.out).toBe(0);
+    expect(unlinked.out).toContain("removed adoption pair");
+    expect(readFileSync(map, "utf8")).not.toContain(localL);
+  });
+
   it("--propose-links (non-TTY) prints exact --link commands", () => {
     setupLinksFixture();
     scenarioPreChangeIdBacklog(fx(), 2);
@@ -91,6 +108,32 @@ describe("fork-sync links", () => {
     const r = runScript(["--link", "a", "b", "--replay"]);
     expect(r.status).not.toBe(0);
     expect(r.out).toContain("--link runs alone");
+  });
+
+  it("a repeated --link is misuse (exit 2), not a silently coerced value", () => {
+    setupLinksFixture();
+    const r = runScript(["--link", "A", "--link", "C", "B"]);
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain("--link may be given only once");
+  });
+
+  it("--link with a missing second value, an empty value or a stray extra argument is misuse (exit 2)", () => {
+    setupLinksFixture();
+    const missing = runScript(["--link", "A"]);
+    expect(missing.status, missing.out).toBe(2);
+    expect(missing.out).toContain("Missing value for --link");
+    const empty = runScript(["--link", "", "B"]);
+    expect(empty.status, empty.out).toBe(2);
+    expect(empty.out).toContain("non-empty");
+    const extra = runScript(["--link=A", "B", "extra"]);
+    expect(extra.status, extra.out).toBe(2);
+    expect(extra.out).toContain("unexpected argument");
+  });
+
+  it("--link A B with an explicit empty first value still refuses to combine with --replay", () => {
+    setupLinksFixture();
+    const r = runScript(["--link", "", "B", "--replay"]);
+    expect(r.status, r.out).toBe(2);
   });
 
   it("--propose-links reports no candidates when nothing matches", () => {

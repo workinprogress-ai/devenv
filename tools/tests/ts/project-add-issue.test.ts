@@ -3,11 +3,10 @@
 // resolved repo spec, a failed add reports the provider error and exits 1,
 // a successful add reports success and exits 0 — all without stack traces.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { runTool as runHarness } from "./harness/index.ts";
 const TOOL = "project-add-issue";
@@ -18,6 +17,8 @@ let sandbox = "";
 beforeEach(() => {
   stubDir = mkdtempSync(join(tmpdir(), "pai-stub-"));
   sandbox = mkdtempSync(join(tmpdir(), "pai-cfg-"));
+  // The shared repo gate requires a git work tree even with an explicit DEVENV_REPO.
+  spawnSync("git", ["init", "-q", sandbox]);
   // Org identity via the sandbox devenv.config ([organization] org).
   writeFileSync(join(sandbox, "devenv.config"), "[organization]\norg=the-owner\n");
 });
@@ -60,7 +61,7 @@ describe("project-add-issue", () => {
       '    echo "repo=$4 number=$3"; exit 0;;',
       "esac",
     ]);
-    const r = runTool(["42"]);
+    const r = runTool(["Board", "42"]);
     expect(r.status).toBe(1); // stub output is not a URL → "Could not get URL"
     expect(r.output).not.toContain("unbound");
   });
@@ -70,7 +71,7 @@ describe("project-add-issue", () => {
       'if [ "$1 $2" = "auth status" ]; then exit 0; fi',
       "case \"$*\" in",
       '  *"issue view"*) echo "https://example.test/issues/42"; exit 0;;',
-      '  *"projectsV2"*) echo "false "; echo "9";;',
+      `  *"projectsV2"*) echo '{"data":{"organization":{"projectsV2":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"number":9,"title":"Board"}]}}}}';;`,
       '  *"item-add"*) echo "provider said: no such project" >&2; exit 1;;',
       "esac",
     ]);
@@ -86,7 +87,7 @@ describe("project-add-issue", () => {
       'if [ "$1 $2" = "auth status" ]; then exit 0; fi',
       "case \"$*\" in",
       '  *"issue view"* | *"issue view --json"*) echo "https://example.test/issues/42"; exit 0;;',
-      '  *"projectsV2"*) echo "false "; echo "9";;',
+      `  *"projectsV2"*) echo '{"data":{"organization":{"projectsV2":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"number":9,"title":"Board"}]}}}}';;`,
       "esac",
     ]);
     const r = runTool(["Board", "42"]);

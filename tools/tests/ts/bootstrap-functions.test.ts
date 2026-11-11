@@ -25,6 +25,11 @@ import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, readFileSync, existsS
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { useProviderDown } from "./harness/index.ts";
+
+// These suites assert behaviour when the provider is down or unauthenticated; the
+// failure is stubbed so the regular run never starts a real gh or az.
+useProviderDown();
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const BOOTSTRAP_SH = join(ROOT, ".devcontainer", "bootstrap.sh");
@@ -1128,7 +1133,7 @@ describe("bootstrap: install_yq and download verification", () => {
     );
     writeFileSync(join(stubs, "sudo"), '#!/bin/bash\necho "sudo $*" >> "$CALLS"\n');
     for (const n of ["curl", "wget", "sudo"]) chmodSync(join(stubs, n), 0o755);
-    const tv = sh(`env -u YQ_VERSION bash -c "source '${TOOL_VERSIONS}'; echo \\\\$YQ_VERSION"`);
+    const tv = sh(`env -u YQ_VERSION bash -c 'source "${TOOL_VERSIONS}"; echo $YQ_VERSION'`);
     const pinnedVersion = tv.stdout.trim();
     expect(pinnedVersion).not.toBe("");
     const stubSha = sh(`printf 'stub\\n' | sha256sum`).stdout.split(" ")[0];
@@ -1154,7 +1159,7 @@ describe("bootstrap: install_yq and download verification", () => {
   });
 
   it("tool-versions.bash pins sha256 digests for the deterministic downloads", () => {
-    const r = sh(`env -u YQ_SHA256_AMD64 -u YQ_SHA256_ARM64 -u NVM_INSTALL_SHA256 bash -c "source '${TOOL_VERSIONS}'; echo '$YQ_SHA256_AMD64 $YQ_SHA256_ARM64 $NVM_INSTALL_SHA256'"`);
+    const r = sh(`env -u YQ_SHA256_AMD64 -u YQ_SHA256_ARM64 -u NVM_INSTALL_SHA256 bash -c 'source "${TOOL_VERSIONS}"; echo "$YQ_SHA256_AMD64 $YQ_SHA256_ARM64 $NVM_INSTALL_SHA256"'`);
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toMatch(/^[0-9a-f]{64} [0-9a-f]{64} [0-9a-f]{64}$/);
   });

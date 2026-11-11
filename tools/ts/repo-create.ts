@@ -11,13 +11,14 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, chmodSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { siblingInvocation } from "../lib/core/sibling.ts";
 import { providerOrgGet } from "../lib/providers/provider-core.ts";
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
 import { reposView, reposCreate, reposCommitsCount, reposTreeCount } from "../lib/providers/facade/repos.ts";
@@ -38,7 +39,7 @@ import {
 
 assertNodeFloor();
 
-const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
+const toolsDir = resolveToolsRoot(import.meta.url);
 const REPO_TYPES_CONFIG = repoTypesConfigPath(undefined, toolsDir);
 
 const USAGE_HEADER = `Usage: repo-create <repo-name> --type <type> [OPTIONS]
@@ -58,22 +59,22 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Repository Types:`;
 
-function printUsage(): void {
-  console.error(USAGE_HEADER);
+function printUsage(out: (line: string) => void = console.error): void {
+  out(USAGE_HEADER);
   try {
     const config = loadRepoTypesConfig(REPO_TYPES_CONFIG);
     for (const [key, type] of Object.entries(config.types)) {
-      console.error(`  ${key}: ${getTypeNamingExample(type)} (template: ${getTypeTemplate(type) ?? "none"})`);
+      out(`  ${key}: ${getTypeNamingExample(type)} (template: ${getTypeTemplate(type) ?? "none"})`);
     }
   } catch {
-    console.error("  (unable to read repo types)");
+    out("  (unable to read repo types)");
   }
-  console.error("");
+  out("");
 }
 
 function usage(): never {
   printUsage();
-  process.exit(1);
+  process.exit(EXIT_MISUSE);
 }
 
 // Wait for repository to be ready — handles the race where gh repo create
@@ -277,33 +278,25 @@ async function createRepo(
 
   if (!skipClone) {
     logInfo("Cloning repository locally...");
-    const repoGetTool = join(toolsDir, "repo-get");
-    if (existsSync(repoGetTool)) {
-      if (spawnSync(repoGetTool, [repoName], { stdio: "inherit" }).status === 0) {
-        logInfo(`✓ Repository cloned to ${reposDir}/${repoName}`);
+    const repoGet = siblingInvocation("repo-get", [repoName]);
+    if (spawnSync(repoGet.command, repoGet.args, { stdio: "inherit" }).status === 0) {
+      logInfo(`✓ Repository cloned to ${reposDir}/${repoName}`);
 
-        if (type !== undefined) createInitialBranch(repoName, repoType, reposDir, config);
+      if (type !== undefined) createInitialBranch(repoName, repoType, reposDir, config);
 
-        if (!skipPostCreation && type !== undefined) {
-          runPostCreationScript(join(reposDir, repoName), repoName, type);
+      if (!skipPostCreation && type !== undefined) {
+        runPostCreationScript(join(reposDir, repoName), repoName, type);
+      }
+
+      if (!skipProtection) {
+        logInfo("Applying repository configuration...");
+        const updateConfig = siblingInvocation("repo-update-config", [join(reposDir, repoName)]);
+        if (spawnSync(updateConfig.command, updateConfig.args, { stdio: "inherit" }).status !== 0) {
+          logWarn("Repository configuration reported failures");
         }
-
-        if (!skipProtection) {
-          logInfo("Applying repository configuration...");
-          const updateConfigTool = join(toolsDir, "repo-update-config");
-          if (existsSync(updateConfigTool)) {
-            if (spawnSync(updateConfigTool, [join(reposDir, repoName)], { stdio: "inherit" }).status !== 0) {
-              logWarn("Repository configuration reported failures");
-            }
-          } else {
-            logWarn("repo-update-config script not found, skipping configuration");
-          }
-        }
-      } else {
-        logWarn("Failed to clone repository");
       }
     } else {
-      logWarn("repo-get not found, skipping clone");
+      logWarn("Failed to clone repository");
     }
   } else {
     if (!skipProtection) {
@@ -357,7 +350,7 @@ try {
     },
   });
   if (cli.common.help) {
-    printUsage();
+    printUsage(console.log);
     process.exit(0);
   }
   if (cli.values.interactive === true) interactiveMode = true;
@@ -443,9 +436,10 @@ if (org === "") {
   logError("Organization identity unresolved. Configure [organization] org in devenv.config or run setup.");
   process.exit(EXIT_MISUSE);
 }
-if (!authStatusOk()) {
+if (!(await authStatusOk())) {
   logError("Provider CLI is not authenticated. Run 'key-update-provider' first.");
   process.exit(EXIT_GENERAL_ERROR);
-}await createRepo(repoName, visibility, description, repoType, skipProtection, skipTemplate, skipClone, skipPostCreation, config);
+}
+await createRepo(repoName, visibility, description, repoType, skipProtection, skipTemplate, skipClone, skipPostCreation, config);
 
 logInfo(`Repository '${repoName}' creation process completed.  🍻`);

@@ -82,3 +82,77 @@ export async function reposTreeCount(repo: string): Promise<number | null> {
   }
   return m.gh!.reposTreeCount(repo);
 }
+
+/** The error for a settings verb azure has no equivalent of. */
+function azureUnsupported(verb: string): never {
+  throw new ProviderError(`${verb} is not supported on provider 'azure'`);
+}
+
+/** Run an Azure write and report success as a boolean (github's contract for
+ * the settings verbs). Only a ProviderError (the provider's own failure) is
+ * converted; anything else is a defect and propagates. */
+async function azureBool(write: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await write();
+    return true;
+  } catch (err) {
+    if (err instanceof ProviderError) return false;
+    throw err;
+  }
+}
+
+/** Edit repository settings with gh-repo-edit flags (template flip, ...).
+ * Azure repos have no post-create settings flags: the edit is refused with a
+ * named error rather than reported as done. */
+export async function reposEdit(repo: string, flags: string[]): Promise<boolean> {
+  const m = await load();
+  if (m.provider === "azure") {
+    void repo;
+    void flags;
+    return azureUnsupported("repos_edit");
+  }
+  return m.gh!.reposEdit(repo, flags);
+}
+
+/** Patch repository settings with gh-api `-f/-F key=value` flags. The flag
+ * dialect and the settings it names (wiki, discussions, merge buttons, ...)
+ * are github's; azure has no equivalent surface. */
+export async function reposPatch(repo: string, flags: string[]): Promise<boolean> {
+  const m = await load();
+  if (m.provider === "azure") {
+    void repo;
+    void flags;
+    return azureUnsupported("repos_patch");
+  }
+  return m.gh!.reposPatch(repo, flags);
+}
+
+/** reposPatch with the API error body surfaced on failure. */
+export async function reposPatchWithError(
+  repo: string,
+  flags: string[],
+): Promise<{ ok: boolean; error: string }> {
+  const m = await load();
+  if (m.provider === "azure") {
+    void repo;
+    void flags;
+    return azureUnsupported("repos_patch_with_error");
+  }
+  return m.gh!.reposPatchWithError(repo, flags);
+}
+
+/** Grant a team access to a repository (idempotent). */
+export async function reposTeamPut(org: string, team: string, repo: string, permission?: string): Promise<boolean> {
+  const m = await load();
+  if (m.provider === "azure") return azureBool(() => m.az!.reposTeamPut(org, team, repo, permission));
+  return m.gh!.reposTeamPut(org, team, repo, permission);
+}
+
+/** Grant a user collaborator access to a repository (idempotent). */
+export async function reposCollaboratorPut(repo: string, user: string, permission?: string): Promise<boolean> {
+  const m = await load();
+  if (m.provider === "azure") {
+    return azureBool(() => m.az!.reposCollaboratorPut(repo, user, permission !== undefined ? { permission } : {}));
+  }
+  return m.gh!.reposCollaboratorPut(repo, user, permission);
+}

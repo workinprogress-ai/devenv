@@ -10,16 +10,17 @@
 // invocation sequences are preserved exactly from the bash tool — no
 // "improvements".
 
-import { basename, dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { gitCheck, gitInherit } from "../lib/core/git.ts";
+import { gitCheck, gitInherit, wipRangeGuard } from "../lib/core/git.ts";
 import { toolCli } from "../lib/core/cli.ts";
+import { conventionalCommitsOk } from "../lib/core/commit-format.ts";
+import { siblingInvocation } from "../lib/core/sibling.ts";
 import { checkTargetRepo, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsList, prsMerge, prsView } from "../lib/providers/facade/prs.ts";
 import { prWebUrl } from "../lib/providers/facade/urls.ts";
@@ -30,13 +31,11 @@ assertNodeFloor();
 const SCRIPT_VERSION = "1.0.0";
 const SCRIPT_NAME = basename(process.argv[1] ?? "pr-merge.ts");
 
-// The canonical conventional-commit type enum, matching commitlint.config.js
-// (docs/Commit-Conventions.md is the contract).
-const COMMIT_TYPES = ["feat", "fix", "chore", "docs", "style", "refactor", "perf", "test", "build", "ci", "revert", "patch", "minor", "major"];
 const MERGE_METHODS = ["squash", "merge", "rebase"] as const;
 
 function usage(exitCode: number): never {
-  process.stderr.write(`Usage: ${SCRIPT_NAME} [commit-message] [options]
+  // Help goes to stdout (exit 0); a misuse hint goes to stderr.
+  (exitCode === 0 ? process.stdout : process.stderr).write(`Usage: ${SCRIPT_NAME} [commit-message] [options]
 
 Merge an open pull request from the current branch.
 
@@ -52,10 +51,14 @@ Options:
   --base <branch>         Target branch (default: repository's default branch)
   --repo-dir <path>       Repository directory (default: current directory)
   --branch <name>         Source branch for PR lookup (default: current branch)
-  --force                 Force merge even if checks have not passed
+  --force                 Allow merging a draft PR. Branch protection (required
+                          reviews and checks) is never bypassed.
   --keep-branch           Keep the source branch after merge (deleted by default)
   --                      End of options: what follows is the commit message
-  --help                  Show this help message
+  -h, --help              Show this help message and exit
+  -v, --version           Show version information and exit
+  -V, --verbose           Enable verbose output (debug logging)
+  --devenv                Safety override for devenv-repo operations
 `);
   process.exit(exitCode);
 }
@@ -78,11 +81,6 @@ function defaultBranch(repoDir: string): string {
 
 function workingDirectoryClean(repoDir: string): boolean {
   return git(["-C", repoDir, "status", "--porcelain"], { capture: true }).out === "";
-}
-
-function conventionalCommitsOk(title: string): boolean {
-  if (title === "") return false;
-  return new RegExp(`^(${COMMIT_TYPES.join("|")})(\\([^)]+\\))?!?: .+`).test(title);
 }
 
 function mergeMethodAllowed(method: string): boolean {
@@ -108,26 +106,16 @@ function buildMergeCommitMessage(title: string, body: string, prNum: string, iss
   return trimmedBody !== "" ? `${subject}\n\n${trimmedBody}\n` : `${subject}\n`;
 }
 
-/** WIP scan (git-operations'): anchored ` WIP:` subject prefix in the range. */
-function wipScan(range: string): { clean: boolean; offenders: string } {
-  const r = gitCheck(null, ["log", range, "--format=%h %s"]);
-  const offenders = r.out
-    .split("\n")
-    .filter((l) => l.includes(" WIP:"))
-    .join("\n");
-  return { clean: offenders === "", offenders };
-}
-
 /** Soft warning: breaking markers in the range (! before colon or a
  * BREAKING CHANGE footer). Warning surface only, never a gate. */
-function breakingMarkerScan(range: string): void {
-  const log = gitCheck(null, ["log", range, "--format=%h %s"]);
+function breakingMarkerScan(repoDir: string, range: string): void {
+  const log = gitCheck(repoDir, ["log", range, "--format=%h %s"]);
   for (const line of log.out.split("\n")) {
     if (/^[0-9a-f]{7,} [a-z]+(\([^)]*\))?!:/.test(line)) {
       logWarn(`Breaking marker in range: ${line}`);
     }
   }
-  const withFooters = gitCheck(null, ["log", range, "--format=C %h %s%n%b"]);
+  const withFooters = gitCheck(repoDir, ["log", range, "--format=C %h %s%n%b"]);
   let cur = "";
   for (const line of withFooters.out.split("\n")) {
     if (line.startsWith("C ") && line.length > 2) cur = line.slice(2);
@@ -160,8 +148,6 @@ async function main(argv: string[]): Promise<number> {
       argv,
       noDryRun: true,
       options: {
-        help: { type: "boolean", default: false },
-        version: { type: "boolean", default: false },
         issue: { type: "string" },
         select: { type: "boolean", default: false },
         "no-issue-id": { type: "boolean", default: false },
@@ -173,7 +159,7 @@ async function main(argv: string[]): Promise<number> {
         "keep-branch": { type: "boolean", default: false },
       },
     });
-    help = cli.values["help"] === true;
+    help = cli.common.help;
     if (help) usage(0);
     issueNumber = ((cli.values["issue"] as string | undefined) ?? "");
     selectIssue = cli.values["select"] === true;
@@ -217,8 +203,8 @@ async function main(argv: string[]): Promise<number> {
       return EXIT_MISUSE;
     }
     logInfo("Selecting issue interactively...");
-    // Depth-1 stub, exact path — never a PATH lookup.
-    const sel = spawnSync(join(dirname(dirname(fileURLToPath(import.meta.url))), "issue-select"), { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
+    const pick = siblingInvocation("issue-select", []);
+    const sel = spawnSync(pick.command, pick.args, { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
     issueNumber = (sel.stdout ?? "").trim();
     if (issueNumber === "") {
       logError("No issue selected.");
@@ -280,23 +266,26 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_API_FAILURE;
   }
 
+  // One fail-closed lookup of the PR's details: the draft gate, the issue
+  // cross-check and the head-commit pin all read it, so an unreadable PR
+  // blocks the merge instead of reading as "not a draft".
+  interface PrDetails { title?: string; body?: string; isDraft?: boolean; headRefOid?: string }
+  let details: PrDetails;
+  try {
+    const raw = (
+      await prsView(repo, Number.parseInt(prId, 10), {
+        json: "title,body,isDraft,state,author,headRefOid",
+        jq: ".",
+      })
+    ).stdout;
+    details = JSON.parse(raw) as PrDetails;
+  } catch {
+    logError(`Failed to fetch PR details for #${prId}; refusing to merge without them.`);
+    return EXIT_API_FAILURE;
+  }
+
   if (commitMessage === "") {
-    let details = "";
-    try {
-      details = (
-        await prsView(repo, Number.parseInt(prId, 10), {
-          json: "title,body,isDraft,state,author",
-          jq: ".",
-        })
-      ).stdout;
-    } catch {
-      details = "";
-    }
-    if (details === "") {
-      logError(`Failed to fetch PR details for #${prId}.`);
-      return EXIT_API_FAILURE;
-    }
-    commitMessage = (JSON.parse(details) as { title?: string }).title ?? "";
+    commitMessage = details.title ?? "";
     if (commitMessage === "") {
       logError(`PR #${prId} has no title.`);
       return EXIT_GENERAL_ERROR;
@@ -308,18 +297,7 @@ async function main(argv: string[]): Promise<number> {
   const commitBody = commitMessage.split("\n").slice(1).join("\n");
 
   // Draft gate.
-  let isDraft = false;
-  try {
-    const d = (
-      await prsView(repo, Number.parseInt(prId, 10), {
-        json: "title,body,isDraft,state,author",
-        jq: ".",
-      })
-    ).stdout;
-    isDraft = (JSON.parse(d) as { isDraft?: boolean }).isDraft === true;
-  } catch {
-    isDraft = false;
-  }
+  const isDraft = details.isDraft === true;
   if (isDraft) {
     if (force) {
       logWarn(`PR #${prId} is a draft. Proceeding due to --force.`);
@@ -337,18 +315,7 @@ async function main(argv: string[]): Promise<number> {
 
   if (issueNumber !== "") {
     // The issue the PR body references (first '#N').
-    let descIssue = "";
-    try {
-      const d = (
-        await prsView(repo, Number.parseInt(prId, 10), {
-          json: "title,body,isDraft,state,author",
-          jq: ".",
-        })
-      ).stdout;
-      descIssue = (/#([0-9]+)/.exec((JSON.parse(d) as { body?: string }).body ?? "")?.[1]) ?? "";
-    } catch {
-      descIssue = "";
-    }
+    const descIssue = /#([0-9]+)/.exec(details.body ?? "")?.[1] ?? "";
     if (descIssue !== "" && issueNumber !== descIssue) {
       logError(`PR #${prId} references issue #${descIssue} but --issue ${issueNumber} was provided.`);
       return EXIT_GENERAL_ERROR;
@@ -357,20 +324,35 @@ async function main(argv: string[]): Promise<number> {
 
   const mergeCommitMessage = buildMergeCommitMessage(commitTitle, commitBody, prId, issueNumber);
 
-  // WIP hard gate on the merge range.
-  const wip = wipScan(`${targetBranch}..${current}`);
-  if (!wip.clean) {
-    logError(`WIP: commits present in merge range for PR #${prId} (${targetBranch}..${current}) — merge rejected.`);
-    logError("Offending commits:");
-    for (const line of wip.offenders.split("\n")) logError(`  ${line}`);
-    logError("Recovery: git-unwip (soft-reset past the WIP) or finish the work into real commits.");
+  // WIP hard gate on the merge range. The scan runs on the remote-tracking
+  // refs (what the PR actually contains), in the named repository, and fails
+  // closed: an unresolvable range or a head ref that differs from the head
+  // commit the provider reports blocks the merge.
+  const baseRef = `origin/${targetBranch}`;
+  const headRef = `origin/${current}`;
+  const range = `${baseRef}..${headRef}`;
+  const headSha = gitCheck(repoDir, ["rev-parse", "--verify", "--quiet", `refs/remotes/${headRef}^{commit}`]).out.trim();
+  if (headSha === "" || headSha !== (details.headRefOid ?? "")) {
+    logError(`${headRef} is missing or does not match PR #${prId}'s head commit — fetch origin and retry; merge rejected.`);
     return EXIT_GENERAL_ERROR;
   }
-  breakingMarkerScan(`${targetBranch}..${current}`);
+  const wip = wipRangeGuard(repoDir, range);
+  if (!wip.ok) {
+    if (wip.offenders.length === 0) {
+      logError(`Could not scan ${range} for WIP: commits — merge rejected.`);
+    } else {
+      logError(`WIP: commits present in merge range for PR #${prId} (${range}) — merge rejected.`);
+      logError("Offending commits:");
+      for (const line of wip.offenders) logError(`  ${line}`);
+      logError("Recovery: git-unwip (soft-reset past the WIP) or finish the work into real commits.");
+    }
+    return EXIT_GENERAL_ERROR;
+  }
+  breakingMarkerScan(repoDir, range);
 
   // Merge. merge_pr's sequence: build the full message (title + refs
   // footer + body), then split it — subject is its first line, body the
-  // trimmed tail — --delete-branch unless keep, --admin on force, then fire
+  // trimmed tail — --delete-branch unless keep, then fire
   // pr-events for the merged PR's linked issues (best-effort).
   const subject = mergeCommitMessage.split("\n")[0] ?? "";
   const body = mergeCommitMessage
@@ -386,7 +368,7 @@ async function main(argv: string[]): Promise<number> {
         subject,
         body,
         deleteBranch: !keepBranch,
-        admin: force,
+        matchHeadCommit: headSha,
       })
     ).stdout;
   } catch {
@@ -399,9 +381,9 @@ async function main(argv: string[]): Promise<number> {
   // issues (best-effort — never alters this merge's success).
   try {
     const prBody = (
-      await prsView(repo, Number.parseInt(prId, 10), { json: "body", jq: ".body" })
-    ).stdout.trim();
-    const signals = signalPrEvents("merged", JSON.parse(prBody) as unknown as string);
+      JSON.parse((await prsView(repo, Number.parseInt(prId, 10), { json: "body" })).stdout) as { body?: string }
+    ).body ?? "";
+    const signals = signalPrEvents("merged", prBody);
     for (const w of signals.warnings) logWarn(w);
   } catch {
     // best-effort: body fetch or signal failures never fail the merge

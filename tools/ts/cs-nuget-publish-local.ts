@@ -17,7 +17,7 @@ import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
-const devenvRoot = process.env.DEVENV_ROOT ?? selfRoot(process.cwd());
+const devenvRoot = process.env.DEVENV_ROOT ?? selfRoot(import.meta.url);
 const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {

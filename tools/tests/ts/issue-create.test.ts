@@ -177,7 +177,7 @@ describe("issue-create", () => {
   it("an unknown type names the error and lists the valid set", () => {
     const cfg = writeTypesConfig();
     const r = runTool({ args: ["--title", "T", "--type", "Story", "--no-interactive", "--body", "b"], issuesConfig: cfg });
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
     expect(r.output).toContain("Invalid issue type: Story");
     expect(r.output).toContain("Bug Task");
     expect(ghCalls().some((c) => c.includes("issue create"))).toBe(false);

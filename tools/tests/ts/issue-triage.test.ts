@@ -5,7 +5,6 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
 const TOOL = "issue-triage";
@@ -18,6 +17,8 @@ function installGhStub(opts: { failEdits?: boolean } = {}): void {
     "#!/usr/bin/env bash",
     'printf \'%s\\n\' "gh $*" >> "__LOG__"',
     `if [ "${opts.failEdits ? "1" : "0"}" = "1" ] && [ "$1 $2" = "issue edit" ]; then echo "boom" >&2; exit 1; fi`,
+    // The --triage-complete status write queries the issue's project cards.
+    `case "$*" in *projectItems*) echo '{"data":{"resource":{"projectItems":{"nodes":[]}}}}' ;; esac`,
     "exit 0",
     "",
   ];
@@ -95,7 +96,7 @@ describe("issue-triage", () => {
     expect(r.status).toBe(0);
     expect(r.output).not.toContain("not found");
     expect(r.output).not.toContain("signal failed");
-    // The dispatcher makes its own gh calls; the bundle itself must not edit.
+    // The event write makes its own gh calls; the bundle itself must not edit.
     expect(ghCalls().some((c) => c.includes("issue edit"))).toBe(false);
   });
 

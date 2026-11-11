@@ -40,21 +40,23 @@ try {
   if (cli.common.help) usage();
   if (cli.positionals.length > 2) {
     logError("Too many arguments: at most repo-url and branch");
+    console.error("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }
   repoUrl = cli.positionals[0] ?? process.env.SERVICES_CONFIG_REPO ?? "";
   branch = cli.positionals[1] ?? "";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 const targetFolder = process.env.CONFIG_FOLDER
-  ?? join(process.env.DEVENV_ROOT ?? selfRoot(process.cwd()), ".debug", "config");
+  ?? join(process.env.DEVENV_ROOT ?? selfRoot(import.meta.url), ".debug", "config");
 
 if (repoUrl === "") {
   logError("No repository URL provided. Set SERVICES_CONFIG_REPO or pass repo-url as argument.");
-  console.log("Usage: get-services-config [repo-url] [branch]");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 

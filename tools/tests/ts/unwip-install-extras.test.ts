@@ -2,6 +2,7 @@
 // test_install_extras.bats (14, source-contract form — the subject is TS and
 // the bats assertions were all source greps) — 21 tests.
 // Fixture hygiene per tools/tests/README.md: scratch under tmpPath().
+import { toolScript } from "./harness/index.ts";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
@@ -11,9 +12,8 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const GIT_UNWIP = join(TOOLS, "git-unwip");
+const GIT_UNWIP = toolScript("git-unwip");
 const INSTALL_EXTRAS_TS = join(TOOLS, "ts", "install-extras.ts");
-const INSTALL_EXTRAS = join(TOOLS, "install-extras");
 
 let TMP = "";
 
@@ -57,7 +57,7 @@ let TEST_REPO = "";
 let REMOTE_REPO = "";
 
 function unwip(): { status: number; out: string } {
-  const r = spawnSync("bash", [GIT_UNWIP], { cwd: TEST_REPO, encoding: "utf8", env: GIT_ENV() });
+  const r = spawnSync("node", [GIT_UNWIP], { cwd: TEST_REPO, encoding: "utf8", env: GIT_ENV() });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
@@ -146,12 +146,12 @@ describe("install-extras source contract (bats port)", () => {
     expect(existsSync(INSTALL_EXTRAS_TS)).toBe(true);
   });
 
-  it("depth-1 stub is executable", () => {
-    expect(spawnSync("bash", ["-c", `test -x '${INSTALL_EXTRAS}'`]).status).toBe(0);
+  it("install-extras.ts is readable (run via node, no depth-1 stub needed)", () => {
+    expect(spawnSync("test", ["-r", INSTALL_EXTRAS_TS]).status).toBe(0);
   });
 
-  it("depth-1 stub has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", INSTALL_EXTRAS]).status).toBe(0);
+  it("install-extras.ts has valid syntax", () => {
+    expect(spawnSync("node", ["--check", INSTALL_EXTRAS_TS]).status).toBe(0);
   });
 
   it("TS body present (the old pipefail grep maps to the import block)", () => {

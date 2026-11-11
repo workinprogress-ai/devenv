@@ -13,7 +13,7 @@
 import { basename } from "node:path";
 import {} from "node:fs";
 
-import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
@@ -86,25 +86,26 @@ async function main(argv: string[]): Promise<number> {
       if (issueNumber === "") {
         if (!/^[0-9]+$/.test(p)) {
           logError(`Invalid issue number: ${p}`);
-          return EXIT_GENERAL_ERROR;
+          console.error("Use --help for usage information");
+          return EXIT_MISUSE;
         }
         issueNumber = p;
       } else {
         logError(`Unexpected argument: ${p}`);
-        console.log("Use --help for usage information");
-        return EXIT_GENERAL_ERROR;
+        console.error("Use --help for usage information");
+        return EXIT_MISUSE;
       }
     }
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
-    return EXIT_GENERAL_ERROR;
+    console.error("Use --help for usage information");
+    return EXIT_MISUSE;
   }
 
   if (issueNumber === "") {
     logError("Issue number is required");
-    console.log("Use --help for usage information");
-    return EXIT_GENERAL_ERROR;
+    console.error("Use --help for usage information");
+    return EXIT_MISUSE;
   }
 
   checkTargetRepo(devenv);

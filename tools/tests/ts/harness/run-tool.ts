@@ -31,9 +31,16 @@ export interface RunToolResult {
   output: string;
 }
 
+/** Absolute path of a tool's TypeScript entry point. Tests run it with `node`
+ * and never depend on the generated depth-1 stubs, which are an install
+ * artifact (see entry-stubs-sync) rather than part of the checkout. */
+export function toolScript(tool: string): string {
+  return join(TOOLS, "ts", `${tool}.ts`);
+}
+
 /** Run a TS tool by bare name (no extension) as a node child. */
 export function runTool(tool: string, args: string[], opts: RunToolOptions = {}): RunToolResult {
-  const r = spawnSync("node", [join(TOOLS, "ts", `${tool}.ts`), ...args], {
+  const r = spawnSync("node", [toolScript(tool), ...args], {
     encoding: "utf8",
     input: opts.stdin ?? "",
     cwd: opts.cwd,

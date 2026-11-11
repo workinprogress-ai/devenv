@@ -3,7 +3,7 @@
 // Prints the cache directory path on stdout.
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import {
@@ -28,7 +28,9 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 Exit Codes:
     0   Success — cache directory path printed on stdout
     1   General error
-    2   Partial cache failure (some repos failed, index still built)`);
+    2   Invalid arguments
+    4   Partial cache failure (some repos failed; the index is still built and
+        the cache directory path is still printed on stdout)`);
   process.exit(0);
 }
 
@@ -54,14 +56,17 @@ try {
 }
 
 // Step 1: refresh the repo cache (clone / update all org repos).
-// 0 ok · 2 partial (some repos failed; the index still builds) · 1 failure.
+// refreshRepoCache returns 0 ok · 2 partial (some repos failed; the index
+// still builds, and the run ends with the API-failure code) · other failure.
+let partialCache = false;
 if (!skipRefresh) {
   logInfo("Refreshing repository cache...");
   const rc = await refreshRepoCache();
   if (rc === 2) {
     logWarn("Some repositories failed to cache (continuing with partial cache)");
+    partialCache = true;
   } else if (rc !== 0) {
-    process.exit(1);
+    process.exit(EXIT_GENERAL_ERROR);
   }
 }
 
@@ -75,9 +80,10 @@ if (csDepOrgPrefix() === "") {
     ensureDependencyIndex();
   } catch (err) {
     logError(`Failed to build dependency index: ${err instanceof Error ? err.message : err}`);
-    process.exit(1);
+    process.exit(EXIT_GENERAL_ERROR);
   }
 }
 
 // Step 3: print the cache directory path.
 console.log(repoCacheDir());
+if (partialCache) process.exit(EXIT_API_FAILURE);

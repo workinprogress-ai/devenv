@@ -7,11 +7,34 @@
 // (Node's default type stripping rejects parameter properties, enums, and
 // namespaces), so the syntax here stays inside the strip-only subset.
 import { spawn } from "node:child_process";
+import type { SpawnSyncReturns } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
+
+/** Output ceiling for every synchronous capture helper. The Node default
+ * (1 MiB) silently truncates large output and fails the call, so shared
+ * helpers pass this explicitly. */
+export const SPAWN_MAX_BUFFER = 256 * 1024 * 1024;
+
+/** Throw when a synchronous spawn did not run to a normal exit because its
+ * output overflowed `maxBuffer` or the child was killed by a signal: the
+ * captured output is truncated or absent, so it must never be read as
+ * empty output or as an ordinary non-zero exit. */
+export function assertSpawnCompleted(r: SpawnSyncReturns<string>, argv: string[]): void {
+  const code = (r.error as NodeJS.ErrnoException | undefined)?.code;
+  if (code === "ENOBUFS") {
+    throw new Error(`command output exceeded ${SPAWN_MAX_BUFFER} bytes: ${argv.join(" ")}`);
+  }
+  if (r.status === null && r.signal) {
+    throw new Error(`command killed by ${r.signal}: ${argv.join(" ")}`);
+  }
+}
 
 export interface SpawnResult {
   status: number | null;
   stdout: string;
   stderr: string;
+  /** True when the run was killed because it exceeded `timeoutMs`. */
+  timedOut?: boolean;
 }
 
 export interface SpawnOptions {
@@ -63,6 +86,10 @@ export function run(
     });
     let stdout = "";
     let stderr = "";
+    // Streaming decoders keep a multibyte character split across chunk
+    // boundaries intact.
+    const outDecoder = new StringDecoder("utf8");
+    const errDecoder = new StringDecoder("utf8");
     let timedOut = false;
     let settled = false;
 
@@ -74,10 +101,10 @@ export function run(
       : undefined;
 
     child.stdout.on("data", (d: Buffer) => {
-      stdout += d.toString();
+      stdout += outDecoder.write(d);
     });
     child.stderr.on("data", (d: Buffer) => {
-      stderr += d.toString();
+      stderr += errDecoder.write(d);
     });
     child.on("error", (_err: NodeJS.ErrnoException) => {
       if (settled) return;
@@ -85,13 +112,15 @@ export function run(
       if (timer) clearTimeout(timer);
       // Launch failures (ENOENT, EACCES) are not timeouts — report them as
       // what they are so the failure message points at the real cause.
-      reject(new SpawnError(argv, { status: null, stdout, stderr }, timedOut));
+      reject(new SpawnError(argv, { status: null, stdout, stderr, timedOut }, timedOut));
     });
     child.on("close", (status) => {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
-      resolve({ status, stdout, stderr });
+      stdout += outDecoder.end();
+      stderr += errDecoder.end();
+      resolve({ status, stdout, stderr, timedOut });
     });
 
     // A child that exits without reading a large `input` raises EPIPE on the
@@ -115,7 +144,7 @@ export async function mustRun(
 ): Promise<SpawnResult> {
   const result = await run(argv, opts);
   if (result.status !== 0) {
-    throw new SpawnError(argv, result, false);
+    throw new SpawnError(argv, result, result.timedOut === true);
   }
   return result;
 }

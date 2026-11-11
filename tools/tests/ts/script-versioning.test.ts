@@ -1,7 +1,6 @@
 // Port of tools/tests/devenv/test_script_versioning.bats (12 tests) — one vitest `it` per source `@test`.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,7 +26,7 @@ describe("script versioning", () => {
   });
 
   it("repo-calc-version.sh has valid syntax", () => {
-    expect(spawnSync("bash", ["-n", join(ROOT, "tools/repo-calc-version")]).status).toBe(0);
+    expect(spawnSync("node", ["--check", join(ROOT, "tools/ts/repo-calc-version.ts")]).status).toBe(0);
   });
 
   it("repo-calc-version carries the release version module", () => {
@@ -36,7 +35,7 @@ describe("script versioning", () => {
   });
 
   it("tooling-create-script.sh has valid syntax", () => {
-    expect(spawnSync("bash", ["-n", join(ROOT, "tools/tooling-create-script")]).status).toBe(0);
+    expect(spawnSync("node", ["--check", join(ROOT, "tools/ts/tooling-create-script.ts")]).status).toBe(0);
   });
 
   it("tooling-create-script.sh references template file", () => {

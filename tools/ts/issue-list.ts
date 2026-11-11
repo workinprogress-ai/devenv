@@ -13,7 +13,7 @@
 
 import { basename } from "node:path";
 
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
@@ -93,7 +93,7 @@ async function main(argv: string[]): Promise<number> {
       options: {
         state: { type: "string", short: "s", default: "open" },
         type: { type: "string", short: "t" },
-        label: { type: "string", short: "l" },
+        label: { type: "string", short: "l", multiple: true },
         assignee: { type: "string", short: "a" },
         milestone: { type: "string", short: "m" },
         author: { type: "string" },
@@ -111,7 +111,7 @@ async function main(argv: string[]): Promise<number> {
       const normalized = normalizeIssueType(type);
       if (normalized === null) {
         logError(`Invalid issue type: ${type} (allowed: Bug, Feature, Task, Epic)`);
-        return EXIT_GENERAL_ERROR;
+        return EXIT_MISUSE;
       }
       type = normalized;
     }

@@ -11,12 +11,10 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, checkTargetRepo, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { orgRulesetsList, orgRulesetGet } from "../lib/providers/facade/org.ts";
 
 assertNodeFloor();
-
-ensureProviderAuth();
 
 let rulesetId = "";
 let outputFile = "";
@@ -29,7 +27,7 @@ repository's rulesets (id, name, enforcement) instead. Read-only.
 
 Options:
     -o, --output FILE           Write JSON to FILE instead of stdout
-${usageCommonFlags()}
+${usageCommonFlags({ noDryRun: true })}
 
 Examples:
     policy-export
@@ -47,7 +45,6 @@ try {
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
     noDryRun: true,
-    strict: false,
     options: {
       output: { type: "string", short: "o" },
     },
@@ -55,21 +52,22 @@ try {
   if (cli.common.help) usage();
   devenvOverride = cli.common.devenv;
   outputFile = (cli.values["output"] as string | undefined) ?? "";
-  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  const positionals = cli.positionals;
   if (positionals.length > 1) {
-    logError("At most one RULESET_ID positional is allowed");
-    process.exit(EXIT_GENERAL_ERROR);
+    throw new Error("At most one RULESET_ID positional is allowed");
   }
   rulesetId = positionals[0] ?? "";
+  if (rulesetId !== "" && !/^[0-9]+$/.test(rulesetId)) {
+    throw new Error(`Invalid ruleset ID: ${rulesetId} (must be numeric)`);
+  }
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
-if (rulesetId !== "" && !/^[0-9]+$/.test(rulesetId)) {
-  logError(`Invalid ruleset ID: ${rulesetId} (must be numeric)`);
-  process.exit(EXIT_GENERAL_ERROR);
-}
+
+// Authenticate only after the arguments parsed: help and misuse need no provider.
+ensureProviderAuth();
 
 if (providerOrgGet() === "") {
   logError("Organization identity unresolved. Configure [organization] org in devenv.config or run setup.");
@@ -82,14 +80,8 @@ if (ownerRepo === "") {
   process.exit(EXIT_GENERAL_ERROR);
 }
 
-// Devenv-repo safety gate (resolve_target_repo parity): implicit targets only.
-if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "") && !devenvOverride) {
-  logError("The current repository appears to be the devenv repository itself");
-  console.log("Operations should be performed in target project repositories, not in devenv");
-  console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");
-  console.log("To override this safety check (devenv-repo work only), pass the --devenv flag");
-  process.exit(EXIT_GENERAL_ERROR);
-}
+// Devenv-repo safety gate: implicit targets only.
+checkTargetRepo(devenvOverride);
 
 if (rulesetId === "") {
   let raw: string;

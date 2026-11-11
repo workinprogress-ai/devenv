@@ -34,6 +34,20 @@ function devDep(plugin: string): string {
 }
 
 describe("ci workflows", () => {
+  it("every workflow pins the Node version the tools run on (tool-versions.bash NODE_VERSION)", () => {
+    const expected = /export NODE_VERSION="([^"]+)"/.exec(readFileSync(join(ROOT, ".devcontainer/tool-versions.bash"), "utf8"))?.[1];
+    expect(expected).toBeDefined();
+    for (const wf of [PUBLISH, TESTWF]) {
+      const pins = [...readFileSync(wf, "utf8").matchAll(/node-version:\s*["']?([^"'\s#]+)["']?/g)].map((m) => m[1]);
+      expect(pins.length, wf).toBeGreaterThan(0);
+      for (const pin of pins) expect(pin, wf).toBe(expected);
+    }
+  });
+
+  it("the release workflow explains why its Node pin moves in lockstep", () => {
+    expect(readFileSync(PUBLISH, "utf8")).toMatch(/lockstep with NODE_VERSION/);
+  });
+
   it("package.json pins the pnpm major that matches the lockfile", () => {
     const pm = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).packageManager as string;
     const major = pm.match(/^pnpm@(\d+)\./)?.[1];

@@ -19,8 +19,6 @@ import { pipelinesWorkflowList } from "../lib/providers/facade/pipelines.ts";
 
 assertNodeFloor();
 
-await requireFamilyCapability("pipelines", "pipelines");
-
 interface WorkflowRow {
   repo: string;
   id: number;
@@ -40,7 +38,7 @@ List GitHub Actions workflow definitions across org repositories.
 Shows what workflows exist, not their run history. Use pipelines-status for that.
 
 Options:
-${usageCommonFlags()}
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --json                      Output as compact JSON
     --pretty                    Output as pretty-printed JSON
 
@@ -64,7 +62,7 @@ try {
     name: "pipelines-list",
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
-    strict: false,
+    noDryRun: true,
     options: {
       json: { type: "boolean", default: false },
       pretty: { type: "boolean", default: false },
@@ -84,8 +82,9 @@ try {
   process.exit(EXIT_MISUSE);
 }
 
-// Auth after argv validation: a usage error must exit 2 without touching gh
-// (no network probe on the misuse path).
+// Provider resolution and authentication happen only after the arguments
+// parsed: help and misuse need neither config nor network.
+await requireFamilyCapability("pipelines", "pipelines");
 ensureProviderAuth();
 
 if (providerOrgGet() === "") {

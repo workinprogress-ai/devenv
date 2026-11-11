@@ -13,10 +13,9 @@
 // tailscale CLI.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync, chmodSync, readFileSync, symlinkSync, existsSync, statSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync, chmodSync, readFileSync, symlinkSync, existsSync, statSync, cpSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runTool as runHarness } from "./harness/index.ts";
 
 const PROJECT_ROOT = join(__dirname, "../../..");
 const DO_TOOL = join(PROJECT_ROOT, "tools/ts/_key-update-do.ts");
@@ -33,18 +32,35 @@ function stub(name: string, body: string): void {
   chmodSync(p, 0o755);
 }
 
+// The updaters invoke the sibling depth-1 stub `tools/devenv-add-env-vars` by
+// exact path, and a clean clone has no generated stubs. The tools run from a
+// fixture checkout (copied ts + lib) that carries a minimal hand-written stub.
+let fixtureCheckout: string;
+
+function buildFixtureCheckout(): string {
+  const co = join(root, "checkout");
+  mkdirSync(join(co, "tools"), { recursive: true });
+  cpSync(join(PROJECT_ROOT, "tools/ts"), join(co, "tools/ts"), { recursive: true });
+  cpSync(join(PROJECT_ROOT, "tools/lib"), join(co, "tools/lib"), { recursive: true });
+  const stubPath = join(co, "tools", "devenv-add-env-vars");
+  writeFileSync(stubPath, '#!/bin/bash\nexec node "$(dirname "$0")/ts/devenv-add-env-vars.ts" "$@"\n');
+  chmodSync(stubPath, 0o755);
+  return co;
+}
+
 function runTool(tool: string, args: string[], input: string | null, usePathStubs = true): { status: number; out: string } {
-  // tool is a ts path; the harness takes the bare name.
-  const name = tool.replace(/\.ts$/, "").split("/").pop() ?? tool;
-  const r = runHarness(name, args, {
-    stdin: input ?? "",
+  const script = join(fixtureCheckout, "tools/ts", tool.split("/").pop() ?? tool);
+  const r = spawnSync("node", [script, ...args], {
+    encoding: "utf8",
+    input: input ?? "",
     env: {
+      ...process.env,
       DEVENV_ROOT: devenvRoot,
       CALL_LOG: callLog,
       PATH: usePathStubs ? `${binDir}:${process.env["PATH"]}` : process.env["PATH"],
     },
   });
-  return { status: r.status, out: r.output };
+  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
 function readCalls(): string {
@@ -63,6 +79,7 @@ beforeEach(() => {
   // the bootstrap creates it before any key rotation can run.
   writeFileSync(join(devenvRoot, ".runtime", "env-vars.sh"), "#!/bin/bash\n# generated\n");
   writeFileSync(callLog, "");
+  fixtureCheckout = buildFixtureCheckout();
 
   // PATH stubs for the tailscale path.
   stub("sudo", 'echo "sudo $*" >> "${CALL_LOG:?}"\nexec "$@"');

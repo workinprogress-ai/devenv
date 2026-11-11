@@ -7,8 +7,9 @@
 // path, and (call log convention) append `name argv...` lines to
 // <dir>/calls.log so suites can assert "destructive command NOT issued"
 // by counting.
-import { writeFileSync, existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { writeFileSync, existsSync, readFileSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
 
 export const CALLS_LOG_NAME = "calls.log";
 
@@ -55,6 +56,26 @@ export function stubGit(dir: string, repoRoot: string, mode?: string): string {
       "",
     ].join("\n");
   return stubCli(dir, "git", body);
+}
+
+/** Prepend, once per worker, a directory whose `gh` and `az` fail with exit 1
+ * ("provider unavailable"). For suites whose contract is the behaviour when the
+ * provider is down or unauthenticated: the failure is stubbed explicitly rather
+ * than left to a real binary, so the no-network canary stays silent. It stays in
+ * force for the whole test file and shadows the canary shims for gh and az, so a
+ * regression that made a tool call a real provider would read as "unavailable"
+ * here: use it only in suites whose contract is that behaviour. Returns the
+ * directory. */
+export function useProviderDown(): string {
+  const base = process.env["DEVENV_TEST_FIXTURE_DIR"] ?? tmpdir();
+  const dir = join(base, "provider-down-bin");
+  mkdirSync(dir, { recursive: true });
+  for (const name of ["gh", "az"]) {
+    stubCli(dir, name, ["#!/bin/sh", 'echo "provider unavailable (stubbed by the test)" >&2', "exit 1"].join("\n"));
+  }
+  const path = process.env["PATH"] ?? "";
+  if (!path.split(delimiter).includes(dir)) process.env["PATH"] = `${dir}${delimiter}${path}`;
+  return dir;
 }
 
 /** Recorded stub invocations (one shell-quoted line per call). */

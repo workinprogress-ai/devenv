@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { selfRoot } from "../lib/core/self-root.ts";
 import { select, multiSelect } from "../lib/ui/prompts.ts";
 
 assertNodeFloor();
@@ -44,11 +45,12 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
   filter = cli.positionals[0] ?? "";
 } catch (err) {
   console.error(errorMessage(err));
+  console.error("Use --help for usage information");
   process.exit(2);
 }
 
-// The bash tool read ${devenv:-.} — the checkout root via env, else cwd.
-const devenvRoot = process.env.DEVENV_ROOT ?? process.cwd();
+// The checkout root: the documented DEVENV_ROOT override, else this tool's own checkout.
+const devenvRoot = process.env.DEVENV_ROOT ?? selfRoot(import.meta.url);
 if (extrasDir === "") extrasDir = join(devenvRoot, ".devcontainer", "install-extras");
 
 if (!existsSync(extrasDir) || !statSync(extrasDir).isDirectory()) {

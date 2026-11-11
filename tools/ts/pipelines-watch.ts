@@ -17,8 +17,6 @@ import { pipelinesRunList, pipelinesRunWatch } from "../lib/providers/facade/pip
 
 assertNodeFloor();
 
-await requireFamilyCapability("pipelines", "pipelines");
-
 let runId = "";
 let repo = "";
 let exitStatus = false;
@@ -33,7 +31,7 @@ Arguments:
     RUN_ID                      Workflow run ID to watch (optional)
 
 Options:
-${usageCommonFlags({ noDryRun: true })}
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --repo OWNER/REPO           Repository containing the run (required)
     --exit-status               Exit non-zero if the watched run fails
 
@@ -58,7 +56,7 @@ try {
   if (cli.common.help) usage();
   repo = typeof cli.values.repo === "string" ? cli.values.repo : "";
   exitStatus = cli.values["exit-status"] === true;
-  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  const positionals = cli.positionals;
   if (positionals.length > 1) {
     logError("At most one RUN_ID positional is allowed");
     process.exit(EXIT_MISUSE);
@@ -66,7 +64,8 @@ try {
   runId = positionals[0] ?? "";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (repo === "" || !repo.includes("/")) {
@@ -74,8 +73,9 @@ if (repo === "" || !repo.includes("/")) {
   process.exit(EXIT_MISUSE);
 }
 
-// Auth after argv validation: a usage error must exit 2 without touching gh
-// (no network probe on the misuse path).
+// Provider resolution and authentication happen only after the arguments
+// parsed: help and misuse need neither config nor network.
+await requireFamilyCapability("pipelines", "pipelines");
 ensureProviderAuth();
 
 if (runId === "") {
@@ -97,4 +97,5 @@ const flags: string[] = [];
 if (exitStatus) flags.push("--exit-status");
 
 const watched = await pipelinesRunWatch(repo, runId, flags);
+if (watched.stderr.trim() !== "") logError(watched.stderr.trim());
 process.exit(watched.status);

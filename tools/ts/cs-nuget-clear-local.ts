@@ -37,7 +37,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   process.exit(2);
 }
 
-const devenvRoot = process.env.DEVENV_ROOT ?? selfRoot(process.cwd());
+const devenvRoot = process.env.DEVENV_ROOT ?? selfRoot(import.meta.url);
 const localFeedDir = join(devenvRoot, ".debug", "local-nuget-dev");
 
 if (!existsSync(localFeedDir)) {

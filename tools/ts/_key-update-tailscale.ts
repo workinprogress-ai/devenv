@@ -4,17 +4,15 @@
 // shell function invokes this file by absolute path (written by the setup-steps bash-functions module).
 
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { logError } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli } from "../lib/core/cli.ts";
+import { siblingInvocation } from "../lib/core/sibling.ts";
 
 assertNodeFloor();
 
-const tools = resolveToolsRoot(import.meta.url);
 const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
@@ -84,7 +82,8 @@ if (!newKey.startsWith("tskey-")) {
 
 // 1. Update env-vars (Persistence).
 console.log("    - Updating environment variables...");
-const updater = spawnSync("bash", [join(tools, "devenv-add-env-vars"), `TS_AUTHKEY=${newKey}`], {
+const addEnv = siblingInvocation("devenv-add-env-vars", [`TS_AUTHKEY=${newKey}`]);
+const updater = spawnSync(addEnv.command, addEnv.args, {
   stdio: "inherit",
 });
 if ((updater.status ?? 1) !== 0) process.exit(updater.status ?? 1);

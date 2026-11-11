@@ -24,6 +24,14 @@ tmp boilerplate is shared, not per-suite:
   repoRoot, mode?)` — PATH-stub factories; every stub call logs one line
   to `<dir>/calls.log` (`stubCalls(dir, name?)` reads it back) so
   "destructive command NOT issued" assertions count invocations.
+- `toolScript(tool)` — absolute path of `tools/ts/<tool>.ts`. A suite runs
+  a tool as `spawnSync("node", [toolScript(tool), ...args])` (or through
+  `runTool`) and never through the depth-1 stubs in `tools/<tool>`: those
+  are generated install artifacts (`.devcontainer/entry-stubs-sync.sh`)
+  and do not exist in a clean checkout. A suite that needs a fixture
+  checkout with stubs writes the two-line stub into the fixture itself.
+- `useProviderDown()` — puts a `gh` and `az` that exit 1 first on `PATH`,
+  for suites whose contract is behaviour when the provider is down.
 - `pathWithStubs(dir)` — the PATH prefix value.
 - `tmpDir(prefix)` / `tmpToolboxRoot(prefix, org)` — throwaway fixture
   roots (the latter writes a github-provider `devenv.config`); `rmrf`
@@ -35,6 +43,55 @@ A suite with behavioral stub modes passes the whole script body via
 boilerplate. `issue-comment-list.test.ts` is the reference migration.
 
 `bash tools/tests/run-devenv-tests.sh` runs the vitest lane — one command is the whole gate; `pnpm test` aliases it.
+
+## Hermetic by construction: tests never reach a provider backend
+
+The regular run must never touch GitHub, Azure DevOps or any other real
+backend, in any environment. Every provider call is mocked. A setup file
+(`harness/scrub-env.ts`, registered in `vitest.config.ts`) runs before every
+test file and makes the guarantee structural:
+
+- `process.env` is reduced to an allow-list (`harness/env.ts`): no `DEVENV_*`,
+  config folders, provider variables, credentials, ssh agent or editor.
+- `DEVENV_ROOT` points at a per-worker fixture root holding
+  `fixtures/devenv.test.config` (the github-provider config), so a checkout's
+  own `devenv.config` never selects the provider under test. A suite that
+  needs another provider or root sets its own value.
+- `HOME` is an empty directory with a fixed git identity, and every devenv
+  tools directory (the generated stubs) is removed from `PATH`.
+- A canary fails the test that reaches a backend: shim `gh`, `az`, `curl`,
+  `wget` and `ssh` executables sit first on `PATH` (a suite's own stub
+  directory shadows them), a fetch guard rejects every non-loopback request in
+  the worker and in every spawned node process, and a check after every test
+  and after every file turns a recorded hit into a failure. What it does not
+  cover: `git` is not shimmed (suites need it and use local file remotes), and
+  a direct `node:http`/`https`/`net` client would bypass the fetch guard, which
+  is why `network-egress-guard.test.ts` forbids one in regular tool code. A
+  suite that builds a minimal env for a child process spreads `canaryEnv()`
+  into it so the shims and the preload still apply; a suite that builds its
+  `PATH` from scratch bypasses them and must stub `gh` and `az` itself.
+  `useProviderDown()` is the explicit exception: it answers "provider
+  unavailable" for the whole file, so use it only where that is the contract
+  under test.
+
+## Provider smoke suites: the only code that may touch a backend
+
+Each provider adapter can carry a live smoke suite beside it
+(`tools/lib/providers/azure/smoke.ts`; the GitHub adapter gets
+`tools/lib/providers/github/smoke.ts`). These are special-case, on-demand
+suites that exercise a real backend:
+
+- They are never part of the regular run: they live outside
+  `tools/tests/ts/`, no vitest include pattern collects them, and no
+  regular test imports or spawns one (`provider-smoke-guard.test.ts` pins
+  all three).
+- Each refuses to run without an explicit opt-in variable and a throwaway
+  target (Azure: `AZURE_SMOKE=1` read-only, `AZURE_SMOKE=write` plus
+  `AZURE_SMOKE_CONFIRM=<test project>` for the destructive tier).
+- Run one by hand when the adapter layer changes (a verb added or changed,
+  a transport or auth change, a provider CLI upgrade), for example
+  `node tools/lib/providers/azure/smoke.ts` with the opt-in set, against a
+  disposable project.
 
 ## Test hygiene: scratch artifacts live in tmp, never in the repo
 

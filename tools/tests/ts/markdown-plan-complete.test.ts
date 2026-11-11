@@ -5,13 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const TOOLS = join(ROOT, "tools");
 
 let TMP = "";
 let WORK_DIR = "";
@@ -36,12 +34,12 @@ beforeEach(() => {
 });
 
 function runTask(args: string[]): { status: number; out: string } {
-  const r = spawnSync(join(TOOLS, "markdown-plan-complete-task"), args, { cwd: WORK_DIR, encoding: "utf8" });
+  const r = spawnSync("node", [toolScript("markdown-plan-complete-task"), ...args], { cwd: WORK_DIR, encoding: "utf8" });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
 function runAc(args: string[]): { status: number; out: string } {
-  const r = spawnSync(join(TOOLS, "markdown-plan-complete-ac"), args, { cwd: WORK_DIR, encoding: "utf8" });
+  const r = spawnSync("node", [toolScript("markdown-plan-complete-ac"), ...args], { cwd: WORK_DIR, encoding: "utf8" });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 

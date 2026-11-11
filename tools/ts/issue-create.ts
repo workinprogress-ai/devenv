@@ -16,14 +16,13 @@
 import { basename, join } from "node:path";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logDebug, logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
+import { toolCli, usageEnvBlock } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
@@ -31,13 +30,13 @@ import { checkTargetRepo, requireRepoTarget, ghApiSync, providerRepoSplit, provi
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
 import { issuesCreate, issuesSetType, issueGraphLink, issuesView } from "../lib/providers/facade/issues.ts";
 import { issueNumberFromRef, childOfMapFromConfig } from "../lib/domain/issues/refs.ts";
+import { writeStatus } from "../lib/domain/issues/graph.ts";
 
 assertNodeFloor();
 
 const SCRIPT_VERSION = "1.1.0";
 const SCRIPT_NAME = basename(process.argv[1] ?? "issue-create.ts");
-const SCRIPT_DIR = fileURLToPath(new URL(".", import.meta.url));
-const TOOLS_ROOT = process.env["DEVENV_TOOLS"] ?? join(SCRIPT_DIR, "..");
+const TOOLS_ROOT = resolveToolsRoot(import.meta.url);
 
 function showUsage(): never {
   const s = SCRIPT_NAME;
@@ -324,25 +323,15 @@ function addToProject(issueUrl: string, project: string): boolean {
 }
 
 /**
- * Birth-status write through the project-update-issue fan-out wrapper (the
- * workflow choke point). Best-effort: a refused write never blocks creation.
+ * Birth-status write through the workflow choke point (writeStatus fans the
+ * status out to every board holding the issue and rolls the parent up).
+ * Best-effort: a refused write is a warning and never blocks creation.
  */
-function applyBirthStatus(issue: number, status: string): void {
-  const toolsRoot = process.env["WORKFLOW_CORE_TOOLS"] ?? TOOLS_ROOT;
-  const wrapper = join(toolsRoot, "project-update-issue");
-  if (!existsSync(wrapper)) {
-    logWarn(`workflow write '${status}' skipped: wrapper not found at ${wrapper}`);
-    return;
-  }
-  // The wrapper's contract sets no DEVENV_REPO: fired from the devenv checkout
-  // the write targets devenv itself on purpose, so it needs --devenv there.
-  const override = process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "" ? ["--devenv"] : [];
-  const r = spawnSync("bash", [wrapper, String(issue), "--status", status, "--all-projects", "--safe", ...override], {
-    stdio: ["ignore", "ignore", "inherit"],
+async function applyBirthStatus(issue: number, status: string): Promise<void> {
+  const ok = await writeStatus(issue, status, {
+    onWarning: (m) => logWarn(m.replace(/^WARNING: /, "")),
   });
-  if (r.status !== 0) {
-    logWarn(`workflow write '${status}' failed for issue #${issue} (best-effort, continuing)`);
-  }
+  if (!ok) logWarn(`birth status '${status}' was not written for issue #${issue}`);
 }
 
 async function createIssue(st: CreateState): Promise<number> {
@@ -398,20 +387,22 @@ async function createIssue(st: CreateState): Promise<number> {
     if (!addToProject(issueUrl, st.project)) enrichFailed = 1;
   }
 
-  // Workflow integration: sub-issue link + birth-status write. All
-  // best-effort; failures never block creation. Parent rollup is recomputed
-  // by the wrapper's own child-write path.
+  // Workflow integration: sub-issue link + birth-status write. Failures
+  // never block creation; a failed link is reported and exits non-zero, and
+  // a failed birth status is a warning.
   if (st.parent !== undefined && st.parent !== "") {
     try {
       await issueGraphLink(spec, Number.parseInt(st.parent, 10), issueNumber, st.parentSpec);
       logDebug(`Linked sub-issue #${issueNumber} -> #${st.parent}`);
     } catch (err) {
-      logDebug(`sub-issue link failed: ${errorMessage(err)}`);
+      logWarn(`sub-issue link failed: ${errorMessage(err)}`);
+      logWarn(`Remediation: link #${issueNumber} under parent ${st.parent} manually`);
+      enrichFailed = 1;
     }
   }
   // Birth rule: a Task under a parent is born Ready (its planning is part of
   // implementation); standalone issues and deliverables start at TBD.
-  applyBirthStatus(issueNumber, st.type === "Task" && st.parent !== undefined && st.parent !== "" ? "Ready" : "TBD");
+  await applyBirthStatus(issueNumber, st.type === "Task" && st.parent !== undefined && st.parent !== "" ? "Ready" : "TBD");
 
   console.log(issueUrl);
   return enrichFailed;
@@ -420,29 +411,36 @@ async function createIssue(st: CreateState): Promise<number> {
 // --- Main -------------------------------------------------------------------
 
 async function main(argv: string[]): Promise<number> {
-  const cli = toolCli({
-    name: SCRIPT_NAME,
-    version: SCRIPT_VERSION,
-    argv,
-    allowPositionals: false,
-    options: {
-      "dry-run": { type: "boolean", short: "n", default: false },
-      title: { type: "string", short: "t" },
-      body: { type: "string", short: "b" },
-      "body-file": { type: "string", short: "f" },
-      type: { type: "string" },
-      label: { type: "string", short: "l", multiple: true },
-      assignee: { type: "string", short: "a", multiple: true },
-      milestone: { type: "string", short: "m" },
-      project: { type: "string", short: "p" },
-      parent: { type: "string" },
-      "blocked-by": { type: "string", multiple: true },
-      template: { type: "string" },
-      "select-template": { type: "boolean", default: false },
-      "no-template": { type: "boolean", default: false },
-      "no-interactive": { type: "boolean", default: false },
-    },
-  });
+  let cli: ReturnType<typeof toolCli>;
+  try {
+    cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      allowPositionals: false,
+      options: {
+        "dry-run": { type: "boolean", short: "n", default: false },
+        title: { type: "string", short: "t" },
+        body: { type: "string", short: "b" },
+        "body-file": { type: "string", short: "f" },
+        type: { type: "string" },
+        label: { type: "string", short: "l", multiple: true },
+        assignee: { type: "string", short: "a", multiple: true },
+        milestone: { type: "string", short: "m" },
+        project: { type: "string", short: "p" },
+        parent: { type: "string" },
+        "blocked-by": { type: "string", multiple: true },
+        template: { type: "string" },
+        "select-template": { type: "boolean", default: false },
+        "no-template": { type: "boolean", default: false },
+        "no-interactive": { type: "boolean", default: false },
+      },
+    });
+  } catch (err) {
+    logError(errorMessage(err));
+    console.error("Use --help for usage information");
+    return EXIT_MISUSE;
+  }
   const values = cli.values as Record<string, string | boolean | string[] | undefined>;
 
   if (cli.common.help) showUsage();
@@ -476,33 +474,8 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  await checkAuth();
-  checkTargetRepo(cli.common.devenv);
-  probeTargetRepo();
-
-  // 15.15 placement validation: --parent must satisfy the requested type's
-  // child_of rule (org hierarchy from issues-config.yml) BEFORE any create.
-  const parentValue = values["parent"];
-  let parentRef: ParentRef | null = null;
-  if (typeof parentValue === "string" && parentValue !== "") {
-    parentRef = parseParentRef(parentValue);
-    if (parentRef === null) {
-      logError(`Invalid --parent reference: ${parentValue} (expected N or owner/repo#N)`);
-      return EXIT_MISUSE;
-    }
-    if (issueType !== "") {
-      // Cross-repo parents validate against their own repo (issuesView
-      // takes a spec; the child_of rule still applies — the parent's type
-      // is a process fact, not a repo-local one).
-      await validatePlacement(
-        requireRepoTarget(providerRepoTarget(""), "issue-create", "issues"),
-        String(parentRef.number),
-        issueType,
-        parentRef.repoSpec,
-      );
-    }
-  }
-
+  // The type is validated against the local config before any provider call:
+  // a bad value exits 2 without touching the network.
   // Type selection: deterministic mode errors on a missing type; interactive
   // mode picks from the config vocabulary (needs a terminal under this build).
   // F21: --select-template is an explicit opt-in to interactive selection —
@@ -529,7 +502,34 @@ async function main(argv: string[]): Promise<number> {
   if (!validTypes.includes(issueType)) {
     logError(`Invalid issue type: ${issueType}`);
     logInfo(`Valid types: ${validTypes.join(" ")}`);
-    return EXIT_GENERAL_ERROR;
+    return EXIT_MISUSE;
+  }
+
+  await checkAuth();
+  checkTargetRepo(cli.common.devenv);
+  probeTargetRepo();
+
+  // 15.15 placement validation: --parent must satisfy the requested type's
+  // child_of rule (org hierarchy from issues-config.yml) BEFORE any create.
+  const parentValue = values["parent"];
+  let parentRef: ParentRef | null = null;
+  if (typeof parentValue === "string" && parentValue !== "") {
+    parentRef = parseParentRef(parentValue);
+    if (parentRef === null) {
+      logError(`Invalid --parent reference: ${parentValue} (expected N or owner/repo#N)`);
+      return EXIT_MISUSE;
+    }
+    if (issueType !== "") {
+      // Cross-repo parents validate against their own repo (issuesView
+      // takes a spec; the child_of rule still applies — the parent's type
+      // is a process fact, not a repo-local one).
+      await validatePlacement(
+        requireRepoTarget(providerRepoTarget(""), "issue-create", "issues"),
+        String(parentRef.number),
+        issueType,
+        parentRef.repoSpec,
+      );
+    }
   }
 
   // Piped-stdin capture happens BEFORE template work so a piped body is never

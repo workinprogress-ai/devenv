@@ -11,7 +11,6 @@
 // .local-artifacts/ via next-id naming; a summary line and the unassigned
 // list print to stdout. The generator makes ZERO content decisions —
 // parking lots are resolved by hand in the reviewed artifact.
-import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";

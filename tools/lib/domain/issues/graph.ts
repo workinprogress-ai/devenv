@@ -16,17 +16,27 @@
 // existing subtrees may rely on it. Removing the body-text line on such an
 // issue silently stops parent rollup for that subtree.
 //
-// Headless (D3): returns data, never prompts; the status read shells to the
-// project-list-for-issue wrapper (the board fan-out choke point) with an
-// explicit override when DEVENV_REPO is unset — same rule as the status
-// write.
+// Headless (D3): returns data, never prompts; the status read goes through
+// the provider facade in-process, and the status write runs the sibling
+// project-update-issue tool of this checkout (with the explicit --devenv
+// override when DEVENV_REPO is unset). No generated depth-1 stub is needed.
 
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { configGet, configGetArray } from "../../core/config.ts";
+import { errorMessage } from "../../core/logging.ts";
+import { siblingCommand } from "../../core/sibling.ts";
+import {
+  issueGraphChildren,
+  issueGraphLink,
+  issueGraphParent,
+  issueGraphUnlink,
+  issueWebUrl,
+  issuesView,
+} from "../../providers/facade/issues.ts";
+import { projectsOps } from "../../providers/facade/projects.ts";
 import { providerRepoTarget } from "../../providers/provider-core.ts";
-import { issueGraphLink, issueGraphUnlink, issueGraphChildren, issueGraphParent, issuesView } from "../../providers/github/issues.ts";
 
 export {
   issueGraphLink as linkSubissue,
@@ -63,9 +73,21 @@ export async function parent(spec: string | undefined, issue: number): Promise<n
   if (native !== null) return native;
   // Body-text fallback: the first 'Part of #N' line, if any. View failures
   // read as "no parent recorded" (same as the bash `|| return 0`).
-  const body = await issuesView(spec, issue, { json: "body", jq: ".body" }).catch(() => "");
+  const body = await issueBody(spec, issue);
   const m = /^Part of #([0-9]+)/m.exec(body);
   return m?.[1] !== undefined ? Number.parseInt(m[1], 10) : null;
+}
+
+/** An issue's body text via the facade's JSON projection (no provider-
+ * specific jq program); view or parse failures read as an empty body. */
+async function issueBody(spec: string | undefined, issue: number): Promise<string> {
+  try {
+    const raw = await issuesView(spec, issue, { json: "body" });
+    const body = (JSON.parse(raw) as { body?: unknown }).body;
+    return typeof body === "string" ? body : "";
+  } catch {
+    return "";
+  }
 }
 
 export interface ProjectStatusRow {
@@ -99,10 +121,28 @@ export async function readStatus(
   return null;
 }
 
-/** Shell to the project-list-for-issue wrapper (tab-separated rows). */
+/**
+ * The project cards holding an issue, with the issue's Status in each.
+ * Default: in-process through the provider facade (the same read the
+ * project-list-for-issue tool prints). An injected tools root (the
+ * toolsRoot argument or ISSUE_GRAPH_TOOLS) runs `<root>/project-list-for-issue`
+ * instead, for fixture directories of stub scripts. Failures read as no rows.
+ */
 async function listForIssue(issue: number, toolsRoot?: string): Promise<ProjectStatusRow[]> {
-  const root = (toolsRoot ?? process.env["ISSUE_GRAPH_TOOLS"] ?? fileURLToPath(new URL("../../../..", import.meta.url))).replace(/\/$/, "");
-  const wrapper = `${root.replace(/\/$/, "")}/project-list-for-issue`;
+  const injected = toolsRoot ?? process.env["ISSUE_GRAPH_TOOLS"];
+  if (injected === undefined || injected === "") {
+    const spec = repoSpec();
+    if (spec === "") return [];
+    try {
+      const url = await issueWebUrl(spec, issue);
+      const ops = await projectsOps();
+      const rows = await ops.forIssue(url, spec.split("/")[0] ?? "");
+      return rows.map((r) => ({ project: r.title, number: r.number, status: r.status }));
+    } catch {
+      return [];
+    }
+  }
+  const wrapper = `${injected.replace(/\/$/, "")}/project-list-for-issue`;
   const override = process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "" ? ["--devenv"] : [];
   const { spawnSync } = await import("node:child_process");
   const r = spawnSync("bash", [wrapper, String(issue), ...override], { encoding: "utf8" });
@@ -209,13 +249,14 @@ export interface WorkflowWriteContext {
   failed?: boolean;
 }
 
-function workflowToolsRoot(ctx?: WorkflowWriteContext): string {
+/** The injected tools root for the status write (ctx first, then the
+ * WORKFLOW_CORE_TOOLS test seam); undefined means the write runs the sibling
+ * project-update-issue tool of this checkout. */
+function workflowToolsOverride(ctx?: WorkflowWriteContext): string | undefined {
   if (ctx?.toolsRoot !== undefined) return ctx.toolsRoot;
   const env = process.env["WORKFLOW_CORE_TOOLS"];
   if (env !== undefined && env !== "") return env;
-  // This module sits three directories below the tools root
-  // (tools/lib/domain/issues/) — the depth-1 wrappers live at the root.
-  return fileURLToPath(new URL("../../..", import.meta.url));
+  return undefined;
 }
 
 /** The single guarded write choke point. mode "suppress" = a rollup-computed
@@ -227,17 +268,17 @@ export async function writeStatus(
   ctx: WorkflowWriteContext = {},
   mode: "propagate" | "suppress" = "propagate",
 ): Promise<boolean> {
-  const root = workflowToolsRoot(ctx);
-  const wrapper = `${root.replace(/\/$/, "")}/project-update-issue`;
+  const override = workflowToolsOverride(ctx);
+  const [command = "", ...commandArgs] = siblingCommand("project-update-issue", override?.replace(/\/$/, ""), true);
   // An unset DEVENV_REPO means the work targets the checkout it runs in, so
   // the write carries the explicit --devenv override (and only then).
-  const override = process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === ""
+  const devenvFlag = process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === ""
     ? ["--devenv"]
     : [];
   const { spawnSync } = await import("node:child_process");
   const r = spawnSync(
-    "bash",
-    [wrapper, String(issue), "--status", status, "--all-projects", "--safe", ...override],
+    command,
+    [...commandArgs, String(issue), "--status", status, "--all-projects", "--safe", ...devenvFlag],
     { encoding: "utf8" },
   );
   if (r.status !== 0) {
@@ -295,6 +336,23 @@ export async function onEvent(
     return;
   }
   await writeStatus(issue, status, ctx);
+}
+
+/** Fire a skill event in-process: the one path every caller (the event
+ * dispatcher, workflow-signal, triage) shares. Never throws; `ok` is false
+ * when the event is unknown or its status write failed, and `error` carries
+ * the message of anything the handler threw. */
+export async function fireEvent(
+  event: string,
+  issue: number,
+  ctx: WorkflowWriteContext = {},
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await onEvent(event, issue, ctx);
+    return { ok: ctx.failed !== true };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
 }
 
 /** Entry: statused/forced writes from tooling. direction "child" (default):

@@ -9,12 +9,13 @@ import { mkdirSync, mkdtempSync, writeFileSync, symlinkSync, cpSync, rmSync } fr
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const SCRIPT = join(TOOLS, "repo-get");
+const SCRIPT = toolScript("repo-get");
 
 let TMP = "";
 let ORIGIN = "";
@@ -65,7 +66,7 @@ function updateClone(): { status: number; out: string } {
   spawnSync("chmod", ["+x", join(root, "bin", "gh")]);
   rmSync(join(root, "repos", "clone"), { force: true });
   symlinkSync(CLONE, join(root, "repos", "clone"));
-  const r = spawnSync("bash", ["-c", `cd '${CLONE}' && DEVENV_ROOT='${root}' DEVENV_ROOT_SET=1 PATH='${join(root, "bin")}:${TOOLS}:${process.env.PATH ?? ""}' '${SCRIPT}'`], {
+  const r = spawnSync("bash", ["-c", `cd '${CLONE}' && DEVENV_ROOT='${root}' DEVENV_ROOT_SET=1 PATH='${join(root, "bin")}:${process.env.PATH ?? ""}' node '${SCRIPT}'`], {
     encoding: "utf8",
     env: GIT_ENV(),
   });

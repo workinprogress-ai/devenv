@@ -7,12 +7,13 @@ import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const SCRIPT = join(TOOLS, "fork-setup");
+const SCRIPT = toolScript("fork-setup");
 
 let TMP = "";
 let DEVENV_ROOT = "";
@@ -74,7 +75,7 @@ function setupForkFixture(): void {
 }
 
 function runForkSetup(args: string[] = [], extraEnv: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync(SCRIPT, args, {
+  const r = spawnSync("node", [SCRIPT, ...args], {
     cwd: WORKING_CLONE || TMP,
     encoding: "utf8",
     env: {
@@ -90,7 +91,7 @@ function runForkSetup(args: string[] = [], extraEnv: Record<string, string> = {}
 
 describe("scripts/fork-setup", () => {
   it("fork-setup: script has valid syntax", () => {
-    expect(spawnSync("bash", ["-n", SCRIPT]).status).toBe(0);
+    expect(spawnSync("node", ["--check", SCRIPT]).status).toBe(0);
   });
 
   it("fork-setup: --help prints usage without implementing logic", () => {

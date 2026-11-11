@@ -9,7 +9,7 @@
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 
 import { basename } from "node:path";
-import { spawnSync, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";

@@ -1,7 +1,7 @@
 // Port of tools/tests/devenv/test_pre_commit_hooks.bats (14 tests) — one vitest `it` per source `@test`.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -102,5 +102,43 @@ describe("pre-commit hooks", () => {
     const r = spawnSync("grep", ["\"prepare\".*husky", join(ROOT, "package.json")], { encoding: "utf8" });
     if (r.status !== 0) return; // skip: husky prepare not configured yet
     expect(r.status).toBe(0);
+  });
+});
+
+describe("husky pre-commit type and lint gates", () => {
+  /** Stage one file in a fixture repo carrying the real hook and a recording npx stub. */
+  function runHookStaging(file: string): { status: number; npxCalls: string[] } {
+    const dir = mkdtempSync(join(tmpdir(), "husky-gate-"));
+    try {
+      sh("git init -q", dir);
+      mkdirSync(join(dir, ".husky"));
+      copyFileSync(join(ROOT, ".husky/pre-commit"), join(dir, ".husky/pre-commit"));
+      mkdirSync(join(dir, "bin"));
+      writeFileSync(join(dir, "bin/npx"), `#!/bin/sh\necho "$@" >> '${join(dir, "npx.log")}'\n`, { mode: 0o755 });
+      mkdirSync(join(dir, dirname(file)), { recursive: true });
+      writeFileSync(join(dir, file), "{}\n");
+      sh(`git add '${file}'`, dir);
+      const r = spawnSync("sh", [join(dir, ".husky/pre-commit")], {
+        cwd: dir,
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${join(dir, "bin")}:${process.env["PATH"] ?? ""}` },
+      });
+      const log = existsSync(join(dir, "npx.log")) ? readFileSync(join(dir, "npx.log"), "utf8") : "";
+      return { status: r.status ?? 1, npxCalls: log.split("\n").filter((l) => l !== "") };
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it.each(["eslint.config.js", "tsconfig.json", "package.json"])("staging %s runs tsc and eslint", (file) => {
+    const r = runHookStaging(file);
+    expect(r.status).toBe(0);
+    expect(r.npxCalls).toEqual(["--no-install tsc --noEmit", "--no-install eslint tools"]);
+  });
+
+  it("staging an unrelated file runs neither", () => {
+    const r = runHookStaging("notes/readme.txt");
+    expect(r.status).toBe(0);
+    expect(r.npxCalls).toEqual([]);
   });
 });

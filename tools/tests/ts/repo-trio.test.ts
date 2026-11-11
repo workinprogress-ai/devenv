@@ -14,14 +14,15 @@ import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, readFileSync, existsS
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ttyCommand } from "./harness/repo-commit.ts";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const REPO_COMMIT = join(TOOLS, "repo-commit");
-const REPO_CREATE = join(TOOLS, "repo-create");
-const REPO_SCRATCHPAD = join(TOOLS, "repo-scratchpad");
-const GIT_WIP = join(TOOLS, "git-wip");
-const PR_CREATE = join(TOOLS, "pr-create");
+const REPO_COMMIT = join(TOOLS, "ts", "repo-commit.ts");
+const REPO_CREATE = join(TOOLS, "ts", "repo-create.ts");
+const REPO_SCRATCHPAD = join(TOOLS, "ts", "repo-scratchpad.ts");
+const GIT_WIP = join(TOOLS, "ts", "git-wip.ts");
+const PR_CREATE = join(TOOLS, "ts", "pr-create.ts");
 const REPO_TYPES_YAML = join(TOOLS, "config", "repo-types.yaml");
 const REPO_CREATE_TS = join(TOOLS, "ts", "repo-create.ts");
 
@@ -77,6 +78,13 @@ function run(exe: string, args: string[], opts: { cwd?: string; env?: Record<str
     if (v === undefined) delete e[k];
     else e[k] = v;
   }
+  if (exe.endsWith(".ts")) {
+    args = [exe, ...args];
+    exe = "node";
+  }
+  // repo-commit's editor gate requires a terminal on stdin and stdout: run it
+  // under a pty (util-linux `script`), as a person at a terminal would.
+  if (args.includes(REPO_COMMIT)) [exe, args] = ttyCommand(exe, args);
   const r = spawnSync(exe, args, { cwd: opts.cwd, encoding: "utf8", env: e });
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "", out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
@@ -210,7 +218,7 @@ describe("repo-commit wrapper (bats port)", () => {
     stageOneFile(C_REPO);
     const shadow = shadowPathWithoutEditors();
     git(C_REPO, ["config", "core.editor", "true"]);
-    const r = run("bash", [REPO_COMMIT, "should be refused"], {
+    const r = run("node", [REPO_COMMIT, "should be refused"], {
       cwd: C_REPO,
       env: { PATH: shadow, GIT_EDITOR: "true", VISUAL: "true", EDITOR: "true" },
     });
@@ -222,7 +230,7 @@ describe("repo-commit wrapper (bats port)", () => {
     stageOneFile(C_REPO);
     const shadow = shadowPathWithoutEditors();
     git(C_REPO, ["config", "core.editor", "true"]);
-    const r = run("bash", [REPO_COMMIT, "should be refused"], {
+    const r = run("node", [REPO_COMMIT, "should be refused"], {
       cwd: C_REPO,
       env: { PATH: shadow, GIT_EDITOR: undefined, VISUAL: undefined, EDITOR: undefined },
     });
@@ -235,7 +243,7 @@ describe("repo-commit wrapper (bats port)", () => {
     // so the wrapper refuses rather than launching git's vi default.
     stageOneFile(C_REPO);
     const shadow = shadowPathWithoutEditors();
-    const r = run("bash", [REPO_COMMIT, "refused"], {
+    const r = run("node", [REPO_COMMIT, "refused"], {
       cwd: C_REPO,
       env: { PATH: shadow, GIT_EDITOR: ":", VISUAL: undefined, EDITOR: undefined },
     });
@@ -320,7 +328,7 @@ describe("repo-commit wrapper (bats port)", () => {
       "FOO=1 true",
     ];
     for (const editor of editors) {
-      const r = run("bash", [REPO_COMMIT, "should be refused"], {
+      const r = run("node", [REPO_COMMIT, "should be refused"], {
         cwd: C_REPO,
         env: { PATH: shadow, GIT_EDITOR: editor, VISUAL: undefined, EDITOR: undefined },
       });
@@ -397,8 +405,8 @@ const NAMING = {
 };
 
 describe("repo-create (bats port)", () => {
-  it("the entry has valid bash syntax (depth-1 stub)", () => {
-    expect(spawnSync("bash", ["-n", REPO_CREATE]).status).toBe(0);
+  it("the entry has valid TypeScript syntax", () => {
+    expect(spawnSync("node", ["--check", REPO_CREATE]).status).toBe(0);
   });
 
   it("requires --type parameter", () => {
@@ -583,7 +591,7 @@ function mockGitRepo(): string {
 }
 
 function sp(args: string[]): { status: number; out: string } {
-  const r = run("bash", [REPO_SCRATCHPAD, ...args], { cwd: SP_REPO });
+  const r = run("node", [REPO_SCRATCHPAD, ...args], { cwd: SP_REPO });
   return { status: r.status, out: r.out };
 }
 
@@ -594,6 +602,13 @@ function spSetup(): void {
   SP_BASE_BRANCH = git(SP_REPO, ["symbolic-ref", "--short", "HEAD"]).stdout.trim();
 }
 
+// A genuine bisect session (git writes BISECT_START/BISECT_LOG and
+// refs/bisect/*; it never writes refs/bisect/start).
+function startRealBisect(): void {
+  const root = git(SP_REPO, ["rev-list", "--max-parents=0", "HEAD"]).stdout.trim();
+  expect(git(SP_REPO, ["bisect", "start", "HEAD", root]).status).toBe(0);
+}
+
 // Add a scratch commit (work file + branded commit), the bats fixtures' bread
 // and butter.
 function scratchWork(message: string): string {
@@ -602,6 +617,14 @@ function scratchWork(message: string): string {
   const r = sp(["commit", message]);
   expect(r.status).toBe(0);
   return git(SP_REPO, ["rev-parse", "HEAD"]).stdout.trim();
+}
+
+// Carry snapshots carry a unique suffix so a reused slug never overwrites an
+// earlier salvage record; the single snapshot of a test is found by prefix.
+function carryPatch(): string {
+  const dir = join(SP_REPO, ".local-artifacts", "tmp", "scratchpad");
+  const name = readdirSync(dir).find((f) => f.startsWith("exp-carry") && f.endsWith(".patch"));
+  return join(dir, name ?? "exp-carry.patch");
 }
 
 describe("repo-scratchpad state machine (bats port)", () => {
@@ -634,7 +657,7 @@ describe("repo-scratchpad state machine (bats port)", () => {
     expect(r.status).toBe(0);
     expect(r.out).toContain("CARRY");
     expect(r.out).toContain("DESTROY");
-    const patch = join(SP_REPO, ".local-artifacts", "tmp", "scratchpad", "exp-carry.patch");
+    const patch = carryPatch();
     expect(existsSync(patch)).toBe(true);
     expect(readFileSync(patch, "utf8")).toContain("dirt");
     expect(git(SP_REPO, ["show-ref", "--verify", "--quiet", "refs/heads/scratchpad/exp"]).status).toBe(0);
@@ -701,13 +724,12 @@ describe("repo-scratchpad state machine (bats port)", () => {
     // Carried modification is gone from the tree; the snapshot patch remains
     // as the salvage record (root-scoped carry dir survives reset).
     expect(readFileSync(f, "utf8")).not.toContain("carried");
-    const patch = join(SP_REPO, ".local-artifacts", "tmp", "scratchpad", "exp-carry.patch");
-    expect(existsSync(patch)).toBe(true);
+    expect(existsSync(carryPatch())).toBe(true);
   });
 
   it("reset: refuses while a bisect session is mid-flight", () => {
     sp(["enter"]);
-    git(SP_REPO, ["update-ref", "refs/bisect/start", git(SP_REPO, ["rev-parse", "HEAD"]).stdout.trim()]);
+    startRealBisect();
     const r = sp(["reset"]);
     expect(r.status).toBe(1);
     expect(r.out).toContain("bisect");
@@ -748,7 +770,7 @@ describe("repo-scratchpad state machine (bats port)", () => {
 
   it("exit: refuses while a bisect session is mid-flight", () => {
     sp(["enter"]);
-    git(SP_REPO, ["update-ref", "refs/bisect/start", git(SP_REPO, ["rev-parse", "HEAD"]).stdout.trim()]);
+    startRealBisect();
     const r = sp(["exit"]);
     expect(r.status).toBe(1);
     expect(r.out).toContain("bisect");
@@ -807,7 +829,7 @@ describe("repo-scratchpad state machine (bats port)", () => {
   it("refusal contract: restricted tools work normally when no scratchpad (no false positives)", () => {
     // repo-commit proceeds past the refusal gate (reaches its own option refusal).
     const rc = run(REPO_COMMIT, ["-m", "opt"], { cwd: SP_REPO });
-    expect(rc.status).toBe(1);
+    expect(rc.status).toBe(2);
     expect(rc.out).toContain("options are refused by design");
     // pr-create gets past the scratchpad gate (reaches its own arg validation).
     const pr = run(PR_CREATE, [], { cwd: SP_REPO });
@@ -825,7 +847,7 @@ describe("repo-scratchpad state machine (bats port)", () => {
     // Normal branch is unaffected.
     git(SP_REPO, ["checkout", "-q", SP_BASE_BRANCH]);
     const wip2 = run(GIT_WIP, ["--definitely-not-a-flag"], { cwd: SP_REPO });
-    expect(wip2.status).toBe(1);
+    expect(wip2.status).toBe(2);
   });
 
   it("B1: commit refuses when HEAD is off the scratch branch (post-promote pause)", () => {
@@ -844,7 +866,7 @@ describe("repo-scratchpad state machine (bats port)", () => {
   });
 
   it("B1: enter refuses while a foreign bisect is in flight", () => {
-    git(SP_REPO, ["update-ref", "refs/bisect/start", git(SP_REPO, ["rev-parse", "HEAD"]).stdout.trim()]);
+    startRealBisect();
     const r = sp(["enter"]);
     expect(r.status).toBe(1);
     expect(r.out).toContain("bisect");

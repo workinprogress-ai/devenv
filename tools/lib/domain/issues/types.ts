@@ -8,6 +8,7 @@
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { resolveToolsRoot } from "../../core/self-root.ts";
 
 export const CANONICAL_TYPES = ["Bug", "Feature", "Task", "Epic"] as const;
 
@@ -19,9 +20,7 @@ export const TYPE_ALIASES: Record<string, string> = {
 };
 
 function toolsRoot(): string {
-  const override = process.env["DEVENV_TOOLS"];
-  if (override !== undefined && override !== "") return override;
-  return join(fileURLToPath(new URL("../../../..", import.meta.url)), "tools");
+  return resolveToolsRoot(fileURLToPath(import.meta.url));
 }
 
 /** The type vocabulary from issues-config.yml (`types[].name`). */
