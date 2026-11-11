@@ -287,14 +287,16 @@ export async function reposCreate(
   };
 }
 
-/** Edit a repo. Azure repos have no post-create template knob: the flag is
- * a documented no-op (named in the error only when the option is unknown). */
+/** Edit a repo. A repository has no post-create settings flags (the template
+ * link is create-time only), so the edit is refused with a named error rather
+ * than reported as done; the facade refuses it the same way. */
 export async function reposEdit(
   repo: string,
   opts: { template?: string } = {},
 ): Promise<void> {
   void repo;
-  void opts; // --template accepted and ignored (documented degrade)
+  void opts;
+  throw new ProviderError("repos_edit is not supported on provider 'azure'");
 }
 
 /** Keys azure repos have no knob for (merge strategies are project-policy;

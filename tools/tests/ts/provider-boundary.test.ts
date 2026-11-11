@@ -6,6 +6,9 @@
 //   - tools/ts/provider-explain.ts: its job IS provider introspection; it
 //     reads the provider modules to explain them.
 //
+// The same rule covers domain code (tools/lib/domain/**): domain modules
+// reach providers only through the facade.
+//
 // Same-family rule (facade files): a facade/<family>.ts may import only its
 // own family's provider modules (the union of that family's per-provider
 // manifest entries in provider-loader.ts). facade/issues.ts may not reach
@@ -58,7 +61,44 @@ const RATCHET_CAP = 0;
 const ratchetAllowlist: Array<{ file: string; removedWhen: string }> = [
 ];
 
+// Domain-layer ratchet: domain files that still import provider modules
+// directly. The list only shrinks; an entry names what removes it.
+const DOMAIN_RATCHET_CAP = 0;
+const domainRatchetAllowlist: Array<{ file: string; removedWhen: string }> = [
+];
+
 describe("provider boundary contract", () => {
+  it("no tools/lib/domain file imports a provider module except the domain ratchet allowlist", () => {
+    const violations: string[] = [];
+    if (domainRatchetAllowlist.length > DOMAIN_RATCHET_CAP) {
+      violations.push(
+        `domain ratchet allowlist grew to ${domainRatchetAllowlist.length} (cap ${DOMAIN_RATCHET_CAP}) — ` +
+          `a provider-importing domain file is a boundary breach, not an allowlist entry`,
+      );
+    }
+    const allowed = new Set(domainRatchetAllowlist.map((r) => r.file));
+    const domainDir = join(toolsDir, "lib", "domain");
+    for (const file of walk(domainDir)) {
+      const rel = relative(domainDir, file);
+      if (allowed.has(rel)) continue;
+      for (const m of readFileSync(file, "utf8").matchAll(providerModuleImport)) {
+        violations.push(`${relative(repoRoot, file)}: ${m[0]}`);
+      }
+    }
+    expect(violations, `direct provider imports in domain code:\n${violations.join("\n")}`).toEqual([]);
+  });
+
+  it("domain ratchet allowlist entries still violate (a satisfied entry must be removed)", () => {
+    const stale: string[] = [];
+    for (const r of domainRatchetAllowlist) {
+      const src = readFileSync(join(toolsDir, "lib", "domain", r.file), "utf8");
+      if (!new RegExp(providerModuleImport.source).test(src)) {
+        stale.push(`${r.file}: no longer imports providers — remove from the allowlist (${r.removedWhen})`);
+      }
+    }
+    expect(stale, `satisfied domain allowlist entries to remove:\n${stale.join("\n")}`).toEqual([]);
+  });
+
   it("no tools/ts file imports a provider module except provider-explain.ts and the phase ratchet allowlist", () => {
     const violations: string[] = [];
     if (ratchetAllowlist.length > RATCHET_CAP) {

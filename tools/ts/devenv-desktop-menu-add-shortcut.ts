@@ -53,7 +53,8 @@ try {
   folder = cli.positionals[2] ?? "";
 } catch (err) {
   console.error(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 const menu = menuFile();

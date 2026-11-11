@@ -178,12 +178,12 @@ describe("provider-core (TS facade core)", () => {
     expect(ghCalls().some((c) => c.includes("issue list --state all") && !c.includes("-R"))).toBe(true);
   });
 
-  it("issuesExists answers false on gh failure and true on success (exit-status contract)", async () => {
+  it("issuesExists answers true on success and rethrows a gh failure that is not a not-found", async () => {
     const { issues } = await loadFacade();
     writeFileSync(responses, "issue view 7\t{\"number\": 7}\n");
     expect(await issues.issuesExists("org/repo", 7)).toBe(true);
     process.env.FACADE_GH_FAIL = "1";
-    expect(await issues.issuesExists("org/repo", 404)).toBe(false);
+    await expect(issues.issuesExists("org/repo", 404)).rejects.toThrow(/simulated failure/);
   });
 
   it("comments are projected to the seam shape (html_url -> url)", async () => {
@@ -368,11 +368,12 @@ describe("prs verbs (call-shape contract over the gh stub)", () => {
     expect(call).toContain("pr merge 12 --rebase --subject s --body b --delete-branch --admin -R o/r");
   });
 
-  it("prsMerge defaults to rebase + delete-branch, no admin", async () => {
+  it("prsMerge defaults to rebase and keeps the branch, no admin", async () => {
     const { prs } = await loadFacade();
     await prs.prsMerge("o/r", 5);
     const call = ghCalls().find((c) => c.includes("pr merge")) ?? "";
-    expect(call).toContain("--rebase --delete-branch");
+    expect(call).toContain("--rebase");
+    expect(call).not.toContain("--delete-branch");
     expect(call).not.toContain("--admin");
     expect(call).not.toContain("--subject");
   });

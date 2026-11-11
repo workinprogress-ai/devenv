@@ -6,7 +6,6 @@
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { invalidArgs } from "../lib/core/args.ts";
@@ -14,7 +13,7 @@ import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { providerOrgGet } from "../lib/providers/provider-core.ts";
-import { selfRoot } from "../lib/core/self-root.ts";
+import { parsePlan, planSummary } from "../lib/domain/plan.ts";
 
 assertNodeFloor();
 
@@ -180,23 +179,14 @@ function findPlanForStep(step: string, candidates: string[]): string {
   return "";
 }
 
-// Progress fragment via the plan-parse tool (stub-dispatched in tests, so
-// shelling out preserves the seam the same way bash did).
+// Progress fragment from the plan's task census, computed in-process. A plan
+// that cannot be read or carries no tasks reports no progress.
 function planProgress(plan: string): { done: number; total: number; pct: string } | null {
-  const planParse = process.env.DEVENV_TOOLS
-    ? join(process.env.DEVENV_TOOLS, "plan-parse")
-    : join(selfRoot(process.cwd()), "tools", "plan-parse");
-  const r = spawnSync("bash", [planParse, plan, "--summary"], { encoding: "utf8" });
-  if (r.status !== 0 || !r.stdout) return null;
   try {
-    const j = JSON.parse(r.stdout) as Record<string, unknown>;
-    const total = Number(j.tasks_total ?? 0);
-    if (!(total > 0)) return null;
-    return {
-      done: Number(j.tasks_done ?? 0),
-      total,
-      pct: String(j.pct_tasks ?? "0"),
-    };
+    const content = readFileSync(plan, "utf8");
+    const j = planSummary(plan, parsePlan(content), content);
+    if (!(j.tasks_total > 0)) return null;
+    return { done: j.tasks_done, total: j.tasks_total, pct: String(j.pct_tasks) };
   } catch {
     return null;
   }

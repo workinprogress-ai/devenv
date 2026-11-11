@@ -91,7 +91,7 @@ async function main(argv: string[]): Promise<number> {
       const normalized = normalizeIssueType(type);
       if (normalized === null) {
         logError(`Invalid issue type: ${type} (allowed: Bug, Feature, Task, Epic)`);
-        return EXIT_GENERAL_ERROR;
+        return EXIT_MISUSE;
       }
       type = normalized;
     }

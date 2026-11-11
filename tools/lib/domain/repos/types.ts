@@ -6,25 +6,48 @@
 //
 // Dependency direction: domain → core + providers (never ui).
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { logError, logInfo, logWarn } from "../../core/logging.ts";
 import { configGetRaw } from "../../core/config.ts";
-import {
-  orgRulesetsList,
-  orgRulesetCreate,
-  orgRulesetUpdate,
-} from "../../providers/github/org.ts";
+import { orgRulesetsList, orgRulesetCreate, orgRulesetUpdate } from "../../providers/facade/org.ts";
 import {
   reposPatch,
   reposPatchWithError,
   reposEdit,
   reposTeamPut,
   reposCollaboratorPut,
-} from "../../providers/github/repos.ts";
+} from "../../providers/facade/repos.ts";
+import { ProviderError, providerDetect } from "../../providers/provider-core.ts";
 import { errorMessage } from "../../core/logging.ts";
+
+/** A settings verb's boolean outcome, with the provider's own refusal (a
+ * ProviderError such as "not supported on provider 'azure'") reported as a
+ * warning and a false result — the same failure channel a rejected write
+ * uses. Anything else is a defect and propagates. */
+async function settingOutcome(call: () => Promise<boolean>): Promise<boolean> {
+  try {
+    return await call();
+  } catch (err) {
+    if (err instanceof ProviderError) {
+      logWarn(err.message);
+      return false;
+    }
+    throw err;
+  }
+}
+
+/** reposPatchWithError with a ProviderError folded into {ok:false, error}. */
+async function patchOutcome(fullName: string, flags: string[]): Promise<{ ok: boolean; error: string }> {
+  try {
+    return await reposPatchWithError(fullName, flags);
+  } catch (err) {
+    if (err instanceof ProviderError) return { ok: false, error: err.message };
+    throw err;
+  }
+}
 
 /** The repo-creation readiness decision (15.13's two-stage parity probe):
  * ready only when BOTH tree counts are known and equal — null (a truncated
@@ -368,26 +391,94 @@ export function buildRulesetPayload(
   }
 }
 
+/** Outcome of applying a type's ruleset. `applied` is true only when a
+ * ruleset was really created or updated; every reason it was not goes in
+ * `failures` (an empty `failures` with `applied: false` means the type
+ * configures no ruleset, so there was nothing to do). */
+export interface RulesetsResult {
+  applied: boolean;
+  failures: string[];
+}
+
+/** Options shared by the configure appliers. `dryRun` reports every setting
+ * that would be applied and writes nothing (read-only lookups still run). */
+export interface ConfigureOptions {
+  dryRun?: boolean;
+}
+
+/** Split `gh api --paginate` output into its records. A paginated list prints
+ * one JSON array per page back to back (`[..][..]`), which is not one valid
+ * JSON document; a single page parses directly. Throws on malformed output. */
+export function parsePaginatedArrays(text: string): unknown[] {
+  const trimmed = text.trim();
+  if (trimmed === "") return [];
+  try {
+    const whole = JSON.parse(trimmed) as unknown;
+    if (Array.isArray(whole)) return whole;
+  } catch {
+    // fall through to the page scanner
+  }
+  const records: unknown[] = [];
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let start = -1;
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i] ?? "";
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "[" || ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "]" || ch === "}") {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        const page = JSON.parse(trimmed.slice(start, i + 1)) as unknown;
+        if (!Array.isArray(page)) throw new Error("ruleset list page is not an array");
+        records.push(...page);
+        start = -1;
+      }
+    } else if (depth === 0 && !/\s/.test(ch)) {
+      throw new Error("unexpected text between ruleset list pages");
+    }
+  }
+  if (depth !== 0) throw new Error("truncated ruleset list");
+  return records;
+}
+
 /** Apply the type's ruleset to the repo: build the payload, update the
- * existing ruleset via PUT when one of the same name exists, else create. */
-export function configureRulesetsForType(
+ * existing ruleset via PUT when one of the same name exists, else create. A
+ * failed lookup of the existing rulesets is an error, never "absent" (a
+ * create would then collide with the ruleset that is really there). */
+export async function configureRulesetsForType(
   fullName: string,
   repoType: string,
   config: RepoTypesConfig,
   devenvTools: string,
-): void {
+  opts: ConfigureOptions = {},
+): Promise<RulesetsResult> {
+  const failures: string[] = [];
+  const fail = (message: string): RulesetsResult => {
+    failures.push(message);
+    return { applied: false, failures };
+  };
   const type = config.types[repoType];
-  if (type === undefined) return;
+  if (type === undefined) return fail(`unknown repository type '${repoType}'`);
   const rulesetFile = getTypeRulesetConfigFile(type);
   if (rulesetFile === null || rulesetFile === "") {
     logInfo("No ruleset configured for this type");
-    return;
+    return { applied: false, failures };
   }
   logInfo(`Configuring repository ruleset from ${rulesetFile}...`);
   const rulesetJsonPath = join(devenvTools, "config", rulesetFile);
   if (!existsSync(rulesetJsonPath)) {
     logWarn(`Ruleset file not found: ${rulesetJsonPath}`);
-    return;
+    return fail(`ruleset file not found: ${rulesetJsonPath}`);
   }
   const owner = fullName.includes("/") ? fullName.slice(0, fullName.indexOf("/")) : "";
   const repoName = fullName.includes("/") ? (fullName.split("/").pop() ?? "") : fullName;
@@ -402,7 +493,7 @@ export function configureRulesetsForType(
     logWarn(
       `Failed to generate valid ruleset payload from ${rulesetFile} for repo type '${repoType}' (type description: '${getTypeDescription(type)}')`,
     );
-    return;
+    return fail(`could not generate a ruleset payload from ${rulesetFile}`);
   }
   let rulesetName = "Unknown";
   try {
@@ -413,51 +504,61 @@ export function configureRulesetsForType(
 
   let existingId = "";
   try {
-    const list = JSON.parse(orgRulesetsList(fullName)) as Array<{ name?: unknown; id?: unknown }>;
-    const found = Array.isArray(list) ? list.find((r) => r.name === rulesetName) : undefined;
+    const list = parsePaginatedArrays(await orgRulesetsList(fullName)) as Array<{ name?: unknown; id?: unknown }>;
+    const found = list.find((r) => r.name === rulesetName);
     if (found !== undefined && found.id !== undefined && found.id !== null) existingId = String(found.id);
-  } catch {
-    existingId = "";
+  } catch (err) {
+    logWarn(`Could not list the existing rulesets of ${fullName}: ${errorMessage(err)}`);
+    return fail(`could not list existing rulesets: ${errorMessage(err)}`);
   }
 
-  // Build the payload dir path explicitly: recursive mkdirSync returns
-  // undefined when the directory already exists, so its return value is not
-  // a usable path (a once-created stale dir would crash every later run).
-  const payloadDir = join(tmpdir(), "ruleset-payload-");
-  mkdirSync(payloadDir, { recursive: true });
-  const tmp = join(payloadDir, `payload-${process.pid}.json`);
-  writeFileSync(tmp, payloadJson);
+  if (opts.dryRun === true) {
+    logInfo(
+      existingId !== ""
+        ? `[dry-run] would update ruleset '${rulesetName}' (id ${existingId}) on ${fullName}`
+        : `[dry-run] would create ruleset '${rulesetName}' on ${fullName}`,
+    );
+    return { applied: false, failures };
+  }
 
-  if (existingId !== "") {
-    const updated = orgRulesetUpdate(fullName, existingId, tmp);
-    if (updated.ok) {
-      logInfo(`✓ Ruleset '${rulesetName}' updated`);
-    } else if (updated.stderr.toLowerCase().includes("403") || updated.stderr.toLowerCase().includes("upgrade to github pro")) {
-      logWarn("Rulesets require GitHub Pro or a public repository");
-      logInfo("Repository created successfully - rulesets can be configured later when upgrading");
-    } else {
+  // The payload lives in a private, freshly created directory (never a fixed
+  // path another process or a planted symlink could redirect) and is removed
+  // whatever the outcome.
+  const payloadDir = mkdtempSync(join(tmpdir(), "ruleset-payload-"));
+  try {
+    const tmp = join(payloadDir, "payload.json");
+    writeFileSync(tmp, payloadJson);
+    const permissionHint = "Rulesets require GitHub Pro or a public repository; the ruleset was NOT applied";
+    if (existingId !== "") {
+      const updated = await orgRulesetUpdate(fullName, existingId, tmp);
+      if (updated.ok) {
+        logInfo(`✓ Ruleset '${rulesetName}' updated`);
+        return { applied: true, failures };
+      }
+      const err = updated.stderr.toLowerCase();
+      if (err.includes("403") || err.includes("upgrade to github pro")) {
+        logWarn(permissionHint);
+        return fail(`ruleset '${rulesetName}' not updated: ${permissionHint}`);
+      }
       logWarn(`Ruleset update failed for '${rulesetName}'`);
       if (updated.stderr.trim() !== "") logWarn(`API Response: ${updated.stderr.trim()}`);
+      return fail(`ruleset '${rulesetName}' update failed: ${updated.stderr.trim()}`);
     }
-  } else {
-    const created = orgRulesetCreate(fullName, tmp);
+    const created = await orgRulesetCreate(fullName, tmp);
     const err = created.stderr.toLowerCase();
     if (created.ok) {
       logInfo(`✓ Ruleset '${rulesetName}' configured`);
-    } else if (err.includes("must be unique")) {
-      logInfo(`⊘ Ruleset '${rulesetName}' already exists (skipping)`);
-    } else if (err.includes("403") || err.includes("upgrade to github pro") || err.includes("make this repository public")) {
-      logWarn("Rulesets require GitHub Pro or a public repository");
-      logInfo("Repository created successfully - rulesets can be configured later when upgrading");
-    } else {
-      logWarn(`Ruleset configuration failed for '${rulesetName}'`);
-      if (created.stderr.trim() !== "") logWarn(`API Response: ${created.stderr.trim()}`);
+      return { applied: true, failures };
     }
-  }
-  try {
-    rmSync(tmp);
-  } catch {
-    // cleanup best effort
+    if (err.includes("403") || err.includes("upgrade to github pro") || err.includes("make this repository public")) {
+      logWarn(permissionHint);
+      return fail(`ruleset '${rulesetName}' not created: ${permissionHint}`);
+    }
+    logWarn(`Ruleset configuration failed for '${rulesetName}'`);
+    if (created.stderr.trim() !== "") logWarn(`API Response: ${created.stderr.trim()}`);
+    return fail(`ruleset '${rulesetName}' creation failed: ${created.stderr.trim()}`);
+  } finally {
+    rmSync(payloadDir, { recursive: true, force: true });
   }
 }
 
@@ -476,7 +577,7 @@ function readEmailDomain(): string {
 
 /** Configure allowed merge types (repo-level merge buttons). Returns false
  * when the API call fails (bash parity: failure is reported, not swallowed). */
-export function configureMergeTypesForType(fullName: string, repoType: string, config: RepoTypesConfig): boolean {
+export async function configureMergeTypesForType(fullName: string, repoType: string, config: RepoTypesConfig, opts: ConfigureOptions = {}): Promise<boolean> {
   const type = config.types[repoType];
   if (type === undefined) {
     logError("Repository name and type required");
@@ -487,11 +588,17 @@ export function configureMergeTypesForType(fullName: string, repoType: string, c
   const allowMerge = merges.includes("merge");
   const allowSquash = merges.includes("squash");
   const allowRebase = merges.includes("rebase");
-  const ok = reposPatch(fullName, [
-    "-F", `allow_merge_commit=${allowMerge}`,
-    "-F", `allow_squash_merge=${allowSquash}`,
-    "-F", `allow_rebase_merge=${allowRebase}`,
-  ]);
+  if (opts.dryRun === true) {
+    logInfo(`[dry-run] would set merge types on ${fullName} (merge: ${allowMerge}, squash: ${allowSquash}, rebase: ${allowRebase})`);
+    return true;
+  }
+  const ok = await settingOutcome(() =>
+    reposPatch(fullName, [
+      "-F", `allow_merge_commit=${allowMerge}`,
+      "-F", `allow_squash_merge=${allowSquash}`,
+      "-F", `allow_rebase_merge=${allowRebase}`,
+    ]),
+  );
   if (ok) {
     logInfo(`✓ Merge types configured (merge: ${allowMerge}, squash: ${allowSquash}, rebase: ${allowRebase})`);
     return true;
@@ -501,44 +608,75 @@ export function configureMergeTypesForType(fullName: string, repoType: string, c
 }
 
 /** Mark the repository as a GitHub template when the type says so. */
-export function configureTemplateSettingForType(fullName: string, repoType: string, config: RepoTypesConfig): void {
+export async function configureTemplateSettingForType(
+  fullName: string,
+  repoType: string,
+  config: RepoTypesConfig,
+  opts: ConfigureOptions = {},
+): Promise<boolean> {
   const type = config.types[repoType];
-  if (type === undefined) return;
+  if (type === undefined) return false;
   if (getTypeIsTemplate(type)) {
-    logInfo("Marking repository as a template...");
-    if (reposEdit(fullName, ["--template"])) {
-      logInfo("✓ Repository marked as template");
-    } else {
-      logWarn("Could not mark repository as template (may require admin access)");
+    if (opts.dryRun === true) {
+      logInfo(`[dry-run] would mark ${fullName} as a template`);
+      return true;
     }
-  } else {
-    logInfo("Repository template setting: not a template");
+    if (providerDetect() === "azure") {
+      // Azure repositories have no template flag: nothing is changed, and the
+      // log must not claim otherwise. Not a failure of the step.
+      logWarn(`Template setting skipped: provider 'azure' has no repository template flag (${fullName} unchanged)`);
+      return true;
+    }
+    logInfo("Marking repository as a template...");
+    if (await settingOutcome(() => reposEdit(fullName, ["--template"]))) {
+      logInfo("✓ Repository marked as template");
+      return true;
+    }
+    logWarn("Could not mark repository as template (may require admin access)");
+    return false;
   }
+  logInfo("Repository template setting: not a template");
+  return true;
 }
 
 /** Configure PR branch deletion on merge. */
-export function configurePrBranchDeletionForType(fullName: string, repoType: string, config: RepoTypesConfig): void {
+export async function configurePrBranchDeletionForType(
+  fullName: string,
+  repoType: string,
+  config: RepoTypesConfig,
+  opts: ConfigureOptions = {},
+): Promise<boolean> {
   const type = config.types[repoType];
   if (type === undefined) {
     logError("Repository name and type required");
-    return;
+    return false;
   }
   const deletePrBranch = getTypeDeletePrBranchOnMerge(type);
-  logInfo("Configuring PR branch deletion on merge...");
-  if (reposPatch(fullName, ["-F", `delete_branch_on_merge=${deletePrBranch}`])) {
-    logInfo(`✓ PR branch deletion on merge configured (enabled: ${deletePrBranch})`);
-  } else {
-    logWarn("Could not configure PR branch deletion (may require admin access)");
+  if (opts.dryRun === true) {
+    logInfo(`[dry-run] would set delete_branch_on_merge=${deletePrBranch} on ${fullName}`);
+    return true;
   }
+  logInfo("Configuring PR branch deletion on merge...");
+  if (await settingOutcome(() => reposPatch(fullName, ["-F", `delete_branch_on_merge=${deletePrBranch}`]))) {
+    logInfo(`✓ PR branch deletion on merge configured (enabled: ${deletePrBranch})`);
+    return true;
+  }
+  logWarn("Could not configure PR branch deletion (may require admin access)");
+  return false;
 }
 
 /** Configure repository features in one PATCH (wiki/issues/discussions/
  * projects, auto-merge/update-branch/forking, squash title/message). */
-export function configureRepositoryFeaturesForType(fullName: string, repoType: string, config: RepoTypesConfig): void {
+export async function configureRepositoryFeaturesForType(
+  fullName: string,
+  repoType: string,
+  config: RepoTypesConfig,
+  opts: ConfigureOptions = {},
+): Promise<boolean> {
   const type = config.types[repoType];
   if (type === undefined) {
     logError("Repository name and type required");
-    return;
+    return false;
   }
   logInfo("Configuring repository features...");
   const baseFlags = [
@@ -552,11 +690,21 @@ export function configureRepositoryFeaturesForType(fullName: string, repoType: s
     "-f", `squash_merge_commit_title=${getTypeSquashMergeCommitTitle(type)}`,
     "-f", `squash_merge_commit_message=${getTypeSquashMergeCommitMessage(type)}`,
   ];
+  if (opts.dryRun === true) {
+    logInfo(
+      `[dry-run] would set features on ${fullName}: wiki=${getTypeHasWiki(type)}, issues=${getTypeHasIssues(type)}, ` +
+        `discussions=${getTypeHasDiscussions(type)}, projects=${getTypeHasProjects(type)}, ` +
+        `auto-merge=${getTypeAllowAutoMerge(type)}, update-branch=${getTypeAllowUpdateBranch(type)}, ` +
+        `forking=${getTypeAllowForking(type)}, squash title=${getTypeSquashMergeCommitTitle(type)}, ` +
+        `squash message=${getTypeSquashMergeCommitMessage(type)}`,
+    );
+    return true;
+  }
   // One rejected field kills the whole PATCH, and GitHub rejects
   // allow_forking on org-owned PUBLIC repositories. Probe with the full
   // set; on failure retry without allow_forking so the other flags still
   // land, and report exactly what was skipped (and why, quoting the API).
-  let result = reposPatchWithError(fullName, baseFlags);
+  let result = await patchOutcome(fullName, baseFlags);
   let forkSkipped = false;
   if (!result.ok) {
     // baseFlags is a flat [flag, value, ...] array: dropping only the value
@@ -564,9 +712,9 @@ export function configureRepositoryFeaturesForType(fullName: string, repoType: s
     // received 2"). Drop the flag token and its value as a pair.
     const withoutFork = baseFlags.filter((f, i) => {
       if (f === "-F" && baseFlags[i + 1]?.startsWith("allow_forking=")) return false;
-      return f !== "allow_forking=false";
+      return !f.startsWith("allow_forking=");
     });
-    const retry = reposPatchWithError(fullName, withoutFork);
+    const retry = await patchOutcome(fullName, withoutFork);
     if (retry.ok) {
       forkSkipped = true;
       result = retry;
@@ -583,29 +731,41 @@ export function configureRepositoryFeaturesForType(fullName: string, repoType: s
       logInfo(`  - Auto-merge: ${getTypeAllowAutoMerge(type)}, Update branch: ${getTypeAllowUpdateBranch(type)}, Forking: ${getTypeAllowForking(type)}`);
     }
     logInfo(`  - Squash merge: title=${getTypeSquashMergeCommitTitle(type)}, message=${getTypeSquashMergeCommitMessage(type)}`);
-  } else {
-    const why = result.error !== "" ? ` GitHub said: ${result.error}` : "";
-    logWarn(`Could not configure repository features${why}`);
+    return true;
   }
+  const why = result.error !== "" ? ` The provider said: ${result.error}` : "";
+  logWarn(`Could not configure repository features${why}`);
+  return false;
 }
 
 /** Configure team/user access entries (idempotent PUTs). */
-export function configureRepositoryPermissionsForType(fullName: string, repoType: string, config: RepoTypesConfig): void {
+export async function configureRepositoryPermissionsForType(
+  fullName: string,
+  repoType: string,
+  config: RepoTypesConfig,
+  opts: ConfigureOptions = {},
+): Promise<boolean> {
   const type = config.types[repoType];
   if (type === undefined) {
     logError("Repository name and type required");
-    return;
+    return false;
   }
   logInfo("Configuring repository permissions...");
   const access = getTypeAccess(type);
   if (access.length === 0) {
     logInfo("No access configuration specified");
-    return;
+    return true;
   }
   const owner = fullName.includes("/") ? fullName.slice(0, fullName.indexOf("/")) : "";
   let success = 0;
   let skipped = 0;
   let failed = 0;
+  if (opts.dryRun === true) {
+    for (const entry of access) {
+      logInfo(`[dry-run] would grant ${entry.type} '${entry.name}' '${entry.permission}' permission on ${fullName}`);
+    }
+    return true;
+  }
   for (const entry of access) {
     if (entry.name === "" || entry.permission === "") {
       logWarn(`  ⊘ Skipping invalid access entry: name=${entry.name}, permission=${entry.permission}`);
@@ -613,7 +773,7 @@ export function configureRepositoryPermissionsForType(fullName: string, repoType
       continue;
     }
     if (entry.type === "team") {
-      if (reposTeamPut(owner, entry.name, fullName, entry.permission)) {
+      if (await settingOutcome(() => reposTeamPut(owner, entry.name, fullName, entry.permission))) {
         logInfo(`  ✓ Team '${entry.name}' granted '${entry.permission}' permission`);
         success++;
       } else {
@@ -621,7 +781,7 @@ export function configureRepositoryPermissionsForType(fullName: string, repoType
         failed++;
       }
     } else if (entry.type === "user") {
-      if (reposCollaboratorPut(fullName, entry.name, entry.permission)) {
+      if (await settingOutcome(() => reposCollaboratorPut(fullName, entry.name, entry.permission))) {
         logInfo(`  ✓ User '${entry.name}' granted '${entry.permission}' permission`);
         success++;
       } else {
@@ -633,5 +793,6 @@ export function configureRepositoryPermissionsForType(fullName: string, repoType
       skipped++;
     }
   }
-  logInfo(`✓ Permission configuration complete: ${success} succeeded, ${failed} failed, ${skipped} skipped`);
+  logInfo(`Permission configuration complete: ${success} succeeded, ${failed} failed, ${skipped} skipped`);
+  return failed === 0;
 }

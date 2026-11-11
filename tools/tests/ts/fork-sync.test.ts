@@ -5,17 +5,18 @@
 // fork-owned-surface snapshot.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createForkFixtureTrio, driveClack, git, installChangeIdHook, scenarioCommit, scenarioExportAndEditTwin, scenarioPreChangeIdBacklog, type ForkFixture } from "./harness/fork-fixture.ts";
+import { createForkFixtureTrio, git, installChangeIdHook, scenarioCommit, scenarioExportAndEditTwin, scenarioPreChangeIdBacklog, type ForkFixture } from "./harness/fork-fixture.ts";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const SCRIPT = join(TOOLS, "fork-sync");
+const SCRIPT = toolScript("fork-sync");
 
 let TMP = "";
 let FX: ForkFixture | undefined;
@@ -27,7 +28,7 @@ function fx(): ForkFixture {
 }
 
 function runScript(args: string[], env: Record<string, string> = {}, stdin = ""): { status: number; out: string } {
-  const r = spawnSync("bash", [SCRIPT, ...args], {
+  const r = spawnSync("node", [SCRIPT, ...args], {
     cwd: FX ? FX.workingClone : process.cwd(),
     input: stdin,
     encoding: "utf8",
@@ -65,7 +66,7 @@ beforeEach(() => {
 
 describe("fork-sync", () => {
   it("script has valid syntax", () => {
-    expect(spawnSync("bash", ["-n", SCRIPT]).status).toBe(0);
+    expect(spawnSync("node", ["--check", SCRIPT]).status).toBe(0);
   });
 
   it("--help documents the sync contract", () => {
@@ -84,6 +85,39 @@ describe("fork-sync", () => {
     expect(r.out).toContain("--yes");
     expect(r.out).toContain("non-TTY");
     expect(r.out).toContain("--dry-run");
+  });
+
+  describe("house flags and misuse need no configured workspace", () => {
+    beforeEach(() => {
+      DEVENV_ROOT = join(TMP, "no-config-root");
+      mkdirSync(DEVENV_ROOT, { recursive: true });
+    });
+
+    it.each([["--help"], ["-h"], ["--dry-run", "--help"], ["-V", "--help"]])("%j prints usage and exits 0", (...args) => {
+      const r = runScript(args);
+      expect(r.status).toBe(0);
+      expect(r.out).toContain("fork-sync");
+      expect(r.out).not.toContain("could not read");
+    });
+
+    it.each([["--version"], ["-v"]])("%j prints the version and exits 0", (...args) => {
+      const r = runScript(args);
+      expect(r.status, r.out).toBe(0);
+      expect(r.out.trim()).toMatch(/^\d+\.\d+\.\d+/);
+    });
+
+    it("an unknown option is misuse (exit 2) before the config is read", () => {
+      const r = runScript(["--no-such-flag-zzz"]);
+      expect(r.status).toBe(2);
+      expect(r.out).toContain("unknown option: --no-such-flag-zzz");
+      expect(r.out).not.toContain("could not read");
+    });
+
+    it("the renamed --rebase flag points at --replay", () => {
+      const r = runScript(["--rebase"]);
+      expect(r.status).toBe(2);
+      expect(r.out).toContain("--replay");
+    });
   });
 
   it("rejects the superseded --push flag", () => {
@@ -283,7 +317,7 @@ describe("fork-sync", () => {
     const beforeOriginTip = git(fx().adoOrigin, ["rev-parse", "master"]).out.trim();
     // The bats shape: pipe "n\n" straight into script(1) — the confirm read
     // is canonical-mode and needs the newline (a bare key would hang).
-    const r = sh(`printf "n\\n" | script -qec "bash '${SCRIPT}' --rewrite-origin --push-to-origin" /dev/null`);
+    const r = sh(`printf "n\\n" | script -qec "node '${SCRIPT}' --rewrite-origin --push-to-origin" /dev/null`);
     expect(r.status).toBe(0);
     expect(r.out).toContain("Replace origin-only commits on origin/master? [y/N]");
     expect(r.out).toContain("Push cancelled");
@@ -354,7 +388,7 @@ describe("fork-sync", () => {
     commitIn(fx().workingClone, "local.txt", "local change", "Local ahead commit");
     const beforeOriginTip = git(fx().adoOrigin, ["rev-parse", "master"]).out.trim();
     // Bats shape: "n\n" piped into script(1) (canonical read needs the newline).
-    const r = sh(`printf "n\\n" | script -qec "bash '${SCRIPT}' --push-to-origin" /dev/null`);
+    const r = sh(`printf "n\\n" | script -qec "node '${SCRIPT}' --push-to-origin" /dev/null`);
     expect(r.status).toBe(0);
     expect(r.out).toContain("Proceed with push? [y/N]");
     expect(r.out).toContain("Push cancelled");
@@ -499,7 +533,6 @@ describe("fork-sync", () => {
     scenarioExportAndEditTwin(fx(), TOOLS);
     // double-applied export scenario
     scenarioCommit(fx(), "docs_double.txt", "the section content", "docs: add the section", "2026-09-03T10:00:00");
-    const localSha = git(fx().workingClone, ["rev-parse", "HEAD"]).out.trim();
     spawnSync("bash", ["-c", `git -C '${fx().workingClone}' format-patch -1 --stdout HEAD | git -C '${fx().ghClone}' am -q`], { encoding: "utf8" });
     spawnSync("bash", ["-c", `printf 'the section content\\n' >> '${fx().ghClone}/docs_double.txt' && git -C '${fx().ghClone}' add docs_double.txt && GIT_AUTHOR_DATE=2026-09-03T10:00:00 GIT_COMMITTER_DATE=2026-09-06T10:00:00 git -C '${fx().ghClone}' commit -q -m 'docs: add the section'`], { encoding: "utf8" });
     // upstream evolves the twin file
@@ -585,7 +618,7 @@ describe("fork-sync", () => {
     git(fx().ghClone, ["push", "-q", "origin", "master"]);
     const r = runScript(["--replay", "--yes"]);
     expect(r.status).toBe(0);
-    const exp = spawnSync("bash", [join(TOOLS, "fork-export"), "--export-only", "--all"], {
+    const exp = spawnSync("node", [toolScript("fork-export"), "--export-only", "--all"], {
       cwd: fx().workingClone,
       encoding: "utf8",
       env: { ...process.env, DEVENV_ROOT, DEVENV_ROOT_SET: "1", DEVENV_TOOLS: TOOLS },

@@ -7,13 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const TOOLS = join(ROOT, "tools");
 
 let TMP = "";
 let REMOTE_REPO = "";
@@ -55,7 +53,7 @@ afterEach(() => {
 });
 
 function unwip(): { status: number; out: string } {
-  const r = spawnSync("bash", [join(TOOLS, "git-unwip")], { cwd: TEST_REPO, encoding: "utf8", env: GIT_ENV() });
+  const r = spawnSync("node", [toolScript("git-unwip")], { cwd: TEST_REPO, encoding: "utf8", env: GIT_ENV() });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 

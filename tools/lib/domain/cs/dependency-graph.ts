@@ -12,14 +12,14 @@ import { createHash } from "node:crypto";
 import { configGetRaw } from "../../core/config.ts";
 import { selfRoot } from "../../core/self-root.ts";
 import { logError, logInfo, logWarn } from "../../core/logging.ts";
-import { providerOrgGet, ensureProviderAuth, requireGithubProvider } from "../../providers/provider-core.ts";
-import { reposList } from "../../providers/github/repos.ts";
-import { gitTransportUrl } from "../../providers/github/urls.ts";
+import { providerOrgGet, ensureProviderAuth } from "../../providers/provider-core.ts";
+import { reposList } from "../../providers/facade/repos.ts";
+import { gitTransportUrl } from "../../providers/facade/urls.ts";
 
 /** The repo cache root (repo-cache.bash's location contract). Read at
  * call time: REPO_CACHE_DIR redirects tests and CI at a scratch cache. */
 export function repoCacheDir(): string {
-  return process.env.REPO_CACHE_DIR ?? join(selfRoot(process.cwd()), "tools", "cache", "repo_cache");
+  return process.env.REPO_CACHE_DIR ?? join(selfRoot(import.meta.url), "tools", "cache", "repo_cache");
 }
 
 /** The dependency-index directory inside the cache (call-time, same reason). */
@@ -34,7 +34,7 @@ export function csDepOrgPrefix(): string {
   if (process.env.CS_DEP_ORG_PREFIX !== undefined && process.env.CS_DEP_ORG_PREFIX !== "") {
     return process.env.CS_DEP_ORG_PREFIX;
   }
-  const root = process.env.DEVENV_ROOT ?? selfRoot(process.cwd());
+  const root = process.env.DEVENV_ROOT ?? selfRoot(import.meta.url);
   return configGetRaw(join(root, "devenv.config"), "nuget", "package_prefix") ?? "";
 }
 
@@ -347,7 +347,6 @@ const REPO_CACHE_PARALLEL = 1;
  * timestamp. Returns 0 ok, 2 partial (some repos failed), 1 total failure.
  */
 export async function refreshRepoCache(): Promise<number> {
-  requireGithubProvider("refreshRepoCache");
   const org = providerOrgGet();
   if (org === "") return 1;
   ensureProviderAuth();
@@ -366,16 +365,25 @@ export async function refreshRepoCache(): Promise<number> {
   const cache = repoCacheDir();
   mkdirSync(cache, { recursive: true });
 
+  // The facade resolves transport URLs asynchronously; the clone pool below
+  // is synchronous, so the addresses are resolved up front.
+  const urls = new Map<string, string>();
+  for (const repo of repos) {
+    try {
+      urls.set(repo, await gitTransportUrl(org, repo));
+    } catch {
+      // Left out: runOne reports the repo as failed.
+    }
+  }
+
   logInfo(`Caching ${repos.length} repositories (sequential)...`);
   const failed: string[] = [];
   let index = 0;
   let active = 0;
   const runOne = (repo: string, done: (ok: boolean) => void): void => {
     const repoDir = join(cache, repo);
-    let url: string;
-    try {
-      url = gitTransportUrl(org, repo);
-    } catch {
+    const url = urls.get(repo);
+    if (url === undefined) {
       logError(`Cannot build a clone URL for ${repo}`);
       done(false);
       return;

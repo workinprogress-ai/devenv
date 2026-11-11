@@ -4,8 +4,8 @@
 // content; entry is fail-closed on a dirty tree.
 
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 export const SCRATCHPAD_BRANCH_PREFIX = "scratchpad/";
 export const SCRATCHPAD_BASE_REF = "refs/scratchpad/base";
@@ -29,13 +29,26 @@ export function isActive(): boolean {
   return git(["show-ref", "--verify", "--quiet", SCRATCHPAD_STATE_REF]).ok;
 }
 
+/** True while a real bisect session exists. Git records one in the
+ * `BISECT_START` file of the git dir (and `refs/bisect/bad` once a bad commit
+ * is marked); it never creates a `refs/bisect/start` ref. */
 export function bisectInFlight(): boolean {
-  return git(["show-ref", "--verify", "--quiet", "refs/bisect/start"]).ok;
+  const startFile = git(["rev-parse", "--git-path", "BISECT_START"]);
+  if (startFile.ok && startFile.out !== "" && existsSync(resolve(startFile.out))) return true;
+  return git(["show-ref", "--verify", "--quiet", "refs/bisect/bad"]).ok;
 }
 
 export function onScratchBranch(): boolean {
   const branch = git(["symbolic-ref", "--quiet", "--short", "HEAD"]).out;
   return branch !== "" && branch.startsWith(SCRATCHPAD_BRANCH_PREFIX);
+}
+
+/** True only when HEAD is on the scratchpad branch the state refs name. The
+ * prefix test above also accepts any stale `scratchpad/*` branch, so every
+ * destructive operation (reset --hard, clean) requires this stricter check. */
+export function onActiveScratchBranch(): boolean {
+  const current = workingBranch();
+  return current !== "" && current === activeBranch();
 }
 
 export function isDirty(): boolean {
@@ -67,20 +80,38 @@ export function originBranch(): string {
   return r.ok ? r.out.replace("refs/heads/", "") : "";
 }
 
-/** Create the base/state/origin refs. Fails (false) on concurrent activation. */
-export function recordState(slug: string, base: string, branch: string, origin: string): boolean {
+export type RecordResult = { ok: true } | { ok: false; reason: "concurrent" | "failed"; detail: string };
+
+/** Create the base/state/origin refs atomically enough: the branch tip is
+ * verified BEFORE any ref is written, and a failure after the base ref was
+ * created removes it again, so a half-written activation never wedges later
+ * `enter` calls. A "concurrent" result means another activation owns the refs
+ * (they are left untouched). */
+export function recordState(slug: string, base: string, branch: string, origin: string): RecordResult {
   const absent = "0000000000000000000000000000000000000000";
-  if (!git(["update-ref", SCRATCHPAD_BASE_REF, base, absent]).ok) return false;
   const tip = git(["rev-parse", "--verify", `refs/heads/${branch}`]).out;
-  if (tip === "") return false;
-  git(["update-ref", SCRATCHPAD_STATE_REF, tip]);
-  if (origin !== "") {
-    git(["symbolic-ref", SCRATCHPAD_ORIGIN_REF, `refs/heads/${origin}`]);
-  } else {
-    git(["update-ref", "-d", SCRATCHPAD_ORIGIN_REF]);
+  if (tip === "") return { ok: false, reason: "failed", detail: `branch tip of ${branch} is missing` };
+  if (!git(["update-ref", SCRATCHPAD_BASE_REF, base, absent]).ok) {
+    return { ok: false, reason: "concurrent", detail: "base ref already exists" };
+  }
+  const rollback = (): void => {
+    git(["update-ref", "-d", SCRATCHPAD_STATE_REF]);
+    git(["update-ref", "-d", "--no-deref", SCRATCHPAD_ORIGIN_REF]);
+    git(["update-ref", "-d", SCRATCHPAD_BASE_REF]);
+  };
+  if (!git(["update-ref", SCRATCHPAD_STATE_REF, tip]).ok) {
+    rollback();
+    return { ok: false, reason: "failed", detail: "could not write the state ref" };
+  }
+  const originWritten = origin !== ""
+    ? git(["symbolic-ref", SCRATCHPAD_ORIGIN_REF, `refs/heads/${origin}`]).ok
+    : (git(["update-ref", "-d", "--no-deref", SCRATCHPAD_ORIGIN_REF]), true);
+  if (!originWritten) {
+    rollback();
+    return { ok: false, reason: "failed", detail: "could not write the origin-branch ref" };
   }
   void slug;
-  return true;
+  return { ok: true };
 }
 
 export function syncStateRef(): void {
@@ -118,38 +149,64 @@ export function returnToBaseChecked(): { ok: boolean; error?: string } {
   return { ok: true };
 }
 
+/** The origin ref is symbolic: without --no-deref, deleting it deletes the
+ * branch it points at (the user's own working branch). */
 export function clearState(): void {
   git(["update-ref", "-d", SCRATCHPAD_BASE_REF]);
   git(["update-ref", "-d", SCRATCHPAD_STATE_REF]);
-  git(["update-ref", "-d", SCRATCHPAD_ORIGIN_REF]);
+  git(["update-ref", "-d", "--no-deref", SCRATCHPAD_ORIGIN_REF]);
 }
 
-/** Best-effort snapshot of dirty state into .local-artifacts/tmp/scratchpad/. */
+let carrySeq = 0;
+
+/** Snapshot dirty state into .local-artifacts/tmp/scratchpad/ before reset can
+ * destroy it: a binary-safe patch of tracked changes plus a copy of every
+ * untracked file, under a name unique to this call (an earlier snapshot is
+ * never overwritten). Returns false when the record could not be fully written. */
 export function snapshotCarry(slug: string): boolean {
-  const carryDir = join(git(["rev-parse", "--show-toplevel"]).out, ".local-artifacts", "tmp", "scratchpad");
+  const top = git(["rev-parse", "--show-toplevel"]).out;
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  carrySeq += 1;
+  const unique = `${stamp}-${process.pid}-${carrySeq}`;
+  const carryDir = join(top, ".local-artifacts", "tmp", "scratchpad");
+  const patch = join(carryDir, `${slug}-carry-${unique}.patch`);
+  const untrackedDir = join(carryDir, `${slug}-carry-${unique}-untracked`);
   try {
     mkdirSync(carryDir, { recursive: true });
   } catch {
     console.error("⚠️  WARNING: could not create carry-snapshot dir — carried work has NO salvage record.");
     return false;
   }
-  const patch = join(carryDir, `${slug}-carry.patch`);
-  const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
-  const diff = git(["diff", "HEAD"]).out;
-  const untracked = git(["ls-files", "--others", "--exclude-standard"]).out;
+  const diff = spawnSync(
+    "git",
+    ["diff", "HEAD", "--binary", "--no-ext-diff", "--no-textconv", "--no-color", "--src-prefix=a/", "--dst-prefix=b/"],
+    { cwd: top, maxBuffer: 1 << 30 },
+  );
+  if (diff.status !== 0) {
+    console.error("⚠️  WARNING: could not diff the dirty tree — carried work has NO salvage record.");
+    return false;
+  }
+  const list = spawnSync("git", ["ls-files", "--others", "--exclude-standard", "-z"], { cwd: top, encoding: "utf8", maxBuffer: 1 << 30 });
+  if (list.status !== 0) {
+    console.error("⚠️  WARNING: could not list untracked files — carried work has NO salvage record.");
+    return false;
+  }
+  const untracked = (list.stdout ?? "").split("\0").filter((f) => f !== "" && !f.startsWith(".local-artifacts/"));
   try {
-    writeFileSync(patch, [
-      `# scratchpad carry snapshot — ${now}`,
-      "# WARNING: scratchpad reset will DESTROY carried work.",
-      diff,
-      "",
-      "# Untracked files (contents NOT captured — list only):",
-      untracked,
-    ].join("\n"));
+    writeFileSync(patch, Buffer.concat([
+      Buffer.from(`# scratchpad carry snapshot — ${stamp}\n# WARNING: scratchpad reset will DESTROY carried work.\n# Apply with: git apply <this file>; untracked files are copied beside it.\n`),
+      diff.stdout as Buffer,
+    ]));
+    for (const rel of untracked) {
+      const dest = join(untrackedDir, rel);
+      mkdirSync(dirname(dest), { recursive: true });
+      copyFileSync(join(top, rel), dest);
+    }
   } catch {
     console.error(`⚠️  WARNING: carry-snapshot write FAILED ('${patch}') — carried work has NO salvage record.`);
     return false;
   }
   console.log(`Carry snapshot: ${patch}`);
+  if (untracked.length > 0) console.log(`Carry snapshot (untracked files): ${untrackedDir}`);
   return true;
 }

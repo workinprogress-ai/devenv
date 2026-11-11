@@ -3,13 +3,15 @@
 // `kubectl logs <pod> -n <ns> [kubectl-options...]` with stdio inherited
 // (log streams belong on the caller's terminal). Everything after the pod
 // fragment — INCLUDING dash-prefixed kubectl flags like -f/--tail — is
-// forwarded verbatim (the tool's purpose is forwarding), so argv is scanned
-// manually instead of via parseArgs.
+// forwarded verbatim (the tool's purpose is forwarding): only the options before
+// the pod word and the namespace option right after it are parsed (strictly,
+// via toolCli), everything after them is never inspected.
 
-import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { splitAfterPodWord } from "../lib/core/forward-argv.ts";
 import { logError } from "../lib/core/logging.ts";
 import { listPods, resolveNamespace, spawnKubectlInherit } from "../lib/domain/kube/kube.ts";
 
@@ -23,42 +25,41 @@ match; errors when none matches). All kubectl-options are forwarded verbatim
 (-f, --tail=100, --since=1h, -p, ...).
 
 Options:
-  -n, --namespace NS   Namespace
-  -h, --help           Show this help`);
+  -n, --namespace NS     Namespace
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   process.exit(0);
 }
 
-// Manual argv scan: only -n/--namespace (and -h/--help) are ours; everything
-// else — dash-prefixed or not — forwards to kubectl logs.
-const argv = process.argv.slice(2);
-if (argv.includes("-h") || argv.includes("--help")) usage();
+// Option scanning stops after the pod word and the namespace option that may
+// directly follow it: the first other token and everything after is forwarded
+// verbatim (the child's -n/-h/-f are never ours). `--` ends scanning.
+const { head, rest: forwarded } = splitAfterPodWord(process.argv.slice(2), ["-n", "--namespace"]);
 
-let podPart: string | undefined;
-let nsInput: string | undefined;
-const forwarded: string[] = [];
-
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i] as string;
-  if (a === "-n" || a === "--namespace") {
-    nsInput = argv[i + 1];
-    if (nsInput === undefined) {
-      logError(`Missing value for ${a}`);
-      process.exit(EXIT_MISUSE);
-    }
-    i++;
-  } else if (podPart === undefined) {
-    podPart = a;
-  } else {
-    forwarded.push(a);
-  }
+let podPart = "";
+let nsInput = "";
+try {
+  const cli = toolCli({
+    name: "kube-logs",
+    version: "1.0.0",
+    argv: head,
+    noDryRun: true,
+    options: { namespace: { type: "string", short: "n" } },
+  });
+  if (cli.common.help) usage();
+  podPart = cli.positionals[0] ?? "";
+  nsInput = (cli.values["namespace"] as string | undefined) ?? "";
+} catch (err) {
+  logError(errorMessage(err));
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
-if (podPart === undefined || podPart === "") {
+if (podPart === "") {
   logError("usage: kube-logs <pod-name-part> [-n|--namespace <ns>] [kubectl-options...]");
-  process.exit(EXIT_GENERAL_ERROR);
+  process.exit(EXIT_MISUSE);
 }
 
-const resolution = resolveNamespace(nsInput ?? "");
+const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {
   logError(resolution.message);
   process.exit(EXIT_GENERAL_ERROR);

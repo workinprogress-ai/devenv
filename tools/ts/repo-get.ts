@@ -5,7 +5,9 @@
 //              interactively; --all clones every org repo not present locally;
 //              no argument updates the current repo via its git context. A
 //              foreign URL (https://, git@, ssh://, *.git) clones flat into
-//              repos/ by its sanitized basename.
+//              repos/ by its sanitized basename. The repository's own
+//              .repo/init.sh and .repo/update.sh run only for org-owned
+//              origins, or anywhere under an explicit --run-scripts.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
 import { spawnSync } from "node:child_process";
@@ -16,7 +18,7 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { gitCapture, gitCheck } from "../lib/core/git.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { providerOrgGet, providerRepoSplit } from "../lib/providers/provider-core.ts";
 import { gitTransportUrl, authStatusOk, remoteToSpec } from "../lib/providers/facade/urls.ts";
 import { reposList } from "../lib/providers/facade/repos.ts";
@@ -26,12 +28,17 @@ assertNodeFloor();
 const SCRIPT_VERSION = "1.2.0";
 
 const devenvRoot = process.env.DEVENV_ROOT ?? "";
-if (devenvRoot === "") {
-  console.error("ERROR: DEVENV_ROOT is not established");
-  process.exit(EXIT_GENERAL_ERROR);
-}
 const reposDir = join(devenvRoot, "repos");
-if (!existsSync(reposDir)) mkdirSync(reposDir, { recursive: true });
+
+// The workspace gate runs after argument parsing: --help, --version and
+// misuse need neither a workspace nor the provider.
+function requireWorkspace(): void {
+  if (devenvRoot === "") {
+    console.error("ERROR: DEVENV_ROOT is not established");
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+  if (!existsSync(reposDir)) mkdirSync(reposDir, { recursive: true });
+}
 
 const USAGE_TEXT = `Usage: repo-get [--select|--all] [<repository-name>|<repository-url>]
 
@@ -44,17 +51,27 @@ Clone or update a repository from the organization.
   repository-name     Name of the GitHub repository (alphanumeric, hyphens, dots)
   repository-url      Full URL to a foreign repository (https:// or git@);
                       cloned flat into repos/ by its basename
+  --run-scripts       Run the repository's .repo/init.sh and .repo/update.sh
+                      even when its origin is not owned by the organization
+                      (they always run for org-owned origins; a foreign
+                      repository's scripts are arbitrary code, so they are
+                      skipped unless you ask)
+
+Updating a branch other than the default one only fast-forwards it; a branch
+that cannot be fast-forwarded is skipped with a message (never rebased).
 
 Options:
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`;
 
-function printUsage(): void {
-  console.error(USAGE_TEXT);
+function printUsage(out: (line: string) => void = console.error): void {
+  out(USAGE_TEXT);
 }
 
+// A usage error is misuse: hint on stderr, exit 2. Requested help is
+// stdout / exit 0 and never reaches this function.
 function usage(): never {
   printUsage();
-  process.exit(EXIT_GENERAL_ERROR);
+  process.exit(EXIT_MISUSE);
 }
 
 function git(args: string[], cwd?: string): { status: number; out: string } {
@@ -121,30 +138,22 @@ function validateRepositoryName(name: string): boolean {
   return true;
 }
 
-// Org identity + auth gates (same order as the bash script's flow).
-const org = providerOrgGet();
-if (org === "") process.exit(EXIT_GENERAL_ERROR);
-if (!(await authStatusOk())) {
-  console.error("ERROR: provider CLI is not authenticated. Run 'key-update-provider' first.");
-  process.exit(EXIT_GENERAL_ERROR);
-}
-
 // --- mode resolution -------------------------------------------------------
 
 let selectMode = false;
 let allMode = false;
 let repoName = "";
 let foreignUrl = "";
+let runScriptsFlag = false;
 
 try {
-  // A repository name may itself start with '-' (e.g. '-repo'); parseArgs
-  // swallows such tokens as short-flag groups even under strict:false, so a
-  // dash-leading first token that is not a known flag is routed straight to
-  // name validation ('Invalid repository name' — pinned by the validation
-  // suite) instead of the parser.
+  // A single-dash first token that is not a known flag (e.g. '-repo') is a
+  // malformed repository name, not an option: it goes straight to name
+  // validation, which reports 'Invalid repository name' (misuse). Every other
+  // unknown option is rejected by the strict parse below.
   const rawFirst = process.argv[2] ?? "";
   const KNOWN_FLAGS = new Set(["--select", "--all", "--help", "-h", "-v", "--version", "-V", "--verbose", "--devenv", "--"]);
-  if (rawFirst.startsWith("-") && !KNOWN_FLAGS.has(rawFirst)) {
+  if (rawFirst.startsWith("-") && !rawFirst.startsWith("--") && !KNOWN_FLAGS.has(rawFirst)) {
     const input = rawFirst.replace(/\/$/, "");
     if (isForeignUrl(input)) {
       foreignUrl = input;
@@ -162,22 +171,18 @@ try {
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
     noDryRun: true,
-    // Non-strict by design: a name argument may start with '-' (e.g.
-    // '-repo' must reach name validation and print 'Invalid repository
-    // name', not a parse error — pinned by the validation suite). Known
-    // flags still parse; unknown single-dash tokens fall through to the
-    // name path.
-    strict: false,
     options: {
       select: { type: "boolean", default: false },
       all: { type: "boolean", default: false },
+      "run-scripts": { type: "boolean", default: false },
     },
   });
   if (cli.common.help) {
-    printUsage();
+    printUsage(console.log);
     process.exit(0);
   }
   selectMode = cli.values.select === true;
+  runScriptsFlag = cli.values["run-scripts"] === true;
   if (cli.values.all === true) {
     allMode = true;
   }
@@ -192,6 +197,7 @@ try {
       usage();
     }
   } else if (nameArg === "") {
+    requireWorkspace();
     const root = git(["rev-parse", "--show-toplevel"]);
     repoName = root.status === 0 ? (root.out.trim().split("/").pop() ?? "") : "";
     if (repoName === "" || repoName === "devenv" || !existsSync(join(reposDir, repoName))) {
@@ -214,6 +220,16 @@ try {
 } catch (err) {
   logError(errorMessage(err));
   usage();
+}
+
+// Workspace, org identity and provider auth gates (same order as the bash
+// script's flow), after argument parsing so help and misuse stay offline.
+requireWorkspace();
+const org = providerOrgGet();
+if (org === "") process.exit(EXIT_GENERAL_ERROR);
+if (!(await authStatusOk())) {
+  console.error("ERROR: provider CLI is not authenticated. Run 'key-update-provider' first.");
+  process.exit(EXIT_GENERAL_ERROR);
 }
 
 if (selectMode) {
@@ -259,22 +275,30 @@ if (foreignUrl !== "") {
     if (defaultBranch === "") defaultBranch = "main";
     const currentBranch = git(["rev-parse", "--abbrev-ref", "HEAD"], targetDir).out.trim();
     if (currentBranch !== defaultBranch) {
-      if (git(["pull", "--rebase"], targetDir).status !== 0) process.exit(EXIT_GENERAL_ERROR);
+      // Fast-forward only: a rebase could stop mid-way and leave the clone half rewritten.
+      if (git(["pull", "--ff-only"], targetDir).status !== 0) {
+        console.error(`Skipping the pull of '${repoName}': branch '${currentBranch}' cannot be fast-forwarded (diverged, or no upstream); update it by hand.`);
+      }
     } else {
       if (git(["pull", "--ff-only"], targetDir).status !== 0) process.exit(EXIT_GENERAL_ERROR);
     }
   } else {
     console.error(`Cloning foreign repository '${repoName}' from ${gitUrl}...`);
-    if (git(["clone", gitUrl, targetDir]).status !== 0) process.exit(EXIT_GENERAL_ERROR);
+    if (git(["clone", "--", gitUrl, targetDir]).status !== 0) process.exit(EXIT_GENERAL_ERROR);
   }
+  const scriptsAllowed = runScriptsFlag || (await isOrgMember(gitUrl));
   const updateSh = join(targetDir, ".repo", "update.sh");
-  if (existsSync(updateSh)) {
+  if (existsSync(updateSh) && !scriptsAllowed) {
+    console.error(`Skipping .repo/update.sh of '${repoName}': origin is not org-owned (pass --run-scripts to run it).`);
+  } else if (existsSync(updateSh)) {
     console.error(`=> Running update script for ${repoName}...`);
     if (spawnSync(updateSh, { cwd: targetDir, stdio: "inherit" }).status !== 0) process.exit(EXIT_GENERAL_ERROR);
   }
   const initSh = join(targetDir, ".repo", "init.sh");
   const inited = join(targetDir, ".repo", ".inited");
-  if (existsSync(initSh) && !existsSync(inited)) {
+  if (existsSync(initSh) && !existsSync(inited) && !scriptsAllowed) {
+    console.error(`Skipping .repo/init.sh of '${repoName}': origin is not org-owned (pass --run-scripts to run it).`);
+  } else if (existsSync(initSh) && !existsSync(inited)) {
     console.error(`=> Running init script for ${repoName}...`);
     if (spawnSync(initSh, { cwd: targetDir, stdio: "inherit" }).status !== 0) process.exit(EXIT_GENERAL_ERROR);
   }
@@ -350,6 +374,17 @@ async function isOrgMember(spec: string): Promise<boolean> {
   return owner !== "" && owner === org;
 }
 
+// Whether the repo's own .repo scripts may run: its origin must be org-owned
+// (judged from the origin URL as it stands now), or the caller must have asked.
+async function repoScriptsAllowed(dir: string, name: string, script: string): Promise<boolean> {
+  if (runScriptsFlag) return true;
+  // The configured URL as written (get-url would apply insteadOf rewrites).
+  const origin = git(["config", "--get", "remote.origin.url"], dir).out.trim();
+  if (origin !== "" && (await isOrgMember(origin))) return true;
+  console.error(`Skipping .repo/${script} of '${name}': origin is not org-owned (pass --run-scripts to run it).`);
+  return false;
+}
+
 async function updateExistingRepo(dir: string, url: string, name: string): Promise<number> {
   console.error(`Repository '${name}' already exists. Fetching latest changes...`);
   await configureGitRepo(dir, url);
@@ -372,7 +407,12 @@ async function updateExistingRepo(dir: string, url: string, name: string): Promi
       console.error(`Leaving local '${defaultBranch}' of '${name}' as is: it has unpushed commits.`);
     }
     if (git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], dir).status === 0) {
-      if (git(["pull", "--rebase"], dir).status !== 0) return 1;
+      // Fast-forward only: a rebase could stop mid-way on a conflict and leave
+      // the repository half rewritten, once per repo under repo-update-all.
+      if (git(["merge", "--ff-only", "@{upstream}"], dir).status !== 0) {
+        console.error(`Skipping '${name}': branch '${currentBranch}' cannot be fast-forwarded to its upstream (local and remote have diverged); update it by hand.`);
+        return 0;
+      }
     } else {
       console.error(`Branch '${currentBranch}' of '${name}' has no upstream; not pulling it.`);
     }
@@ -384,7 +424,7 @@ async function updateExistingRepo(dir: string, url: string, name: string): Promi
   }
 
   const updateScript = join(dir, ".repo", "update.sh");
-  if (existsSync(updateScript)) {
+  if (existsSync(updateScript) && (await repoScriptsAllowed(dir, name, "update.sh"))) {
     console.error(`=> Running update script for ${name}...`);
     if (spawnSync(updateScript, { cwd: dir, stdio: "inherit" }).status !== 0) return 1;
   }
@@ -396,11 +436,11 @@ async function cloneRepo(url: string, dir: string, name: string): Promise<number
   // Explicit returns: --all calls this inside a failure branch — a failed
   // clone must never fall through and run configure/fetch in the caller's
   // directory, reporting success.
-  if (git(["clone", url, dir]).status !== 0) return 1;
+  if (git(["clone", "--", url, dir]).status !== 0) return 1;
   await configureGitRepo(dir, url);
   if (git(["fetch", "--all", "--tags", "-f"], dir).status !== 0) return 1;
   const initScript = join(dir, ".repo", "init.sh");
-  if (existsSync(initScript)) {
+  if (existsSync(initScript) && (await repoScriptsAllowed(dir, name, "init.sh"))) {
     console.error(`=> Running init script for ${name}...`);
     if (spawnSync(initScript, { cwd: dir, stdio: "inherit" }).status !== 0) return 1;
   }

@@ -9,10 +9,9 @@
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
 import { existsSync, statSync } from "node:fs";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
@@ -33,56 +32,53 @@ import {
 
 assertNodeFloor();
 
-const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
+const toolsDir = resolveToolsRoot(import.meta.url);
 const SCRIPT_VERSION = "1.1.0";
 
-const USAGE_TEXT = `Usage: repo-update-config <repo-path> [--type <type>]
+const USAGE_TEXT = `Usage: repo-update-config <repo-path> [--type <type>] [--dry-run]
+
+Changes the repository's REMOTE settings (rulesets, merge types, features,
+branch deletion, team and user permissions) to match its type. Refuses a
+repository whose owner is not the configured organization. Exits non-zero when
+any step fails.
 
 Arguments:
   repo-path                Path to the cloned repository
 
 Options:
-${usageCommonFlags({ noDryRun: true, noDevenv: true })}
+${usageCommonFlags({ noDevenv: true })}
   --type <type>            Repository type (optional; auto-detected if not provided)
 
 Examples:
   repo-update-config ~/repos/my-service
   repo-update-config ~/repos/my-docs --type documentation`;
 
-function usage(): never {
-  console.error(USAGE_TEXT);
-  process.exit(1);
-}
-
-// Org identity gate: fail fast when unresolvable (env override → config → seed).
-if (providerOrgGet() === "") {
-  logError("Organization identity unresolved. Configure [organization] org in devenv.config or run setup.");
-  process.exit(EXIT_MISUSE);
+function usage(status: number = EXIT_MISUSE): never {
+  // Requested help is stdout / exit 0; a misuse hint is stderr / exit 2.
+  (status === 0 ? console.log : console.error)(USAGE_TEXT);
+  process.exit(status);
 }
 
 let repoPath = "";
 let repoType = "";
+let dryRun = false;
 try {
   const cli = toolCli({
     name: "repo-update-config",
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
-    noDryRun: true,
     options: {
       type: { type: "string" },
     },
   });
-  if (cli.common.help) {
-    // Bash parity is exit 1 on help (usage() exits 1) — pinned by the
-    // suite; the house exit-0 help does not apply here.
-    usage();
-  }
+  if (cli.common.help) usage(0);
   repoPath = cli.positionals[0] ?? "";
   if (cli.positionals.length > 1) {
     logError("Too many positional arguments");
     usage();
   }
   repoType = typeof cli.values.type === "string" ? cli.values.type : "";
+  dryRun = cli.common.dryRun;
 } catch (err) {
   logError(errorMessage(err));
   usage();
@@ -93,9 +89,17 @@ if (repoPath === "") {
   usage();
 }
 
+// Org identity gate (after argument parsing, so --help and misuse need no
+// config): fail fast when unresolvable (env override → config → seed).
+const configuredOrg = providerOrgGet();
+if (configuredOrg === "") {
+  logError("Organization identity unresolved. Configure [organization] org in devenv.config or run setup.");
+  process.exit(EXIT_MISUSE);
+}
+
 if (!existsSync(repoPath) || !statSync(repoPath).isDirectory()) {
   logError(`Repository path does not exist or is not a directory: ${repoPath}`);
-  process.exit(1);
+  process.exit(EXIT_MISUSE);
 }
 
 const REPO_TYPES_CONFIG = repoTypesConfigPath(undefined, toolsDir);
@@ -110,6 +114,14 @@ logInfo("Reading repository information...");
 const fullName = getFullRepoName(repoPath);
 if (fullName === null) process.exit(1);
 logInfo(`Repository: ${fullName}`);
+
+// Owner gate: this tool rewrites remote settings, so it only ever acts on the
+// configured organization's repositories (GitHub owner names are case-insensitive).
+const owner = fullName.includes("/") ? fullName.slice(0, fullName.indexOf("/")) : "";
+if (owner.toLowerCase() !== configuredOrg.toLowerCase()) {
+  logError(`Refusing to change '${fullName}': its owner '${owner}' is not the configured organization '${configuredOrg}'.`);
+  process.exit(EXIT_GENERAL_ERROR);
+}
 
 // Detect repo type if not specified. No-match is a named failure listing the
 // valid types (bash prompted on /dev/tty; that interactive flow is deferred —
@@ -133,25 +145,28 @@ try {
   process.exit(1);
 }
 
-// Apply configuration
-logInfo(`Applying configuration for type '${repoType}'...`);
-if (existsSync(REPO_TYPES_CONFIG)) {
-  configureRulesetsForType(fullName, repoType, config, toolsDir);
-  logInfo("✓ Protection applied successfully");
-} else {
-  logError("Failed to apply protection");
+// Apply configuration — every step reports its real outcome; any failure makes
+// the run exit non-zero.
+logInfo(dryRun ? `[dry-run] Nothing will be changed; reporting what would be applied for type '${repoType}'...` : `Applying configuration for type '${repoType}'...`);
+const stepOptions = { dryRun };
+const failedSteps: string[] = [];
+
+const rulesets = await configureRulesetsForType(fullName, repoType, config, toolsDir, stepOptions);
+for (const failure of rulesets.failures) failedSteps.push(`rulesets: ${failure}`);
+if (!(await configureTemplateSettingForType(fullName, repoType, config, stepOptions))) failedSteps.push("template setting");
+if (!(await configureMergeTypesForType(fullName, repoType, config, stepOptions))) failedSteps.push("merge types");
+if (!(await configurePrBranchDeletionForType(fullName, repoType, config, stepOptions))) failedSteps.push("PR branch deletion");
+if (!(await configureRepositoryFeaturesForType(fullName, repoType, config, stepOptions))) failedSteps.push("repository features");
+if (!(await configureRepositoryPermissionsForType(fullName, repoType, config, stepOptions))) failedSteps.push("repository permissions");
+
+if (dryRun) {
+  logInfo("[dry-run] Done — no settings were changed.");
+  process.exit(failedSteps.length > 0 ? EXIT_GENERAL_ERROR : 0);
 }
-
-configureTemplateSettingForType(fullName, repoType, config);
-
-if (!configureMergeTypesForType(fullName, repoType, config)) {
-  logError("Failed to configure merge types");
+if (failedSteps.length > 0) {
+  logError(`Configuration was NOT fully applied to ${fullName}; failed: ${failedSteps.join("; ")}`);
+  process.exit(EXIT_GENERAL_ERROR);
 }
-
-configurePrBranchDeletionForType(fullName, repoType, config);
-configureRepositoryFeaturesForType(fullName, repoType, config);
-configureRepositoryPermissionsForType(fullName, repoType, config);
-
 logInfo("✓ Configuration applied");
 
 /** owner/repo from the provider view (gh repo view, cwd seam), falling back

@@ -21,8 +21,12 @@ function usage(): never {
   console.log(`Usage: repo-calc-version
 
 Calculate the next version for the repository: the base version bumped per
-the conventional commits since the latest vX.Y.Z tag, printed on stdout.
-Takes no arguments.
+the conventional commits since the latest vX.Y.Z tag that is an ancestor of
+HEAD, printed on stdout. Takes no arguments.
+
+With no tags the history is analysed on top of 1.0.0: one feat bumps to 1.1.0,
+a fix-only history to 1.0.1, and a history with no releasable commit stays at
+1.0.0.
 
 Options:
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);

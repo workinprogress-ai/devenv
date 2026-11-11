@@ -5,13 +5,12 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 60_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const SCRIPT_UNDER_TEST = join(ROOT, "tools", "cs-references-update");
+const SCRIPT_UNDER_TEST = toolScript("cs-references-update");
 
 const CSPROJ = [
   '<Project Sdk="Microsoft.NET.Sdk">',
@@ -66,7 +65,7 @@ afterEach(() => {
 const { DEVENV_REPO: _dr, ...procEnv } = process.env;
 
 function runUpdate(args: string[], extraEnv: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync("bash", [SCRIPT_UNDER_TEST, ...args], {
+  const r = spawnSync("node", [SCRIPT_UNDER_TEST, ...args], {
     cwd: REPO_DIR,
     encoding: "utf8",
     env: {

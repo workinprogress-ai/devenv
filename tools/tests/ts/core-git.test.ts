@@ -117,6 +117,11 @@ describe("wipRangeGuard", () => {
     expect(r.ok).toBe(false);
     expect(r.offenders.some((l) => l.includes("WIP:"))).toBe(true);
   });
+  it("does not block a subject that merely mentions WIP: mid-line", () => {
+    commit(repo, "fix: handle WIP: markers", "wip-mention.txt");
+    const r = wipRangeGuard(repo, "HEAD~1..HEAD");
+    expect(r.ok).toBe(true);
+  });
   it("fails closed on an invalid range (nonexistent ref)", () => {
     const r = wipRangeGuard(repo, "nonexistent-ref..HEAD");
     expect(r.ok).toBe(false);

@@ -16,7 +16,6 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const SCRIPT = join(TOOLS, "pr-threads-get");
 
 let TMP = "";
 let CALL_LOG = "";

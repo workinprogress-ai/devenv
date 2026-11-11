@@ -1,18 +1,16 @@
 // Port of tools/tests/scripts/test_devenv_memory_watch.bats (7 tests).
 // devenv-memory-watch: entry-point contract, options surface, sample
 // persistence across runs, culprit summary format, reset.
+import { toolScript } from "./harness/index.ts";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 60_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const TOOLS = join(ROOT, "tools");
-const SCRIPT_PATH = join(TOOLS, "devenv-memory-watch");
+const SCRIPT_PATH = toolScript("devenv-memory-watch");
 
 let TMP = "";
 
@@ -25,7 +23,7 @@ afterEach(() => {
 });
 
 function watch(args: string[]): { status: number; out: string } {
-  const r = spawnSync("bash", [SCRIPT_PATH, ...args], { encoding: "utf8" });
+  const r = spawnSync("node", [SCRIPT_PATH, ...args], { encoding: "utf8" });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
@@ -37,12 +35,12 @@ describe("scripts/devenv-memory-watch", () => {
   });
 
   it("devenv-memory-watch.sh is executable", () => {
-    spawnSync("chmod", ["+x", SCRIPT_PATH]);
-    expect(spawnSync("test", ["-x", SCRIPT_PATH]).status).toBe(0);
+    // Run via `node <script>.ts`, so the contract is "readable", not an exec bit.
+    expect(spawnSync("test", ["-r", SCRIPT_PATH]).status).toBe(0);
   });
 
   it("devenv-memory-watch.sh has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", SCRIPT_PATH]).status).toBe(0);
+    expect(spawnSync("node", ["--check", SCRIPT_PATH]).status).toBe(0);
   });
 
   it("devenv-memory-watch.sh exposes useful options", () => {

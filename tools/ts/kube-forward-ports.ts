@@ -6,7 +6,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
-import { EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
+import { EXIT_CONFLICT, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
@@ -18,8 +18,8 @@ assertNodeFloor();
 
 const SCRIPT_VERSION = "1.0.0";
 
-function usage(): never {
-  console.log(`Usage: kube-forward-ports [-n|--namespace <ns>] [mapping_file] POD=PORT or POD=LOCAL_PORT:POD_PORT [POD=PORT ...]
+function usage(status = 0): never {
+  (status === 0 ? console.log : console.error)(`Usage: kube-forward-ports [-n|--namespace <ns>] [mapping_file] POD=PORT or POD=LOCAL_PORT:POD_PORT [POD=PORT ...]
 
 Forward local ports to pods. Mappings come from a mapping file and/or argv;
 each value is POD=PORT (same local and pod port) or POD=LOCAL_PORT:POD_PORT.
@@ -29,7 +29,7 @@ All forwards run in parallel and reconnect when they die until interrupted.
 Options:
   -n, --namespace NS   Namespace
 ${usageCommonFlags({ noDryRun: true })}`);
-  process.exit(1);
+  process.exit(status);
 }
 
 let nsInput = "";
@@ -40,7 +40,6 @@ try {
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
     noDryRun: true,
-    strict: false,
     options: {
       namespace: { type: "string", short: "n" },
     },
@@ -50,7 +49,8 @@ try {
   mappingsRaw = [...cli.positionals];
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {
@@ -87,7 +87,7 @@ if (args.length > 0 && statSync(args[0] as string, { throwIfNoEntry: false })?.i
 mappings.push(...args);
 
 if (mappings.length === 0) {
-  usage();
+  usage(EXIT_MISUSE);
 }
 
 interface Forward {
@@ -103,7 +103,7 @@ for (const mapping of mappings) {
   const portMapping = eq === -1 ? "" : mapping.slice(eq + 1);
   if (podId === "" || portMapping === "") {
     console.error(`Invalid mapping format: ${mapping}`);
-    process.exit(EXIT_GENERAL_ERROR);
+    process.exit(EXIT_MISUSE);
   }
   let localPort: string;
   let podPort: string;
@@ -117,7 +117,7 @@ for (const mapping of mappings) {
   }
   if (!/^[0-9]+$/.test(localPort) || !/^[0-9]+$/.test(podPort)) {
     console.error(`Ports must be numeric in mapping: ${mapping}`);
-    process.exit(EXIT_GENERAL_ERROR);
+    process.exit(EXIT_MISUSE);
   }
   // Resolve the pod via the select flow (unique match auto-selects; several
   // offer the pick; none errors) — the bash tool shelled to kube-pod-select.

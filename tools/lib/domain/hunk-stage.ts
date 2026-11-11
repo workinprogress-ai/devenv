@@ -24,6 +24,24 @@ import {
   splitDiff,
 } from "./hunk-select.ts";
 
+/** Config overrides + flags that pin `git diff` to the one rendering the
+ * engine parses and re-applies. A user's diff.noprefix, diff.mnemonicPrefix,
+ * diff.external, diff.context, diff.interHunkContext, diff.renames, textconv
+ * drivers, colour or quoted-path settings would otherwise change header shape
+ * or hunk numbering and break parsing or mis-number hunks. */
+export function diffArgs(...rest: string[]): string[] {
+  return [
+    "-c", "diff.noprefix=false",
+    "-c", "diff.mnemonicPrefix=false",
+    "-c", "core.quotePath=false",
+    "diff",
+    "--no-ext-diff", "--no-textconv", "--no-color", "--no-renames",
+    "--src-prefix=a/", "--dst-prefix=b/",
+    "-U3", "--inter-hunk-context=0",
+    ...rest,
+  ];
+}
+
 /** One git invocation's result (spawnSync-shaped). */
 export interface ExecResult {
   status: number;
@@ -77,7 +95,7 @@ export function enumerateFile(exec: GitExec, path: string): FileEnumeration | En
   // and never shows R. Scan the full worktree-vs-index name-status (with
   // --find-renames, mirroring changedFiles() discipline) for R lines naming
   // this path on either side.
-  const statusAll = exec(["diff", "--name-status", "--find-renames"]);
+  const statusAll = exec(diffArgs("--name-status", "--find-renames"));
   if (statusAll.status !== 0) {
     return { path, message: `git diff --name-status failed: ${statusAll.stderr.trim()}`, kind: "enum" };
   }
@@ -91,7 +109,7 @@ export function enumerateFile(exec: GitExec, path: string): FileEnumeration | En
       return { path, message: `'${path}' is a rename diff (with '${oldP === path ? newP : oldP}') — partial staging of rename pairs is refused in v1; claim the whole file in one group or split the work by hand`, kind: "rename" };
     }
   }
-  const diff = exec(["diff", "--", path]);
+  const diff = exec(diffArgs("--", path));
   if (diff.status !== 0) {
     return { path, message: `git diff failed for '${path}': ${diff.stderr.trim()}`, kind: "enum" };
   }
@@ -189,8 +207,9 @@ export interface StageSelectionResult {
  * invariant, checked against a snapshot taken BEFORE apply (comparing
  * against a freshly regenerated diff after apply would misattribute
  * drift — the apply itself changes the unstaged diff):
- *   1. staged diff (index vs HEAD) contains exactly the selected payloads;
- *   2. remaining unstaged diff contains exactly the unselected payloads;
+ *   1. the path's index blob equals the pre-apply index content with exactly
+ *      the selected hunks applied (verified by blob hash, computed in-process);
+ *   2. every other index entry is unchanged;
  *   3. the working tree file is byte-identical before and after.
  *
  * On verification failure: report with a `git restore --staged <path>`
@@ -213,7 +232,8 @@ export function stageSelection(
   // Pre-apply snapshots: staged payloads already in the index for this
   // path, and the worktree file's hash (apply --cached never writes the
   // worktree; the hash check proves it held).
-  const preStaged = extractPayloads(exec(["diff", "--cached", "--", path]).stdout);
+  const preStaged = extractPayloads(exec(diffArgs("--cached", "--", path)).stdout);
+  const indexBefore = captureIndex(exec, path);
   const worktreeHashBefore = exec(["hash-object", "--", path]).stdout.trim();
 
   let patch: string;
@@ -247,45 +267,21 @@ export function stageSelection(
     };
   }
 
-  // Verify (merge-aware, LINE-MULTISET based). The staged diff renders
-  // against HEAD, where prior-staged content near the newly applied hunks
-  // MERGES into single rendered hunks whose payloads are concatenations in
-  // file order — pairwise/order-bound joins false-refuse three-way and
-  // reversed merges. Comparing +/- LINE MULTISETS instead is order- and
-  // merge-insensitive: staged lines must equal known lines (pre-staged ∪
-  // selected) exactly, counted.
-  const stagedNow = extractPayloads(exec(["diff", "--cached", "--", path]).stdout);
+  // Verify by content hash: the index blob for this path must be exactly the
+  // pre-apply index content with the selected hunks applied (computed here,
+  // independently of git apply), and every other index entry must be
+  // untouched. Rendering-level comparisons (merged hunks, reordered payloads)
+  // cannot false-refuse or false-accept under this check.
+  const stagedNow = extractPayloads(exec(diffArgs("--cached", "--", path)).stdout);
   const warnings: string[] = [];
   const known = [...preStaged, ...selectedPayloads];
-  const countLines = (payloads: string[]): Map<string, number> => {
-    const m = new Map<string, number>();
-    for (const p of payloads) {
-      for (const line of p.split("\n")) m.set(line, (m.get(line) ?? 0) + 1);
-    }
-    return m;
-  };
-  const stagedLines = countLines(stagedNow);
-  const knownLines = countLines(known);
-  let extra = false;
-  for (const [line, n] of stagedLines) {
-    if ((knownLines.get(line) ?? 0) < n) extra = true;
-  }
-  if (extra) {
+  const chosen = enumeration.hunks.filter((h) => numbers.includes(h.index));
+  const problem = verifyIndexAfter(exec, path, indexBefore, chosen);
+  if (problem !== null) {
     return {
       path,
       kind: "verify",
-      message: `verification failed for '${path}': the staged diff contains content that is neither the prior staged content nor the selected hunks — restore with 'git restore --staged ${path}' and re-group (apply is context-tolerant and may have matched unexpected content)`,
-    };
-  }
-  let absent = false;
-  for (const [line, n] of knownLines) {
-    if ((stagedLines.get(line) ?? 0) < n) absent = true;
-  }
-  if (absent) {
-    return {
-      path,
-      kind: "verify",
-      message: `verification failed for '${path}': expected staged content is absent — restore with 'git restore --staged ${path}' and re-group`,
+      message: `verification failed for '${path}': ${problem} — restore with 'git restore --staged ${path}' and re-group (apply is context-tolerant and may have matched unexpected content)`,
     };
   }
   // Merge-rendering note: fewer staged hunks than distinct claims imply —
@@ -305,18 +301,7 @@ export function stageSelection(
       warnings.push(`identical hunk content staged more often than claimed (${n}× claimed, ${stagedCounts.get(p)}× staged) — attribution is ambiguous; surface the staged diff for approval`);
     }
   }
-  // (2) remaining unstaged payloads = exactly the unselected ones.
-  const unstagedNow = extractPayloads(exec(["diff", "--", path]).stdout);
-  const unstagedSet = new Set(unstagedNow);
-  const expectedUnstaged = new Set(unselected);
-  if (unstagedSet.size !== expectedUnstaged.size || ![...expectedUnstaged].every((p) => unstagedSet.has(p))) {
-    return {
-      path,
-      kind: "verify",
-      message: `verification failed for '${path}': the remaining unstaged diff does not equal the unselected hunks — restore with 'git restore --staged ${path}' and re-group`,
-    };
-  }
-  // (3) worktree bytes unchanged.
+  // Worktree bytes unchanged.
   const worktreeHashAfter = exec(["hash-object", "--", path]).stdout.trim();
   if (worktreeHashBefore !== worktreeHashAfter) {
     return {
@@ -333,6 +318,130 @@ export function stageSelection(
     remaining: unselected.length,
     warnings,
   };
+}
+
+/** Index state captured before a mutation: every entry (`mode sha`) by path,
+ * plus the target path's blob text for the independent re-computation. */
+export interface IndexCapture {
+  entries: Map<string, string> | null;
+  text: string | null;
+}
+
+export function captureIndex(exec: GitExec, path: string): IndexCapture {
+  const ls = exec(["-c", "core.quotePath=false", "ls-files", "--stage", "-z"]);
+  if (ls.status !== 0) return { entries: null, text: null };
+  const entries = new Map<string, string>();
+  for (const rec of ls.stdout.split("\0")) {
+    if (rec === "") continue;
+    const tab = rec.indexOf("\t");
+    if (tab < 0) continue;
+    const [mode = "", sha = "", stage = ""] = rec.slice(0, tab).split(" ");
+    entries.set(`${rec.slice(tab + 1)}\x00${stage}`, `${mode} ${sha}`);
+  }
+  const mine = entries.get(`${path}\x000`);
+  const sha = mine?.split(" ")[1];
+  const blob = sha === undefined ? null : exec(["cat-file", "blob", sha]);
+  return { entries, text: blob !== null && blob.status === 0 ? blob.stdout : null };
+}
+
+/** Apply hunks to text in-process (no git): each hunk is located by its
+ * old-side lines nearest the header's line number (apply-style offset
+ * tolerance, no fuzz). Returns null when a hunk does not match. */
+export function applyHunks(oldText: string, hunks: readonly DiffHunk[]): string | null {
+  const oldLines = oldText === "" ? [] : oldText.split(/(?<=\n)/);
+  const bare = (l: string | undefined): string => (l ?? "").replace(/\n$/, "");
+  const ordered = [...hunks].sort((a, b) => a.index - b.index);
+  const out: string[] = [];
+  let pos = 0;
+  for (const h of ordered) {
+    const m = /^@@ -(\d+)(?:,(\d+))? \+\d+(?:,\d+)? @@/.exec(h.header);
+    if (m === null) return null;
+    const oldStart = Number(m[1]);
+    const oldCount = m[2] === undefined ? 1 : Number(m[2]);
+    const nominal = oldCount === 0 ? oldStart : oldStart - 1;
+    const block = h.lines.filter((l) => l.startsWith(" ") || l.startsWith("-")).map((l) => l.slice(1));
+    const fits = (i: number): boolean =>
+      i >= pos && i + block.length <= oldLines.length && block.every((l, k) => bare(oldLines[i + k]) === l);
+    let start = -1;
+    if (block.length === 0) {
+      start = Math.min(Math.max(nominal, pos), oldLines.length);
+    } else {
+      for (let d = 0; d <= oldLines.length && start < 0; d += 1) {
+        if (fits(nominal + d)) start = nominal + d;
+        else if (d > 0 && fits(nominal - d)) start = nominal - d;
+      }
+    }
+    if (start < 0) return null;
+    out.push(...oldLines.slice(pos, start));
+    let k = start;
+    let last: "old" | "del" | "add" | "" = "";
+    for (const l of h.lines) {
+      const c = l[0];
+      if (c === " ") { out.push(oldLines[k] ?? ""); k += 1; last = "old"; }
+      else if (c === "-") { k += 1; last = "del"; }
+      else if (c === "+") { out.push(`${l.slice(1)}\n`); last = "add"; }
+      else if (c === "\\" && last === "add") out[out.length - 1] = (out[out.length - 1] ?? "").replace(/\n$/, "");
+    }
+    pos = k;
+  }
+  out.push(...oldLines.slice(pos));
+  return out.join("");
+}
+
+/** Check the index after an apply: the path's blob hash equals the
+ * independently computed expectation and no other entry changed. Returns a
+ * problem description, or null when the index is exactly as intended. */
+export function verifyIndexAfter(
+  exec: GitExec,
+  path: string,
+  before: IndexCapture,
+  hunks: readonly DiffHunk[],
+): string | null {
+  if (before.entries === null || before.text === null) return "the pre-apply index could not be captured for verification";
+  const expectedText = applyHunks(before.text, hunks);
+  if (expectedText === null) return "the selected hunks could not be re-applied in-process to the pre-apply index content";
+  const expectedSha = exec(["hash-object", "--stdin"], expectedText).stdout.trim();
+  const after = captureIndex(exec, path);
+  if (after.entries === null) return "the post-apply index could not be read for verification";
+  const key = `${path}\x000`;
+  const mine = after.entries.get(key);
+  const beforeMine = before.entries.get(key);
+  if (mine === undefined) return "the path is absent from the index after apply";
+  const [mode = "", sha = ""] = mine.split(" ");
+  if (sha !== expectedSha) return "the staged blob is not the pre-apply index content plus exactly the selected hunks";
+  if (beforeMine !== undefined && beforeMine.split(" ")[0] !== mode) return "the file mode in the index changed";
+  const names = new Set([...before.entries.keys(), ...after.entries.keys()]);
+  for (const name of names) {
+    if (name === key) continue;
+    if (before.entries.get(name) !== after.entries.get(name)) {
+      return `another index entry changed (${name.split("\x00")[0]})`;
+    }
+  }
+  return null;
+}
+
+/** Non-mutating preflight of a hunk claim: enumerate, resolve, build the
+ * patch and `apply --cached --check` it. Lets a caller validate every claim of
+ * a group before the first mutation. */
+export function preflightSelection(exec: GitExec, path: string, numbers: readonly number[]): EngineError | null {
+  const enumeration = enumerateFile(exec, path);
+  if ("message" in enumeration) return enumeration;
+  const resolution = resolveSelectors(enumeration, numbers);
+  if ("message" in resolution) return resolution;
+  let patch: string;
+  try {
+    patch = buildSelectionPatch(enumeration.preamble, enumeration.hunks, [...numbers]);
+  } catch (e) {
+    if (e instanceof HunkParseError) {
+      return { path, message: `cannot build a selection patch for '${path}': ${e.message}`, kind: "drift" };
+    }
+    throw e;
+  }
+  const check = exec(["apply", "--cached", "--check", "-"], patch);
+  if (check.status !== 0) {
+    return { path, kind: "apply", message: `patch does not apply to the index for '${path}': ${check.stderr.trim()}` };
+  }
+  return null;
 }
 
 /** Extract hunk payload identities from a full unified diff (multi-hunk).

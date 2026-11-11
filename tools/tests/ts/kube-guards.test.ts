@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runTool as runHarness } from "./harness/index.ts";
+import { runTool as runHarness, toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -121,7 +121,7 @@ function runTool(tool: string, args: string[], extra: Record<string, string> = {
 // Run a kube tool on a pseudo-terminal so confirm_or_fail takes its prompt
 // path, answering the prompt with ANSWER.
 function runOnTty(answer: string, tool: string, args: string[], extra: Record<string, string> = {}): { status: number; out: string } {
-  const cmd = `env TERM=xterm '${join(TOOLS, tool)}'` + args.map((a) => ` '${a}'`).join("");
+  const cmd = `env TERM=xterm node '${toolScript(tool)}'` + args.map((a) => ` '${a}'`).join("");
   const r = spawnSync("bash", ["-c", `printf '%s\n' '${answer}' | script -qefc "${cmd}" /dev/null`], {
     encoding: "utf8",
     env: env(extra),

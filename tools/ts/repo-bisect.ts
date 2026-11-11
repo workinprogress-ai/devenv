@@ -3,20 +3,23 @@
 // first bad commit with evidence. Non-destructive by nature (detached-HEAD
 // visits); refuses on a dirty tree; outside a scratchpad prints a soft notice.
 
-import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
+import { accessSync, constants, statSync } from "node:fs";
+import { delimiter, join } from "node:path";
 import { gitCheck, gitInherit } from "../lib/core/git.ts";
 import { logError } from "../lib/core/logging.ts";
+import { bisectInFlight } from "../lib/domain/scratchpad.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
 const SCRIPT_VERSION = "1.0.0";
 
-function usage(): never {
-  console.log(`Usage: repo-bisect <bad-ref> <good-ref> -- <probe command...>
+function usage(status: number = 0): never {
+  // Requested help is stdout / exit 0; a misuse hint is stderr / exit 2.
+  (status === 0 ? console.log : console.error)(`Usage: repo-bisect <bad-ref> <good-ref> -- <probe command...>
        repo-bisect status
        repo-bisect reset
 
@@ -38,7 +41,7 @@ Exit codes:
     1   General error / dirty-tree refusal
     2   Invalid arguments (EXIT_MISUSE)
     4   Not found (bad/good ref unresolvable)`);
-  process.exit(0);
+  process.exit(status);
 }
 
 function git(args: string[]): { out: string; ok: boolean } {
@@ -67,7 +70,7 @@ try {
   });
   if (cli.common.help) usage();
   const positionals = [...cli.positionals, ...(sep === -1 ? [] : ["--", ...probeSide])];
-  if (positionals.length === 0) usage();
+  if (positionals.length === 0) usage(EXIT_MISUSE);
   cmd = positionals[0] ?? "";
   rest = positionals.slice(1);
 } catch (err) {
@@ -84,7 +87,7 @@ const requireGitRepo = (): boolean =>
 
 if (cmd === "status") {
   if (!requireGitRepo()) process.exit(EXIT_GENERAL_ERROR);
-  if (git(["show-ref", "--verify", "--quiet", "refs/bisect/start"]).ok) {
+  if (bisectInFlight()) {
     gitInherit(null, ["bisect", "log"]);
   } else {
     console.log("No bisect session in flight.");
@@ -94,7 +97,7 @@ if (cmd === "status") {
 
 if (cmd === "reset") {
   if (!requireGitRepo()) process.exit(EXIT_GENERAL_ERROR);
-  if (!git(["show-ref", "--verify", "--quiet", "refs/bisect/start"]).ok) {
+  if (!bisectInFlight()) {
     console.log("No bisect session in flight — nothing to reset.");
     process.exit(0);
   }
@@ -108,7 +111,7 @@ const bad = cmd;
 const good = rest[0];
 const afterGood = rest.slice(1);
 
-if (bad === "--" || rest.length < 2) { usage(); }
+if (bad === "--" || rest.length < 2) { usage(EXIT_MISUSE); }
 if (afterGood[0] !== "--") {
   console.error("Error: probe command must be separated by '--'");
   process.exit(EXIT_MISUSE);
@@ -120,6 +123,13 @@ if (probe.length === 0) {
 }
 
 if (!requireGitRepo()) process.exit(EXIT_GENERAL_ERROR);
+
+// A walk started over a session in flight would silently discard it
+// (`git bisect start` resets the session's state).
+if (bisectInFlight()) {
+  console.error("Error: a bisect session is already in flight — repo-bisect refuses to start a walk over it. End it first: repo-bisect reset");
+  process.exit(EXIT_CONFLICT);
+}
 
 // Dirty-tree refusal (uniform fail-closed rule).
 const status = gitCheck(null, ["status", "--porcelain"]);
@@ -138,15 +148,40 @@ if (!git(["rev-parse", "--verify", "--quiet", `${good as string}^{commit}`]).ok)
   process.exit(EXIT_API_FAILURE);
 }
 
+// The probe must be runnable: git treats a probe that cannot execute (126/127)
+// as "bad" at every step, which would fabricate a verdict.
+function isExecutableFile(path: string): boolean {
+  try {
+    if (!statSync(path).isFile()) return false;
+    accessSync(path, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function probeRunnable(command: string): boolean {
+  if (command.includes("/")) return isExecutableFile(command);
+  return (process.env.PATH ?? "")
+    .split(delimiter)
+    .some((dir) => dir !== "" && isExecutableFile(join(dir, command)));
+}
+
+if (!probeRunnable(probe[0] as string)) {
+  console.error(`Error: probe command not found or not executable: ${probe[0]}`);
+  process.exit(EXIT_GENERAL_ERROR);
+}
+
 // Soft notice outside a scratchpad.
 if (!scratchpadActive()) {
   const branch = git(["symbolic-ref", "--quiet", "--short", "HEAD"]).out.trim() || "detached HEAD";
   console.error(`notice: operating on '${branch}' directly — AI hunts should start from: repo-scratchpad enter`);
 }
 
-if (!gitCheck(null, ["bisect", "start", bad, good as string]).ok) {
+const started = gitCheck(null, ["bisect", "start", bad, good as string]);
+if (!started.ok) {
   console.error("Error: git bisect start failed:");
-  spawnSync("bash", ["-c", `git bisect start ${bad} ${good} 2>&1 | tail -3`], { stdio: "inherit" });
+  console.error(`${started.out}${started.err}`.trimEnd().split("\n").slice(-3).join("\n"));
   gitCheck(null, ["bisect", "reset"]);
   process.exit(EXIT_GENERAL_ERROR);
 }
@@ -163,11 +198,15 @@ if (badSha === goodSha) {
 const run = gitCheck(null, ["bisect", "run", ...probe]);
 const firstBad = run.out;
 
-// Probe could not EXECUTE somewhere (126/127 class): git treats that as 'bad',
-// which would fabricate a verdict from a broken probe.
-if (/(failed to run|command not found|permission denied|exit code 12[67])/.test(firstBad)) {
+// Only git's own result lines count: the probe's output is untrusted text and
+// may contain any phrase. git prints its verdict as a line of its own.
+const firstBadSha = firstBad.match(/^([0-9a-f]{7,64}) is the first '?bad'? commit$/m)?.[1] ?? "";
+const ambiguous = /^The first '?bad'? commit could be any of:$/m.test(firstBad);
+const walkAborted = /^bisect run failed:/m.test(firstBad);
+
+if (walkAborted) {
   gitCheck(null, ["bisect", "reset"]);
-  console.error("repo-bisect: probe execution failed (exit 126/127 class) — the walk's conclusion would be fabricated. Fix the probe; full output above.");
+  console.error("repo-bisect: git aborted the walk (the probe exited outside 0-127 or could not run) — fix the probe; last output:");
   console.error(firstBad.split("\n").slice(-8).join("\n"));
   process.exit(EXIT_GENERAL_ERROR);
 }
@@ -176,20 +215,15 @@ if (/(failed to run|command not found|permission denied|exit code 12[67])/.test(
 console.log(firstBad.split("\n").slice(-12).join("\n"));
 console.log("--- summary ---");
 
-const definitive = /first '?'bad'?,? commit/i.test(firstBad) && !firstBad.includes("could be any of");
-if (definitive) {
-  let sha = firstBad.match(/^[0-9a-f]{7,} is the first '?'bad'? commit/m)?.[0]?.split(" ")[0] ?? "";
-  if (sha === "") {
-    sha = firstBad.match(/[0-9a-f]{7,}/g)?.pop() ?? "";
-  }
+if (firstBadSha !== "" && !ambiguous) {
   gitCheck(null, ["bisect", "reset"]);
-  console.log(`FIRST-BAD: ${sha}`);
-  gitInherit(null, ["show", "--no-patch", "--format=culprit: %h %s (%an, %ad)", sha]);
+  console.log(`FIRST-BAD: ${firstBadSha}`);
+  gitInherit(null, ["show", "--no-patch", "--format=culprit: %h %s (%an, %ad)", firstBadSha]);
   process.exit(0);
 }
 
 gitCheck(null, ["bisect", "reset"]);
-if (firstBad.includes("could be any of")) {
+if (ambiguous) {
   console.error("repo-bisect: AMBIGUOUS — the probe skipped (exit 125) too many commits; the first bad commit could be any of those listed above.");
 } else {
   console.error("repo-bisect: no first-bad identified (probe never discriminated — check probe correctness or range)");

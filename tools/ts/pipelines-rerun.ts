@@ -16,8 +16,6 @@ import { pipelinesRunRerun, pipelinesRunView } from "../lib/providers/facade/pip
 
 assertNodeFloor();
 
-await requireFamilyCapability("pipelines", "pipelines");
-
 let runId = "";
 let repo = "";
 let failedOnly = false;
@@ -32,7 +30,7 @@ Arguments:
     RUN_ID                      The workflow run ID to re-run
 
 Options:
-${usageCommonFlags({ noDryRun: true })}
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --repo OWNER/REPO           Repository containing the run (required)
     --failed                    Re-run only failed jobs (not the whole workflow)
     --debug                     Enable debug logging for the re-run
@@ -59,7 +57,7 @@ try {
   repo = typeof cli.values.repo === "string" ? cli.values.repo : "";
   failedOnly = cli.values.failed === true;
   debugMode = cli.values.debug === true;
-  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  const positionals = cli.positionals;
   if (positionals.length !== 1) {
     logError("RUN_ID (exactly one positional) is required");
     console.error("Use --help for usage information");
@@ -72,22 +70,31 @@ try {
   }
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 if (repo === "" || !repo.includes("/")) {
   logError("--repo OWNER/REPO is required");
   process.exit(EXIT_MISUSE);
 }
 
-// Auth after argv validation: a usage error must exit 2 without touching gh
-// (no network probe on the misuse path).
+// Provider resolution and authentication happen only after the arguments
+// parsed: help and misuse need neither config nor network.
+await requireFamilyCapability("pipelines", "pipelines");
 ensureProviderAuth();
 
 const flags: string[] = [];
 if (failedOnly) flags.push("--failed");
 if (debugMode) flags.push("-d");
 
-const rerun = await pipelinesRunRerun(repo, runId, flags);
+let rerun: { status: number };
+try {
+  rerun = await pipelinesRunRerun(repo, runId, flags);
+} catch (err) {
+  // A provider that cannot honor a flag refuses it by name; say so plainly.
+  logError(errorMessage(err));
+  process.exit(EXIT_API_FAILURE);
+}
 if (rerun.status !== 0) {
   logError(`Failed to re-run workflow run: ${runId}`);
   process.exit(EXIT_API_FAILURE);
@@ -95,18 +102,8 @@ if (rerun.status !== 0) {
 
 let runUrl = "";
 try {
-  runUrl = (await pipelinesRunView(repo, runId, {})).trim();
-  try {
-    const parsedUrl: unknown = JSON.parse(runUrl);
-    if (parsedUrl !== null && typeof parsedUrl === "object") {
-      runUrl = String((parsedUrl as { url?: unknown }).url ?? "");
-    } else {
-      runUrl = runUrl.split("\n")[0] ?? "";
-    }
-  } catch {
-    // raw text output — take the first line
-    runUrl = runUrl.split("\n")[0] ?? "";
-  }
+  // Ask for the url field only: both providers answer with the bare URL.
+  runUrl = ((await pipelinesRunView(repo, runId, { json: "url", jq: ".url" })).trim().split("\n")[0]) ?? "";
 } catch {
   runUrl = "";
 }

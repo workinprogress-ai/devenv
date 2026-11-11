@@ -8,6 +8,11 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { useProviderDown } from "./harness/index.ts";
+
+// These suites assert behaviour when the provider is down or unauthenticated; the
+// failure is stubbed so the regular run never starts a real gh or az.
+useProviderDown();
 
 const TRACE = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/cs-dependencies-trace.ts");
 const METRICS = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/metrics-count-code-lines.ts");

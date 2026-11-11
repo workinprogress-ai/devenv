@@ -10,18 +10,17 @@ import { spawnSync } from "node:child_process";
 import { requireCommandOrExit } from "../lib/core/commands.ts";
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, basename } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, basename } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { gitCapture, gitCheck } from "../lib/core/git.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { siblingInvocation } from "../lib/core/sibling.ts";
 
 assertNodeFloor();
 
-const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const SCRIPT_VERSION = "1.0.0";
 const DEFAULT_UPDATE_BRANCH = "auto-update-references";
@@ -308,8 +307,8 @@ function main(): void {
     if (langVersion !== "") updateArgs.push("--lang-version", langVersion);
     if (langDefault) updateArgs.push("--lang-default");
     logInfo(`Updating NuGet references in ${repoName}...`);
-    // Depth-1 stub, exact path — never a PATH lookup.
-    const upd = spawnSync(join(toolsDir, "cs-references-update"), updateArgs, { stdio: "inherit" });
+    const updInv = siblingInvocation("cs-references-update", updateArgs);
+    const upd = spawnSync(updInv.command, updInv.args, { stdio: "inherit" });
     if (upd.status !== 0) {
       logError(`cs-references-update failed for ${repoName}`);
       git(repoDir, ["checkout", "-f", defaultBranch], { quiet: true });
@@ -427,11 +426,11 @@ function main(): void {
   spawnSync("sleep", ["3"]);
   let prUrl = "";
   for (let attempt = 1; attempt <= 5; attempt++) {
-    const r = spawnSync(
-      join(toolsDir, "pr-create"),
+    const createInv = siblingInvocation(
+      "pr-create",
       ["--no-issue", "--repo-dir", repoDir, "--branch", updateBranch, "--label", "automated", prTitle],
-      { encoding: "utf8" },
     );
+    const r = spawnSync(createInv.command, createInv.args, { encoding: "utf8" });
     const m = /https:\/\/[^\s]+/.exec(`${r.stdout ?? ""}${r.stderr ?? ""}`);
     if (m !== null && m[0] !== undefined) {
       prUrl = m[0];
@@ -454,7 +453,8 @@ function main(): void {
 
   // ── Merge PR (via the pr-merge wrapper) ──
   logInfo(`Merging PR for ${repoName}...`);
-  const merge = spawnSync(join(toolsDir, "pr-merge"), ["--force", "--no-issue-id", prTitle], {
+  const mergeInv = siblingInvocation("pr-merge", ["--force", "--no-issue-id", prTitle]);
+  const merge = spawnSync(mergeInv.command, mergeInv.args, {
     cwd: repoDir,
     stdio: "inherit",
   });

@@ -17,7 +17,8 @@ let workDir = "";
 
 function installGhStub(opts: { parentNative?: number | null; body?: string } = {}): void {
   const parentVal = opts.parentNative === null || opts.parentNative === undefined ? "null" : String(opts.parentNative);
-  const bodyOut = (opts.body ?? "").replace(/'/g, "'\\''");
+  // The body is requested as the JSON `body` field (no jq program).
+  const bodyOut = JSON.stringify({ body: opts.body ?? "" }).replace(/'/g, "'\\''");
   writeFileSync(
     join(stubDir, "gh"),
     [
@@ -26,8 +27,8 @@ function installGhStub(opts: { parentNative?: number | null; body?: string } = {
       'case "$*" in',
       '  *"parent{number}"*) echo "' + parentVal + '" ;;',
       '  *"{id}}}"*) echo "I_stub" ;;',
-      '  *"subIssues"*) echo 11; echo 12 ;;',
-      '  *".body"*) echo \'' + bodyOut + '\';;',
+      '  *"subIssues"*) echo \'{"data":{"repository":{"issue":{"subIssues":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"number":11},{"number":12}]}}}}}\' ;;',
+      '  *"--json body"*) echo \'' + bodyOut + '\';;',
       '  *) echo "{}" ;;',
       'esac',
       "",

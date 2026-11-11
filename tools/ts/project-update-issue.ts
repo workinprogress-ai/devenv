@@ -14,13 +14,11 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { configGetArray } from "../lib/core/config.ts";
-import { ensureProviderAuth, isDevenvRepoGated, providerConfigPath, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, checkTargetRepo, providerConfigPath, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { issueWebUrl } from "../lib/providers/facade/issues.ts";
 import { projectsOps } from "../lib/providers/facade/projects.ts";
 
 assertNodeFloor();
-
-ensureProviderAuth();
 
 let projectName = "";
 let issueNumber = "";
@@ -115,7 +113,14 @@ try {
   // strict:true throws on an unknown flag — a named one-liner instead of a
   // raw Node stack trace (the suite's stated unknown-flag contract).
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
+
+/** Report a usage error and exit with the misuse code. */
+function misuse(message: string): never {
+  logError(message);
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
@@ -138,12 +143,22 @@ if (allProjects && positionals.length === 1 && /^[0-9]+$/.test(positionals[0] ??
   }
 }
 
-if (!allProjects && projectName === "") {
-  logError("Project name is required");
-  process.exit(EXIT_GENERAL_ERROR);
+// Every argument is validated before the provider is touched or anything is
+// mutated, so a bad invocation exits 2 with no side effects.
+if (!allProjects && projectName === "") misuse("Project name is required");
+if (!listFields && issueNumber === "") misuse("Issue number is required");
+if (!listFields && statusValue === "" && fieldUpdates.length === 0) misuse("Nothing to do: pass --status and/or --field");
+if (allProjects && fieldUpdates.length > 0) misuse("--field cannot be combined with --all-projects (fan-out is Status-only)");
+for (const fu of fieldUpdates) {
+  const eq = fu.indexOf("=");
+  if (eq <= 0 || eq === fu.length - 1) misuse(`Invalid field format: ${fu} (expected NAME=VALUE)`);
 }
 
 loadStatusWorkflow();
+if (statusValue !== "" && !validateStatus(statusValue)) process.exit(EXIT_MISUSE);
+
+// Authenticate only after the arguments parsed: help and misuse need no provider.
+ensureProviderAuth();
 
 if (providerOrgGet() === "") {
   logError("Organization identity unresolved. Configure [organization] org in devenv.config or run setup.");
@@ -156,14 +171,8 @@ if (repoSpec === "") {
   process.exit(EXIT_GENERAL_ERROR);
 }
 
-// Devenv-repo safety gate (resolve_target_repo parity): implicit targets only.
-if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "") && parsed.values.devenv !== true) {
-  logError("The current repository appears to be the devenv repository itself");
-  console.log("Operations should be performed in target project repositories, not in devenv");
-  console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");
-  console.log("To override this safety check (devenv-repo work only), pass the --devenv flag");
-  process.exit(EXIT_GENERAL_ERROR);
-}
+// Devenv-repo safety gate: implicit targets only.
+checkTargetRepo(parsed.values.devenv === true);
 const owner = repoSpec.split("/")[0] ?? "";
 const repo = repoSpec.split("/")[1] ?? "";
 
@@ -187,16 +196,9 @@ if (listFields) {
   process.exit(0);
 }
 
-if (issueNumber === "") {
-  logError("Issue number is required");
-  process.exit(EXIT_GENERAL_ERROR);
-}
-
 const issueUrl = await issueWebUrl(repoSpec, Number(issueNumber));
 
 async function updateStatus(status: string): Promise<boolean> {
-  if (!validateStatus(status)) return false;
-
   if (dryRun) {
     logInfo(`[DRY RUN] Would set Status='${status}' for issue #${issueNumber} in project '${projectName}'`);
     return true;
@@ -311,28 +313,12 @@ if (statusValue !== "") {
 // Update custom fields (single-project only: fan-out is Status-only).
 let fieldsFailed = false;
 if (fieldUpdates.length > 0) {
-  if (allProjects) {
-    logError("--field cannot be combined with --all-projects (fan-out is Status-only)");
-    process.exit(EXIT_GENERAL_ERROR);
-  }
   for (const fu of fieldUpdates) {
     const eq = fu.indexOf("=");
-    const fieldName = eq === -1 ? fu : fu.slice(0, eq);
-    const fieldValue = eq === -1 ? "" : fu.slice(eq + 1);
-    if (eq === -1 || fieldName === "" || fieldValue === "") {
-      logError(`Invalid field format: ${fu} (expected NAME=VALUE)`);
-      fieldsFailed = true;
-      continue;
-    }
+    const fieldName = fu.slice(0, eq);
+    const fieldValue = fu.slice(eq + 1);
     if (!(await updateField(fieldName, fieldValue))) fieldsFailed = true;
   }
-}
-
-// Zero-action runs are a mistake (a typo'd flag would otherwise silently do
-// nothing): refuse before the exit-code check.
-if (statusValue === "" && fieldUpdates.length === 0) {
-  logError("Nothing to do: pass --status and/or --field");
-  process.exit(EXIT_MISUSE);
 }
 
 // A failed update must never exit 0, even when other updates succeeded.

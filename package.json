@@ -4,6 +4,9 @@
   "description": "Developer environment (MIT License)",
   "private": true,
   "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=24.18.0"
+  },
   "type": "module",
   "scripts": {
     "prepare": "husky",
@@ -13,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "node tools/ts/lint-scripts.ts",
     "lint:ts": "eslint tools",
-    "lint:skills": "lint-skills"
+    "lint:skills": "node tools/ts/lint-skills.ts"
   },
   "repository": {
     "type": "git",

@@ -128,6 +128,7 @@ repo-get [--select] [<repository-name>|<repository-url>]
 - `--select`: Show an interactive selection menu of repositories in the organization (excludes already cloned repos)
 - `<repository-name>`: Name of the repository to clone/update
 - `<repository-url>`: Full URL (`https://`, `git@`, or `ssh://`) to a foreign repository — cloned/updated by its basename, no org credential wiring (auth is your own git config; public repos need none). Refuses when the derived folder already exists as a clone of a different repository.
+- `--run-scripts`: Run the repository's `.repo/init.sh` and `.repo/update.sh` even when its origin is not owned by the organization. They always run for org-owned origins; a foreign repository's scripts are arbitrary code, so they are skipped (with a notice) unless this flag is given.
 - No arguments: Update the current repository (based on git context)
 
 **Examples:**
@@ -355,13 +356,13 @@ git repo <repository-name>
 
 ### `repo-commit`
 
-The single sanctioned commit wrapper (source: `tools/ts/repo-commit.ts`; invoke via the `tools/repo-commit` entry on `PATH`). Interactive-only by design on the gated lanes: the suggested message arrives on argv or via `--file <path>` (preferred for anything longer than a one-line subject — immune to shell mangling), and the user's configured git editor always opens with it — a commit is created from the existing index only if the user saves the editor with a non-empty message. Refuses options (`-m`, `--yes`), non-interactive editors, and an empty index. Never stages (except via `--wip`), never bypasses hooks on gated lanes, never runs tests. A staged-stat echo (`staged: N files, +A −B`) prints before the editor so the save/abort decision sees content size.
+The single sanctioned commit wrapper (source: `tools/ts/repo-commit.ts`; invoke via the `tools/repo-commit` entry on `PATH`). Interactive-only by design on the gated lanes: the suggested message arrives on argv or via `--file <path>` (preferred for anything longer than a one-line subject — immune to shell mangling), and the user's configured git editor always opens with it — a commit is created from the existing index only if the user saves the editor with a non-empty message. Refuses options (`-m`, `--yes`), non-interactive editors, and an empty index. It requires a terminal: stdin and stdout must both be a TTY, and the TTY requirement is the real control. The non-interactive-editor check (`editorIsNoninteractive`) is a best-effort deny-list — editor strings containing shell metacharacters, wrapper options (`env`, `xargs`, ...), interpreter `-e`/`-c`, `sed`/`awk`, `printf`, `vim -es` — that catches common accidents, not a security boundary. Never stages (except via `--wip`), never bypasses hooks on gated lanes, never runs tests. A staged-stat echo (`staged: N files, +A −B`) prints before the editor so the save/abort decision sees content size.
 
 The `--amend` lane folds staged content into HEAD whose fold window is still open under the same editor gate, preloading HEAD's existing message under a leading `# EDIT of a previous commit` banner (stripped by `--cleanup=strip`); with a clean index the amend is a **message-only rewrite** of HEAD (git replaces the message, the tree is untouched) — the sanctioned route for editing HEAD's message when nothing is staged (the staged-stat echo and dry-run output state which case applies); the normal lane's editor file carries an analogous `# NEW commit on top of: <sha> <subject>` banner; refuses fail-closed when master has already landed HEAD — the boundary is master-reachability (`origin/master`, or local `master` in repos without one), or a tag naming the commit — not remote-ref presence, so a pushed-but-unlanded PR-branch HEAD stays foldable (remediation named: `--fix` or a plain fix commit).
 
-The `--fix <ref>` lane folds staged content into an earlier local commit as one editorless operation: preflight (staged required; target an ancestor of HEAD; not HEAD; not the root commit; fold window open — not landed in master, not tagged; HEAD redirects to `--amend`) → backup branch `backup/pre-fixup-<head>` → fixup commit (hooks run; this repo's commitlint config ignores `fixup!`/`squash!` subjects — a target repo without that ignores entry fails closed at the fixup commit, with the backup-branch recovery printed) → `GIT_SEQUENCE_EDITOR=: git rebase --autosquash --autostash -i <target>~1` → verify → report (folded target, backup ref, `--force-with-lease` reminder; never pushes). A conflict auto-aborts the rebase — the fixup commit survives at HEAD, nothing lost, state fully `git status`-describable. Bare `--fix` on a TTY opens an eligible-target picker (local-only ancestors, HEAD excluded); without a TTY it refuses with "pass a ref". `--dry-run` resolves and prints the target, staged stat, and rehash range without touching anything.
+The `--fix <ref>` lane folds staged content into an earlier local commit as one editorless operation: preflight (staged required; target an ancestor of HEAD; not HEAD; not the root commit; fold window open — not landed in master, not tagged; HEAD redirects to `--amend`) → no other pending `fixup!`/`squash!`/`amend!` commit in the rewritten range (refused before any mutation: `--autosquash` would fold them too) → backup branch `backup/pre-fixup-<head>` → fixup commit (hooks run; this repo's commitlint config ignores `fixup!`/`squash!` subjects — a target repo without that ignores entry fails closed at the fixup commit, with the backup-branch recovery printed) → `GIT_SEQUENCE_EDITOR=: git rebase --autosquash --autostash -i <target>~1` (run with `rebase.updateRefs=false`, so a user-level `updateRefs=true` cannot move the backup branch) → verify against the saved old HEAD sha → report (folded target, backup ref, `--force-with-lease` reminder; never pushes). A conflict auto-aborts the rebase — the fixup commit survives at HEAD, nothing lost, state fully `git status`-describable. Bare `--fix` on a TTY opens an eligible-target picker (local-only ancestors, HEAD excluded); without a TTY it refuses with "pass a ref". `--dry-run` resolves and prints the target, staged stat, and rehash range without touching anything.
 
-The `--reword <ref>` lane changes an earlier commit's message only: preflight (target an ancestor of HEAD; HEAD is valid on a clean index — a message-only rewrite, with staged content refused in favor of `--amend`; not the root commit; fold window open, same boundary as `--amend`/`--fix`) → backup branch `backup/pre-reword-<head>` → a rebase whose sequence-editor script marks the target `reword` and opens the user's editor on its message (the save is the permission gate; emptying the message aborts) → verify (the subject at the target's ancestry depth changed and the tree is byte-identical to the backup — a reword never touches content) → report with the recovery recipe. Staged content is not required and is left untouched; hooks run on the rebase; `--dry-run` prints the plan and mutates nothing. Mutually exclusive with the other lanes; the ref must immediately follow `--reword`.
+The `--reword <ref>` lane changes an earlier commit's message only: preflight (target an ancestor of HEAD; HEAD is valid on a clean index — a message-only rewrite, with staged content refused in favor of `--amend`; not the root commit; fold window open, same boundary as `--amend`/`--fix`) → backup branch `backup/pre-reword-<head>` → a rebase whose sequence-editor script marks the target `reword` and opens the user's editor on its message (the save is the permission gate; emptying the message aborts) → verify (the target's full message, `%B`, at its ancestry depth in the rewritten stack is compared against its message saved before the rebase, and the tree is compared against the saved old HEAD sha — a reword never touches content) → report with the recovery recipe. A reword whose message is saved unchanged is a clean no-op: exit 0 with a plain message, the branch is restored to its old HEAD if the rebase re-stamped it, and the backup branch this run created is removed — nothing is left changed. Staged content is not required and is left untouched; hooks run on the rebase; `--dry-run` prints the plan and mutates nothing. `--reword` runs with `rebase.updateRefs=false` and `rebase.autoSquash=false` (a user-level `rebase.autoSquash=true` can never reorder or fold commits during a reword), and refuses a range that holds a `fixup!`/`squash!`/`amend!` commit before any mutation. It refuses a range that contains merge commits (an interactive rebase would flatten them; reword by hand with `git rebase --rebase-merges`). A body-only or trailer-only reword is accepted — the subject need not change. Mutually exclusive with the other lanes; the ref must immediately follow `--reword`. After `--fix` and `--reword` the report ends with a remote-tracking note that says `diverged` only when the branch is both ahead of and behind its upstream (push with `--force-with-lease`), and otherwise reports ahead-only (a plain push suffices), behind-only, in sync, or no remote tracking.
 
 The `--fold-window` lane is a read-only report: the branch's foldable commits (not landed in master, per the fold-window boundary above) newest-first, each with the files it touched, plus a cross-check naming fold candidates among them that the staged/working changes overlap. No staging requirement, no mutation; mutually exclusive with the other lanes.
 
@@ -415,8 +416,11 @@ Groups follow plan task order (subjects from `commit:` bullets when present); re
 
 Work-in-progress commit management:
 
-- `git-wip`: Stages all changes, creates a `WIP: <message>` commit (message via positional words or `--file <path>`), pushes it to the remote, and records the commit in `refs/wip/last` for later recovery.
+- `git-wip`: Stages all changes, creates a `WIP: <message>` commit (message via positional words or `--file <path>`), pushes it with `git push origin HEAD:refs/heads/<current-branch>`, and records the commit in `refs/wip/last` for later recovery. Flags are parsed strictly (an unknown flag exits 2 before anything is staged); a message word that looks like a flag, such as `-n`, needs `--` first: `git-wip -- -n flag notes`.
   - Push-path scratchpad refusal: blocked (exit 3) while a scratchpad is active in the repo, or on any `scratchpad/*` branch — scratch commits bypass hooks and carry no `Devenv-Action`/`Change-Id` trailers; they must never reach shared history.
+  - Protected-branch refusal: blocked (exit 3) on a protected branch — the remote's default branch, `master`, `main`, `develop`, `trunk`, `release/*` — and on a branch whose configured upstream or push target is protected. Nothing is staged, committed or pushed; there is no override. The advice follows why the target is protected: the branch name itself (switch to a feature branch); its upstream, `branch.<b>.merge` (`git branch --unset-upstream`); or its push target resolved through `@{push}` (adjust `remote.<r>.push`, `push.default` or `branch.<b>.pushRemote` so it pushes to its own name). It never advises `git branch -u origin/<b>`, since that remote branch may not exist.
+  - Detached or unborn `HEAD`: blocked (exit 3) before anything is staged — a snapshot needs a branch name to be pushed under (the branch comes from `git symbolic-ref --quiet --short HEAD`; nothing is ever pushed to `refs/heads/HEAD`).
+  - Commit and push require an interactive terminal: without a TTY it exits 2 unless `--allow-non-tty` is given. `--dry-run` is the safe probe.
   - `--staged-only`: Skip `git add -A` and commit only what is already staged.
 - `git-unwip`: Soft-resets to the last non-WIP commit (restaging your changes) and safely force-pushes to clear the WIP commit from the remote. Does **not** delete `refs/wip/last`, so the WIP commit remains recoverable.
 - `git-wip-recover`: Inspect or restore the most recently saved WIP commit from `refs/wip/last`.
@@ -435,7 +439,7 @@ git wip-recover --branch my-branch  # check out as 'my-branch'
 
 **Safety guards in `git-unwip`:**
 
-1. **Protected branches** — refuses to run on `main`, `master`, or `develop`.
+1. **Protected branches** — refuses to run (exit 1) on the same protected list as `git-wip`: the remote's default branch, `master`, `main`, `develop`, `trunk`, `release/*` — and when the branch's upstream or push target is protected (the force-push would land there). It also refuses on a detached `HEAD`.
 2. **Anchored WIP matching** — the reset target is the last commit whose
    subject does not start with `WIP:` (a subject merely containing "wip:"
    elsewhere is never skipped); full hashes are used, and a history with no
@@ -453,7 +457,7 @@ Every `git-wip` call updates the `refs/wip/last` ref to point at the new WIP com
 
 **Global pre-commit hook:**
 
-A global `pre-commit` hook (applied via `core.hooksPath` during bootstrap) prevents committing on top of a WIP commit. If `HEAD` or any unpushed commit on the branch is a `WIP:` commit, the commit is blocked with an error message directing you to run `git-unwip` first.
+A global `pre-commit` hook (applied via `core.hooksPath` during bootstrap) prevents committing on top of a WIP commit. If `HEAD` or any unpushed commit on the branch is a `WIP:` commit, the commit is blocked with an error message directing you to run `git-unwip` first. The gate fails closed: when the commit history cannot be read (`git log` fails) the commit is blocked too. A repository with no commit yet (unborn `HEAD`) passes. On a branch with no upstream (never pushed) the gate scans every commit not reachable from any remote ref, so historic `WIP:` subjects in a never-pushed repository block new commits until they are rewritten (`git-unwip`, or an interactive rebase that rewords them) or pushed (a commit reachable from any remote ref is no longer scanned); a single commit can bypass the gate with `git commit --no-verify`.
 
 *NOTE*: `git-wip` bypasses hooks (`-n` flag) intentionally — WIP commits are scratch saves, not production-quality commits.
 
@@ -523,6 +527,8 @@ Creates a pull request for merging code into a target branch (defaults to the re
 
 Scratchpad refusal (push-path): blocked (exit 3) while a scratchpad is active in the repo, or on any `scratchpad/*` branch — scratch commits carry no `Devenv-Action`/`Change-Id` trailers and must never reach shared history. Salvage via `repo-scratchpad promote`.
 
+WIP scan: before scanning for `WIP:` commits, `pr-create` refreshes `origin/<branch>` so a WIP pushed from another clone is visible. When the branch exists on origin this needs remote access, and a failed refresh blocks PR creation; a branch not yet on origin needs no refresh. `pr-create --at` skips that refresh: it scans the local merge branch it creates, so a WIP pushed from another clone is not seen on that path.
+
 ```bash
 pr-create <title> --issue <number> [--base <branch>]
 ```
@@ -564,7 +570,7 @@ pr-create "docs: update README" --issue 789 --draft --reviewer @john
 
 ### `repo-scratchpad`
 
-Governed experiment sandbox Cuts a `scratchpad/<slug>` branch from the current HEAD; hook-bypassing, `scratch:`-branded commits are permitted on it; `reset` returns to base AI-safe; `promote` salvages one scratch commit onto the base branch staged-uncommitted (trailers re-acquire on the normal commit flow); `exit` tears the branch down. State lives in git refs (`refs/scratchpad/{base,state,origin-branch}`) — no loose files, detached-HEAD-safe.
+Governed experiment sandbox Cuts a `scratchpad/<slug>` branch from the current HEAD; hook-bypassing, `scratch:`-branded commits are permitted on it; `reset` returns to base AI-safe; `promote` salvages one scratch commit onto the base branch staged-uncommitted (trailers re-acquire on the normal commit flow) and requires an empty index — a second promote, or other staged work, is refused with nothing changed; `exit` tears the branch down. State lives in git refs (`refs/scratchpad/{base,state,origin-branch}`) — no loose files, detached-HEAD-safe.
 
 **Safety invariants:** entry is fail-closed on ANY dirty tree (tracked or untracked) — save work first with `git wip` (recommended; it pushes) or a normal commit; `--carry` overrides with a loud warning + best-effort snapshot into `.local-artifacts/tmp/scratchpad/` (carried work is DESTROYED by `reset`). The destructive surface only ever touches scratch-created content. Scratch commits carry no `Devenv-Action`/`Change-Id` trailers and must never reach shared history — push-path tools refuse on scratchpad branches. While a scratchpad is active, `repo-commit`, `git-wip`, and `pr-create` refuse (exit 3).
 
@@ -582,7 +588,7 @@ repo-scratchpad resume        # return HEAD to the scratch branch after a promot
 
 ### `repo-bisect`
 
-First-bad-commit identification over a commit range (the hunt skill's time-travel mode). Walks `git bisect` with a probe command (exit 0 = good, non-zero = bad) and delivers the culprit with evidence. Works on **any branch** — no scratchpad requirement in the tool (bisect is non-destructive: read-only detached-HEAD visits); outside a scratchpad it prints a soft notice pointing AI hunts at `repo-scratchpad enter`. Refuses on a dirty tree. An all-skip walk (probe exiting 125 everywhere) answers **AMBIGUOUS** rather than fabricating a culprit from the candidate set.
+First-bad-commit identification over a commit range (the hunt skill's time-travel mode). Walks `git bisect` with a probe command (exit 0 = good, non-zero = bad) and delivers the culprit with evidence. Works on **any branch** — no scratchpad requirement in the tool (bisect is non-destructive: read-only detached-HEAD visits); outside a scratchpad it prints a soft notice pointing AI hunts at `repo-scratchpad enter`. `status` and `reset` act only on a real bisect session (they detect one in flight) and otherwise report that none exists. Refuses on a dirty tree, and (exit 3) when a bisect session is already in flight — end it with `repo-bisect reset` first, since `git bisect start` would discard it. The probe must resolve to an executable command (a name on `PATH`, or a path with the execute bit) or the run is refused before the walk starts; the verdict is read only from git's own result lines, never from the probe's output. An all-skip walk (probe exiting 125 everywhere) answers **AMBIGUOUS** rather than fabricating a culprit from the candidate set.
 
 ```bash
 repo-bisect <bad-ref> <good-ref> -- <probe command...>
@@ -590,7 +596,17 @@ repo-bisect status
 repo-bisect reset
 ```
 
-**Exit codes:** 0 first-bad identified · 1 dirty refusal / probe never discriminated / probe-execution failure (exit 126/127 class) · 2 invalid arguments or degenerate range (bad == good) · 4 unresolvable ref.
+**Exit codes:** 0 first-bad identified · 1 dirty refusal / probe never discriminated / probe not found or not executable / walk aborted by git · 2 invalid arguments or degenerate range (bad == good) · 3 bisect session already in flight · 4 unresolvable ref.
+
+### `repo-bump-version`
+
+Forces an empty, hook-bypassing commit on each named repository's default branch to trigger a version bump, then pushes it to origin.
+
+```bash
+repo-bump-version <patch|minor|major> [--yes] [repository-names...]
+```
+
+Each repository's plan (the commit, the base `origin/<default>` tip and the push destination) is printed first and the push must be confirmed: a terminal prompt, or `--yes` (required when there is no terminal). After a failed push the empty commit exists locally only, and the tool prints the exact undo (`git reset --keep HEAD~1` in that repository — the failed-push commit is exactly one commit, and `--keep` never discards other changes); the next run refuses while the default branch has an unpushed commit.
 
 ### `pr-get-merge-link`
 
@@ -720,7 +736,7 @@ pr-threads-get 123 | jq -r '.[0].comments[0].body' # First comment body
 
 ### `pr-thread-reply`
 
-Posts a reply to an existing inline review comment. This is distinct from `pr-comment` (top-level PR conversation). Requires the numeric comment ID from `pr-threads-get`.
+Posts a reply to an existing inline review comment. This is distinct from `pr-comment` (top-level PR conversation). Requires the comment ID from `pr-threads-get`; on GitHub it must be numeric (anything else is refused), on Azure it is the `<thread>/<comment>` form. An empty reply body is refused.
 
 ```bash
 pr-thread-reply PR# --comment-id COMMENT_ID (--body TEXT | --body-file FILE | --edit) [--dry-run]
@@ -737,7 +753,7 @@ pr-thread-reply 123 --comment-id 456 --body "LGTM" --dry-run
 
 ### `pr-thread-resolve`
 
-Marks a PR review thread as resolved using the provider's review-thread resolution (GitHub GraphQL `resolveReviewThread` today). Takes the GraphQL node ID (starts with `PRRT_`) returned by `pr-threads-get`.
+Marks a PR review thread as resolved using the provider's review-thread resolution (GitHub GraphQL `resolveReviewThread` today). Takes the thread ID returned by `pr-threads-get` (GitHub: the GraphQL node ID starting with `PRRT_`; Azure: the fully prefixed thread reference, which is accepted as printed).
 
 ```bash
 pr-thread-resolve THREAD_ID [--dry-run]
@@ -1008,6 +1024,8 @@ pipelines-run deploy.yml --repo <org>/my-service \
 
 - `gh workflow run` does not return a run ID. The run URL is retrieved by polling `gh run list` after a ~2s delay — it may occasionally miss the run URL if the system is very busy.
 - The workflow must be configured with a `workflow_dispatch` trigger.
+- Unknown flags and a malformed `-f` input are rejected by name before anything is triggered.
+- On Azure the reported run URL is the build's browser page, not the REST address.
 
 ---
 
@@ -1030,6 +1048,8 @@ pipelines-rerun RUN_ID --repo OWNER/REPO [OPTIONS]
 - `--repo OWNER/REPO`: Repository containing the run (required)
 - `--failed`: Re-run only failed jobs (not the whole workflow)
 - `--debug`: Enable debug logging for the re-run
+
+Azure retries the whole build in place and accepts neither `--failed` nor `--debug`: any flag is refused by name. On Azure the printed run URL is the build's browser page.
 
 **Examples:**
 
@@ -1063,7 +1083,7 @@ pipelines-watch [RUN_ID] --repo OWNER/REPO [OPTIONS]
 **Options:**
 
 - `--repo OWNER/REPO`: Repository containing the run (required)
-- `--exit-status`: Exit non-zero if the watched run fails (useful in CI pipelines)
+- `--exit-status`: Exit non-zero if the watched run fails (useful in CI pipelines); on Azure it is the only accepted flag, and any other is refused by name
 
 **Examples:**
 
@@ -1304,6 +1324,8 @@ issue-update ISSUE_NUMBER [OPTIONS]
 - `--remove-assignee USER`: Remove assignee (repeatable)
 - `--milestone NAME`: Set milestone
 - `--state STATE`: Set state (open or closed)
+
+On Azure, an update whose work item changed since it was read fails with a "modified concurrently" error instead of overwriting the other change; repeat the change. Azure tags match case-insensitively (adding a tag already present in any case is a no-op), and a label containing `;` means several tags. Empty comments are refused on both providers.
 
 **Examples:**
 
@@ -2138,7 +2160,7 @@ repo-cache-update [OPTIONS]
 |------|---------|
 | `0`  | Success — cache directory path printed on stdout |
 | `1`  | General error (missing credentials, clone failed, index build failed) |
-| `2`  | Partial failure — some repos failed to cache, index still built |
+| `4`  | Partial failure — some repos failed to cache; the index is still built and the cache path is still printed |
 
 **Examples:**
 
@@ -2834,6 +2856,8 @@ kube-pod-delete api -n prod        # destructive scripts honor the flag
 KUBE_NO_INTERACTIVE=1 kube-logs api  # force non-interactive (scripts/CI)
 ```
 
+For the pod-addressed forwarders (`kube-logs`, `kube-pod-exec`, `kube-pod-console`) the namespace option is accepted directly after the pod word and before the command, as `-n NS`, `-nNS`, `--namespace NS` or `--namespace=NS`: `kube-pod-exec api -n prod ls -n`. Once the command starts, everything is forwarded unread, so the command's own `-n` stays the command's.
+
 Set `KUBE_NO_INTERACTIVE=1` to disable the interactive picker entirely
 (assumed by scripts and CI; interactive pickers require a TTY). Picking under
 that env is recorded/CI-only: a single match is taken; several matches are a
@@ -2922,6 +2946,8 @@ Applies or updates GitHub repository configuration to an existing cloned reposit
 ```bash
 repo-update-config <repo-path> [--type <type>]
 ```
+
+On Azure the template-repository setting is skipped with a warning (the provider has no repository template flag, so the repository is left unchanged); the other steps still run.
 
 **Arguments:**
 
@@ -3015,7 +3041,7 @@ service:
 Three tools keep a soft fork connected to its upstream (see [Keeping a Soft Fork in Sync and Contributing Back](./Forking.md#keeping-a-soft-fork-in-sync-and-contributing-back)). They are ordinary tools on `PATH`, and manual-only: none runs on its own.
 
 - **`fork-setup`**: one-time, local setup of the fetch-only `upstream` remote from `[fork]` config; `--dry-run` previews the remote and the push guard.
-- **`fork-sync`**: fetches upstream, reports divergence (upstream commits that look like your own work coming back — adoption link, Change-Id, patch-id, or subject), and with `--replay` applies upstream's new commits on top of the branch (`--dry-run --replay` prints the pick plan): upstream commits whose Change-Id already exists on the branch are skipped, the rest are cherry-picked in order, so branch SHAs never move and origin pushes stay fast-forwards. Divergent twins are named, not silently absorbed; cleanly applied commits are auto-recorded in the adoption map; fork-owned surface state is snapshotted to `refs/fork-sync/snapshot` before the picks and verified after (touched paths are surfaced for review — never auto-merged). `--link <local> <upstream>` records a confirmed pre-Change-Id twin pair; `--propose-links` ranks candidates and asks for confirmation. Applying requires confirmation (TTY prompt or `--yes`; non-TTY fails closed). `--drift` prints the standing drift inventory — fork-local edits on upstream-stable paths (per `tools/config/fork-surfaces.yml`), the maintenance cost the fork carries. Origin rewrites require `--rewrite-origin` and confirmation. See [Forking.md](Forking.md#the-intended-loop-export-promptly-sync-promptly).
+- **`fork-sync`**: fetches upstream, reports divergence (upstream commits that look like your own work coming back — adoption link, Change-Id, patch-id, or subject), and with `--replay` applies upstream's new commits on top of the branch (`--dry-run --replay` prints the pick plan): upstream commits whose Change-Id already exists on the branch are skipped, the rest are cherry-picked in order, so branch SHAs never move and origin pushes stay fast-forwards. Divergent twins are named, not silently absorbed; cleanly applied commits are auto-recorded in the adoption map; fork-owned surface state is snapshotted to `refs/fork-sync/snapshot` before the picks and verified after (touched paths are surfaced for review — never auto-merged). `--link <local> <upstream>` (or `--link=<local> <upstream>`) records a confirmed pre-Change-Id twin pair, and `--unlink <sha>` / `--unlink=<sha>` removes the pairs naming a commit; `--rebase` is refused with a message that it was renamed `--replay`; `--version` and `--help` need no configured workspace; `--propose-links` ranks candidates and asks for confirmation. Applying requires confirmation (TTY prompt or `--yes`; non-TTY fails closed). `--drift` prints the standing drift inventory — fork-local edits on upstream-stable paths (per `tools/config/fork-surfaces.yml`), the maintenance cost the fork carries. Origin rewrites require `--rewrite-origin` and confirmation. See [Forking.md](Forking.md#the-intended-loop-export-promptly-sync-promptly).
 - **`fork-export`**: exports an upstream-based, linear commit range as a bundle, patch series, or both (a range with a merge commit is refused with guidance); optionally applies it to a sibling clone of the upstream repository without upstream credentials. Exported copies are stamped with `Change-Id` (generated when absent) and `Exported-From: <fork-side-sha>`; a conflict-resolved copy is declared `Fork-Adapted: yes`. Re-runs detect what the target already has and refuse to re-apply it. `--dry-run` previews the operation. See [Forking.md](Forking.md#the-intended-loop-export-promptly-sync-promptly).
 - **`lint-documentation`**: runs markdownlint over `README.md` and `docs/**/*.md` (`--fix` applies autofixes) and checks that relative `.md` links resolve — including in-page anchors (GitHub-style heading fragments). Run before committing docs changes; CI runs it on changed docs.
 
@@ -3491,6 +3517,8 @@ org-configurable settings.
 ```bash
 config-read SECTION KEY [DEFAULT] [--config FILE]
 ```
+
+Missing arguments and other parse errors exit 2; a config file that cannot be found exits 1.
 
 **Examples:**
 

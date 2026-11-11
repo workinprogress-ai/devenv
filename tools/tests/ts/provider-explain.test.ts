@@ -2,11 +2,9 @@
 // tool's two output modes, family matching, unknown-family error, and
 // the missing-config surface (providerDetect's named error passes through).
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { githubExplain } from "../../lib/providers/github/explain.ts";
 import { azureExplain } from "../../lib/providers/azure/explain.ts";
 import type { ProviderExplain } from "../../lib/providers/explain.ts";

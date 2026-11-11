@@ -9,7 +9,7 @@
 
 import { basename } from "node:path";
 
-import { existsSync, readFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -64,14 +64,6 @@ Examples:
 
 function stdinIsTty(): boolean {
   return Boolean(process.stdin.isTTY);
-}
-
-function readStdinSync(): string {
-  try {
-    return readFileSync(0, "utf8");
-  } catch {
-    return "";
-  }
 }
 
 async function main(argv: string[]): Promise<number> {

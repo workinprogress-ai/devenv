@@ -14,7 +14,6 @@
 // vocabulary (issues-config.yml; case-insensitive).
 
 import { basename } from "node:path";
-import { existsSync, readFileSync } from "node:fs";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
@@ -123,12 +122,12 @@ async function main(argv: string[]): Promise<number> {
         "body-file": { type: "string", short: "f" },
         type: { type: "string" },
         "remove-type": { type: "boolean", default: false },
-        "add-label": { type: "string" },
-        "remove-label": { type: "string" },
-        "add-assignee": { type: "string" },
-        "remove-assignee": { type: "string" },
-        "add-blocked-by": { type: "string" },
-        "remove-blocked-by": { type: "string" },
+        "add-label": { type: "string", multiple: true },
+        "remove-label": { type: "string", multiple: true },
+        "add-assignee": { type: "string", multiple: true },
+        "remove-assignee": { type: "string", multiple: true },
+        "add-blocked-by": { type: "string", multiple: true },
+        "remove-blocked-by": { type: "string", multiple: true },
         milestone: { type: "string", short: "m" },
         state: { type: "string", short: "s" },
       },
@@ -179,7 +178,7 @@ async function main(argv: string[]): Promise<number> {
     normalizedType = normalizeIssueType(newType);
     if (normalizedType === null) {
       logError(`Invalid issue type: ${newType} (allowed: ${CANONICAL_TYPES.join(", ")})`);
-      return EXIT_GENERAL_ERROR;
+      return EXIT_MISUSE;
     }
   }
 

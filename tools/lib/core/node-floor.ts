@@ -1,6 +1,11 @@
 // Node runtime floor for native TypeScript execution. Type stripping needs
 // Node >= 23.6; an older runtime dies with a raw syntax error instead of a
 // message, so every tool entry path checks this before anything else runs.
+//
+// This is the technical minimum for running a tool at all, deliberately lower
+// than `engines` in package.json and the version CI and the dev container pin
+// (24.18.0): those name the tested runtime, this names the oldest runtime that
+// can still start a tool and print a readable message.
 export const NODE_FLOOR = "23.6.0";
 
 function parseSemver(v: string): number[] {

@@ -37,7 +37,9 @@ Examples:
 Exit Codes:
     0   Success
     1   General error
-    3   Invalid arguments (no .sln or .csproj found)`);
+    2   Invalid arguments (unknown option, too many arguments, no .sln or
+        .csproj found)
+    4   Target directory not found`);
   process.exit(0);
 }
 
@@ -51,7 +53,6 @@ try {
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
     noDryRun: true,
-    strict: false,
     options: {
       "by-repo": { type: "boolean", default: false },
       "no-refresh": { type: "boolean", default: false },
@@ -64,7 +65,7 @@ try {
   positionalCount = cli.positionals.length;
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 

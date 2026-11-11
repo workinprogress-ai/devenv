@@ -24,14 +24,39 @@ if git diff --cached --name-only --diff-filter=ACM -z -- '*.md' | grep -qz .; th
     echo "Linting staged markdown files..."
     # Always invoke the devenv version of lint-documentation from the devenv root
     # Pass files directly via pipe to avoid variable expansion issues with null delimiters
-    git diff --cached --name-only --diff-filter=ACM -z -- '*.md' | xargs -0 "$DEVENV_ROOT/tools/lint-documentation"
+    git diff --cached --name-only --diff-filter=ACM -z -- '*.md' | xargs -0 node "$DEVENV_ROOT/tools/ts/lint-documentation.ts"
+fi
+# A staged change to the lint or type configuration (or the dependency
+# manifest) can break the type and lint gates without touching tools/; the full
+# block below covers a commit that also stages tools/ or .devcontainer/.
+if git diff --cached --name-only | grep -qE '^(eslint\.config\.js|tsconfig\.json|package\.json)$' \
+   && ! git diff --cached --name-only | grep -qE '^(tools/|\.devcontainer/)'; then
+    echo "Lint or type configuration changed - running typecheck and ESLint..."
+    if ! (cd "$DEVENV_ROOT" && npx --no-install tsc --noEmit); then
+        echo "Typecheck failed. Commit aborted."
+        exit 1
+    fi
+    if ! (cd "$DEVENV_ROOT" && npx --no-install eslint tools); then
+        echo "ESLint failed. Commit aborted."
+        exit 1
+    fi
 fi
 # Check if there are any staged changes in tools/ or .devcontainer/
 if git diff --cached --name-only | grep -qE '^(tools/|\.devcontainer/)'; then
     echo "Changes detected in tools/ or .devcontainer/ - running tests and linting..."
     
+    # Type and lint gates for the TypeScript tools
+    if ! (cd "$DEVENV_ROOT" && npx --no-install tsc --noEmit); then
+        echo "Typecheck failed. Commit aborted."
+        exit 1
+    fi
+    if ! (cd "$DEVENV_ROOT" && npx --no-install eslint tools); then
+        echo "ESLint failed. Commit aborted."
+        exit 1
+    fi
+
     # Run linting
-    if ! "$DEVENV_ROOT/tools/lint-scripts"; then
+    if ! node "$DEVENV_ROOT/tools/ts/lint-scripts.ts"; then
         echo "Linting failed. Commit aborted."
         exit 1
     fi
@@ -48,7 +73,7 @@ fi
 # Skill-tree contract check: run lint-skills when copilot/skills changes
 if git diff --cached --name-only | grep -q '^copilot/skills/'; then
     echo "Skill tree changed - running lint-skills..."
-    if ! "$DEVENV_ROOT/tools/lint-skills"; then
+    if ! node "$DEVENV_ROOT/tools/ts/lint-skills.ts"; then
         echo "lint-skills failed. Commit aborted."
         exit 1
     fi

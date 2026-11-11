@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
@@ -37,11 +38,16 @@ try {
     noDryRun: true,
   });
   if (cli.common.help) usage();
-  if (cli.positionals.length > 1) usage();
+  if (cli.positionals.length > 1) {
+    logError("Too many arguments: at most one path (terraform arguments go after --)");
+    console.error("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
+  }
   tfDir = cli.positionals[0] ?? ".";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 const extraArgs = extraSide;
 

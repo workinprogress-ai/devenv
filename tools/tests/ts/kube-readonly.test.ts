@@ -9,6 +9,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -133,7 +134,7 @@ function env(extra: Record<string, string> = {}): Record<string, string> {
 }
 
 function runKube(script: string, args: string[], extra: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync("bash", [join(TOOLS, script), ...args], { encoding: "utf8", env: env(extra) });
+  const r = spawnSync("node", [toolScript(script), ...args], { encoding: "utf8", env: env(extra) });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
@@ -190,21 +191,21 @@ describe("scripts/kube-readonly", () => {
 
   it("kube-forward-ports: usage refusal with no mappings issues no forward", () => {
     const r = runKube("kube-forward-ports", []);
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
     expect(r.out).toContain("Usage:");
     expect(stubCallsContain("kubectl port-forward")).toBe(false);
   });
 
   it("kube-forward-ports: non-numeric port is refused before selection", () => {
     const r = runKube("kube-forward-ports", ["web=abc"]);
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
     expect(r.out).toContain("Ports must be numeric");
     expect(callsContain("kube-pod-select")).toBe(false);
   });
 
   it("kube-intercept: invalid mapping format is refused before any telepresence call", () => {
     const r = runKube("kube-intercept", ["nonsense"]);
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
     expect(r.out).toContain("Invalid mapping format");
     expect(callsContain("telepresence ")).toBe(false);
   });

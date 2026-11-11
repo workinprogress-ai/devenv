@@ -7,9 +7,24 @@ export default tseslint.config(
     ignores: ["node_modules/", "tmp/", "playground/", "write_file/", ".local-artifacts/",
       // Machine-managed repo cache (refreshed by repo-cache-update) can hold
       // third-party TS snapshots — never lint them.
-      "tools/cache/"],
+      "tools/cache/",
+      // A template with REL_LIB placeholders is not valid TypeScript until
+      // tooling-create-script instantiates it.
+      "tools/templates/"],
   },
   ...tseslint.configs.recommended,
+  {
+    // Promise misuse is a type-level defect (an unawaited auth check can never
+    // fail), so these two rules run type-aware over every TypeScript source.
+    files: ["tools/**/*.ts"],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+    },
+  },
   {
     rules: {
       // Named constants only — the suite-wide exit-code contract.

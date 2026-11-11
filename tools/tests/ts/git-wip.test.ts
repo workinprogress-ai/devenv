@@ -5,13 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, appendFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const TOOLS = join(ROOT, "tools");
 
 let TMP = "";
 let REMOTE_REPO = "";
@@ -44,7 +42,7 @@ function porcelain(): string {
 }
 
 function wip(note: string): { status: number; out: string } {
-  const r = spawnSync("bash", [join(TOOLS, "git-wip"), "--allow-non-tty", note], {
+  const r = spawnSync("node", [toolScript("git-wip"), "--allow-non-tty", note], {
     cwd: TEST_REPO,
     encoding: "utf8",
     env: GIT_ENV(),
@@ -53,7 +51,7 @@ function wip(note: string): { status: number; out: string } {
 }
 
 function wipRaw(args: string[], extraEnv: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync("bash", [join(TOOLS, "git-wip"), ...args], {
+  const r = spawnSync("node", [toolScript("git-wip"), ...args], {
     cwd: TEST_REPO,
     encoding: "utf8",
     env: { ...GIT_ENV(), ...extraEnv },
@@ -62,12 +60,12 @@ function wipRaw(args: string[], extraEnv: Record<string, string> = {}): { status
 }
 
 function unwip(): { status: number; out: string } {
-  const r = spawnSync("bash", [join(TOOLS, "git-unwip")], { cwd: TEST_REPO, encoding: "utf8", env: GIT_ENV() });
+  const r = spawnSync("node", [toolScript("git-unwip")], { cwd: TEST_REPO, encoding: "utf8", env: GIT_ENV() });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
 function recover(args: string[]): { status: number; out: string } {
-  const r = spawnSync("bash", [join(TOOLS, "git-wip-recover"), ...args], {
+  const r = spawnSync("node", [toolScript("git-wip-recover"), ...args], {
     cwd: TEST_REPO,
     encoding: "utf8",
     env: GIT_ENV(),
@@ -89,6 +87,9 @@ beforeEach(() => {
   git(["add", "file.txt"]);
   git(["commit", "-q", "-m", "initial"]);
   git(["push", "-q", "-u", "origin", "HEAD"]);
+  // git-wip refuses on protected branches: the suite works on a feature branch.
+  git(["checkout", "-q", "-b", "feature/wip-suite"]);
+  git(["push", "-q", "-u", "origin", "feature/wip-suite"]);
 });
 
 afterEach(() => {
@@ -98,14 +99,12 @@ afterEach(() => {
 describe("scripts/git-wip", () => {
   // ---------------- git-wip ----------------
 
-  it("git-wip script exists and is executable", () => {
-    spawnSync("chmod", ["+x", join(TOOLS, "git-wip")]);
-    expect(existsSync(join(TOOLS, "git-wip"))).toBe(true);
-    expect(spawnSync("test", ["-x", join(TOOLS, "git-wip")]).status).toBe(0);
+  it("git-wip entry exists", () => {
+    expect(existsSync(toolScript("git-wip"))).toBe(true);
   });
 
-  it("git-wip script has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", join(TOOLS, "git-wip")]).status).toBe(0);
+  it("git-wip entry has valid TypeScript syntax", () => {
+    expect(spawnSync("node", ["--check", toolScript("git-wip")]).status).toBe(0);
   });
 
   it("git-wip creates a WIP commit", () => {
@@ -230,14 +229,12 @@ describe("scripts/git-wip", () => {
 
   // ---------------- git-unwip ----------------
 
-  it("git-unwip script exists and is executable", () => {
-    spawnSync("chmod", ["+x", join(TOOLS, "git-unwip")]);
-    expect(existsSync(join(TOOLS, "git-unwip"))).toBe(true);
-    expect(spawnSync("test", ["-x", join(TOOLS, "git-unwip")]).status).toBe(0);
+  it("git-unwip entry exists", () => {
+    expect(existsSync(toolScript("git-unwip"))).toBe(true);
   });
 
-  it("git-unwip script has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", join(TOOLS, "git-unwip")]).status).toBe(0);
+  it("git-unwip entry has valid TypeScript syntax", () => {
+    expect(spawnSync("node", ["--check", toolScript("git-unwip")]).status).toBe(0);
   });
 
   it("git-unwip soft-resets past WIP commit", () => {
@@ -290,14 +287,12 @@ describe("scripts/git-wip", () => {
 
   // ---------------- git-wip-recover ----------------
 
-  it("git-wip-recover script exists and is executable", () => {
-    spawnSync("chmod", ["+x", join(TOOLS, "git-wip-recover")]);
-    expect(existsSync(join(TOOLS, "git-wip-recover"))).toBe(true);
-    expect(spawnSync("test", ["-x", join(TOOLS, "git-wip-recover")]).status).toBe(0);
+  it("git-wip-recover entry exists", () => {
+    expect(existsSync(toolScript("git-wip-recover"))).toBe(true);
   });
 
-  it("git-wip-recover script has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", join(TOOLS, "git-wip-recover")]).status).toBe(0);
+  it("git-wip-recover entry has valid TypeScript syntax", () => {
+    expect(spawnSync("node", ["--check", toolScript("git-wip-recover")]).status).toBe(0);
   });
 
   it("git-wip-recover fails gracefully when no ref exists", () => {

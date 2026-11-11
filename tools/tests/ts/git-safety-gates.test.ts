@@ -9,7 +9,6 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isDevenvRepo, isNestedDevenvClone } from "../../lib/core/git.ts";
-import { providerRepoTarget } from "../../lib/providers/provider-core.ts";
 
 const HERE = import.meta.dirname;
 

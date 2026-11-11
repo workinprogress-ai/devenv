@@ -23,6 +23,12 @@ providerDeclareCapability("native-issue-types");
 // Shared helpers
 // ---------------------------------------------------------------------------
 
+/** The `owner/repo` of a REST path: an unset or empty spec is gh's own
+ * `{owner}/{repo}` placeholder (resolved from the working directory). */
+function restRepo(spec?: string): string {
+  return spec || "{owner}/{repo}";
+}
+
 /** `-R owner/repo` when a spec is present; empty array otherwise (the bash
  * `provider_repo_args` contract — an empty spec means gh's cwd resolution). */
 function repoArgs(spec?: string): string[] {
@@ -131,18 +137,24 @@ export async function issuesView(
   return (await ghApi(args)).stdout;
 }
 
-/** Presence test: exit-status semantics (no output), errors tolerated. */
+/** Presence test. Only a not-found reply is `false`; an auth, network or
+ * server failure is rethrown so an outage never reads as "absent". */
 export async function issuesExists(spec: string | undefined, number: number): Promise<boolean> {
   const r = await ghApi(["issue", "view", String(number), ...repoArgs(spec), "--json", "number"], {
     tolerateFailure: true,
   });
-  return r.status === 0;
+  if (r.status === 0) return true;
+  // Only the issue's own absence: "Could not resolve to a Repository" (or an
+  // organization) is a wrong target, which must surface as an error.
+  if (/Could not resolve to an Issue/i.test(r.stderr)) return false;
+  if (/HTTP 404/i.test(r.stderr) && !/Could not resolve to a/i.test(r.stderr)) return false;
+  const detail = r.stderr.trim().split("\n")[0] ?? "";
+  throw new ProviderError(`gh issue view failed (exit ${r.status})${detail === "" ? "" : `: ${detail}`}`);
 }
 
 /** List an issue's comments (paginated), projected to the seam shape. */
 export async function issuesComments(spec: string | undefined, number: number): Promise<string> {
-  const repo = spec ?? "{owner}/{repo}";
-  const r = await ghApiPaginate(["api", `repos/${repo}/issues/${number}/comments`]);
+  const r = await ghApiPaginate(["api", `repos/${restRepo(spec)}/issues/${number}/comments`]);
   return JSON.stringify(neutralComment(parseCommentsPayload(r.stdout)));
 }
 
@@ -173,8 +185,7 @@ export function parseCommentsPayload(raw: string): unknown {
 
 /** List milestones (raw gh REST JSON — the bash verb's pass-through). */
 export async function issuesMilestones(spec: string | undefined): Promise<string> {
-  const repo = spec ?? "{owner}/{repo}";
-  return (await ghApi(["api", `repos/${repo}/milestones`])).stdout;
+  return (await ghApi(["api", `repos/${restRepo(spec)}/milestones`])).stdout;
 }
 
 // ---------------------------------------------------------------------------
@@ -270,9 +281,33 @@ export async function issuesComment(
   number: number,
   opts: { body?: string; bodyFile?: string },
 ): Promise<string> {
+  if (opts.body !== undefined && opts.bodyFile !== undefined) {
+    throw new ProviderError("provider_issues_comment: --body and --body-file are mutually exclusive");
+  }
+  if (opts.body === undefined && opts.bodyFile === undefined) {
+    throw new ProviderError("provider_issues_comment requires --body");
+  }
+  if (opts.body !== undefined && opts.body.trim() === "") {
+    throw new ProviderError("provider_issues_comment: the comment body is empty");
+  }
   const args: string[] = ["issue", "comment", String(number), ...repoArgs(spec)];
   if (opts.body !== undefined) args.push("--body", opts.body);
-  if (opts.bodyFile !== undefined) args.push("--body-file", opts.bodyFile);
+  if (opts.bodyFile !== undefined) {
+    // The content decides emptiness, as for an inline body. stdin ('-') can be
+    // read only once, so its text is handed over as the body instead.
+    const { readFileSync } = await import("node:fs");
+    let text: string;
+    try {
+      text = opts.bodyFile === "-" ? readFileSync(0, "utf8") : readFileSync(opts.bodyFile, "utf8");
+    } catch (err) {
+      throw new ProviderError(`provider_issues_comment: cannot read body file '${opts.bodyFile}': ${(err as Error).message}`);
+    }
+    if (text.trim() === "") {
+      throw new ProviderError("provider_issues_comment: the comment body is empty");
+    }
+    if (opts.bodyFile === "-") args.push("--body", text);
+    else args.push("--body-file", opts.bodyFile);
+  }
   return (await ghApi(args)).stdout;
 }
 
@@ -281,8 +316,15 @@ export async function issuesComment(
 // ---------------------------------------------------------------------------
 
 function commentEndpoint(spec: string | undefined, suffix: string): string {
-  const repo = spec ?? "{owner}/{repo}";
-  return `repos/${repo}/${suffix}`;
+  return `repos/${restRepo(spec)}/${suffix}`;
+}
+
+/** A comment ref is the numeric REST id; anything else would be interpolated
+ * into a URL path. */
+function checkCommentRef(commentRef: string): void {
+  if (!/^\d+$/.test(commentRef)) {
+    throw new ProviderError(`comment ref '${commentRef}' is malformed — expected the numeric comment id`);
+  }
 }
 
 async function readCommentBody(opts: { body?: string; bodyFile?: string }, verb: string): Promise<string> {
@@ -320,6 +362,7 @@ export async function issuesCommentAdd(
 
 /** Fetch one comment as seam-shaped JSON; fails defined when absent. */
 export async function issuesCommentGet(spec: string | undefined, commentRef: string): Promise<string> {
+  checkCommentRef(commentRef);
   const r = await ghApi(["api", commentEndpoint(spec, `issues/comments/${commentRef}`)], {
     tolerateFailure: true,
   });
@@ -335,6 +378,7 @@ export async function issuesCommentEdit(
   commentRef: string,
   opts: { body?: string; bodyFile?: string },
 ): Promise<string> {
+  checkCommentRef(commentRef);
   const body = await readCommentBody(opts, "provider_issues_comment_edit");
   // Large bodies exceed the exec argv limit (E2BIG at ~128KB): hand gh the
   // body on stdin via --input instead of an inline -f arg. --input expects
@@ -477,29 +521,50 @@ export async function issueGraphUnlink(
   ]);
 }
 
-/** List a parent's sub-issue children (numbers). Up to 50: beyond any
- * planned decomposition — a larger tree should split, not query deeper. */
+/** List a parent's sub-issue children (numbers), following every page so a
+ * wide tree is never silently truncated. */
 export async function issueGraphChildren(spec: string | undefined, parent: number): Promise<number[]> {
   const { owner, name } = ownerName(spec);
-  const r = await ghApi([
-    "api",
-    "graphql",
-    "-f",
-    "query=query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){subIssues(first:50){nodes{number}}}}}",
-    "-f",
-    `o=${owner}`,
-    "-f",
-    `r=${name}`,
-    "-F",
-    `n=${parent}`,
-    "--jq",
-    ".data.repository.issue.subIssues.nodes[].number",
-  ]);
-  return r.stdout
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l !== "")
-    .map((l) => Number.parseInt(l, 10));
+  const numbers: number[] = [];
+  let after = "";
+  for (;;) {
+    const r = await ghApi([
+      "api",
+      "graphql",
+      "-f",
+      "query=query($o:String!,$r:String!,$n:Int!,$after:String){repository(owner:$o,name:$r){issue(number:$n){subIssues(first:50,after:$after){pageInfo{hasNextPage endCursor} nodes{number}}}}}",
+      "-f",
+      `o=${owner}`,
+      "-f",
+      `r=${name}`,
+      "-F",
+      `n=${parent}`,
+      ...(after === "" ? [] : ["-f", `after=${after}`]),
+    ]);
+    const page = parseSubIssuesPage(r.stdout, parent);
+    numbers.push(...page.numbers);
+    if (!page.hasNext) return numbers;
+    after = page.cursor;
+  }
+}
+
+function parseSubIssuesPage(raw: string, parent: number): { numbers: number[]; hasNext: boolean; cursor: string } {
+  let sub: { pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }; nodes?: Array<{ number?: number }> } | undefined;
+  try {
+    sub = (JSON.parse(raw) as { data?: { repository?: { issue?: { subIssues?: typeof sub } } } }).data?.repository?.issue?.subIssues;
+  } catch {
+    sub = undefined;
+  }
+  if (sub === undefined || sub === null) {
+    throw new ProviderError(`could not read the sub-issues of #${parent}`);
+  }
+  const hasNext = sub.pageInfo?.hasNextPage === true;
+  const cursor = sub.pageInfo?.endCursor ?? "";
+  if (hasNext && cursor === "") {
+    throw new ProviderError(`sub-issues of #${parent}: the next page has no cursor`);
+  }
+  const numbers = (sub.nodes ?? []).map((n) => n.number).filter((n): n is number => typeof n === "number");
+  return { numbers, hasNext, cursor };
 }
 
 /** Resolve an issue's native parent number, or null when unlinked. */

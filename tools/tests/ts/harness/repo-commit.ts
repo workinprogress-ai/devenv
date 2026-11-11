@@ -72,7 +72,7 @@ export function createRepoCommitHarness(options: HarnessOptions = {}): Harness {
   if (options.barePathBin) {
     binDir = join(root, "bin");
     mkdirSync(binDir, { recursive: true });
-    for (const c of ["node", "git", "sh"]) {
+    for (const c of ["node", "git", "sh", "script"]) {
       const abs = spawnSync("sh", ["-c", `command -v ${c}`], { encoding: "utf8" }).stdout.trim();
       if (abs !== "") symlinkSync(abs, join(binDir, c));
     }
@@ -179,8 +179,10 @@ export interface RunToolOptions {
   barePath?: boolean;
   /** Extra env overrides. */
   env?: Record<string, string>;
-  /** Stdin for the invocation (default empty; TTY is never attached under vitest). */
+  /** Stdin for the invocation (default empty). Under the default pty it is typed into the terminal. */
   input?: string;
+  /** Run with plain pipes instead of a pty (the editor gate then refuses). Default false: the tool runs under `script` so stdin/stdout are TTYs. */
+  noTty?: boolean;
   /** Run from a different cwd (default: the harness repo). */
   cwd?: string;
 }
@@ -195,7 +197,8 @@ export function harnessRunTool(
   if (opts.envEditor !== undefined) env.GIT_EDITOR = opts.envEditor;
   if (opts.barePath && h.binDir !== null) env.PATH = h.binDir;
   if (opts.env !== undefined) for (const [k, v] of Object.entries(opts.env)) env[k] = v;
-  const r = spawnSync("node", [h.tool, ...args], {
+  const [cmd, cmdArgs] = opts.noTty === true ? ["node", [h.tool, ...args]] : ttyCommand("node", [h.tool, ...args]);
+  const r = spawnSync(cmd, cmdArgs, {
     encoding: "utf8",
     cwd: opts.cwd ?? h.repo,
     env,
@@ -204,10 +207,32 @@ export function harnessRunTool(
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
+const shellQuote = (v: string): string => `'${v.replace(/'/g, `'\\''`)}'`;
+
+/** Wrap a command so it runs with a pseudo-terminal on stdin and stdout
+ * (util-linux `script`; -e propagates the child's exit status). */
+export function ttyCommand(command: string, args: string[]): [string, string[]] {
+  return ["script", ["-qec", [command, ...args].map(shellQuote).join(" "), "/dev/null"]];
+}
+
 /** A commit made directly (bypassing the tool — it seeds state). Returns the new HEAD sha. */
 export function harnessSeedCommit(h: Harness, msg: string, file: string): string {
   writeFileSync(join(h.repo, file), `${msg}\n`);
   harnessGit(h, "add", "--", file);
   harnessGit(h, "commit", "-q", "--no-verify", "-m", msg);
   return harnessGit(h, "rev-parse", "HEAD").trim();
+}
+
+/** Run the checkout's own tools/ts/repo-commit.ts under a pty (the editor
+ * gate requires a terminal on stdin and stdout). `env` overrides are layered
+ * on process.env; an `undefined` value removes the key. */
+export function runRepoCommitTty(
+  args: string[],
+  opts: { cwd: string; env?: Record<string, string | undefined> },
+): { status: number; out: string } {
+  const env: Record<string, string | undefined> = { ...process.env, ...opts.env };
+  for (const k of Object.keys(env)) if (env[k] === undefined) delete env[k];
+  const [cmd, cmdArgs] = ttyCommand("node", [join(TOOLS_DIR, "ts", "repo-commit.ts"), ...args]);
+  const r = spawnSync(cmd, cmdArgs, { encoding: "utf8", cwd: opts.cwd, env: env as NodeJS.ProcessEnv, input: "" });
+  return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }

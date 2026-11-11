@@ -25,6 +25,9 @@ import { selfRoot } from "../core/self-root.ts";
 import { fileURLToPath } from "node:url";
 import { githubExplain } from "./github/explain.ts";
 import { azureExplain } from "./azure/explain.ts";
+import { authStatusOk as azureAuthStatusOk, azurePatGet } from "./azure/auth.ts";
+import { remoteToSpec as azureRemoteToSpec } from "./azure/urls.ts";
+import { remoteToSpec as githubRemoteToSpec } from "./github/urls.ts";
 
 /** The devenv checkout root this module operates on. Derived from this
  * file's own location (self-root contract); DEVENV_TOOLBOX_ROOT is a
@@ -50,9 +53,12 @@ export type ProviderName = (typeof TS_PROVIDERS)[number];
 /** Thrown by facade verbs on contract violations and transport failures.
  * `message` mirrors the bash error contract's wording so parity is greppable. */
 export class ProviderError extends Error {
-  constructor(message: string) {
+  /** The HTTP status of the failing response, when the error came from one. */
+  readonly status?: number;
+  constructor(message: string, status?: number) {
     super(message);
     this.name = "ProviderError";
+    if (status !== undefined) this.status = status;
   }
 }
 
@@ -114,8 +120,38 @@ export function providerRepoTarget(spec?: string): string {
     return "";
   }
   if (root === "") return "";
+  // The origin remote names the repository: a clone directory is free to be
+  // called anything, and Azure's spec is project/repo, not org/dirname.
+  const fromOrigin = originSpec();
+  if (fromOrigin !== "") return fromOrigin;
   const name = root.split("/").pop() ?? "";
   return name === "" ? "" : `${org}/${name}`;
+}
+
+/** The working tree's `origin` remote as the active provider's repo spec;
+ * "" when there is no origin or it is not one of the provider's remotes. */
+function originSpec(): string {
+  let remote = "";
+  try {
+    remote = execFileSync("git", ["remote", "get-url", "origin"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+  if (remote === "") return "";
+  try {
+    // Azure clone URLs commonly carry the org as userinfo
+    // (https://org@dev.azure.com/...); the remote parser takes the bare form.
+    const spec =
+      providerDetect() === "azure"
+        ? azureRemoteToSpec(remote.replace(/^(https:\/\/)[^/@]+@(dev\.azure\.com\/)/, "$1$2"))
+        : githubRemoteToSpec(remote);
+    return spec ?? "";
+  } catch {
+    return "";
+  }
 }
 
 /** Require the github provider (the seam functions only github implements
@@ -348,7 +384,7 @@ export { ghApi, ghApiSync, ghApiPaginate } from "./github/transport.ts";
  * unhandled ProviderError. Sync so plain top-level scripts can call it. */
 export function ensureProviderAuth(): void {
   const name: string = providerDetect();
-  const authed = name === "azure" ? azureAuthProbe() : ghAuthProbe();
+  const authed = name === "azure" ? azureAuthStatusOk() : ghAuthProbe();
   if (authed) return;
   console.error("Error: provider CLI is not authenticated. Run: key-update-provider");
   process.exit(EXIT_GENERAL_ERROR);
@@ -368,7 +404,7 @@ function ghAuthProbe(): boolean {
 
 /** The provider's stored token (provider_auth_token_impl parity): github
  * shells `gh auth token` with the env tokens scrubbed (gh would hand back
- * an env token the allowlist refused); azure reads the az CLI token.
+ * an env token the allowlist refused); azure returns the PAT its API calls use.
  * Returns "" when the provider has no token. Secrets are never logged —
  * callers treat the return value as credential material. */
 export function providerAuthToken(): string {
@@ -385,29 +421,10 @@ export function providerAuthToken(): string {
       return "";
     }
   }
-  if (name === "azure") {
-    try {
-      const out = execFileSync("bash", ["-c", "az account get-access-token --query accessToken -o tsv 2>/dev/null"], { encoding: "utf8" });
-      return out.trim();
-    } catch {
-      return "";
-    }
-  }
+  // Every Azure call authenticates with the PAT (the az CLI token is never
+  // used), so the PAT is the stored token.
+  if (name === "azure") return azurePatGet();
   return "";
-}
-
-/** azure auth probe — mirrors azure/auth.bash's `provider_auth_status_impl`:
- * a resolvable token with sane file mode means the provider can operate.
- * Never reads the token's value into this process beyond existence. */
-function azureAuthProbe(): boolean {
-  const patFile = process.env.AZURE_PAT_FILE || join(process.env.HOME ?? "", ".keys", "azure-devops-pat");
-  if (!existsSync(patFile)) return false;
-  try {
-    const mode = execFileSync("stat", ["-c", "%a", patFile], { encoding: "utf8" }).trim();
-    return mode === "600";
-  } catch {
-    return false;
-  }
 }
 
 // ---------------------------------------------------------------------------

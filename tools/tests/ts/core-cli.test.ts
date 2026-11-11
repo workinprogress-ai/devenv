@@ -1,7 +1,7 @@
 // core-cli.test.ts — unit suite for lib/core/cli.ts (toolCli): house-flag
 // parsing, verbose wiring, version exit, caller-table merge, positional
 // passthrough.
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +11,7 @@ const LIB = join(fileURLToPath(new URL(".", import.meta.url)), "../../lib/core/c
 // Simpler and honest: drive toolCli in-process for non-exiting cases and
 // child-process only for the exit case.
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../../lib/core/cli.ts";
-import { LOG_LEVEL_DEBUG, setLogLevel, LOG_LEVEL_INFO } from "../../lib/core/logging.ts";
+import { setLogLevel, LOG_LEVEL_INFO } from "../../lib/core/logging.ts";
 
 afterEach(() => {
   setLogLevel(LOG_LEVEL_INFO);

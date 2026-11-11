@@ -3,9 +3,10 @@
 // the per-tool adoption (not just the shared block function) — the class
 // of defect where a tool renders a block variant its own toolCli config
 // contradicts.
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { rmrf, stubGh, tmpDir, tmpStubBin } from "./harness/index.ts";
 
 const TOOLS = [
   "issue-close",
@@ -188,9 +189,27 @@ function advertisedLongFlags(helpText: string): string[] {
 }
 
 describe("usage↔parse sweep: every advertised flag parses", () => {
+  // Every probe runs in a throwaway git repo with a stubbed gh (authenticated,
+  // answering nothing), so a probe that falls through to a tool's main path can
+  // neither reach a provider backend nor touch the checkout hosting the suite.
+  let stubDir = "";
+  let workDir = "";
+  let probeEnv: NodeJS.ProcessEnv = {};
+  beforeAll(() => {
+    stubDir = tmpStubBin("sweep-bin");
+    stubGh(stubDir);
+    workDir = tmpDir("sweep-work");
+    spawnSync("git", ["init", "-q"], { cwd: workDir });
+    probeEnv = { ...process.env, PATH: `${stubDir}:${process.env.PATH ?? ""}` };
+  });
+  afterAll(() => {
+    rmrf(stubDir);
+    rmrf(workDir);
+  });
+
   it.each([...TOOLS])("%s", (tool) => {
     const toolPath = join(import.meta.dirname, "..", "..", "ts", `${tool}.ts`);
-    const help = spawnSync("node", [toolPath, "--help"], { encoding: "utf8", input: "" });
+    const help = spawnSync("node", [toolPath, "--help"], { encoding: "utf8", input: "", cwd: workDir, env: probeEnv });
     // Some tools render usage to stderr or exit non-zero after help;
     // either is fine — the block just has to be present somewhere.
     const helpText = (help.stdout ?? "") + (help.stderr ?? "");
@@ -209,7 +228,7 @@ describe("usage↔parse sweep: every advertised flag parses", () => {
     if (SKIP_FLAG_PROBES.has(tool)) return;
     for (const flag of flags) {
       if (SIDE_EFFECT_FLAGS.has(flag)) continue;
-      const probe = spawnSync("node", [toolPath, flag], { encoding: "utf8", input: "" });
+      const probe = spawnSync("node", [toolPath, flag], { encoding: "utf8", input: "", cwd: workDir, env: probeEnv });
       const out = (probe.stdout ?? "") + (probe.stderr ?? "");
       expect(out, `${tool}: advertised ${flag} but parse rejects it`).not.toMatch(
         /Unknown option|unknown option/i,

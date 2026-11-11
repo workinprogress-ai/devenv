@@ -6,21 +6,30 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { changeIdGetFromCommit } from "../../core/change-id.ts";
+import { SPAWN_MAX_BUFFER, assertSpawnCompleted } from "../../core/spawn.ts";
+
+/** Synchronous capture with the shared output ceiling; overflow or a signal
+ * kill throws instead of yielding truncated output. */
+function capture(cmd: string, args: string[], opts: { input?: string; env?: NodeJS.ProcessEnv } = {}) {
+  const r = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: SPAWN_MAX_BUFFER, ...opts });
+  assertSpawnCompleted(r, [cmd, ...args]);
+  return r;
+}
 
 export const ADOPTION_MAP_FILE_NAME = "fork-adoption-map";
 export const PICK_VERDICT_PICK = "pick";
 export const PICK_VERDICT_DROP = "drop";
 
 export function gitIn(repo: string, args: string[]): { out: string; ok: boolean } {
-  const r = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+  const r = capture("git", ["-C", repo, ...args]);
   return { out: (r.stdout ?? "").trim(), ok: r.status === 0 };
 }
 
 /** git patch-id --stable of one commit's diff (empty when it cannot be computed). */
 export function patchId(repo: string, commit: string): string {
-  const show = spawnSync("git", ["-C", repo, "show", commit], { encoding: "utf8" });
+  const show = capture("git", ["-C", repo, "show", commit]);
   if (show.status !== 0) return "";
-  const pid = spawnSync("git", ["patch-id", "--stable"], { input: show.stdout, encoding: "utf8" });
+  const pid = capture("git", ["patch-id", "--stable"], { input: show.stdout });
   return (pid.stdout ?? "").split(" ")[0] ?? "";
 }
 
@@ -28,10 +37,10 @@ export function patchId(repo: string, commit: string): string {
 export function patchesIdentical(localRepo: string, upstreamRepo: string, localSha: string, upstreamSha: string): boolean {
   const objects = gitIn(upstreamRepo, ["rev-parse", "--path-format=absolute", "--git-path", "objects"]).out;
   const env = { ...process.env, GIT_ALTERNATE_OBJECT_DIRECTORIES: objects };
-  const a = spawnSync("git", ["-C", localRepo, "show", localSha], { encoding: "utf8", env });
-  const pa = spawnSync("git", ["patch-id", "--stable"], { input: a.stdout, encoding: "utf8" });
-  const b = spawnSync("git", ["-C", localRepo, "show", upstreamSha], { encoding: "utf8", env });
-  const pb = spawnSync("git", ["patch-id", "--stable"], { input: b.stdout, encoding: "utf8" });
+  const a = capture("git", ["-C", localRepo, "show", localSha], { env });
+  const pa = capture("git", ["patch-id", "--stable"], { input: a.stdout });
+  const b = capture("git", ["-C", localRepo, "show", upstreamSha], { env });
+  const pb = capture("git", ["patch-id", "--stable"], { input: b.stdout });
   const va = (pa.stdout ?? "").split(" ")[0] ?? "";
   const vb = (pb.stdout ?? "").split(" ")[0] ?? "";
   return va !== "" && va === vb;

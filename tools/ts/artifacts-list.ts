@@ -16,8 +16,6 @@ import { formatTable } from "../lib/ui/panels.ts";
 
 assertNodeFloor();
 
-ensureProviderAuth();
-
 let owner = "";
 let type = "";
 let name = "";
@@ -36,7 +34,7 @@ Options:
     --type TYPE                 Package type: npm, nuget, docker, maven, ...
     --name NAME                 Filter by package name (case-insensitive contains)
     --repo REPO                 Filter to one repository (name or path)
-    --sort FIELD                Sort field: name, type, created_at, updated_at
+    --sort FIELD                Sort field: name, type, package_type, created_at, updated_at
     --versions                  List versions of --type/--name package
     --format FORMAT             table (default) or json
 ${usageCommonFlags({ noDryRun: true })}
@@ -55,7 +53,6 @@ try {
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
     noDryRun: true,
-    strict: false,
     options: {
       owner: { type: "string" },
       type: { type: "string" },
@@ -74,11 +71,20 @@ try {
   repo = (cli.values["repo"] as string | undefined) ?? "";
   sortField = (cli.values["sort"] as string | undefined) ?? "name";
   listVersions = cli.values["versions"] === true;
+  if (!["name", "type", "package_type", "created_at", "updated_at"].includes(sortField)) {
+    throw new Error(`Invalid sort field: ${sortField} (must be name, type, package_type, created_at or updated_at)`);
+  }
+  if (format !== "table" && format !== "json") {
+    throw new Error(`Invalid format: ${format} (must be table or json)`);
+  }
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
+
+// Authenticate only after the arguments parsed: help and misuse need no provider.
+ensureProviderAuth();
 
 // Resolve owner via the provider org accessor when not provided.
 if (owner === "") owner = providerOrgGet();
@@ -208,19 +214,11 @@ if (format === "json") {
   console.log(JSON.stringify(packages, null, 2));
   process.exit(0);
 }
-if (format !== "table") {
-  logError(`Invalid format: ${format} (must be table or json)`);
-  process.exit(EXIT_MISUSE);
-}
 
 logInfo(`Found ${packages.length} package(s)`);
 console.log("");
 
 const jsonField = sortField === "type" ? "package_type" : sortField;
-if (!["name", "package_type", "created_at", "updated_at"].includes(jsonField)) {
-  logError(`Invalid sort field: ${sortField}`);
-  process.exit(EXIT_GENERAL_ERROR);
-}
 const sorted = [...packages].sort((a, b) => {
   const av = String((a as Record<string, unknown>)[jsonField] ?? "");
   const bv = String((b as Record<string, unknown>)[jsonField] ?? "");

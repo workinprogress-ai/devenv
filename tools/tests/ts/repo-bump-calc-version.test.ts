@@ -6,13 +6,11 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, appendFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const TOOLS = join(ROOT, "tools");
 
 let TMP = "";
 let WORK_REPO = "";
@@ -51,23 +49,23 @@ afterEach(() => {
 
 describe("scripts/repo-bump-version", () => {
   it("repo-bump-version.sh has valid syntax", () => {
-    expect(spawnSync("bash", ["-n", join(TOOLS, "repo-bump-version")]).status).toBe(0);
+    expect(spawnSync("node", ["--check", toolScript("repo-bump-version")]).status).toBe(0);
   });
 
   it("repo-bump-version.sh shows usage when missing args", () => {
-    const r = spawnSync(join(TOOLS, "repo-bump-version"), [], { encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("repo-bump-version")], { encoding: "utf8", env: GIT_ENV() });
     expect(r.status).not.toBe(0);
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("Usage:");
   });
 
   it("repo-bump-version.sh rejects invalid change types", () => {
-    const r = spawnSync(join(TOOLS, "repo-bump-version"), ["invalid", "repo-one"], { encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("repo-bump-version"), "invalid", "repo-one"], { encoding: "utf8", env: GIT_ENV() });
     expect(r.status).not.toBe(0);
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("Invalid change-type");
   });
 
   it("repo-bump-version.sh requires repository list", () => {
-    const r = spawnSync("bash", ["-c", `'${join(TOOLS, "repo-bump-version")}' patch < /dev/null 2>&1`], { encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("bash", ["-c", `node '${toolScript("repo-bump-version")}' patch < /dev/null 2>&1`], { encoding: "utf8", env: GIT_ENV() });
     expect(r.status).not.toBe(0);
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("No repositories provided");
   });
@@ -75,7 +73,7 @@ describe("scripts/repo-bump-version", () => {
 
 describe("scripts/repo-calc-version", () => {
   it("repo-calc-version returns default start when no tags", () => {
-    const r = spawnSync(join(TOOLS, "repo-calc-version"), [], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("repo-calc-version")], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).toBe(0);
     expect((r.stdout ?? "").trim()).toBe("1.0.0");
   });
@@ -85,7 +83,7 @@ describe("scripts/repo-calc-version", () => {
     appendFileSync(join(WORK_REPO, "README.md"), "bugfix\n");
     spawnSync("git", ["add", "README.md"], { cwd: WORK_REPO, env: GIT_ENV() });
     git(["commit", "-q", "-m", "fix: bug"]);
-    const r = spawnSync(join(TOOLS, "repo-calc-version"), [], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("repo-calc-version")], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).toBe(0);
     expect((r.stdout ?? "").trim()).toBe("1.2.1");
   });
@@ -95,7 +93,7 @@ describe("scripts/repo-calc-version", () => {
     appendFileSync(join(WORK_REPO, "README.md"), "feature\n");
     spawnSync("git", ["add", "README.md"], { cwd: WORK_REPO, env: GIT_ENV() });
     git(["commit", "-q", "-m", "feat: add thing"]);
-    const r = spawnSync(join(TOOLS, "repo-calc-version"), [], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("repo-calc-version")], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).toBe(0);
     expect((r.stdout ?? "").trim()).toBe("1.3.0");
   });
@@ -105,7 +103,7 @@ describe("scripts/repo-calc-version", () => {
     appendFileSync(join(WORK_REPO, "README.md"), "breaking\n");
     spawnSync("git", ["add", "README.md"], { cwd: WORK_REPO, env: GIT_ENV() });
     git(["commit", "-q", "-m", "feat!: breaking change"]);
-    const r = spawnSync(join(TOOLS, "repo-calc-version"), [], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("repo-calc-version")], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).toBe(0);
     expect((r.stdout ?? "").trim()).toBe("2.0.0");
   });
@@ -120,7 +118,7 @@ describe("scripts/repo-calc-version", () => {
     appendFileSync(join(WORK_REPO, "README.md"), "bugfix\n");
     spawnSync("git", ["add", "README.md"], { cwd: WORK_REPO, env: GIT_ENV() });
     git(["commit", "-q", "-m", "fix: repair thing"]);
-    const r = spawnSync(join(TOOLS, "repo-calc-version"), [], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("repo-calc-version")], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).toBe(0);
     // minor from feat wins over patch from fix — both were seen
     expect((r.stdout ?? "").trim()).toBe("1.3.0");
@@ -135,7 +133,7 @@ describe("scripts/repo-calc-version", () => {
     appendFileSync(join(WORK_REPO, "README.md"), "breaking\n");
     spawnSync("git", ["add", "README.md"], { cwd: WORK_REPO, env: GIT_ENV() });
     git(["commit", "-q", "-m", "fix!: reworked thing"]);
-    const r = spawnSync(join(TOOLS, "repo-calc-version"), [], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("repo-calc-version")], { cwd: WORK_REPO, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).toBe(0);
     expect((r.stdout ?? "").trim()).toBe("2.0.0");
   });

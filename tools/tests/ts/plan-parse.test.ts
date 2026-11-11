@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const TOOL = join(ROOT, "tools", "plan-parse");
+const TOOL = join(ROOT, "tools", "ts", "plan-parse.ts");
 
 let TMP = "";
 let PLAN_DIR = "";
@@ -74,7 +74,7 @@ function jqOk(json: string, expr: string): boolean {
 let LAST = { status: 0, out: "" };
 
 function parse(args: string[]): { status: number; out: string } {
-  const r = spawnSync(TOOL, args, { encoding: "utf8" });
+  const r = spawnSync("node", [TOOL, ...args], { encoding: "utf8" });
   const out = (r.stdout ?? "") + (r.stderr ?? "");
   LAST = { status: r.status ?? 1, out };
   return LAST;

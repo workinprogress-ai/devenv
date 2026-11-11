@@ -108,12 +108,18 @@ if ((modeProbe.stdout ?? "").trim() !== "600") {
   die(`PAT file mode is ${(modeProbe.stdout ?? "").trim()}, expected 600 — refusing to keep it`);
 }
 console.log(`    Azure DevOps PAT stored (${patFile})`);
+// The API client reads AZURE_PAT before the file, so a stale exported value
+// would keep overriding the token just rotated.
+const envPat = process.env.AZURE_PAT ?? "";
+if (envPat !== "" && envPat !== newToken) {
+  logWarn("AZURE_PAT is set in this environment and differs from the new token; it takes precedence over the PAT file. Unset it (or update it) or API calls keep using the old token.");
+}
 
 // Git credential helper wiring (the auth impl's second half).
 const toolsRoot = join(selfRoot(import.meta.url), "tools");
 const helper = spawnSync(
   "bash",
-  ["-c", `source '${toolsRoot}/lib/providers/provider-core.bash' && export PROVIDER_NAME=azure && provider_load auth && provider_auth_setup_git`],
+  ["-c", 'source "$1/lib/providers/provider-core.bash" && export PROVIDER_NAME=azure && provider_load auth && provider_auth_setup_git', "x", toolsRoot],
   { stdio: ["ignore", "inherit", "inherit"], encoding: "utf8" },
 );
 if (helper.status !== 0) {
@@ -129,7 +135,7 @@ const npmrc = join(process.env.HOME ?? "", ".npmrc");
 if (process.env.HOME !== undefined && process.env.HOME !== "") {
   const npm = spawnSync(
     "bash",
-    ["-c", `source '${toolsRoot}/lib/providers/provider-core.bash' && export PROVIDER_NAME=azure && provider_load bootstrap && provider_bootstrap_call configure_npmrc '$1' npmrc`, "x", npmrc],
+    ["-c", 'source "$1/lib/providers/provider-core.bash" && export PROVIDER_NAME=azure && provider_load bootstrap && provider_bootstrap_call configure_npmrc "$2" npmrc', "x", toolsRoot, npmrc],
     { stdio: ["ignore", "inherit", "inherit"], encoding: "utf8" },
   );
   if (npm.status !== 0) {
@@ -139,7 +145,7 @@ if (process.env.HOME !== undefined && process.env.HOME !== "") {
 }
 const nuget = spawnSync(
   "bash",
-  ["-c", `source '${toolsRoot}/lib/providers/provider-core.bash' && export PROVIDER_NAME=azure && provider_load bootstrap && provider_bootstrap_call configure_nuget`],
+  ["-c", 'source "$1/lib/providers/provider-core.bash" && export PROVIDER_NAME=azure && provider_load bootstrap && provider_bootstrap_call configure_nuget', "x", toolsRoot],
   { stdio: ["ignore", "inherit", "inherit"], encoding: "utf8" },
 );
 if (nuget.status !== 0) {

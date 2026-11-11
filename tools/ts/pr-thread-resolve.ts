@@ -12,7 +12,7 @@ import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
-import { checkTargetRepo } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadResolve } from "../lib/providers/facade/prs.ts";
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
 
@@ -97,7 +97,7 @@ async function main(argv: string[]): Promise<number> {
 
   let isResolved: string;
   try {
-    isResolved = (await prsThreadResolve(threadId)).stdout.trim();
+    isResolved = (await prsThreadResolve(providerRepoTarget(""), threadId)).stdout.trim();
   } catch {
     logError(`Failed to resolve thread: ${threadId}`);
     return EXIT_API_FAILURE;

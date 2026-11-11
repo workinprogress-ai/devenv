@@ -6,13 +6,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const SCRIPT = join(ROOT, "tools", "repo-cache-update");
+const SCRIPT = toolScript("repo-cache-update");
 
 let TMP = "";
 let REPO_CACHE_DIR = "";
@@ -38,7 +37,7 @@ function runUpdate(extraEnv: Record<string, string> = {}, unset: string[] = []):
     ...extraEnv,
   };
   for (const key of unset) delete envVars[key];
-  const r = spawnSync("bash", [SCRIPT, "--no-refresh"], { encoding: "utf8", env: envVars });
+  const r = spawnSync("node", [SCRIPT, "--no-refresh"], { encoding: "utf8", env: envVars });
   return { status: r.status ?? 1, out: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 

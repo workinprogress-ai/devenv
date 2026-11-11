@@ -7,6 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
@@ -33,7 +34,7 @@ function gitIn(repo: string, args: string[]): { status: number; stdout: string }
 }
 
 function deepen(args: string[]): { status: number; out: string } {
-  const r = spawnSync("bash", [join(TOOLS, "repo-cache-deepen"), ...args], {
+  const r = spawnSync("node", [toolScript("repo-cache-deepen"), ...args], {
     encoding: "utf8",
     env: { ...GIT_ENV(), REPO_CACHE_DIR, DEVENV_TOOLS: TOOLS },
   });
@@ -71,12 +72,13 @@ afterEach(() => {
 
 describe("scripts/repo-cache-deepen", () => {
   it("repo-cache-deepen script exists and is executable", () => {
-    spawnSync("chmod", ["+x", join(TOOLS, "repo-cache-deepen")]);
-    expect(spawnSync("test", ["-x", join(TOOLS, "repo-cache-deepen")]).status).toBe(0);
+    // The depth-1 stub is an install artifact; the tool is run as `node tools/ts/<name>.ts`,
+    // so existence and readability of the TypeScript entry point is the contract.
+    expect(spawnSync("test", ["-r", toolScript("repo-cache-deepen")]).status).toBe(0);
   });
 
   it("repo-cache-deepen script has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", join(TOOLS, "repo-cache-deepen")]).status).toBe(0);
+    expect(spawnSync("node", ["--check", toolScript("repo-cache-deepen")]).status).toBe(0);
   });
 
   it("repo-cache-deepen requires --repo", () => {

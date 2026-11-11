@@ -42,7 +42,7 @@ don't re-derive them:
   work-item **comments** are a preview resource requiring a
   `-preview` version pinned on the URL (plain 7.1 → 400; the code pins
   `7.2-preview.4` — the version that carries the `format` attribute).
-  The transport (`http.bash`) passes a URL-pinned api-version through
+  The transport (`http.ts`) passes a URL-pinned api-version through
   untouched.
 - **Two body regimes**: work-item create/edit endpoints require
   `application/json-patch+json` (plain JSON → 400); **PR endpoints
@@ -118,23 +118,29 @@ would need a different provider shape entirely. Constraint, not bug.
 View projection (as-built): `provider_issues_view` / list emit every field
 in issue-get's DEFAULT_FIELDS non-null. Mapping: milestone derives from
 `System.IterationLevel2` (iteration path's leaf — typed "" when unset);
-closedAt from `Microsoft.VSTS.Common.ClosedDate`; comments are typed `[]`
-(the count lives on the threads resource — supplementary fetch deferred).
-
+closedAt from `Microsoft.VSTS.Common.ClosedDate`. `comments` is the comment
+count: `view` reads it from the comments resource, `list` from the
+`System.CommentCount` field (`0` when the field is absent), so
+`--json comments` works on both. Every `url` is the work item's browser address
+(`_workitems/edit/N`), never the `_apis/wit/workItems/N` API address.
 
 | GitHub shape | Azure shape | Constraint / note |
 |---|---|---|
 | Issue | Work item, on a board-backed type | Born as the Azure type mapped for its devenv type (see [Work item types](#work-item-types)) |
 | Open/closed | Every state but Closed/Done/Removed is open | `Resolved` is open; `close` moves to the item's own Completed-category state, `reopen` to its first Proposed (else InProgress) state, both read from the type |
 | Close reason | — | Azure has no close reason; `--reason` is accepted and dropped |
-| Labels | `System.Tags` (`a; b`, trimmed on read) | No colors/descriptions — flat strings only; `edit --remove-label` reads, filters and writes back; label list reads the tags endpoint, else the project's work items |
-| Issue types (Bug/Feature/Task/Epic) | Work-item types | Richer than GH types; a type change is a `System.WorkItemType` replace |
-| Edit flags | `--title`, `--body`, `--add-label`, `--remove-label` | Any other flag (`--milestone`, `--add-assignee`) has no Azure write path and fails rather than being dropped |
+| Labels | `System.Tags` (`a; b`, trimmed on read) | No colors/descriptions — flat strings only; `edit` reads the current tags and writes the surviving set; label list reads the tags endpoint, else the project's work items |
+| Issue types (Bug/Feature/Task/Epic) | Work-item types | Richer than GH types; a type change is a `System.WorkItemType` replace through `provider_issues_set_type`, never through `edit` |
+| Edit flags | `--title`, `--body`, `--add-label`, `--remove-label` | Any other flag (`--milestone`, `--add-assignee`) has no Azure write path and fails rather than being dropped. `--type` is accepted only together with `--body`, where it selects the body field; without a body it fails. Without `--type`, the item's current type (one read) selects the body field, so the edit lands in the field `view` reads (a Bug's `ReproSteps`, not a shadowed `Description`). Title, body and tag changes go in **one** JSON-patch, so a failure leaves the item unchanged. |
+| Existence | `GET workitems/N` | Only a not-found answer (HTTP 404, TF401232) is "absent"; auth, network and server failures are errors |
+| Create verification | Read-back of `System.Rev` after the POST | A failed read-back after a successful create returns the new id with a warning, so a retry never duplicates the item |
 | Descriptions | `System.Description` with the markdown multiline format | Items last edited in the portal hold HTML; the read path un-escapes entities for them |
 | Comments | Work-item comments, paged by continuation token | Posted with `?format=markdown` |
 | Per-repo issue list | Project-wide WIQL | **As-built constraint**: lists are project-scoped (`TeamProject = @project`), not per-repo — see [Area-path convention](#area-path-convention-as-built-provisioning-only) |
 | Milestones | Iterations | Config-mapped (existing `[azure] iteration` keys); no API parity claimed |
-| Sub-issue graph (parent/child) | Work-item links (parent/child, relates-to) | Replaces the GH sub-issue graphql; `issue-graph.bash` maps onto relation queries |
+| Sub-issue graph (parent/child) | Work-item links (parent/child, relates-to) | Replaces the GH sub-issue graphql; the issue-graph verbs map onto relation queries. A failed link reports the real error unless the parent already lists the child; an unlink is guarded by a `test` op on `/rev`, so a concurrent relation change fails the write instead of removing a different relation |
+| Blocked-by | `Dependency-Forward` work-item link from the blocked item to each blocker | Distinct from the parent/child hierarchy. The link type is pinned as `Dependency-Forward` (the item carries the link, pointing at the blocker as predecessor) **pending a live check** of the direction against a real organization. The facade applies a blocker list sequentially, because parallel relation writes on one work item race its revision; adding an existing link and removing an absent one are no-op successes |
+| Comment edit | — | No comment-edit primitive is wired: the facade's `issuesCommentEdit` throws a named error (a known gap in [CONTRACT.md](../CONTRACT.md)) |
 | Reactions | — | No native equivalent; not mapped |
 
 ### Area-path convention (as-built: provisioning only)
@@ -164,6 +170,18 @@ names the key to add. The Agile process's `User Story`, `Bug`, `Feature` and
 `Epic` carry the states New, Active, Resolved, Closed (and Removed); an `Issue`
 has only Active and Closed and sits on no board. Whether `Bug` sits on the
 Stories board is a team setting, which the Tier 2 smoke confirms.
+
+## Repository settings
+
+GitHub repository settings (wiki, discussions, merge buttons, forking, template flag) are
+changed through `gh repo edit` flags and `gh api` `-f`/`-F` pairs. Azure has no equivalent
+surface:
+
+| Facade verb | Azure behavior | Why |
+|---|---|---|
+| `reposEdit` | Refused with a named error (`repos_edit is not supported on provider 'azure'`) | A repository has no post-create settings flags; the template link is create-time only |
+| `reposPatch`, `reposPatchWithError` | Throw `… is not supported on provider 'azure'` | The `-f`/`-F` flags name GitHub settings. Azure models merge strategies as project-level branch policies and does not model the rest; mapping the flag dialect onto policies is an open design question, so the facade refuses rather than guessing. The provider module's own `reposPatch` (a key/value PATCH of the repository record) is reachable only below the facade |
+| `reposTeamPut`, `reposCollaboratorPut` | Grant access through the security-namespace ACLs; a provider failure reads as `false` | Permissions map onto Azure's repository permission bits |
 
 ## Projects (boards) ↔ Azure Boards
 
@@ -261,7 +279,7 @@ explicitly. `pr-thread-reply` takes the comment id verbatim: the reply nests
 under that comment (`parentCommentId`), and a bare thread id nests it under
 the thread's first comment. Resolving sets the thread status to `fixed`.
 
-The Tier 2 smoke exercises create, comment, merge and the thread verbs against a disposable repository and records their responses under `tools/tests/fixtures/azure/`; the outcome tests in `test_provider_azure_register.bats` assert against those recordings.
+The Tier 2 smoke exercises create, comment, merge and the thread verbs against a disposable repository and records their responses under `tools/tests/fixtures/azure/`; the outcome tests in `tools/tests/ts/` assert against those recordings.
 
 ## Pipelines ↔ Pipelines (as-built)
 
@@ -281,8 +299,13 @@ default-branch ref resolution, cancel, rerun, download with `-n`/`-D`).
 
 Constraint: there is no org-level ruleset API surface; parity means the
 **setup script + repo-create flow apply the standard policy set per repo**.
-`repo-types.bash`/`policy-export.sh` consumers map onto policy-configuration
+the repository-type and policy-export consumers map onto policy-configuration
 reads/writes per repo.
+
+Error contract: the Azure policy writes throw a provider error on failure,
+GitHub's report `{ok:false, stderr}`. The TypeScript facade converts the Azure
+error into `{ok:false, stderr:<message>}`, so callers classify a failure (name
+conflict, forbidden) the same way on both providers.
 
 ## Releases ↔ git tags (as-built: decision made)
 
@@ -293,12 +316,12 @@ publishedAt ← tagger date, isPrerelease ← semver-heuristic,
 isDraft ← false — azure has no draft tags). `--json`/`-q` follow gh list
 semantics. semantic-release's publish step becomes exec-plugin tag+push
 (fork-side concern, outside this provider). The smoke lists releases of a
-real repository; ordering, prerelease detection and dates are asserted by
-`test_provider_azure_releases.bats`.
+real repository; ordering, prerelease detection and dates are asserted by the Azure
+provider suites in `tools/tests/ts/`.
 
 ## Packaging ↔ Azure Artifacts (as-built: decision made)
 
-`artifact-operations.bash`'s packages reads ride the domain verbs
+The packages reads of the artifact tools ride the domain verbs
 (`provider_org_packages_list` / `provider_org_package_versions`) —
 never raw `provider_api` pagination. Azure implements the list verb
 against org-level Artifacts feeds (`feeds.dev.azure.com/_apis/packaging/feeds`,
@@ -353,19 +376,19 @@ regimes, merge steps) are verified against
 
 ## Live smoke suite
 
-`azure-smoke-test.sh` validates every HTTP-touching verb in this provider
+`smoke.ts` validates every HTTP-touching verb in this provider
 against a LIVE org in one combined flow. Manual invocation only — never
 wired into tests or CI.
 
 How to run:
 
-```
-cd tools/lib/providers/azure
-AZURE_PAT=<token> AZURE_DEVOPS_ORG=<org> AZURE_SMOKE_TEST_PROJECT=<project> \
-    [AZURE_SMOKE_REPORT=<path>] ./azure-smoke-test.sh
+```text
+AZURE_SMOKE=1 AZURE_PAT=<token> AZURE_DEVOPS_ORG=<org> AZURE_SMOKE_TEST_PROJECT=<project> \
+    [AZURE_SMOKE_REPORT=<path>] node tools/lib/providers/azure/smoke.ts
 ```
 
-Interactive mode prompts for the same three values (PAT input hidden).
+`AZURE_SMOKE=1` runs the read-only tier; `AZURE_SMOKE=write` runs the destructive tier and
+also needs `AZURE_SMOKE_CONFIRM=<test project>` (the exact project name).
 The PAT needs Code, PullRequest, WorkItems, Boards, Build, Packaging and
 Policy management (read+write) rights; the suite never persists it.
 
@@ -390,7 +413,7 @@ Contract:
   configuration as idempotent success (anything else stays a FAIL).
 
 Transport facts the smoke established (the regression tests in
-`tools/tests/lib/test_provider_azure_*.bats` cover them):
+`tools/tests/ts/provider-azure-*.test.ts` cover them):
 
 - PR thread routes are repositories-qualified:
   `/_apis/git/repositories/{repo}/pullrequests/{id}/threads/{id}`. The
@@ -406,4 +429,4 @@ Transport facts the smoke established (the regression tests in
   is not supported") — create-time only.
 - A `builds?&` style empty-param URL, a literal `\t` in a grep pattern,
   and Basic-auth PAT handling are all covered by regression tests in
-  `tools/tests/lib/test_provider_azure_*.bats`.
+  `tools/tests/ts/provider-azure-*.test.ts`.

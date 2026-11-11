@@ -13,9 +13,9 @@ import {
   createRepoCommitHarness,
   harnessGit,
   harnessSetEditorMode,
+  runRepoCommitTty,
   type Harness,
 } from "./harness/repo-commit.ts";
-import { runTool as runHarness } from "./harness/index.ts";
 
 
 
@@ -43,11 +43,7 @@ function setEditorMode(mode: "save" | "empty" | "abort"): void {
 }
 
 function runTool(args: string[]): { status: number; out: string } {
-  const r = runHarness("repo-commit", args, {
-    cwd: h.repo,
-    env: { GIT_EDITOR: h.editorScript },
-  });
-  return { status: r.status, out: r.output };
+  return runRepoCommitTty(args, { cwd: h.repo, env: { GIT_EDITOR: h.editorScript } });
 }
 
 let h: Harness;
@@ -122,11 +118,7 @@ describe("repo-commit --amend", () => {
     // A changed message produces a new commit (message-only amend rewrites):
     writeFileSync(join(h.repo, "ed2.sh"), "#!/bin/sh\nprintf 'feat: unpushed work (reworded via clean amend)\\n' > \"$1\"\n");
     chmodSync(join(h.repo, "ed2.sh"), 0o755);
-    const r2 = spawnSync("node", [h.tool, "--amend"], {
-      encoding: "utf8",
-      cwd: h.repo,
-      env: { ...process.env, GIT_EDITOR: join(h.repo, "ed2.sh") },
-    });
+    const r2 = runRepoCommitTty(["--amend"], { cwd: h.repo, env: { GIT_EDITOR: join(h.repo, "ed2.sh") } });
     expect(r2.status).toBe(0);
     expect(git("rev-parse", "HEAD").trim()).not.toBe(before); // rewritten
     expect(git("log", "-1", "--format=%s")).toContain("(reworded via clean amend)");

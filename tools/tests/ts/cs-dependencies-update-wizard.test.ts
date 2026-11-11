@@ -3,15 +3,15 @@
 // hand-built dependency-index cache.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { stubGh, pathWithStubs, toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 60_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const WIZARD = join(ROOT, "tools", "cs-dependencies-update-wizard");
+const WIZARD = toolScript("cs-dependencies-update-wizard");
 
 let TMP = "";
 let REPO_CACHE_DIR = "";
@@ -46,6 +46,8 @@ function appendToFile(file: string, content: string): void {
 beforeEach(() => {
   TMP = mkdtempSync(join(tmpdir(), `csduw-${Date.now()}-${Math.random().toString(36).slice(2)}`));
   REPO_CACHE_DIR = join(TMP, "cache");
+  mkdirSync(join(TMP, "bin"), { recursive: true });
+  stubGh(join(TMP, "bin"));
 });
 
 afterEach(() => {
@@ -55,16 +57,17 @@ afterEach(() => {
 const { DEVENV_REPO: _dr, ...procEnv } = process.env;
 
 function runWizard(args: string[], extraEnv: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync("bash", [WIZARD, ...args], {
+  const r = spawnSync("node", [WIZARD, ...args], {
     encoding: "utf8",
-    env: { ...procEnv, REPO_CACHE_DIR, ...extraEnv },
+    env: { ...procEnv, PATH: pathWithStubs(join(TMP, "bin")), REPO_CACHE_DIR, ...extraEnv },
   });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
 describe("scripts/cs-dependencies-update-wizard", () => {
   it("cs-dependencies-update-wizard stub dispatches (entry-point contract)", () => {
-    expect(spawnSync("bash", ["-n", WIZARD]).status).toBe(0);
+    expect(existsSync(WIZARD)).toBe(true);
+    expect(spawnSync("node", [WIZARD, "--version"]).status).toBe(0);
   });
 
   it("cs-dependencies-update-wizard.sh shows usage with --help", () => {
@@ -207,5 +210,18 @@ describe("scripts/cs-dependencies-update-wizard", () => {
   it("cs-dependencies-update-wizard.sh --framework without value errors", () => {
     const r = runWizard(["--global", "--framework"]);
     expect(r.status).not.toBe(0);
+  });
+});
+
+describe("sibling resolution", () => {
+  it("no tool hands a DEVENV_TOOLS directory to siblingInvocation/siblingCommand", () => {
+    // A foreign DEVENV_TOOLS would redirect the sibling to that checkout's
+    // generated stub instead of this checkout's tools/ts entry point.
+    const dir = join(import.meta.dirname, "..", "..", "ts");
+    const offenders = readdirSync(dir)
+      .filter((f) => f.endsWith(".ts"))
+      .filter((f) => /sibling(?:Invocation|Command)\([^;]*DEVENV_TOOLS/.test(readFileSync(join(dir, f), "utf8")))
+      .sort();
+    expect(offenders).toEqual([]);
   });
 });

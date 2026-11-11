@@ -11,14 +11,19 @@
 // Fixture hygiene per tools/tests/README.md: scratch under tmpPath().
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, readFileSync, rmSync, statSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync, statSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolScript, useProviderDown } from "./harness/index.ts";
+
+// These suites assert behaviour when the provider is down or unauthenticated; the
+// failure is stubbed so the regular run never starts a real gh or az.
+useProviderDown();
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const CONFIG_READ = join(TOOLS, "config-read");
+const CONFIG_READ = toolScript("config-read");
 const PROVIDER_CORE = join(TOOLS, "lib", "providers", "provider-core.bash");
 const NPMRC_STEP = join(TOOLS, "ts", "setup-steps", "npmrc.ts");
 
@@ -54,7 +59,7 @@ function runScript(scriptPath: string, args: string[], env: Record<string, strin
     if (v === undefined) delete e[k];
     else e[k] = v;
   }
-  const r = spawnSync("bash", [scriptPath, ...args], { encoding: "utf8", env: e });
+  const r = spawnSync(scriptPath.endsWith(".ts") ? "node" : "bash", [scriptPath, ...args], { encoding: "utf8", env: e });
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "", out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
@@ -114,8 +119,8 @@ describe("config-read (bats port)", () => {
     expect(runScript(CONFIG_READ, ["copilot", "engineering_repo", "--config", tmpPath("none.config")], {}).status).toBe(1);
   });
 
-  it("missing section/key arguments exit 1", () => {
-    expect(runScript(CONFIG_READ, ["copilot"], {}).status).toBe(1);
+  it("missing section/key arguments exit 2 (misuse); a missing config file stays exit 1", () => {
+    expect(runScript(CONFIG_READ, ["copilot"], {}).status).toBe(2);
   });
 
   it("--help prints usage and exits 0 (no unbound-variable death)", () => {

@@ -6,6 +6,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -53,7 +54,7 @@ beforeEach(() => {
 const { DEVENV_REPO: _dr, ...procEnv } = process.env;
 
 function runRestore(args: string[], extra: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync(join(TOOLS, "mongo-restore-server"), args, {
+  const r = spawnSync("node", [toolScript("mongo-restore-server"), ...args], {
     input: "",
     encoding: "utf8",
     env: {

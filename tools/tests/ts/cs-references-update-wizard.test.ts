@@ -4,16 +4,17 @@
 // forwarding, dry-run and failure paths.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 60_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const WIZARD_ENTRY = join(TOOLS, "cs-references-update-wizard");
+const WIZARD_ENTRY = toolScript("cs-references-update-wizard");
 
 const CSPROJ = [
   "<Project Sdk=\"Microsoft.NET.Sdk\">",
@@ -121,7 +122,7 @@ afterEach(() => {
 });
 
 function runEntry(args: string[], extraEnv: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync("bash", [WIZARD_ENTRY, ...args], {
+  const r = spawnSync("node", [WIZARD_ENTRY, ...args], {
     cwd: REPO_DIR,
     encoding: "utf8",
     env: { ...GIT_ENV(), ...extraEnv },
@@ -133,7 +134,8 @@ describe("scripts/cs-references-update-wizard", () => {
   // ── Syntax and basic contract ──────────────────────────────────────────────
 
   it("cs-references-update-wizard.sh has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", WIZARD_ENTRY]).status).toBe(0);
+    expect(existsSync(WIZARD_ENTRY)).toBe(true);
+    expect(spawnSync("node", [WIZARD_ENTRY, "--version"]).status).toBe(0);
   });
 
   it("cs-references-update-wizard.sh shows usage with --help", () => {

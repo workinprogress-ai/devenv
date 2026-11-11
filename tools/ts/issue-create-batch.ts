@@ -16,9 +16,10 @@ import { basename, join } from "node:path";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 
-import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logDebug, logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { childOfMapFromConfig, issueNumberFromRef } from "../lib/domain/issues/refs.ts";
@@ -28,7 +29,7 @@ assertNodeFloor();
 
 const SCRIPT_VERSION = "1.1.0";
 const SCRIPT_NAME = basename(process.argv[1] ?? "issue-create-batch.ts");
-const TOOLS_ROOT = process.env["DEVENV_TOOLS"] ?? join(import.meta.dirname ?? ".", "..");
+const TOOLS_ROOT = resolveToolsRoot(import.meta.url);
 
 function showUsage(): never {
   const s = SCRIPT_NAME;
@@ -570,28 +571,35 @@ function createBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry |
 // --- Main ---------------------------------------------------------------------
 
 async function main(argv: string[]): Promise<number> {
-  const cli = toolCli({
-    name: SCRIPT_NAME,
-    version: SCRIPT_VERSION,
-    argv,
-    allowPositionals: false,
-    options: {
-      create: { type: "boolean", default: false },
-      "dry-run": { type: "boolean", short: "n", default: false },
-      "continue-on-error": { type: "boolean", default: false },
-      type: { type: "string" },
-      parent: { type: "string" },
-      label: { type: "string", multiple: true },
-      assignee: { type: "string", multiple: true },
-      "blocked-by": { type: "string", multiple: true },
-      milestone: { type: "string" },
-      project: { type: "string" },
-      body: { type: "string" },
-      "body-file": { type: "string" },
-      file: { type: "string", short: "f" },
-      issue: { type: "string", short: "i", multiple: true },
-    },
-  });
+  let cli: ReturnType<typeof toolCli>;
+  try {
+    cli = toolCli({
+      name: SCRIPT_NAME,
+      version: SCRIPT_VERSION,
+      argv,
+      allowPositionals: false,
+      options: {
+        create: { type: "boolean", default: false },
+        "dry-run": { type: "boolean", short: "n", default: false },
+        "continue-on-error": { type: "boolean", default: false },
+        type: { type: "string" },
+        parent: { type: "string" },
+        label: { type: "string", multiple: true },
+        assignee: { type: "string", multiple: true },
+        "blocked-by": { type: "string", multiple: true },
+        milestone: { type: "string" },
+        project: { type: "string" },
+        body: { type: "string" },
+        "body-file": { type: "string" },
+        file: { type: "string", short: "f" },
+        issue: { type: "string", short: "i", multiple: true },
+      },
+    });
+  } catch (err) {
+    logError(errorMessage(err));
+    console.error("Use --help for usage information");
+    return EXIT_MISUSE;
+  }
   const values = cli.values as Record<string, string | boolean | string[] | undefined>;
 
   if (cli.common.help) showUsage();
@@ -601,16 +609,16 @@ async function main(argv: string[]): Promise<number> {
 
   if (manifestFile !== "" && issueEntries.length > 0) {
     logError("Use either --file or --issue, not both");
-    return EXIT_GENERAL_ERROR;
+    return EXIT_MISUSE;
   }
   if (manifestFile === "" && issueEntries.length === 0) {
     logError("Provide input via --issue (repeatable) or --file");
-    return EXIT_GENERAL_ERROR;
+    return EXIT_MISUSE;
   }
   const defaultBodyFile = ((values["body-file"] as string | undefined) ?? "");
   if (defaultBodyFile !== "" && !existsSync(defaultBodyFile)) {
     logError(`Default body file not found: ${defaultBodyFile}`);
-    return EXIT_GENERAL_ERROR;
+    return EXIT_MISUSE;
   }
 
   const cliDefaults: Defaults = {

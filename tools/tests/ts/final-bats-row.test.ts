@@ -10,10 +10,11 @@ import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, readFileSync, existsS
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pathWithStubs, stubGh } from "./harness/index.ts";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const SDC = join(TOOLS, "spec-dependency-check");
+const SDC = join(TOOLS, "ts", "spec-dependency-check.ts");
 
 let TMP = "";
 
@@ -39,11 +40,18 @@ afterAll(() => {
 function run(exe: string, args: string[], env: Record<string, string | undefined> = {}): { status: number; stdout: string; stderr: string; out: string } {
   const e: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) e[k] = v;
+  // Tools probe provider auth before --help/validation; a stubbed gh (auth ok,
+  // everything else a no-op) keeps the hermetic gh shim from being reached.
+  const binDir = tmpPath("bin");
+  mkdirSync(binDir, { recursive: true });
+  stubGh(binDir);
+  e["PATH"] = pathWithStubs(binDir);
   for (const [k, v] of Object.entries(env)) {
     if (v === undefined) delete e[k];
     else e[k] = v;
   }
-  const r = spawnSync(exe, args, { encoding: "utf8", env: e });
+  // Tools run from their .ts source; no generated depth-1 stub is assumed.
+  const r = exe.endsWith(".ts") ? spawnSync("node", [exe, ...args], { encoding: "utf8", env: e }) : spawnSync(exe, args, { encoding: "utf8", env: e });
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "", out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
@@ -92,7 +100,7 @@ describe("script linting sweep (bats port)", () => {
 // ── script template ─────────────────────────────────────────────────────────
 
 const TEMPLATE = join(TOOLS, "templates", "script-template.ts");
-const CREATE_SCRIPT = join(TOOLS, "tooling-create-script");
+const CREATE_SCRIPT = join(TOOLS, "ts", "tooling-create-script.ts");
 
 describe("script template (bats port)", () => {
   const tmpl = (): string => readFileSync(TEMPLATE, "utf8");
@@ -156,7 +164,8 @@ describe("script template (bats port)", () => {
   });
 
   it("tooling-create-script.sh is executable", () => {
-    expect(spawnSync("bash", ["-c", `test -x '${CREATE_SCRIPT}'`]).status).toBe(0);
+    // The .ts source is run via node (not exec'd); "executable" means it loads and parses.
+    expect(spawnSync("node", ["--check", CREATE_SCRIPT]).status).toBe(0);
   });
 
   it("tooling-create-script.sh has --help flag", () => {
@@ -199,8 +208,8 @@ describe("spec-dependency-check (bats port)", () => {
     return (spawnSync("jq", ["-r", filter], { input: out, encoding: "utf8" }).stdout ?? "").trim();
   }
 
-  it("has valid bash syntax (depth-1 stub)", () => {
-    expect(spawnSync("bash", ["-n", SDC]).status).toBe(0);
+  it("has valid syntax (ts source)", () => {
+    expect(spawnSync("node", ["--check", SDC]).status).toBe(0);
   });
 
   it("--help exits 0 and lists the checks", () => {
@@ -333,15 +342,15 @@ describe("spec-dependency-check (bats port)", () => {
 
 describe("wrapper suite additions (bats port)", () => {
   it("pr-review-comment stub is valid bash and has --help", () => {
-    const path = join(TOOLS, "pr-review-comment");
-    expect(spawnSync("bash", ["-n", path]).status).toBe(0);
+    const path = join(TOOLS, "ts", "pr-review-comment.ts");
+    expect(spawnSync("node", ["--check", path]).status).toBe(0);
     const r = run(path, ["--help"]);
     expect(r.status).toBe(0);
     expect(r.out).toMatch(/Usage:/);
   });
 
   it("pr-review-comment help documents required flags and side semantics", () => {
-    const r = run(join(TOOLS, "pr-review-comment"), ["--help"]);
+    const r = run(join(TOOLS, "ts", "pr-review-comment.ts"), ["--help"]);
     expect(r.status).toBe(0);
     for (const token of ["--file", "--line", "--side", "RIGHT"]) {
       expect(r.out).toContain(token);
@@ -349,7 +358,7 @@ describe("wrapper suite additions (bats port)", () => {
   });
 
   it("pr-review-comment rejects missing --file", () => {
-    const r = run(join(TOOLS, "pr-review-comment"), ["123", "--line", "5", "--body", "x", "--dry-run"]);
+    const r = run(join(TOOLS, "ts", "pr-review-comment.ts"), ["123", "--line", "5", "--body", "x", "--dry-run"]);
     expect(r.status).not.toBe(0);
     expect(r.out).toMatch(/--file is required/);
   });
@@ -361,20 +370,20 @@ describe("wrapper suite additions (bats port)", () => {
   });
 
   it("pr-review-comment rejects invalid side", () => {
-    const r = run(join(TOOLS, "pr-review-comment"), ["123", "--file", "a.ts", "--line", "5", "--side", "UP", "--body", "x", "--dry-run"]);
+    const r = run(join(TOOLS, "ts", "pr-review-comment.ts"), ["123", "--file", "a.ts", "--line", "5", "--side", "UP", "--body", "x", "--dry-run"]);
     expect(r.status).not.toBe(0);
     expect(r.out).toMatch(/Invalid side/);
   });
 
   it("pr-review-comment rejects missing body", () => {
-    const r = run(join(TOOLS, "pr-review-comment"), ["123", "--file", "a.ts", "--line", "5", "--dry-run"]);
+    const r = run(join(TOOLS, "ts", "pr-review-comment.ts"), ["123", "--file", "a.ts", "--line", "5", "--dry-run"]);
     expect(r.status).not.toBe(0);
     expect(r.out).toMatch(/body/);
   });
 
   it("release-list stub is valid bash and has --help", () => {
-    const path = join(TOOLS, "release-list");
-    expect(spawnSync("bash", ["-n", path]).status).toBe(0);
+    const path = join(TOOLS, "ts", "release-list.ts");
+    expect(spawnSync("node", ["--check", path]).status).toBe(0);
     const r = run(path, ["--help"]);
     expect(r.status).toBe(0);
     expect(r.out).toMatch(/Usage:/);
@@ -387,22 +396,22 @@ describe("wrapper suite additions (bats port)", () => {
   });
 
   it("policy-export stub is valid bash and has --help", () => {
-    const path = join(TOOLS, "policy-export");
-    expect(spawnSync("bash", ["-n", path]).status).toBe(0);
+    const path = join(TOOLS, "ts", "policy-export.ts");
+    expect(spawnSync("node", ["--check", path]).status).toBe(0);
     const r = run(path, ["--help"]);
     expect(r.status).toBe(0);
     expect(r.out).toMatch(/Usage:/);
   });
 
   it("policy-export rejects non-numeric ruleset ID", () => {
-    const r = run(join(TOOLS, "policy-export"), ["abcdef"]);
+    const r = run(join(TOOLS, "ts", "policy-export.ts"), ["abcdef"]);
     expect(r.status).not.toBe(0);
     expect(r.out).toMatch(/Invalid ruleset ID/);
   });
 
   it("issue-types stub is valid bash and has --help", () => {
-    const path = join(TOOLS, "issue-types");
-    expect(spawnSync("bash", ["-n", path]).status).toBe(0);
+    const path = join(TOOLS, "ts", "issue-types.ts");
+    expect(spawnSync("node", ["--check", path]).status).toBe(0);
     const r = run(path, ["--help"]);
     expect(r.status).toBe(0);
     expect(r.out).toMatch(/Usage:/);
@@ -470,7 +479,11 @@ JSON
       echo "gh: HTTP 403 (simulated)" >&2
       exit 1
     fi
-    echo '{}' ;;
+    # The ruleset list is an array (empty: no ruleset yet); every other api call answers an object.
+    case "$sub $*" in
+      *rulesets*) echo '[]' ;;
+      *) echo '{}' ;;
+    esac ;;
   *) echo "gh mock received unexpected command: $cmd $sub (all args: $@)" >&2; exit 1 ;;
 esac
 `,

@@ -15,6 +15,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { SPAWN_MAX_BUFFER, assertSpawnCompleted } from "./spawn.ts";
 
 // ---------------------------------------------------------------------------
 // low-level runner: every git call goes through here (typed argv, no shell)
@@ -22,7 +23,8 @@ import { dirname, join } from "node:path";
 
 function git(repo: string | null, args: string[]): { status: number; out: string } {
   const argv = repo ? ["-C", repo, ...args] : args;
-  const r = spawnSync("git", argv, { encoding: "utf8" });
+  const r = spawnSync("git", argv, { encoding: "utf8", maxBuffer: SPAWN_MAX_BUFFER });
+  assertSpawnCompleted(r, ["git", ...argv]);
   return { status: r.status ?? 1, out: r.stdout ?? "" };
 }
 
@@ -221,7 +223,7 @@ export function wipRangeScan(repo: string | null, range: string): string[] | nul
   if (r.status !== 0) return null; // invalid range — never fail open
   return r.out
     .split("\n")
-    .filter((l) => l.includes(" WIP:"))
+    .filter((l) => /^[0-9a-f]+ WIP:/.test(l))
     .map((l) => l.trim());
 }
 
@@ -273,7 +275,11 @@ export function rewriteDetectState(repo: string, branch: string): RewriteState {
   const local = git(repo, ["rev-parse", branch]);
   if (local.status !== 0) return { verdict: "none" };
   const localHash = local.out.trim();
-  const remote = git(repo, ["rev-parse", `origin/${branch}`]);
+  // The ref every later action targets: the branch's own upstream, whatever
+  // remote and branch name it names (not an assumed origin/<branch>).
+  const upstreamRef = git(repo, ["for-each-ref", "--format=%(upstream)", `refs/heads/${branch}`]).out.trim();
+  if (upstreamRef === "") return { verdict: "none" };
+  const remote = git(repo, ["rev-parse", upstreamRef]);
   if (remote.status !== 0) return { verdict: "none" };
   const remoteHash = remote.out.trim();
 
@@ -286,7 +292,7 @@ export function rewriteDetectState(repo: string, branch: string): RewriteState {
   // remote-tracking reflog, an ancestor of local HEAD, no longer reachable
   // from the rewritten remote, and still present as an object.
   const reflog = git(repo, [
-    "reflog", "show", "--format=%H", `origin/${branch}`,
+    "reflog", "show", "--format=%H", upstreamRef,
     `-n`, String(REWRITE_DETECT_REFLOG_DEPTH),
   ]);
   for (const tip of reflog.out.split("\n").map((s) => s.trim())) {
@@ -346,7 +352,8 @@ export function isNestedDevenvClone(dir: string): boolean {
  * Optional stdin bytes (interactive git prompts fed by the caller). */
 export function gitCapture(repo: string | null, args: string[], input?: string): { status: number; out: string } {
   const argv = repo ? ["-C", repo, ...args] : args;
-  const r = spawnSync("git", argv, { encoding: "utf8", input });
+  const r = spawnSync("git", argv, { encoding: "utf8", input, maxBuffer: SPAWN_MAX_BUFFER });
+  assertSpawnCompleted(r, ["git", ...argv]);
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
@@ -356,6 +363,7 @@ export function gitInherit(repo: string | null, args: string[]): { ok: boolean; 
   const argv = repo ? ["-C", repo, ...args] : args;
   const r = spawnSync("git", argv, {
     encoding: "utf8",
+    maxBuffer: SPAWN_MAX_BUFFER,
     stdio: ["ignore", "pipe", "inherit"],
   });
   return { ok: r.status === 0, out: (r.stdout ?? "").trim() };
@@ -365,7 +373,8 @@ export function gitInherit(repo: string | null, args: string[]): { ok: boolean; 
  * stderr only on failure). */
 export function gitCheck(repo: string | null, args: string[], input?: string): { ok: boolean; out: string; err: string } {
   const argv = repo ? ["-C", repo, ...args] : args;
-  const r = spawnSync("git", argv, { encoding: "utf8", input });
+  const r = spawnSync("git", argv, { encoding: "utf8", input, maxBuffer: SPAWN_MAX_BUFFER });
+  assertSpawnCompleted(r, ["git", ...argv]);
   return { ok: r.status === 0, out: r.stdout ?? "", err: r.stderr ?? "" };
 }
 

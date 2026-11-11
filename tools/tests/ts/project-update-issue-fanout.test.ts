@@ -6,11 +6,10 @@
 // projectsItemIdForIssue / projectsFieldSet issue (resource.projectItems,
 // projectV2(number:), updateProjectV2ItemFieldValue).
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { runTool as runHarness } from "./harness/index.ts";
 const TOOL = "project-update-issue";
@@ -68,7 +67,7 @@ function writeStub(): void {
       : `      echo '${LOOKUP_PAYLOAD}'; exit 0`,
     '    fi',
     '    if [[ "$*" == *"items(first"* ]]; then',
-    '      printf \'false \\nPVTI_x\\n\'; exit 0',
+    '      echo \'{"data":{"node":{"items":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVTI_x","content":{"number":44,"repository":{"nameWithOwner":"test-org/test-repo"}}}]}}}}\'; exit 0',
     '    fi',
     '    if [[ "$*" == *"ProjectV2SingleSelectField"* ]]; then',
     '      echo \'{"data":{"node":{"field":{"id":"PVTF_status","options":[{"id":"OPT_tbd","name":"TBD"},{"id":"OPT_groom","name":"To-Groom"},{"id":"OPT_ready","name":"Ready"},{"id":"OPT_impl","name":"Implementing"},{"id":"OPT_review","name":"Review"},{"id":"OPT_merged","name":"Merged"},{"id":"OPT_staging","name":"Staging"},{"id":"OPT_prod","name":"Production"}]}}}}\'; exit 0',
@@ -96,6 +95,8 @@ function writeStub(): void {
 beforeEach(() => {
   stubDir = mkdtempSync(join(tmpdir(), "fanout-stub-"));
   sandbox = mkdtempSync(join(tmpdir(), "fanout-cfg-"));
+  // The shared repo gate requires a git work tree even with an explicit DEVENV_REPO.
+  spawnSync("git", ["init", "-q", sandbox]);
   writeFileSync(
     join(sandbox, "devenv.config"),
     "[organization]\norg=test-org\n[workflows]\nstatus_workflow=TBD,To-Groom,Ready,Implementing,Review,Merged,Staging,Production\n",

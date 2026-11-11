@@ -21,13 +21,20 @@
 //              pushed). Layer 2 — branch: blocked on any scratchpad/* branch
 //              even without state refs (defense-in-depth; scratch commits
 //              carry no trailers). Each layer emits its own ratified message.
+//
+//              Protected-branch refusal: a hook-bypass snapshot is never
+//              pushed to a protected branch (the remote's default branch,
+//              master, main, develop, trunk, release/*), nor from a branch
+//              whose configured upstream/push target is one — refused before
+//              anything is staged, with no override flag. The push names its
+//              destination explicitly (HEAD:refs/heads/<current-branch>).
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { gitCapture, gitInherit } from "../lib/core/git.ts";
+import { protectedPushTarget, type ProtectedHit } from "../lib/core/protected-branch.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -42,6 +49,28 @@ function git(args: string[]): { status: number; out: string } {
   return gitCapture(null, args);
 }
 
+// The advice follows why the target is protected: re-pointing the upstream
+// only helps when the upstream is the culprit, and never names a remote branch
+// that may not exist.
+function protectedRefusalMessage(branch: string, hit: ProtectedHit): string {
+  const lead = `Error: git-wip refuses to snapshot '${branch}':`;
+  const tail = "a hook-bypass WIP commit must not be pushed there.";
+  switch (hit.source) {
+    case "branch":
+      return `Error: git-wip refuses to snapshot on protected branch '${branch}' — ${tail}\nSwitch to a feature branch first.`;
+    case "upstream":
+      return (
+        `${lead} its upstream is protected branch '${hit.ref}' — ${tail}\n` +
+        "Detach it from that upstream with: git branch --unset-upstream"
+      );
+    case "push":
+      return (
+        `${lead} its push target resolves to protected branch '${hit.ref}' — ${tail}\n` +
+        `Adjust remote.${hit.remote ?? "<remote>"}.push, push.default or branch.${branch}.pushRemote so the branch pushes to its own name.`
+      );
+  }
+}
+
 function usage(): never {
   console.log(`Usage: git-wip [--staged-only] [-n, --dry-run] [--file <path>] ["<message words...>"]
 
@@ -53,6 +82,13 @@ commit prefixed with "WIP: ".
                   without touching anything — the safe probe path.
   --file <path>   Read the message from a file (used verbatim after the
                   WIP: prefix). Mutually exclusive with positional words.
+  --              Ends option parsing: every later token is a message word,
+                  so a message may contain -n or --anything.
+
+git-wip refuses on protected branches (the remote's default branch, master,
+main, develop, trunk, release/*) and on a branch whose upstream or push target
+is one, and has no override: switch to a feature branch first. It always
+pushes HEAD to origin under the current branch's own name.
 
 Commit and push require an interactive terminal (or --allow-non-tty): an
 accidental non-interactive invocation must not publish a hook-bypass commit.
@@ -103,19 +139,13 @@ let stagedOnly = false;
 let dryRun = false;
 let allowNonTty = false;
 let msgFile = "";
-const words: string[] = [];
+let words: string[] = [];
 
-let parsed;
 try {
-  parsed = toolCli({
+  const parsed = toolCli({
     name: "git-wip",
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
-    // Non-strict by design: message words are raw tokens, and single-dash
-    // tokens like `-n` are message words, not flags (parseArgs would
-    // swallow them as booleans). The unknown-long-flag refusal loop below
-    // keeps the bash contract; the house dry-run replaces the local one.
-    strict: false,
     options: {
       "staged-only": { type: "boolean", default: false },
       "allow-non-tty": { type: "boolean", default: false },
@@ -127,56 +157,13 @@ try {
   dryRun = parsed.common.dryRun;
   allowNonTty = parsed.values["allow-non-tty"] === true;
   msgFile = typeof parsed.values.file === "string" ? parsed.values.file : "";
+  // Message words are the positionals. A word that looks like a flag (or is
+  // -n) is only reachable after the `--` separator, which parseArgs honors.
+  words = parsed.positionals;
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
-}
-// toolCli (strict:false) silently treats single-dash tokens like `-x` as
-// boolean flags, dropping them from positionals — `git-wip -x oops` would
-// lose the token from the WIP message. Only long flags and the house short
-// flags are recognized; any other single-dash token is a message word (bash
-// carried it through).
-for (const a of process.argv.slice(2)) {
-  if (a.startsWith("--") && a !== "--staged-only" && a !== "--dry-run" && a !== "--allow-non-tty" && a !== "--file" && a !== "--help" && a !== "-h" && a !== "--") {
-    console.error(`Error: unknown flag '${a}'`);
-    process.exit(EXIT_GENERAL_ERROR);
-  }
-}
-// --file requires a value (a lone trailing --file parses as boolean under
-// non-strict parsing — it would push an empty-message snapshot).
-const rawArgs = process.argv.slice(2);
-const fileFlagIdx = rawArgs.indexOf("--file");
-if (fileFlagIdx !== -1) {
-  const next = rawArgs[fileFlagIdx + 1];
-  if (next === undefined || next.startsWith("--")) {
-    console.error("Error: --file requires a path");
-    process.exit(EXIT_GENERAL_ERROR);
-  }
-}
-
-// Reconstruct message words from the raw tokens instead of the parse
-// result: single-dash tokens (e.g. `-x`) parse as boolean flags under
-// non-strict parsing and would vanish from the message; raw
-// reconstruction keeps order and content. House flags (-h/-v/-V/-n and
-// their long forms) are reserved vocabulary — recognized as flags and
-// skipped from the message. After `--`, every token is a message word
-// (matching parseArgs' end-of-options handling); before it, the tool's
-// own flags and their values are skipped.
-const FLAG_WORDS = new Set([
-  "--staged-only", "--dry-run", "--allow-non-tty", "--help", "-h",
-  "-v", "--version", "-V", "--verbose", "-n", "--devenv",
-]);
-const rawTokens = process.argv.slice(2);
-let afterSeparator = false;
-for (let i = 0; i < rawTokens.length; i++) {
-  const a: string = rawTokens[i] ?? "";
-  if (a === "--") { afterSeparator = true; continue; }
-  if (!afterSeparator) {
-    if (FLAG_WORDS.has(a)) continue;
-    if (a === "--file") { i++; continue; } // skip the file path value
-  }
-  words.push(a);
 }
 
 if (msgFile !== "" && words.length > 0) {
@@ -188,7 +175,7 @@ let msg: string;
 if (msgFile !== "") {
   if (!existsSync(msgFile)) {
     console.error(`Error: message file not found: ${msgFile}`);
-    process.exit(EXIT_GENERAL_ERROR);
+    process.exit(EXIT_MISUSE);
   }
   msg = readFileSync(msgFile, "utf8");
 } else {
@@ -201,6 +188,32 @@ if (msgFile !== "") {
 // (EXIT_CONFLICT, names the salvage path) must win over the non-interactive
 // refusal (EXIT_MISUSE), or the scratchpad diagnostic is masked.
 checkScratchpadRefusals("git-wip");
+
+// Protected-branch gate: the snapshot commit bypasses hooks and is pushed, so
+// it must never land on a branch other people build releases from. The branch
+// is judged by its own name and by where its configuration would publish it
+// (upstream / push target), so a feature branch created from origin/master
+// cannot be steered onto master.
+// A detached or unborn HEAD has no branch name to publish under: refuse
+// rather than push to refs/heads/HEAD.
+const currentBranch = git(["symbolic-ref", "--quiet", "--short", "HEAD"]).out.trim();
+// An unborn branch still has a symbolic name but nothing to push.
+if (currentBranch === "" || git(["rev-parse", "--verify", "--quiet", "HEAD"]).status !== 0) {
+  console.error(
+    "Error: git-wip refuses to snapshot without a current branch (detached HEAD, or a repository with no commits yet) — " +
+      "a snapshot needs a branch name to be pushed under.\n" +
+      "Check out or create a branch first (nothing was staged, committed or pushed).",
+  );
+  process.exit(EXIT_CONFLICT);
+}
+{
+  const hit = protectedPushTarget(currentBranch);
+  if (hit !== null) {
+    console.error(protectedRefusalMessage(currentBranch, hit));
+    console.error("Nothing was staged, committed or pushed.");
+    process.exit(EXIT_CONFLICT);
+  }
+}
 
 // TTY gate (incident-driven): two sessions ran git-wip as a probe and each
 // published a hook-bypass commit to the remote. Commit + push require an
@@ -242,7 +255,9 @@ if (!commit.ok) {
   console.error("git-wip: commit failed (nothing to commit?) — no WIP snapshot was saved.");
   process.exit(EXIT_GENERAL_ERROR);
 }
-const push = gitInherit(null, ["push"]);
+// Explicit destination: a bare `git push` follows push.default/upstream
+// config and could publish to another branch (or several).
+const push = gitInherit(null, ["push", "origin", `HEAD:refs/heads/${currentBranch}`]);
 if (!push.ok) {
   console.error("git-wip: push failed — the WIP commit exists locally but was NOT saved to the remote; refs/wip/last is unchanged.");
   process.exit(EXIT_GENERAL_ERROR);

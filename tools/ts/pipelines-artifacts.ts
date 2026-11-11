@@ -6,8 +6,8 @@
 //              100 MiB) or a single named artifact into --dir.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { readSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { readLineStdin } from "../lib/core/stdin-line.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
@@ -22,8 +22,6 @@ import {
 
 assertNodeFloor();
 
-await requireFamilyCapability("pipelines", "pipelines");
-
 const DOWNLOAD_SIZE_WARN_BYTES = 104857600;
 
 let runId = "";
@@ -32,6 +30,7 @@ let outputFormat: "table" | "json" | "pretty" = "table";
 let download = false;
 let artifactName = "";
 let destDir = ".";
+let dryRun = false;
 
 function usage(): never {
   console.log(`Usage: pipelines-artifacts RUN_ID --repo OWNER/REPO [OPTIONS]
@@ -49,7 +48,7 @@ Options:
     --download                  Download artifacts instead of just listing
     --name NAME                 Artifact name to download (use with --download)
     --dir DIR                   Download destination directory (default: .)
-${usageCommonFlags()}
+${usageCommonFlags({ noDevenv: true })}
 
 Examples:
     pipelines-artifacts 12345678 --repo <org>/my-service
@@ -65,7 +64,6 @@ try {
     name: "pipelines-artifacts",
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
-    strict: false,
     options: {
       repo: { type: "string" },
       json: { type: "boolean", default: false },
@@ -82,7 +80,8 @@ try {
   download = cli.values["download"] === true;
   artifactName = (cli.values["name"] as string | undefined) ?? "";
   destDir = (cli.values["dir"] as string | undefined) ?? ".";
-  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
+  dryRun = cli.common.dryRun;
+  const positionals = cli.positionals;
   if (positionals.length !== 1) {
     logError("RUN_ID (exactly one positional) is required");
     console.error("Use --help for usage information");
@@ -100,11 +99,12 @@ if (!/^[0-9]+$/.test(runId)) {
 }
 if (repo === "" || !/^[^/]+\/[^/]+$/.test(repo)) {
   logError(`Invalid --repo format: '${repo}' (expected OWNER/REPO)`);
-  process.exit(EXIT_API_FAILURE);
+  process.exit(EXIT_MISUSE);
 }
 
-// Auth after argv validation: a usage error must exit 2 without touching gh
-// (no network probe on the misuse path).
+// Provider resolution and authentication happen only after the arguments
+// parsed: help and misuse need neither config nor network.
+await requireFamilyCapability("pipelines", "pipelines");
 ensureProviderAuth();
 
 interface Artifact {
@@ -148,6 +148,10 @@ if (!download) {
 }
 
 // Download mode.
+if (dryRun) {
+  logInfo(`[DRY RUN] Would download ${artifactName !== "" ? `artifact '${artifactName}'` : "all artifacts"} of run ${runId} in ${repo} to: ${destDir}`);
+  process.exit(0);
+}
 if (artifactName === "") {
   // Warn on large bulk downloads; confirm on a TTY (bash read from /dev/tty).
   let totalBytes = 0;
@@ -166,7 +170,7 @@ if (artifactName === "") {
       process.exit(EXIT_MISUSE);
     }
     process.stdout.write("Continue downloading all artifacts? [y/N] ");
-    const answer = readLineStdin();
+    const answer = readLineStdin() ?? "";
     if (!/^[Yy]$/.test(answer)) process.exit(0);
   }
 }
@@ -182,20 +186,3 @@ if (downloaded.status !== 0) {
 }
 
 logInfo(`Artifacts downloaded to: ${destDir}`);
-
-function readLineStdin(): string {
-  let buf = Buffer.alloc(0);
-  const chunk = Buffer.alloc(1);
-  while (true) {
-    const idx = buf.indexOf(0x0a);
-    if (idx !== -1) return buf.subarray(0, idx).toString("utf8").trim();
-    let n = 0;
-    try {
-      n = readSync(0, chunk, 0, 1, null);
-    } catch {
-      return "";
-    }
-    if (n <= 0) return buf.toString("utf8").trim();
-    buf = Buffer.concat([buf, chunk.subarray(0, n)]);
-  }
-}

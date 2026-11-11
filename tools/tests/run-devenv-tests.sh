@@ -105,13 +105,6 @@ echo "Running vitest lane (tests/ts/)..."
 # invoked from a subdirectory (tools/tests) pnpm's cwd-based resolution fails.
 # The include path is repo-root-relative, so run from the root.
 RUN_ROOT="$(dirname "$DEVENV_TOOLS")"
-# On the runtime workspace (this checkout hosts repos/devenv), the vitest
-# config excludes clone-context suites — the dev-clone layout invariants
-# they assert cannot hold here. They still run in the dev clone, per the
-# nested-clone workflow (docs/Nested-Devenv-Development.md).
-if [ -d "$RUN_ROOT/repos/devenv" ]; then
-    echo "Runtime workspace detected (this checkout hosts repos/devenv): clone-context vitest suites are skipped here — run the full gate from repos/devenv."
-fi
 vitest_start_time=$(date +%s)
 if ! (cd "$RUN_ROOT" && pnpm exec vitest run "${vitest_args[@]}"); then
     end_time=$(date +%s)

@@ -7,13 +7,14 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stubGh, pathWithStubs, toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 60_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const SCRIPT = join(TOOLS, "repo-get");
-const TS_SOURCE = join(TOOLS, "ts", "repo-get.ts");
+const SCRIPT = toolScript("repo-get");
+const TS_SOURCE = SCRIPT;
 
 let TMP = "";
 let DEVENV_ROOT = "";
@@ -23,6 +24,10 @@ beforeEach(() => {
   TMP = mkdtempSync(join(tmpdir(), `getval-${Date.now()}-${Math.random().toString(36).slice(2)}`));
   DEVENV_ROOT = join(TMP, "devenv-root");
   mkdirSync(DEVENV_ROOT, { recursive: true });
+  // Validation paths run after the provider auth gate: answer `gh auth status`
+  // from a stub (setupRepoGetWorld overwrites it with the richer one).
+  mkdirSync(join(TMP, "bin"), { recursive: true });
+  stubGh(join(TMP, "bin"));
   // The helper's sandboxed config: github provider, org test-org.
   writeFileSync(
     join(DEVENV_ROOT, "devenv.config"),
@@ -56,6 +61,7 @@ function setupRepoGetWorld(): void {
       "#!/usr/bin/env bash",
       'echo "git $*" >> "$STUB_LOG"',
       'if [ "$1" = clone ]; then',
+      '    shift; if [ "$1" = "--" ]; then shift; fi; set -- clone "$@"',
       '    case "$2" in *"/${STUB_CLONE_FAIL:-@none@}.git"|*"/${STUB_CLONE_FAIL:-@none@}") exit 1 ;; esac',
       '    mkdir -p "$3"',
       "fi",
@@ -67,7 +73,7 @@ function setupRepoGetWorld(): void {
 }
 
 function runRepoGet(args: string[], extraEnv: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync("bash", [SCRIPT, ...args], {
+  const r = spawnSync("node", [SCRIPT, ...args], {
     encoding: "utf8",
     env: {
       ...procEnv,
@@ -84,7 +90,7 @@ function runRepoGet(args: string[], extraEnv: Record<string, string> = {}): { st
 
 describe("scripts/repo-get-validation", () => {
   it("repo-get: has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", SCRIPT]).status).toBe(0);
+    expect(spawnSync("node", ["--check", SCRIPT]).status).toBe(0);
   });
 
   it("repo-get: carries the git/core library equivalent", () => {
@@ -97,7 +103,7 @@ describe("scripts/repo-get-validation", () => {
 
   it("repo-get: fails when repository name is missing and no git context", () => {
     // Run from non-git directory
-    const r = spawnSync(SCRIPT, [], { cwd: TMP, encoding: "utf8", env: { ...procEnv, DEVENV_ROOT, DEVENV_ROOT_SET: "1", DEVENV_TOOLS: TOOLS } });
+    const r = spawnSync("node", [SCRIPT], { cwd: TMP, encoding: "utf8", env: { ...procEnv, PATH: pathWithStubs(join(TMP, "bin")), DEVENV_ROOT, DEVENV_ROOT_SET: "1", DEVENV_TOOLS: TOOLS } });
     expect(r.status).not.toBe(0);
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("Usage:");
   });

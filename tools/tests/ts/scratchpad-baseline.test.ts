@@ -6,13 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, appendFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const TOOLS = join(ROOT, "tools");
 
 let TMP = "";
 
@@ -44,21 +42,21 @@ function createMockGitRepo(repoPath: string): void {
 }
 
 describe("scripts/scratchpad-baseline", () => {
-  it("baseline: repo-commit refuses option-shaped args (exit 1, refusal message)", () => {
-    const r = spawnSync(join(TOOLS, "repo-commit"), ["-m", "should be refused"], { encoding: "utf8", env: GIT_ENV() });
-    expect(r.status).toBe(1);
+  it("baseline: repo-commit refuses option-shaped args (exit 2, refusal message)", () => {
+    const r = spawnSync("node", [toolScript("repo-commit"), "-m", "should be refused"], { encoding: "utf8", env: GIT_ENV() });
+    expect(r.status).toBe(2);
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("options are refused by design");
   });
 
-  it("baseline: repo-commit refuses --yes (exit 1)", () => {
-    const r = spawnSync(join(TOOLS, "repo-commit"), ["--yes"], { encoding: "utf8", env: GIT_ENV() });
-    expect(r.status).toBe(1);
+  it("baseline: repo-commit refuses --yes (exit 2)", () => {
+    const r = spawnSync("node", [toolScript("repo-commit"), "--yes"], { encoding: "utf8", env: GIT_ENV() });
+    expect(r.status).toBe(2);
   });
 
-  it("baseline: git-wip refuses unknown flags (exit 1)", () => {
-    const r = spawnSync("bash", [join(TOOLS, "git-wip"), "--definitely-not-a-flag"], { encoding: "utf8", env: GIT_ENV() });
-    expect(r.status).toBe(1);
-    expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("unknown flag");
+  it("baseline: git-wip refuses unknown flags (exit 2)", () => {
+    const r = spawnSync("node", [toolScript("git-wip"), "--definitely-not-a-flag"], { encoding: "utf8", env: GIT_ENV() });
+    expect(r.status).toBe(2);
+    expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("Unknown option");
   });
 
   it("baseline: pr-create refuses unknown flags (exit 2)", () => {
@@ -69,7 +67,8 @@ describe("scripts/scratchpad-baseline", () => {
     const repo = join(TMP, "neutral-repo");
     mkdirSync(repo, { recursive: true });
     spawnSync("git", ["init", "-q"], { cwd: repo, env: GIT_ENV() });
-    const r = spawnSync("bash", ["-c", `cd '${repo}' && '${join(TOOLS, "pr-create")}' --definitely-not-a-flag`], {
+    const r = spawnSync("node", [toolScript("pr-create"), "--definitely-not-a-flag"], {
+      cwd: repo,
       encoding: "utf8",
       env: GIT_ENV(),
     });
@@ -93,7 +92,7 @@ describe("scripts/scratchpad-baseline", () => {
       (spawnSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo, encoding: "utf8", env: GIT_ENV() }).stdout ?? "0").trim(),
       10,
     );
-    const r = spawnSync(join(TOOLS, "repo-commit"), ["msg"], {
+    const r = spawnSync("node", [toolScript("repo-commit"), "msg"], {
       cwd: repo,
       encoding: "utf8",
       env: { ...GIT_ENV(), GIT_EDITOR: mockEditor },

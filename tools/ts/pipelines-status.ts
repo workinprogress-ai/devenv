@@ -19,8 +19,6 @@ import { pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
 
 assertNodeFloor();
 
-await requireFamilyCapability("pipelines", "pipelines");
-
 interface RunRow {
   repo: string;
   workflowName: string;
@@ -47,7 +45,7 @@ Report GitHub Actions workflow run status across the org.
 Defaults to the latest run per repo.
 
 Options:
-${usageCommonFlags()}
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --json                      Output as compact JSON
     --pretty                    Output as pretty-printed JSON
 
@@ -72,13 +70,13 @@ try {
     name: "pipelines-status",
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
-    strict: false,
+    noDryRun: true,
     options: {
       json: { type: "boolean", default: false },
       pretty: { type: "boolean", default: false },
-      repo: { type: "string" },
-      status: { type: "string" },
-      workflow: { type: "string" },
+      repo: { type: "string", short: "r" },
+      status: { type: "string", short: "s" },
+      workflow: { type: "string", short: "w" },
       limit: { type: "string" },
     },
   });
@@ -90,8 +88,7 @@ try {
   workflowFilter = cli.values["workflow"] === undefined ? "" : requireString(cli.values["workflow"], "--workflow");
   const limitRaw = cli.values["limit"] === undefined ? "" : requireString(cli.values["limit"], "--limit");
   if (limitRaw !== "" && !/^[0-9]+$/.test(limitRaw)) {
-    logError(`--limit requires a numeric argument: ${limitRaw}`);
-    process.exit(EXIT_MISUSE);
+    throw new Error(`--limit requires a numeric argument: ${limitRaw}`);
   }
   if (limitRaw !== "") limit = limitRaw;
 } catch (err) {
@@ -100,8 +97,9 @@ try {
   process.exit(EXIT_MISUSE);
 }
 
-// Auth after argv validation: a usage error must exit 2 without touching gh
-// (no network probe on the misuse path).
+// Provider resolution and authentication happen only after the arguments
+// parsed: help and misuse need neither config nor network.
+await requireFamilyCapability("pipelines", "pipelines");
 ensureProviderAuth();
 
 if (providerOrgGet() === "") {

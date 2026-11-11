@@ -8,10 +8,8 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runTool as runHarness } from "./harness/index.ts";
 
-const TOOL = join(fileURLToPath(new URL(".", import.meta.url)), "../../ts/repo-batch-draft.ts");
 
 let root: string;
 let repo: string;

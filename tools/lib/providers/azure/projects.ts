@@ -3,26 +3,35 @@
 // signatures is seam filler); the Status field's options are the boards'
 // Kanban columns. Contract: throw ProviderError; never exit.
 
-import { ProviderError } from "../provider-core.ts";
+import { ProviderError, providerDeclareCapability } from "../provider-core.ts";
 import { azureHttp } from "./http.ts";
 import { witBase } from "./wit-urls.ts";
 import { azureOrgProject, azureUri } from "./urls.ts";
 
-/** The default team's GUID (the boards API's route segment): the configured
- * project (name or GUID) is looked up, then its first team is the default. */
+providerDeclareCapability("project-boards");
+
+/** Default team ids already resolved, keyed by org/project (per process). */
+const defaultTeamCache = new Map<string, string>();
+
+/** The default team's GUID (the boards API's route segment): the project's
+ * own `defaultTeam` property (returned with includeCapabilities) — the team
+ * list's order says nothing about which team is the default. One request per
+ * process and project; a project without a default team is a named error,
+ * never an empty route segment. */
 async function defaultTeamId(): Promise<string> {
   const { org, project } = azureOrgProject();
-  const proj = await azureHttp<{ id?: string }>(
+  const key = `${org}/${project}`;
+  const cached = defaultTeamCache.get(key);
+  if (cached !== undefined) return cached;
+  const proj = await azureHttp<{ id?: string; defaultTeam?: { id?: string } }>(
     "GET",
-    `https://dev.azure.com/${azureUri(org)}/_apis/projects/${azureUri(project)}`,
+    `https://dev.azure.com/${azureUri(org)}/_apis/projects/${azureUri(project)}?includeCapabilities=true`,
   );
-  const guid = proj.id ?? "";
-  if (guid === "") throw new ProviderError(`project '${project}' not found`);
-  const teams = await azureHttp<{ value?: Array<{ id?: string }> }>(
-    "GET",
-    `https://dev.azure.com/${azureUri(org)}/_apis/projects/${guid}/teams`,
-  );
-  return teams.value?.[0]?.id ?? "";
+  if ((proj.id ?? "") === "") throw new ProviderError(`project '${project}' not found`);
+  const team = proj.defaultTeam?.id ?? "";
+  if (team === "") throw new ProviderError(`project '${project}' has no default team`);
+  defaultTeamCache.set(key, team);
+  return team;
 }
 
 /** Map a status_workflow vocabulary word onto a process state via the config

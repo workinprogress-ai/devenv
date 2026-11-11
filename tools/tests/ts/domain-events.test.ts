@@ -10,6 +10,7 @@ import {
   parseLinkedIssues,
   signalPrEvents,
 } from "../../lib/domain/events.ts";
+import { pathWithStubs, stubGh } from "./harness/index.ts";
 
 describe("read side (config)", () => {
   it("reads the Status token for a configured event", () => {
@@ -66,7 +67,22 @@ describe("write side (PR signals)", () => {
     // this repo is best-effort — outcomes vary with provider auth. The
     // contract under test: never throws, per-issue outcomes classified.
     const body = "Closes #999999999";
-    const r = signalPrEvents("created", body);
+    // The event write now reaches the provider, so gh is a stub: the real
+    // scripts run, no backend is contacted.
+    const ghDir = mkdtempSync(join(tmpdir(), "ev-signal-gh-"));
+    const savedEnv = { PATH: process.env.PATH, DEVENV_REPO: process.env.DEVENV_REPO };
+    let r: ReturnType<typeof signalPrEvents>;
+    try {
+      stubGh(ghDir);
+      process.env.PATH = pathWithStubs(ghDir);
+      process.env.DEVENV_REPO = "org/repo";
+      r = signalPrEvents("created", body);
+    } finally {
+      process.env.PATH = savedEnv.PATH;
+      if (savedEnv.DEVENV_REPO === undefined) delete process.env.DEVENV_REPO;
+      else process.env.DEVENV_REPO = savedEnv.DEVENV_REPO;
+      rmSync(ghDir, { recursive: true, force: true });
+    }
     expect(r.fired.length + r.warnings.length).toBe(1);
     // Sharpened: a fired outcome must be a genuine success (the real script
     // exits 0 only on a real signal); a warning must carry the issue number

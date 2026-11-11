@@ -20,13 +20,18 @@ function gitOut(args: string[]): string {
   return r.status === 0 ? (r.stdout ?? "") : "";
 }
 
-/** The highest `vX.Y.Z` tag, or "" when none exists. */
+/** The highest `vX.Y.Z` tag that is an ancestor of HEAD, or "" when none is.
+ * A higher tag on an unrelated branch is skipped: the commits since it would
+ * not be the commits this history adds. */
 export function getLatestVersionTag(): string {
-  return gitOut(["tag", "--list", "v[0-9]*.[0-9]*.[0-9]*"])
+  const candidates = gitOut(["tag", "--list", "v[0-9]*.[0-9]*.[0-9]*"])
     .split("\n")
     .filter((t) => /^v[0-9]+\.[0-9]+\.[0-9]+$/.test(t))
-    .sort((a, b) => compareVersionStrings(a, b))
-    .pop() ?? "";
+    .sort((a, b) => compareVersionStrings(b, a));
+  for (const tag of candidates) {
+    if (spawnSync("git", ["merge-base", "--is-ancestor", tag, "HEAD"]).status === 0) return tag;
+  }
+  return "";
 }
 
 function compareVersionStrings(a: string, b: string): number {
@@ -69,7 +74,12 @@ export function commitBumpFromHeader(header: string): Bump {
 }
 
 /** Next semver (no `v` prefix) from the commits since LATEST_TAG — or from
- * the whole history when empty, starting at DEFAULT_START_VERSION. */
+ * the whole history when empty, starting at DEFAULT_START_VERSION.
+ *
+ * First release (no tag): the whole history is analysed on top of
+ * DEFAULT_START_VERSION (1.0.0 by default), so a history with one `feat`
+ * yields 1.1.0, a `fix`-only history 1.0.1, and a history with no releasable
+ * commit 1.0.0. */
 export function calculateNextVersion(latestTag: string, defaultStartVersion = "1.0.0"): string {
   const baseVersion = latestTag === "" ? defaultStartVersion : latestTag.replace(/^v/, "");
   const base = parseSemver(baseVersion);

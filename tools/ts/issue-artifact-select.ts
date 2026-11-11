@@ -112,6 +112,7 @@ function parseCliArgs(argv: string[]): Parsed {
     };
   } catch (err) {
     logError(errorMessage(err));
+    console.error("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }
 }
@@ -300,6 +301,6 @@ main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
     logError(errorMessage(err));
-    process.exit(5);
+    process.exit(EXIT_API_FAILURE);
   },
 );

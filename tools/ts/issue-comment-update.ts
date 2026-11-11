@@ -11,7 +11,7 @@
 
 import { basename } from "node:path";
 
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
+import { EXIT_MISUSE, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
@@ -53,10 +53,6 @@ Examples:
     ${SCRIPT_NAME} 12345678 --body-file notes.md --dry-run
 `);
   process.exit(0);
-}
-
-function isWhitespaceOnly(s: string): boolean {
-  return s.replace(/\s/g, "") === "";
 }
 
 async function main(argv: string[]): Promise<number> {
@@ -143,7 +139,7 @@ async function main(argv: string[]): Promise<number> {
       await issuesCommentGet(repo, commentId);
     } catch {
       logError(`Comment not found: ${commentId}`);
-      return EXIT_GENERAL_ERROR;
+      return EXIT_API_FAILURE;
     }
   }
 
@@ -159,7 +155,7 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   } catch (err) {
     logError(`Failed to update comment ${commentId}: ${errorMessage(err)}`);
-    return EXIT_GENERAL_ERROR;
+    return EXIT_API_FAILURE;
   }
 }
 
@@ -167,6 +163,6 @@ main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
     logError(errorMessage(err));
-    process.exit(EXIT_GENERAL_ERROR);
+    process.exit(EXIT_API_FAILURE);
   },
 );

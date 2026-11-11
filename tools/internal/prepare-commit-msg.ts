@@ -8,6 +8,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { editorIsNoninteractive } from "../lib/core/editor.ts";
 import {
   changeIdGenerate,
   changeIdGetTrailer,
@@ -91,13 +92,13 @@ if (existing === "") {
 }
 
 if (sourceKind === "" || sourceKind === "template") {
-  // A no-op editor (':'/'true'/'.') means git never opens anything: the
+  // A no-op editor (':'/'true'/'.', a shell, a no-op wrapper) means git never opens anything: the
   // author never sees the buffer, and the prefilled trailers ship as-is as
   // the message. Warn loudly so the failure is visible at the moment it
   // happens instead of a mystery in the commit log.
   const editorVar = spawnSync("git", ["var", "GIT_EDITOR"], { encoding: "utf8" });
   const editor = editorVar.status === 0 ? (editorVar.stdout ?? "").trim() : "";
-  if (editor === ":" || editor === "true" || editor === ".") {
+  if (editor !== "" && editorIsNoninteractive(editor)) {
     process.stderr.write(
       `warning: the effective editor is '${editor}' (a no-op) — no editor will open and the prefilled trailers will be committed as the message; unset the GIT_EDITOR/core.editor override to restore the interactive flow\n`,
     );

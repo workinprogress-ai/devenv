@@ -51,7 +51,8 @@ try {
   nsInput = (cli.values.namespace as string | undefined) ?? (cli.values.n as string | undefined) ?? "";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (depPart === "") {

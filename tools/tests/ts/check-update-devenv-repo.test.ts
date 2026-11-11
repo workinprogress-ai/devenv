@@ -75,7 +75,9 @@ function rewriteOrigin(): void {
 // The fixture clone gets the real tool + lib committed (the tool refuses
 // dirty trees) before the e2e scenarios.
 function setupE2eClone(): void {
-  cpSync(join(ROOT, "tools/git-update"), join(CLONE, "tools/git-update"));
+  // The depth-1 stub is generated at install time; write the minimal one.
+  writeFileSync(join(CLONE, "tools/git-update"), '#!/bin/bash\nexec node "$(dirname "$0")/ts/git-update.ts" "$@"\n');
+  chmodSync(join(CLONE, "tools/git-update"), 0o755);
   mkdirSync(join(CLONE, "tools/ts"), { recursive: true });
   cpSync(join(ROOT, "tools/ts/git-update.ts"), join(CLONE, "tools/ts/git-update.ts"));
   cpSync(join(ROOT, "tools/lib"), join(CLONE, "tools/lib"), { recursive: true });

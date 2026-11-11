@@ -12,7 +12,7 @@ import { runTool as runHarness } from "./harness/index.ts";
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const SCRIPT = join(ROOT, "tools", "get-services-config");
+const SCRIPT = join(ROOT, "tools", "ts", "get-services-config.ts");
 const TS_SOURCE = join(ROOT, "tools", "ts", "get-services-config.ts");
 
 let TMP = "";
@@ -34,7 +34,7 @@ function sourceHas(args: string[]): boolean {
 
 describe("scripts/services-config", () => {
   it("get-services-config.sh has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", SCRIPT]).status).toBe(0);
+    expect(spawnSync("node", ["--check", SCRIPT]).status).toBe(0);
   });
 
   it("get-services-config.sh has --help flag", () => {

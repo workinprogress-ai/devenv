@@ -17,8 +17,7 @@
 // pairing from bash becomes explicit trim here, keeping round trips
 // byte-stable. Contract: throw ProviderError on failure; never process.exit.
 
-import { ProviderError, providerConfigPath, unknownOption, needValue } from "../provider-core.ts";
-import { configGetRaw } from "../../core/config.ts";
+import { ProviderError, unknownOption, needValue } from "../provider-core.ts";
 import { azureHttp } from "./http.ts";
 import { witBase, webItemsBase } from "./wit-urls.ts";
 import { azureUri } from "./urls.ts";
@@ -29,12 +28,11 @@ import {
   azureTagsJoin,
   bodyFieldFor,
   splitCommentRef,
-  azureMarkerTransform,
   issuesArtifactBodyTransform,
   issueTypesConfig,
   DEFAULT_BODY_FIELD,
 } from "./entity-roundtrip.ts";
-import { errorMessage } from "../../core/logging.ts";
+import { errorMessage, logWarn } from "../../core/logging.ts";
 
 // Re-exported for the split surface's existing consumers (facade type
 // imports, smoke.ts, azure.test.ts) — one import site, unchanged names.
@@ -65,6 +63,7 @@ const AZURE_BATCH_MAX = 200;
 /** Raw Azure work-item shape (the fields we consume). */
 interface AzureWorkItem {
   id?: number;
+  rev?: number;
   url?: string;
   fields?: Record<string, unknown>;
   multilineFieldsFormat?: Record<string, string>;
@@ -336,6 +335,7 @@ async function workItemsBatch(base: string, ids: number[]): Promise<AzureWorkIte
 
 /** Project batch details to seam records with decoded bodies. */
 function mapBatch(items: AzureWorkItem[]): Array<Record<string, unknown>> {
+  const web = webItemsBase();
   return items.map((item) => {
     const devenvType = seamTypeFor(item);
     // One bodyFieldFor resolution per item (each call costs up to three
@@ -350,7 +350,8 @@ function mapBatch(items: AzureWorkItem[]): Array<Record<string, unknown>> {
       labels: seamTags(item),
       body: decodeConfiguredBody(item, bodyField),
       markdown: (item.multilineFieldsFormat?.[bodyField] ?? "") === "markdown",
-      url: item.url ?? "",
+      url: `${web}${item.id ?? 0}`,
+      comments: typeof field(item, "System.CommentCount") === "number" ? (field(item, "System.CommentCount") as number) : 0,
       createdAt: strField(item, "System.CreatedDate"),
       updatedAt: strField(item, "System.ChangedDate"),
       closedAt: strField(item, "Microsoft.VSTS.Common.ClosedDate"),
@@ -499,15 +500,30 @@ export async function issuesView(
   return record;
 }
 
-/** Check an issue exists (presence test). */
+/** Whether a transport error means the work item is absent: HTTP 404, or
+ * Azure's TF401232 work-item-not-found code. A wrong project or organization
+ * ("the project does not exist"), auth, network and server failures do not
+ * match: those are configuration or outage errors, not an absent item. */
+function isNotFound(err: unknown): boolean {
+  if (!(err instanceof ProviderError)) return false;
+  if (/TF401232/.test(err.message)) return true;
+  // A 404 that names a missing project or organization is a wrong scope.
+  if (/TF200016|\b(project|organization)\b[^.]*does not exist/i.test(err.message)) return false;
+  return err.status === 404;
+}
+
+/** Check an issue exists. Only a not-found answer is `false`; any other
+ * failure (credential, network, server) is rethrown so a caller never reads
+ * an outage as "absent". */
 export async function issuesExists(repo: string, number: number): Promise<boolean> {
   void repo;
+  const { base } = witBase();
   try {
-    const { base } = witBase();
     await azureHttp("GET", `${base}/workitems/${number}`);
     return true;
-  } catch {
-    return false;
+  } catch (err) {
+    if (isNotFound(err)) return false;
+    throw err;
   }
 }
 
@@ -550,7 +566,7 @@ interface PatchOp {
   op: string;
   path: string;
   from?: null;
-  value: unknown;
+  value?: unknown;
 }
 
 /** Write verification (15.22b): read back rev + System.ChangedDate after a
@@ -621,7 +637,18 @@ export async function issuesCreate(
     { body: JSON.stringify(ops), contentType: "application/json-patch+json" },
   );
   const id = r.id ?? 0;
-  if (id !== 0) await verifyWriteReflected(id);
+  if (id !== 0) {
+    try {
+      await verifyWriteReflected(id);
+    } catch (err) {
+      // The work item exists: never lose its id to a failed read-back, or a
+      // retry creates a duplicate.
+      logWarn(
+        `work item ${id} was created but the write could not be verified (${errorMessage(err)}); ` +
+          `do not retry the create`,
+      );
+    }
+  }
   return id;
 }
 
@@ -638,12 +665,21 @@ export async function issuesComment(
   opts: IssuesCommentOptions,
 ): Promise<string> {
   void repo;
-  // --body-file posts the FILE's CONTENT (F8: it was ignored entirely and
-  // the comment posted empty).
-  let text = opts.body ?? opts.commentBody ?? "";
-  if (text === "" && opts.bodyFile !== undefined) {
+  // Exactly one body source, the same rule the GitHub comment verbs apply.
+  const given = opts.body ?? opts.commentBody;
+  if (given !== undefined && opts.bodyFile !== undefined) {
+    throw new ProviderError("provider_issues_comment: --body and --body-file are mutually exclusive");
+  }
+  if (given === undefined && opts.bodyFile === undefined) {
+    throw new ProviderError("provider_issues_comment requires --body");
+  }
+  let text = given ?? "";
+  if (opts.bodyFile !== undefined) {
     const { readFileSync } = await import("node:fs");
     text = opts.bodyFile === "-" ? readFileSync(0, "utf8") : readFileSync(opts.bodyFile, "utf8");
+  }
+  if (text.trim() === "") {
+    throw new ProviderError("provider_issues_comment: the comment body is empty");
   }
   const { base } = witBase();
   const r = await azureHttp<{ id?: number | string }>(
@@ -670,12 +706,14 @@ export async function issuesClose(
 ): Promise<void> {
   void repo;
   void opts.reason;
-  if (opts.comment !== undefined && opts.comment !== "") {
-    await issuesComment(repo, number, { body: opts.comment });
-  }
   const type = await workItemType(number);
   const state = await stateByCategory(type, ["Completed", "Resolved", "Done"]);
   await patchState(number, state);
+  // After the state change: a failed change leaves no orphan comment, and a
+  // retry does not duplicate one. A whitespace-only comment is no comment.
+  if (opts.comment !== undefined && opts.comment.trim() !== "") {
+    await issuesComment(repo, number, { body: opts.comment });
+  }
 }
 
 /** Reopen: state moves to the type's first Proposed-category state. */
@@ -685,12 +723,12 @@ export async function issuesReopen(
   opts: { comment?: string } = {},
 ): Promise<void> {
   void repo;
-  if (opts.comment !== undefined && opts.comment !== "") {
-    await issuesComment(repo, number, { body: opts.comment });
-  }
   const type = await workItemType(number);
   const state = await stateByCategory(type, ["Proposed", "InProgress"]);
   await patchState(number, state);
+  if (opts.comment !== undefined && opts.comment.trim() !== "") {
+    await issuesComment(repo, number, { body: opts.comment });
+  }
 }
 
 export interface IssuesEditOptions {
@@ -698,24 +736,55 @@ export interface IssuesEditOptions {
   body?: string;
   addLabel?: string;
   removeLabel?: string;
-  /** The devenv issue type (resolves the [azure_body_fields] body field).
-   * Absent/empty falls back to System.Description. */
+  /** The devenv issue type. It selects the body field the given body is
+   * written to; the work item's own type is never changed by an edit, so a
+   * type without a body is refused. Absent, the item's current type picks
+   * the field. */
   type?: string;
 }
 
-/** Edit a work item: title/body/labels. */
+/** Edit a work item: title, body and labels travel in ONE JSON-patch, so a
+ * failure leaves the item untouched rather than half edited. */
 export async function issuesEdit(
   repo: string,
   number: number,
   opts: IssuesEditOptions,
 ): Promise<void> {
   void repo;
-  const bodyField = bodyFieldFor(opts.type ?? "");
+  if (opts.type !== undefined && opts.body === undefined) {
+    throw new ProviderError(
+      "--type on edit is not supported for provider 'azure': an edit never changes the work item type " +
+        "(--type only selects the body field when a --body is given)",
+    );
+  }
+  if (opts.addLabel === "") throw new ProviderError("issues_add_tag: work item id and tag required");
+  // Azure itself splits a tag on ';', so a label holding one is the several
+  // tags it spells; a label that spells none is refused.
+  const addTags = opts.addLabel === undefined ? [] : azureTagsSplit(opts.addLabel);
+  const removeTags = opts.removeLabel === undefined ? [] : azureTagsSplit(opts.removeLabel);
+  if ((opts.addLabel !== undefined && addTags.length === 0) || (opts.removeLabel !== undefined && removeTags.length === 0)) {
+    throw new ProviderError("issues edit: a label must contain at least one non-empty tag (';' separates tags)");
+  }
+  const labelsGiven = opts.addLabel !== undefined || opts.removeLabel !== undefined;
+  if (opts.title === undefined && opts.body === undefined && !labelsGiven) return;
+
+  const { base } = witBase();
+  // One read serves the write verification baseline, the item's current
+  // type (its body field) and its current tags.
+  const prior = await azureHttp<AzureWorkItem>(
+    "GET",
+    `${base}/workitems/${number}?$fields=System.Rev,System.ChangedDate,System.WorkItemType,System.Tags`,
+  );
+  const priorRev = revOf(prior);
+  const priorDate = strField(prior, "System.ChangedDate");
+
   const ops: PatchOp[] = [];
+  if (labelsGiven) ops.push(...tagOps(azureTagsSplit(strField(prior, "System.Tags")), addTags, removeTags));
   if (opts.title !== undefined) {
     ops.push({ op: "add", path: "/fields/System.Title", from: null, value: opts.title });
   }
   if (opts.body !== undefined) {
+    const bodyField = bodyFieldFor(opts.type ?? seamTypeFor(prior));
     ops.push({
       op: "add",
       path: `/fields/${bodyField}`,
@@ -728,26 +797,89 @@ export async function issuesEdit(
       value: "markdown",
     });
   }
-  if (opts.addLabel !== undefined) {
-    await issuesAddTag(number, opts.addLabel);
-  }
-  if (opts.removeLabel !== undefined) {
-    await issuesRemoveTag(number, opts.removeLabel);
-  }
   if (ops.length === 0) return;
-  const { base } = witBase();
-  // Prior rev/ChangedDate for the write-verification readback.
-  const prior = await azureHttp<AzureWorkItem>(
-    "GET",
-    `${base}/workitems/${number}?$fields=System.Rev,System.ChangedDate`,
-  );
-  const priorRev = typeof prior.fields?.["System.Rev"] === "number" ? (prior.fields["System.Rev"] as number) : undefined;
-  const priorDate = strField(prior, "System.ChangedDate");
-  await azureHttp("PATCH", `${base}/workitems/${number}`, {
-    body: JSON.stringify(ops),
-    contentType: "application/json-patch+json",
-  });
+  // The whole edit is conditional on the revision the tags were read at: a
+  // concurrent change fails the PATCH instead of being silently overwritten.
+  const guard: PatchOp[] = priorRev === undefined ? [] : [{ op: "test", path: "/rev", value: priorRev }];
+  await patchRevGuarded(`${base}/workitems/${number}`, [...guard, ...ops], guard.length > 0, number);
   await verifyWriteReflected(number, { rev: priorRev, changedDate: priorDate });
+}
+
+/** The revision a work item answer carries: the System.Rev field, else the
+ * top-level rev. */
+function revOf(item: AzureWorkItem): number | undefined {
+  const nested = item.fields?.["System.Rev"];
+  if (typeof nested === "number") return nested;
+  return typeof item.rev === "number" ? item.rev : undefined;
+}
+
+/** The JSON-patch op that turns `existing` into the tag set after adding and
+ * removing (none when nothing changes). Azure tags are case-insensitive: add
+ * skips a tag present in any case, remove drops the stored tag whatever the
+ * case of the request. 'add' on System.Tags appends and can never remove, so
+ * a change to an existing set is a 'replace', and an emptied set drops the
+ * field. */
+function tagOps(existing: string[], addTags: string[], removeTags: string[]): PatchOp[] {
+  let final = existing;
+  for (const tag of addTags) {
+    if (!final.some((t) => t.toLowerCase() === tag.toLowerCase())) final = [...final, tag];
+  }
+  const drop = new Set(removeTags.map((t) => t.toLowerCase()));
+  final = final.filter((t) => !drop.has(t.toLowerCase()));
+  if (final.join(";") === existing.join(";")) return [];
+  return [
+    final.length === 0
+      ? { op: "remove", path: "/fields/System.Tags" }
+      : existing.length === 0
+        ? { op: "add", path: "/fields/System.Tags", from: null, value: azureTagsJoin(final) }
+        : { op: "replace", path: "/fields/System.Tags", value: azureTagsJoin(final) },
+  ];
+}
+
+/** Read a work item's tags and revision, apply an add/remove, and PATCH the
+ * change guarded by the revision it was read at (no PATCH when nothing
+ * changes). */
+async function editTags(number: number, addTags: string[], removeTags: string[]): Promise<void> {
+  const { base } = witBase();
+  const view = await azureHttp<AzureWorkItem>(
+    "GET",
+    `${base}/workitems/${number}?$fields=System.Rev,System.Tags`,
+  );
+  const ops = tagOps(azureTagsSplit(strField(view, "System.Tags")), addTags, removeTags);
+  if (ops.length === 0) return;
+  const rev = revOf(view);
+  const guard: PatchOp[] = rev === undefined ? [] : [{ op: "test", path: "/rev", value: rev }];
+  await patchRevGuarded(`${base}/workitems/${number}`, [...guard, ...ops], guard.length > 0, number);
+}
+
+/** Whether a failed revision-guarded PATCH was the guard refusing: the
+ * precondition statuses, or a 400 whose text names the failed test operation. */
+function isRevConflict(err: unknown): boolean {
+  if (!(err instanceof ProviderError)) return false;
+  if (err.status === 409 || err.status === 412) return true;
+  // Only a message naming the failed test operation (on /rev) counts: other
+  // 400s mention "revision" or "modified" for unrelated rule failures.
+  return err.status === 400 && /\btest\W+operation\b|\boperation\W+test\b|\btest\b.*\/rev\b|\/rev\b.*\btest\b/i.test(err.message);
+}
+
+/** PATCH a work item; when the ops lead with a revision guard, a refusal by
+ * the guard is a named concurrent-modification error and is never retried. */
+async function patchRevGuarded(url: string, ops: PatchOp[], guarded: boolean, number: number): Promise<void> {
+  try {
+    await azureHttp("PATCH", url, {
+      body: JSON.stringify(ops),
+      contentType: "application/json-patch+json",
+    });
+  } catch (err) {
+    if (guarded && isRevConflict(err)) {
+      throw new ProviderError(
+        `work item ${number} was modified concurrently (concurrent modification: its revision changed since it was read); ` +
+          `re-read it and repeat the change: ${errorMessage(err)}`,
+        (err as ProviderError).status,
+      );
+    }
+    throw err;
+  }
 }
 
 /** The work item's own type (System.WorkItemType). */
@@ -794,46 +926,27 @@ export async function issuesSetType(
 // ---------------------------------------------------------------------------
 
 /** Add a tag to the mapped work item. Azure tags are work-item-scoped flat
- * strings — color/description are accepted and ignored. Idempotent. */
+ * strings — color/description are accepted and ignored. Idempotent, and the
+ * same case-insensitive, ';'-splitting, revision-guarded edit as issuesEdit. */
 export async function issuesAddTag(number: number, tag: string): Promise<void> {
   if (number === undefined || tag === "") {
     throw new ProviderError("issues_add_tag: work item id and tag required");
   }
-  const { base } = witBase();
-  const view = await azureHttp<AzureWorkItem>(
-    "GET",
-    `${base}/workitems/${number}?$fields=System.Tags`,
-  );
-  const existing = azureTagsSplit(strField(view, "System.Tags"));
-  if (existing.includes(tag)) return; // already tagged — idempotent no-op
-  const joined = azureTagsJoin([...existing, tag]);
-  await azureHttp("PATCH", `${base}/workitems/${number}`, {
-    body: JSON.stringify([{ op: "add", path: "/fields/System.Tags", from: null, value: joined }]),
-    contentType: "application/json-patch+json",
-  });
+  const tags = azureTagsSplit(tag);
+  if (tags.length === 0) {
+    throw new ProviderError("issues_add_tag: a tag must contain at least one non-empty name (';' separates tags)");
+  }
+  await editTags(number, tags, []);
 }
 
-/** Remove a tag from the mapped work item. Idempotent. Azure semantics
- * (live-verified): an 'add' op on System.Tags APPENDS — it can never remove.
- * Removal writes the surviving tags with a 'replace' op, or drops the field
- * entirely (op 'remove') when no tags remain. */
+/** Remove a tag from the mapped work item. Idempotent; the same semantics as
+ * issuesEdit (see tagOps for how Azure's tag field is written). */
 export async function issuesRemoveTag(number: number, tag: string): Promise<void> {
-  const { base } = witBase();
-  const view = await azureHttp<AzureWorkItem>(
-    "GET",
-    `${base}/workitems/${number}?$fields=System.Tags`,
-  );
-  const existing = azureTagsSplit(strField(view, "System.Tags"));
-  if (!existing.includes(tag)) return;
-  const final = existing.filter((t) => t !== tag);
-  const op =
-    final.length === 0
-      ? { op: "remove", path: "/fields/System.Tags" }
-      : { op: "replace", path: "/fields/System.Tags", value: azureTagsJoin(final) };
-  await azureHttp("PATCH", `${base}/workitems/${number}`, {
-    body: JSON.stringify([op]),
-    contentType: "application/json-patch+json",
-  });
+  const tags = azureTagsSplit(tag);
+  if (tags.length === 0) {
+    throw new ProviderError("issues_remove_tag: a tag must contain at least one non-empty name (';' separates tags)");
+  }
+  await editTags(number, [], tags);
 }
 
 export interface IssuesLabelListOptions {
@@ -941,11 +1054,28 @@ export async function issueGraphLink(
       body: JSON.stringify(body),
       contentType: "application/json-patch+json",
     });
-  } catch {
-    const children = await issueGraphChildren(repo, parent);
-    if (children.includes(child)) return; // already linked
-    throw new ProviderError(`failed linking ${child} under ${parent}`);
+  } catch (err) {
+    // A duplicate relation is a store conflict: success only when the parent
+    // really lists the child. Any other cause, and a confirmation read that
+    // itself fails, surface the original error.
+    let linked = false;
+    try {
+      linked = (await issueGraphChildren(repo, parent)).includes(child);
+    } catch {
+      linked = false;
+    }
+    if (linked) return;
+    throw err;
   }
+}
+
+/** The leading JSON-patch op that makes a relation-index write conditional on
+ * the revision the index was read at: a concurrent relation change fails the
+ * PATCH instead of removing a different relation. Empty when the read carried
+ * no revision. */
+function revGuard(item: AzureWorkItem): PatchOp[] {
+  const rev = item.rev ?? (typeof item.fields?.["System.Rev"] === "number" ? (item.fields["System.Rev"] as number) : undefined);
+  return rev === undefined ? [] : [{ op: "test", path: "/rev", value: rev }];
 }
 
 /** Remove the child relation from a parent. */
@@ -968,12 +1098,8 @@ export async function issueGraphUnlink(
       (r.url ?? "").endsWith(childUrlSuffix),
   );
   if (index === -1) return; // not linked — idempotent
-  await azureHttp("PATCH", `${base}/workitems/${parent}`, {
-    body: JSON.stringify([
-      { op: "remove", path: `/relations/${index}` },
-    ]),
-    contentType: "application/json-patch+json",
-  });
+  const guard = revGuard(item);
+  await patchRevGuarded(`${base}/workitems/${parent}`, [...guard, { op: "remove", path: `/relations/${index}` }], guard.length > 0, parent);
 }
 
 /** Children of a work item (Hierarchy-Forward relations), as ids. */
@@ -1081,7 +1207,7 @@ export async function issueDependencyUnlink(
   );
   if (index === -1) return; // absent = no-op
   await azureHttp("PATCH", `${base}/workitems/${issue}`, {
-    body: JSON.stringify([{ op: "remove", path: `/relations/${index}` }]),
+    body: JSON.stringify([...revGuard(item), { op: "remove", path: `/relations/${index}` }]),
     contentType: "application/json-patch+json",
   });
 }

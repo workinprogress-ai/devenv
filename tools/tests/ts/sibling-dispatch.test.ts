@@ -80,9 +80,13 @@ describe("sibling dispatch contract", () => {
       // join(toolsDir, "<tool>") where toolsDir is the module's tools root
       for (const m of src.matchAll(/join\(\s*(?:toolsDir|TOOLS_DIR)\s*,\s*"([a-z0-9-]+)"\s*\)/g)) {
         const name = m[1] ?? "";
+        // The depth-1 stub is generated from ts/<name>.ts at install time and
+        // absent in a clean clone, so the stub resolves iff its source exists.
         const p = join(toolsDir, name);
-        if (!existsSync(p) || statSync(p).isDirectory()) {
-          violations.push(`${file}: stub path "${name}" does not resolve (looking for ${p})`);
+        const src1 = join(toolsDir, "ts", `${name}.ts`);
+        const stubOk = existsSync(p) && !statSync(p).isDirectory();
+        if (!stubOk && !existsSync(src1)) {
+          violations.push(`${file}: stub path "${name}" does not resolve (looking for ${p} or ${src1})`);
         }
       }
       // Same-layer family: join(toolsDir, "ts", "<x>.ts") must exist

@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, copyFileSync } from "
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { canaryEnv } from "./harness/canary.ts";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 
@@ -40,7 +41,7 @@ describe("sanity-check", () => {
     const r = spawnSync(
       "bash",
       ["-c", `source '${root}/.devcontainer/sanity-check.sh'; echo "rc=$?"`],
-      { encoding: "utf8", env: { HOME: homeDir, PATH: "/usr/bin:/bin", DEVENV_ROOT: root } },
+      { encoding: "utf8", env: { ...canaryEnv("/usr/bin:/bin"), HOME: homeDir, DEVENV_ROOT: root } },
     );
     return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
   }

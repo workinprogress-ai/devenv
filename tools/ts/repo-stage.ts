@@ -35,8 +35,8 @@ import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { changedFiles } from "../lib/core/git.ts";
 import { batchClaimedPaths, isLiteralFilePath, parseCommitBatch, validateCommitBatch } from "../lib/domain/commit-batch.ts";
-import { enumerateFile, stageSelection, extractPayloads } from "../lib/domain/hunk-stage.ts";
-import { hunkPayload } from "../lib/domain/hunk-select.ts";
+import { captureIndex, diffArgs, enumerateFile, extractPayloads, preflightSelection, stageSelection, verifyIndexAfter } from "../lib/domain/hunk-stage.ts";
+import { HunkParseError, hunkPayload, splitDiff } from "../lib/domain/hunk-select.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
@@ -57,13 +57,27 @@ function git(args: string[]): { status: number; out: string; err: string } {
   return r;
 }
 
+// Paths this invocation already staged. A failure after the first mutation
+// reports them with the exact undo recipe; the tool never rolls back itself.
+const stagedSoFar: string[] = [];
+
 function die(...lines: string[]): never {
   for (const l of lines) logError(l);
+  if (stagedSoFar.length > 0) {
+    logError(`this run had already staged: ${stagedSoFar.join(", ")}`);
+    logError(`to undo: git restore --staged -- ${stagedSoFar.map((p) => `'${p.replace(/'/g, "'\\''")}'`).join(" ")}`);
+  }
   process.exit(EXIT_GENERAL_ERROR);
 }
 
-function usage(): void {
-  console.log(`Usage: repo-stage <path>...
+// A usage error exits 2 (the documented contract); validation failures keep die().
+function dieUsage(...lines: string[]): never {
+  for (const l of lines) logError(l);
+  process.exit(EXIT_MISUSE);
+}
+
+function usage(out: (line: string) => void = console.log): void {
+  out(`Usage: repo-stage <path>...
        repo-stage --unstage <path>...
        repo-stage --patch <patch-file>
        repo-stage --batch <manifest> [--group N] [--dry-run]
@@ -118,33 +132,33 @@ try {
   if (cli.values["unstage"] === true) mode = "unstage";
   batchFile = typeof cli.values.batch === "string" ? cli.values.batch : "";
   patchFile = typeof cli.values.patch === "string" ? cli.values.patch : "";
-  if (batchFile !== "" && patchFile !== "") die("--patch cannot combine with --batch (pick one mode)");
+  if (batchFile !== "" && patchFile !== "") dieUsage("--patch cannot combine with --batch (pick one mode)");
   if (patchFile !== "") {
-    if (mode !== "paths") die("--unstage cannot combine with --patch (pick one mode)");
+    if (mode !== "paths") dieUsage("--unstage cannot combine with --patch (pick one mode)");
     mode = "patch";
   }
   if (batchFile !== "") {
-    if (mode !== "paths") die("--unstage cannot combine with --batch (pick one mode)");
+    if (mode !== "paths") dieUsage("--unstage cannot combine with --batch (pick one mode)");
     mode = "batch";
   }
   const groupRaw = typeof cli.values.group === "string" ? cli.values.group : "";
   if (groupRaw !== "") {
     const n = Number.parseInt(groupRaw, 10);
-    if (Number.isNaN(n) || n < 1 || !/^[0-9]+$/.test(groupRaw)) die("--group requires a positive integer");
+    if (Number.isNaN(n) || n < 1 || !/^[0-9]+$/.test(groupRaw)) dieUsage("--group requires a positive integer");
     groupOpt = n;
   }
   paths.push(...cli.positionals);
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
-if (mode !== "batch" && groupOpt !== null) die("--group requires --batch");
-if (mode === "batch" && paths.length > 0) die("path arguments are not valid with --batch");
-if (mode === "patch" && paths.length > 0) die("path arguments are not valid with --patch");
+if (mode !== "batch" && groupOpt !== null) dieUsage("--group requires --batch");
+if (mode === "batch" && paths.length > 0) dieUsage("path arguments are not valid with --batch");
+if (mode === "patch" && paths.length > 0) dieUsage("path arguments are not valid with --patch");
 if (mode !== "batch" && mode !== "patch" && paths.length === 0) {
-  usage();
+  usage(console.error);
   process.exit(EXIT_MISUSE);
 }
 
@@ -169,30 +183,36 @@ function checkPathModePaths(): void {
 }
 
 // --- Execute staging/unstaging.
+// True when the path's change is already fully staged though `git add` cannot
+// match it (e.g. the old path of a `git mv`: in neither worktree nor index, but
+// the staged diff already carries it). Re-adding staged content is a no-op.
+function alreadyCarried(p: string): boolean {
+  return git(["-c", "core.quotePath=false", "diff", "--cached", "--name-status", "--no-renames"]).out
+    .split("\n")
+    .some((l) => (l.split("\t")[1] ?? "").trim() === p);
+}
+
+/** Non-mutating check that `git add -- p` will succeed (or is a no-op). */
+function addProblem(p: string): string | null {
+  const r = git(["add", "--dry-run", "--", p]);
+  if (r.status === 0 || alreadyCarried(p)) return null;
+  return `git add would fail for '${p}': ${r.err.trim()}`;
+}
+
 function stage(pathsToStage: string[]): void {
+  // Every path is checked before the first add, so a bad path late in the
+  // list cannot leave the earlier ones staged.
+  for (const p of pathsToStage) {
+    const problem = addProblem(p);
+    if (problem !== null) die(problem, "nothing was staged");
+  }
   for (const p of pathsToStage) {
     const r = git(["add", "--", p]);
     if (r.status !== 0) {
-      // Idempotent no-op case: the path's change is already fully staged
-      // (e.g. one half of a `git mv` rename — the old path is in neither
-      // worktree nor index, so `git add` cannot match it, but the staged
-      // diff already carries it). Re-adding staged content is a no-op.
-      // A staged rename lists only the new path under --name-only; the old
-      // path appears in --name-status as "R<score>\told -> new".
-      const carried = git(["-c", "core.quotePath=false", "diff", "--cached", "--name-status"]).out
-        .split("\n")
-        .some((l) => {
-          const parts = l.split("\t");
-          const st = parts[0] ?? "";
-          if (st.startsWith("R") || st.startsWith("C")) {
-            const origin = (parts[1] ?? "").trim();
-            return origin === p;
-          }
-          return (parts[1] ?? "").trim() === p;
-        });
-      if (carried) continue;
+      if (alreadyCarried(p)) continue;
       die(`git add failed for '${p}': ${r.err.trim()}`);
     }
+    stagedSoFar.push(p);
   }
 }
 
@@ -235,8 +255,18 @@ if (mode === "paths" || mode === "unstage") {
     // Embedded-repo guard: `git add` inside a nested git repository exits 0
     // while staging THAT repo's index — verify the path is actually visible
     // in the TARGET repo before claiming success.
-    const visible = stagedPathsNow();
-    const missing = paths.filter((p) => !visible.includes(p));
+    // Judged on the index entry itself (ls-files --stage), not on the staged
+    // diff: a file identical to HEAD, or the old path of a rename, has an
+    // index entry (or none) without appearing in the staged diff's name list.
+    const missing = paths.filter((p) => {
+      const entry = git(["-c", "core.quotePath=false", "ls-files", "--stage", "--", p]).out
+        .split("\n").filter((l) => l !== "");
+      const inIndex = entry.some((l) => !l.startsWith("160000 ") && l.slice(l.indexOf("\t") + 1) === p);
+      // On disk: the file must be in the index. Gone from disk (deletion, old
+      // path of a rename): it must NOT be in the index any more.
+      const onDisk = existsSync(absolute(p)) && statSync(absolute(p)).isFile();
+      return onDisk ? !inIndex : inIndex;
+    });
     if (missing.length > 0) {
       die(
         `staged into a DIFFERENT repository: ${missing.join(", ")} is not in this repo's index — the path is likely inside an embedded git repository (gitignore it, remove it, or register it as a submodule)`,
@@ -292,49 +322,30 @@ if (mode === "patch") {
     logInfo(`dry-run: would stage ${hunkCount} hunk(s) from ${patchFile}`);
     process.exit(0);
   }
-  // Pre-apply snapshot: staged payloads for the patched path (captured
-  // BEFORE the apply — the apply changes the staged diff).
+  // Pre-apply snapshot of the index (captured BEFORE the apply). The patch's
+  // hunks are parsed up front so an unparseable patch refuses pre-mutation.
   const patchPathMatch = /^diff --git a\/(.+) b\//m.exec(patch);
   const patchedPath = patchPathMatch?.[1] ?? "";
-  const preStagedP = extractPayloads(gitCheck(repoRoot, ["diff", "--cached", "--", patchedPath]).out);
+  let patchHunks: ReturnType<typeof splitDiff>["hunks"];
+  try {
+    patchHunks = splitDiff(patch).hunks;
+  } catch (e) {
+    if (e instanceof HunkParseError) die(`cannot parse the patch: ${e.message}`);
+    throw e;
+  }
+  const patchExec = (args: string[], input?: string) => runPatchGit(args, input ?? "");
+  const indexBefore = captureIndex(patchExec, patchedPath);
   const applied = runPatchGit(["apply", "--cached", "-"], patch);
   if (applied.status !== 0) {
     die(`git apply --cached failed: ${applied.stderr || "(no stderr)"} — index unchanged`);
   }
-  // Post-apply verification — the ENGINE's line-multiset comparison
-  // (order- and merge-insensitive; pairwise/order-bound joins false-refuse
-  // three-way and reversed merges — the engine lane learned this in review
-  // round 2 and the patch lane reuses the fix wholesale): staged +/- lines
-  // (counted) must equal pre-staged ∪ patch lines exactly.
+  // Post-apply verification by blob hash: the staged blob must equal the
+  // pre-apply index content with exactly the patch's hunks applied, and no
+  // other index entry may change.
   {
-    const patchPayloads = extractPayloads(patch);
-    const stagedNowP = extractPayloads(gitCheck(repoRoot, ["diff", "--cached", "--", patchedPath]).out);
-    const countLines = (payloads: string[]): Map<string, number> => {
-      const m = new Map<string, number>();
-      for (const p of payloads) {
-        for (const line of p.split("\n")) m.set(line, (m.get(line) ?? 0) + 1);
-      }
-      return m;
-    };
-    const stagedLines = countLines(stagedNowP);
-    const knownLines = countLines([...preStagedP, ...patchPayloads]);
-    let extra: string | null = null;
-    for (const [line, n] of stagedLines) {
-      if ((knownLines.get(line) ?? 0) < n) {
-        extra = `the staged diff contains content that is neither prior staged content nor the patch's hunks`;
-        break;
-      }
-    }
-    if (extra === null) {
-      for (const [line, n] of knownLines) {
-        if ((stagedLines.get(line) ?? 0) < n) {
-          extra = `expected patch content is absent from the staged diff`;
-          break;
-        }
-      }
-    }
-    if (extra !== null) {
-      die(`verification failed: ${extra} for '${patchedPath}' — restore with 'git restore --staged ${patchedPath}' and regenerate the patch (apply is context-tolerant and may have matched unexpected content)`);
+    const problem = verifyIndexAfter(patchExec, patchedPath, indexBefore, patchHunks);
+    if (problem !== null) {
+      die(`verification failed: ${problem} for '${patchedPath}' — restore with 'git restore --staged ${patchedPath}' and regenerate the patch (apply is context-tolerant and may have matched unexpected content)`);
     }
   }
   const stagedNow2 = stagedPathsNow();
@@ -396,7 +407,7 @@ const hunkFacts = hunkClaimPaths.length
           payloadByNumber.set(p, e.hunks.map(hunkPayload));
         }
         // Staged payloads (content identity) for purity.
-        const stagedDiff = gitCheck(repoRoot, ["diff", "--cached", "--", p]).out;
+        const stagedDiff = gitCheck(repoRoot, diffArgs("--cached", "--", p)).out;
         stagedPayloads.set(p, extractPayloads(stagedDiff));
       }
       return { liveCounts, refusalClasses, stagedPayloads, payloadByNumber };
@@ -466,6 +477,18 @@ if (dryRun) {
   logInfo(`dry-run: would stage ${group.files.join(", ") || "(no whole-file entries)"}${group.hunkClaims.size > 0 ? ` · hunks: ${[...group.hunkClaims].map(([p, n]) => `${p} @ ${n.join(",")}`).join("; ")}` : ""}`);
   process.exit(0);
 }
+// Validate-then-mutate, for real: every whole-file add and every hunk claim
+// is checked without mutating before the FIRST add, so a late refusal cannot
+// leave the group half staged. (Whole-file entries are checked inside
+// stage(); hunk claims here.)
+for (const [p, numbers] of group.hunkClaims) {
+  const problem = preflightSelection(batchEngine, p, numbers);
+  if (problem !== null) die(`hunk staging refused — ${problem.message}`, "nothing was staged");
+}
+for (const p of group.files) {
+  const problem = addProblem(p);
+  if (problem !== null) die(problem, "nothing was staged");
+}
 // Whole-file entries first (the existing per-path stage loop).
 if (group.files.length > 0) stage(group.files);
 // Hunk-claim entries via the engine, with per-file echo. Validation ran
@@ -476,6 +499,7 @@ for (const [p, numbers] of group.hunkClaims) {
   if ("message" in r) {
     die(`hunk staging refused — ${r.message}`);
   }
+  stagedSoFar.push(p);
   const liveTotal = hunkFacts?.liveCounts.get(p) ?? 0;
   logInfo(`  ${p}: ${r.stagedHeaders.length}/${liveTotal} hunk(s) staged · ${r.remaining} remain`);
   for (const w of r.warnings) logWarn(`  ${p}: ${w}`);

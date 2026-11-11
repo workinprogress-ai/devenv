@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
@@ -41,12 +42,17 @@ Environment Variables:
 
 let intervalMinutes = DEFAULT_INTERVAL_MINUTES;
 let topCount = DEFAULT_TOP_COUNT;
-let maxProcesses = Number(process.env.DEVENV_MEMORY_WATCH_MAX_PROCESSES ?? DEFAULT_MAX_PROCESSES);
+const maxProcessesEnv = process.env.DEVENV_MEMORY_WATCH_MAX_PROCESSES;
+let maxProcesses = Number(maxProcessesEnv ?? DEFAULT_MAX_PROCESSES);
 let resetState = false;
 let once = false;
 
 const isPositiveInt = (v: string): boolean => /^\d+$/.test(v) && Number(v) > 0;
-const die = (msg: string): never => { console.error(`ERROR: ${msg}`); process.exit(1); };
+const die = (msg: string): never => {
+  console.error(`ERROR: ${msg}`);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+};
 
 try {
   const cli = toolCli({
@@ -72,17 +78,22 @@ try {
   topCount = Number(tp);
   const sd = cli.values["state-dir"] as string | undefined;
   if (sd !== undefined && sd !== "") process.env.STATE_DIR = sd;
-  const mp = (cli.values["max-processes"] as string | undefined) ?? String(maxProcesses);
-  if (!isPositiveInt(mp)) die("--max-processes must be a positive integer");
-  maxProcesses = Number(mp);
+  const mpFlag = cli.values["max-processes"] as string | undefined;
+  if (mpFlag !== undefined) {
+    if (!isPositiveInt(mpFlag)) die("--max-processes must be a positive integer");
+    maxProcesses = Number(mpFlag);
+  } else if (!isPositiveInt(String(maxProcesses))) {
+    die(`DEVENV_MEMORY_WATCH_MAX_PROCESSES must be a positive integer (got '${maxProcessesEnv ?? ""}')`);
+  }
   resetState = cli.values["reset"] === true;
   once = cli.values["once"] === true;
 } catch (err) {
   console.error(`ERROR: ${errorMessage(err)}`);
-  process.exit(1);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
-const devenvRoot = process.env.DEVENV_ROOT ?? selfRoot(process.cwd());
+const devenvRoot = process.env.DEVENV_ROOT ?? selfRoot(import.meta.url);
 const stateDir = process.env.STATE_DIR
   ?? (existsSync(join(devenvRoot, ".debug", "devenv-memory-watch")) || !existsSync(join(devenvRoot, ".debug", "devcontainer-memory-watch"))
     ? join(devenvRoot, ".debug", "devenv-memory-watch")

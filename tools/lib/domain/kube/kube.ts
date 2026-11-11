@@ -10,11 +10,13 @@
 
 import { spawnSync } from "node:child_process";
 import { errorMessage } from "../../core/logging.ts";
+import { SPAWN_MAX_BUFFER, assertSpawnCompleted } from "../../core/spawn.ts";
 
 /** The one seam for kubectl in this module: tests assert the argv through
  * this function; the recording-stub suites drive it via PATH. */
 export function spawnKubectl(args: string[]): { stdout: string; status: number } {
-  const r = spawnSync("kubectl", args, { encoding: "utf8" });
+  const r = spawnSync("kubectl", args, { encoding: "utf8", maxBuffer: SPAWN_MAX_BUFFER });
+  assertSpawnCompleted(r, ["kubectl", ...args]);
   return { stdout: r.stdout ?? "", status: r.status ?? 1 };
 }
 

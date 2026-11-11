@@ -37,7 +37,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   process.exit(2);
 }
 
-const debug = join(process.env.DEVENV_ROOT ?? selfRoot(process.cwd()), ".debug");
+const debug = join(process.env.DEVENV_ROOT ?? selfRoot(import.meta.url), ".debug");
 const containerName = "sqlserver";
 // Use Azure SQL Edge for ARM compatibility.
 const image = "mcr.microsoft.com/azure-sql-edge:1.0.3";

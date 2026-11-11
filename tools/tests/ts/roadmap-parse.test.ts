@@ -6,13 +6,11 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const TOOLS = join(ROOT, "tools");
 
 let TMP = "";
 let ROADMAP = "";
@@ -61,7 +59,7 @@ afterEach(() => {
 });
 
 function parse(args: string[]): { status: number; out: string } {
-  const r = spawnSync(join(TOOLS, "roadmap-parse"), args, { encoding: "utf8" });
+  const r = spawnSync("node", [toolScript("roadmap-parse"), ...args], { encoding: "utf8" });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
