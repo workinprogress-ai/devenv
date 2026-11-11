@@ -588,7 +588,7 @@ repo-scratchpad resume        # return HEAD to the scratch branch after a promot
 
 ### `repo-bisect`
 
-First-bad-commit identification over a commit range (the hunt skill's time-travel mode). Walks `git bisect` with a probe command (exit 0 = good, non-zero = bad) and delivers the culprit with evidence. Works on **any branch** — no scratchpad requirement in the tool (bisect is non-destructive: read-only detached-HEAD visits); outside a scratchpad it prints a soft notice pointing AI hunts at `repo-scratchpad enter`. `status` and `reset` act only on a real bisect session (they detect one in flight) and otherwise report that none exists. Refuses on a dirty tree, and (exit 3) when a bisect session is already in flight — end it with `repo-bisect reset` first, since `git bisect start` would discard it. The probe must resolve to an executable command (a name on `PATH`, or a path with the execute bit) or the run is refused before the walk starts; the verdict is read only from git's own result lines, never from the probe's output. An all-skip walk (probe exiting 125 everywhere) answers **AMBIGUOUS** rather than fabricating a culprit from the candidate set.
+First-bad-commit identification over a commit range (the hunt skill's time-travel mode). Walks `git bisect` with a probe command (exit 0 = good, non-zero = bad) and delivers the culprit with evidence. Works on **any branch** — no scratchpad requirement in the tool (bisect is non-destructive: read-only detached-HEAD visits); outside a scratchpad it prints a soft notice pointing AI hunts at `repo-scratchpad enter`. `status` and `reset` act only on a real bisect session (they detect one in flight) and otherwise report that none exists. Refuses on a dirty tree, and (exit 3) when a bisect session is already in flight — end it with `repo-bisect reset` first, since `git bisect start` would discard it. The probe must resolve to an executable command (a name on `PATH`, or a path with the execute bit) or the run is refused before the walk starts; the probe is also run once on the good ref before the walk, and a probe that fails there (anything but exit 0, or 125 = skip) is refused, since it would otherwise mark every step bad. The verdict is read only from git's own result lines (the last matching line), never from the probe's output. An all-skip walk (probe exiting 125 everywhere) answers **AMBIGUOUS** rather than fabricating a culprit from the candidate set.
 
 ```bash
 repo-bisect <bad-ref> <good-ref> -- <probe command...>
@@ -2672,7 +2672,7 @@ devenv-update
 
 ### `devenv-add-env-vars`
 
-Adds or updates environment variables in `env-vars.sh`.
+Adds or updates environment variables in `.runtime/env-vars.user.sh`, the file that `env-vars.sh` sources last. Variables added here survive `devenv-update` (which regenerates `env-vars.sh`) and win over generated values.
 
 ```bash
 devenv-add-env-vars "VAR1=value1" "VAR2=value2" ...
@@ -2682,7 +2682,8 @@ devenv-add-env-vars "VAR1=value1" "VAR2=value2" ...
 
 - Validates environment variable format (uppercase with underscores)
 - Updates existing variables (removes old values to prevent duplicates)
-- Appends new variables to the file
+- Appends new variables to the file (created owner-only on first use)
+- Quotes values so nothing in a value is ever executed
 - Provides clear logging of added/updated variables
 
 **Example:**
@@ -2691,7 +2692,7 @@ devenv-add-env-vars "VAR1=value1" "VAR2=value2" ...
 devenv-add-env-vars "MY_API_KEY=abc123" "DEBUG_MODE=true"
 ```
 
-**Note:** Restart your container or source the env-vars.sh file to apply changes.
+**Note:** Restart your container or source the `env-vars.sh` file to apply changes.
 
 ### `devenv-add-custom-bootstrap`
 
@@ -2768,7 +2769,7 @@ key-update-tailscale
 
 - Prompts for new reusable auth key (input is hidden)
 - Validates key format (must start with `tskey-`)
-- Updates `TS_AUTHKEY` in `.runtime/env-vars.sh`
+- Updates `TS_AUTHKEY` in `.runtime/env-vars.user.sh`
 - Re-authenticates the Tailscale daemon immediately
 - Sources the updated environment variables in the current shell
 
@@ -2794,8 +2795,8 @@ key-update-do [new-token]
 
 - Accepts token as command-line argument or interactive prompt
 - Warns when a token looks shorter than the typical format (proceeds anyway)
-- Stores token persistently in `.setup/do_token.txt` with secure permissions
-- Updates `DO_TOKEN` environment variable
+- Stores token persistently in `.setup/digitalocean_token.txt` with secure permissions
+- Updates the `DIGITALOCEAN_API_TOKEN` environment variable (persisted in `.runtime/env-vars.user.sh`)
 - Reloads environment variables in the current shell
 
 **When to use:**
@@ -2812,7 +2813,7 @@ Or manually update the token file:
 echo "your_new_token_here" > .setup/digitalocean_token.txt
 ```
 
-The token is automatically loaded into the `DO_API_TOKEN` environment variable in the dev container, making it available to infrastructure and deployment scripts like `terraform-plan.sh` and `doctl` commands.
+The token is loaded into the `DIGITALOCEAN_API_TOKEN` environment variable in the dev container (generated into `env-vars.sh` from the seed file), making it available to infrastructure and deployment scripts like `terraform-plan` and `doctl` commands.
 
 ### `get-services-config`
 
@@ -3358,8 +3359,10 @@ markdown-plan-complete-task [OPTIONS] TASK_NUMBER... [PLAN_FILE]
 
 - `TASK_NUMBER...`: One or more dotted task numbers to update (`X.Y` or `X.Y.Z`).
   Multiple task numbers can be supplied in a single invocation.
-- `PLAN_FILE`: Path to the markdown plan file. Defaults to the first
-  `Plan-*.md` file found in the current directory, then in `.local-artifacts/`.
+- `PLAN_FILE`: Path to the markdown plan file. Defaults to the `Plan-*.md`
+  file found in `.local-artifacts/`, then in the current directory. When that
+  directory holds several plans the tool refuses (exit 2) and lists them;
+  name the file explicitly.
   Positional arguments are classified automatically: anything matching the
   `X.Y` / `X.Y.Z` pattern is treated as a task number; everything else is
   treated as the plan file. The plan file may appear anywhere in the argument
@@ -3413,9 +3416,10 @@ markdown-plan-complete-ac [OPTIONS] AC_NUMBER... [FILE]
 **Arguments:**
 
 - `AC_NUMBER...`: One or more AC numbers to update (`AC-N`, `AC-N.N`, `AC-N.N.N`).
-- `FILE`: Path to the markdown file. Defaults to the first `Plan-*.md`
+- `FILE`: Path to the markdown file. Defaults to the `Plan-*.md`
   (or `Implementation_plan-*.md`) found in `.local-artifacts/`, then in
-  the current directory — plans are the only artifact with checkable ACs.
+  the current directory; several plans in that directory is an error (exit 2) —
+  plans are the only artifact with checkable ACs.
   Other files (e.g. `Specifications-*.md`) are updated only when named
   explicitly. As with `markdown-plan-complete-task`,
   the file may appear anywhere among the arguments.
@@ -3476,6 +3480,29 @@ plan-parse <PLAN_FILE> --summary | --census | --anchors | --lint [--require-head
   `weighted` progress; the `Progress:` snapshot line uses these values.
 - `--lint` errors block issue-artifact upserts until fixed.
 - Progress values are computed from the file, never hand-counted.
+
+**Plan grammar** (shared by `plan-parse`, `markdown-plan-complete-task`,
+`markdown-plan-complete-ac`, `roadmap-parse` and `tools/lib/domain/markdown.ts`):
+
+- A checkbox item is `- [ ]`, `- [x]` or `- [X]`; completion is read from the
+  checkbox position only, never from a `[x]` inside the item text.
+- Task: the item text starts with a dotted numeric id (`2.1`, `2.1.1`), bold or
+  not. Tasks are classified before ACs, so a task that mentions an AC stays a
+  task. `plan-parse` counts tasks only under a `Phase N` heading.
+- AC: the item text starts with `AC-N[.N...]`, optionally after an
+  `<a id="ac-N"></a>` anchor and bold. `AC-1.2` is an AC of its own, never
+  `AC-1`; an AC mentioned mid-line does not make the item an AC.
+- Only top-level items (no indentation) are counted by `plan-parse` and the
+  progress lines; nested bullets are detail.
+- `--anchors` keeps the full extension (`.json`, `.csproj`, `.yaml`).
+
+### `spec-dependency-check`
+
+Validates the `SPEC-NNN` dependency graph of `Specifications-*.md`. Reads
+`Dependencies:` and `Depends on:` lines (bold or plain; `None`, markdown links
+and a cross-doc `(File.md)` suffix are understood), compares `Group:` values
+numerically (`P2` before `P10`), and reports `unknown`, `duplicate`, `cycle`
+and `group-order` errors as JSON.
 
 ### `devenv-marker-check`
 

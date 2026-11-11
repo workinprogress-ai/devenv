@@ -1,10 +1,19 @@
 #!/bin/bash
 # sanity-check.sh - startup sanity checks.
 #
-# Sourced by the generated shell rc at every shell start (and executed by
-# startup.sh). Plain bash throughout: nothing in this file is eval-expanded. A
-# failing check prints a loud warning but never blocks the shell. Helpers are
-# unset at the end so nothing leaks into the caller's shell.
+# Sourced by the generated shell rc (checks run once per terminal tree) and
+# executed by startup.sh at container start. Plain bash throughout: nothing in
+# this file is eval-expanded. A failing check prints a loud warning but never
+# blocks the shell. Helpers are unset at the end so nothing leaks into the
+# caller's shell. The exported marker makes nested shells and re-sourcing skip
+# the checks.
+
+if [ -n "${DEVENV_SANITY_CHECKED:-}" ]; then
+    # Sourced: return; executed (startup.sh): exit.
+    # shellcheck disable=SC2317
+    return 0 2>/dev/null || exit 0
+fi
+export DEVENV_SANITY_CHECKED=1
 
 _sanity_run_time() {
     if [ ! -f "$1" ]; then

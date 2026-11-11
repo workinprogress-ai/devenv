@@ -78,7 +78,7 @@ describe("provider smoke suites stay out of the regular run", () => {
     (_name, path) => {
       const source = readFileSync(path, "utf8");
       expect(source).toMatch(/refuses to run/);
-      expect(source).toMatch(/process\.exit\(2\)/);
+      expect(source).toMatch(/process\.exit\(EXIT_MISUSE\)/);
     },
   );
 });

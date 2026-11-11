@@ -328,7 +328,8 @@ a `--help` probe for tools with no host-affecting calls):
   and `--devenv` come from the house table; a tool advertises only the house
   flags it honors (`usageCommonFlags({ noDryRun, noDevenv })`).
 - **An unknown flag is misuse**: exit 2, decided before any provider call or
-  mutation, with stdout left empty. New and changed tools print the standard
+  mutation, with stdout left empty (the sweep asserts this for every probed
+  tool). New and changed tools print the standard
   "Use --help for usage information" hint on stderr; the parse-errors test
   (`tools/tests/ts/cli-contract-parse-errors.test.ts`) pins the exact hint for
   `tooling-create-script`, `install-extras` and `issue-types`, and holds the
@@ -344,9 +345,11 @@ a `--help` probe for tools with no host-affecting calls):
   its predecessor used for an unknown option.
 - **`--help` and `--version` exit 0 with output on stdout** and need neither
   network, credentials nor a configured workspace. Nothing — provider
-  authentication, capability checks, config reads — runs at module load before
-  arguments are parsed and help is handled; authenticate on the main path,
-  after parsing.
+  authentication, capability checks, config reads, banners, spawned host
+  commands — runs at module load before
+  arguments are parsed and help is handled (the sweep scans every tool's
+  module-load code for spawns and output before the `toolCli` call);
+  authenticate on the main path, after parsing.
 - **Repeatable flags** are declared `multiple: true`; a flag documented as
   repeatable that keeps only its last value is a defect.
 - **Forwarders** (a tool that passes the rest of its argv to a child command:
@@ -359,7 +362,17 @@ a `--help` probe for tools with no host-affecting calls):
   `-n/--namespace` (`-n NS`, `-nNS`, `--namespace NS`, `--namespace=NS`) after
   the pod word and before the command; the command's own `-n` stays the
   command's.
-- A message or title that begins with `-` needs `--` first (`git-wip -- -n note`).
+- A message or title that begins with `-` is passed as `--opt=-value` (or via
+  `--body-file`): strict parsing refuses a separated dash-led value
+  (`--body "- item"`) as ambiguous with exit 2. Positional message words that
+  begin with `-` need `--` first (`git-wip -- -n note`).
+- **Empty option values are misuse.** A mutating tool refuses `--opt ""`
+  (typically an unset shell variable) with exit 2 before its first mutation:
+  `toolCli({ rejectEmptyValues: true })` for the issue and PR mutators, and
+  `requireString` where a tool reads a string option itself (`git-wip`,
+  `pipelines-status`). The sweep probes `--opt ""` on every tool that sets
+  `rejectEmptyValues`. Tools that have not adopted it yet treat an empty value
+  as the option being absent.
 
 ## JSON output contract
 

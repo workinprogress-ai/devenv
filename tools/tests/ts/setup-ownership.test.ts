@@ -2,18 +2,16 @@
 // directories under an otherwise user-owned global module dir. Container
 // creation can leave root-owned subtrees (a root-context install) that a
 // top-level stat cannot see — npm reify then dies EACCES renaming them.
-// The nested-ownership fixture needs passwordless sudo (the same capability
-// the reclaim itself depends on); environments without it skip the
-// root-fixture case rather than fail spuriously.
+// A real root-owned fixture needs sudo, which the hermetic run forbids, so
+// the nested case is exercised through an owner mismatch instead.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hasForeignOwnership } from "../../ts/setup-steps/ownership.ts";
 
 const me = execFileSync("whoami", { encoding: "utf8" }).trim();
-const sudoOk = spawnSync("sudo", ["-n", "true"], { encoding: "utf8" }).status === 0;
 
 let dir = "";
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "own-probe-")); });
@@ -26,15 +24,12 @@ describe("hasForeignOwnership", () => {
     expect(hasForeignOwnership(dir, me)).toBe(false);
   });
 
-  it("nested foreign-owned subtree is detected — the top-level-stat blind spot", () => {
-    if (!sudoOk) return; // sudo-less environments skip the root fixture
+  it("a nested file owned by another user is detected — the probe walks the whole tree", () => {
     const nested = join(dir, "pnpm", "dist");
     mkdirSync(nested, { recursive: true });
     writeFileSync(join(nested, "f.txt"), "x");
-    spawnSync("sudo", ["chown", "-R", "root:root", nested]);
-    expect(hasForeignOwnership(dir, me)).toBe(true);
-    // Restore ownership so afterEach's rmSync can remove the fixture.
-    spawnSync("sudo", ["chown", "-R", `${me}:${me}`, dir]);
+    // Asking for a different numeric uid makes every entry foreign without needing root.
+    expect(hasForeignOwnership(dir, String((process.getuid?.() ?? 0) + 1))).toBe(true);
   });
 
   it("missing directory — nothing to reclaim", () => {

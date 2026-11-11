@@ -127,7 +127,7 @@ count: `view` reads it from the comments resource, `list` from the
 | GitHub shape | Azure shape | Constraint / note |
 |---|---|---|
 | Issue | Work item, on a board-backed type | Born as the Azure type mapped for its devenv type (see [Work item types](#work-item-types)) |
-| Open/closed | Every state but Closed/Done/Removed is open | `Resolved` is open; `close` moves to the item's own Completed-category state, `reopen` to its first Proposed (else InProgress) state, both read from the type |
+| Open/closed | A state is closed when its category is Completed or Removed (read from the project's work item types) | `Resolved` is open; `close` moves the item to its type's Completed-category state, `reopen` to its first Proposed (else InProgress) state, both read from the type |
 | Close reason | — | Azure has no close reason; `--reason` is accepted and dropped |
 | Labels | `System.Tags` (`a; b`, trimmed on read) | No colors/descriptions — flat strings only; `edit` reads the current tags and writes the surviving set; label list reads the tags endpoint, else the project's work items |
 | Issue types (Bug/Feature/Task/Epic) | Work-item types | Richer than GH types; a type change is a `System.WorkItemType` replace through `provider_issues_set_type`, never through `edit` |

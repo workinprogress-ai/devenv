@@ -26,7 +26,7 @@
 // Paths are repo-root-relative in every mode regardless of cwd. Never stages
 // a directory (batch entries are files; path mode refuses directories).
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, statSync, type Stats } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
@@ -35,7 +35,7 @@ import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { changedFiles } from "../lib/core/git.ts";
 import { batchClaimedPaths, isLiteralFilePath, parseCommitBatch, validateCommitBatch } from "../lib/domain/commit-batch.ts";
-import { captureIndex, diffArgs, enumerateFile, extractPayloads, preflightSelection, stageSelection, verifyIndexAfter } from "../lib/domain/hunk-stage.ts";
+import { captureIndex, diffArgs, enumerateFile, extractPayloads, nonUtf8IndexProblem, preflightSelection, stageSelection, verifyIndexAfter } from "../lib/domain/hunk-stage.ts";
 import { HunkParseError, hunkPayload, splitDiff } from "../lib/domain/hunk-select.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
@@ -59,13 +59,28 @@ function git(args: string[]): { status: number; out: string; err: string } {
 
 // Paths this invocation already staged. A failure after the first mutation
 // reports them with the exact undo recipe; the tool never rolls back itself.
+// Paths that already carried staged content before the run are listed apart:
+// `restore --staged` on them would drop that earlier staging too.
 const stagedSoFar: string[] = [];
+const stagedBeforeRun: string[] = [];
+let priorStaged: Set<string> | undefined;
+
+function snapshotPriorStaged(): void {
+  priorStaged ??= new Set(stagedPathsNow());
+}
+
+function noteStaged(p: string): void {
+  (priorStaged?.has(p) ? stagedBeforeRun : stagedSoFar).push(p);
+}
 
 function die(...lines: string[]): never {
   for (const l of lines) logError(l);
   if (stagedSoFar.length > 0) {
     logError(`this run had already staged: ${stagedSoFar.join(", ")}`);
     logError(`to undo: git restore --staged -- ${stagedSoFar.map((p) => `'${p.replace(/'/g, "'\\''")}'`).join(" ")}`);
+  }
+  if (stagedBeforeRun.length > 0) {
+    logError(`already carried staged content before this run (the undo above does not cover them): ${stagedBeforeRun.join(", ")}`);
   }
   process.exit(EXIT_GENERAL_ERROR);
 }
@@ -168,6 +183,20 @@ if (rootProbe.status !== 0) die("not inside a git repository");
 repoRoot = rootProbe.out.trim();
 const absolute = (p: string): string => join(repoRoot, p);
 
+// lstat, never stat: a symlink (even a dangling one) is a path on disk and
+// must not be judged by what it points at.
+function lstatOrNull(p: string): Stats | null {
+  try {
+    return lstatSync(absolute(p));
+  } catch {
+    return null;
+  }
+}
+const isFileOrLink = (p: string): boolean => {
+  const s = lstatOrNull(p);
+  return s !== null && (s.isFile() || s.isSymbolicLink());
+};
+
 // --- Path-mode checks: literal + existence (deletion-aware) + not a directory.
 function checkPathModePaths(): void {
   for (const p of paths) {
@@ -175,10 +204,8 @@ function checkPathModePaths(): void {
   }
   const changedSet = new Set(changedFiles(repoRoot).map((e) => e.path));
   for (const p of paths) {
-    const abs = absolute(p);
-    if (existsSync(abs) && !statSync(abs).isFile()) die(`'${p}' is a directory — list files explicitly`);
-    const onDisk = existsSync(abs) && statSync(abs).isFile();
-    if (!onDisk && !changedSet.has(p)) die(`'${p}' exists neither on disk nor as a changed/deleted file — typo?`);
+    if (lstatOrNull(p)?.isDirectory() === true) die(`'${p}' is a directory — list files explicitly`);
+    if (!isFileOrLink(p) && !changedSet.has(p)) die(`'${p}' exists neither on disk nor as a changed/deleted file — typo?`);
   }
 }
 
@@ -206,13 +233,14 @@ function stage(pathsToStage: string[]): void {
     const problem = addProblem(p);
     if (problem !== null) die(problem, "nothing was staged");
   }
+  snapshotPriorStaged();
   for (const p of pathsToStage) {
     const r = git(["add", "--", p]);
     if (r.status !== 0) {
       if (alreadyCarried(p)) continue;
       die(`git add failed for '${p}': ${r.err.trim()}`);
     }
-    stagedSoFar.push(p);
+    noteStaged(p);
   }
 }
 
@@ -264,7 +292,7 @@ if (mode === "paths" || mode === "unstage") {
       const inIndex = entry.some((l) => !l.startsWith("160000 ") && l.slice(l.indexOf("\t") + 1) === p);
       // On disk: the file must be in the index. Gone from disk (deletion, old
       // path of a rename): it must NOT be in the index any more.
-      const onDisk = existsSync(absolute(p)) && statSync(absolute(p)).isFile();
+      const onDisk = isFileOrLink(p);
       return onDisk ? !inIndex : inIndex;
     });
     if (missing.length > 0) {
@@ -335,6 +363,8 @@ if (mode === "patch") {
   }
   const patchExec = (args: string[], input?: string) => runPatchGit(args, input ?? "");
   const indexBefore = captureIndex(patchExec, patchedPath);
+  const lossy = nonUtf8IndexProblem(patchExec, patchedPath, indexBefore);
+  if (lossy !== null) die(lossy, "index unchanged");
   const applied = runPatchGit(["apply", "--cached", "-"], patch);
   if (applied.status !== 0) {
     die(`git apply --cached failed: ${applied.stderr || "(no stderr)"} — index unchanged`);
@@ -494,12 +524,13 @@ if (group.files.length > 0) stage(group.files);
 // Hunk-claim entries via the engine, with per-file echo. Validation ran
 // pre-mutation over every group's selectors (validate-then-mutate); the
 // engine re-checks applicability per path before applying.
+snapshotPriorStaged();
 for (const [p, numbers] of group.hunkClaims) {
   const r = stageSelection(batchEngine, p, numbers);
   if ("message" in r) {
     die(`hunk staging refused — ${r.message}`);
   }
-  stagedSoFar.push(p);
+  noteStaged(p);
   const liveTotal = hunkFacts?.liveCounts.get(p) ?? 0;
   logInfo(`  ${p}: ${r.stagedHeaders.length}/${liveTotal} hunk(s) staged · ${r.remaining} remain`);
   for (const w of r.warnings) logWarn(`  ${p}: ${w}`);

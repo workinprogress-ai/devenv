@@ -14,6 +14,7 @@
 // The module never exits; failures throw ProviderError and callers decide.
 
 import { ProviderError } from "../provider-core.ts";
+import { errorMessage, logWarn } from "../../core/logging.ts";
 import type { GhResult } from "../github/transport.ts";
 import { loadProviderModules } from "./provider-loader.ts";
 import type * as ghTypes from "../github/repos.ts";
@@ -47,6 +48,34 @@ export async function reposList(
 export async function reposView(spec: string | undefined, opts: { json?: string; jq?: string } = {}): Promise<string> {
   const m = await load();
   return m.provider === "azure" ? m.az!.reposView(spec ?? "", opts) : m.gh!.reposView(spec, opts);
+}
+
+/** Whether the repository exists and is reachable with the current
+ * credentials (a missing and an inaccessible repository both read `false`). */
+export async function reposExists(spec: string): Promise<boolean> {
+  const m = await load();
+  return m.provider === "azure" ? m.az!.reposExists(spec) : m.gh!.reposExists(spec);
+}
+
+/** Whether the repository allows squash merges. GitHub-native: Azure's merge
+ * strategies are branch-policy settings with no repository-level flag. */
+export async function reposSquashMergeAllowed(spec: string): Promise<boolean> {
+  const m = await load();
+  if (m.provider === "azure") {
+    void spec;
+    return azureUnsupported("repos_squash_merge_allowed");
+  }
+  return m.gh!.reposSquashMergeAllowed(spec);
+}
+
+/** The `owner/name` of the repository the directory belongs to, as the
+ * provider reports it, or null when it cannot say. Azure has no
+ * directory-inferred repository view: it answers null and the caller falls
+ * back to the git remote URL. */
+export async function reposNameWithOwner(cwd: string): Promise<string | null> {
+  const m = await load();
+  if (m.provider === "azure") return null;
+  return m.gh!.reposNameWithOwner(cwd);
 }
 
 /** Whether the repository has any commits (the repo-create guard). */
@@ -90,13 +119,17 @@ function azureUnsupported(verb: string): never {
 
 /** Run an Azure write and report success as a boolean (github's contract for
  * the settings verbs). Only a ProviderError (the provider's own failure) is
- * converted; anything else is a defect and propagates. */
-async function azureBool(write: () => Promise<unknown>): Promise<boolean> {
+ * converted; anything else is a defect and propagates. The boolean carries no
+ * reason, so the failure is logged: a 403 and a 404 stay distinguishable. */
+async function azureBool(verb: string, write: () => Promise<unknown>): Promise<boolean> {
   try {
     await write();
     return true;
   } catch (err) {
-    if (err instanceof ProviderError) return false;
+    if (err instanceof ProviderError) {
+      logWarn(`${verb} failed: ${errorMessage(err)}`);
+      return false;
+    }
     throw err;
   }
 }
@@ -144,7 +177,7 @@ export async function reposPatchWithError(
 /** Grant a team access to a repository (idempotent). */
 export async function reposTeamPut(org: string, team: string, repo: string, permission?: string): Promise<boolean> {
   const m = await load();
-  if (m.provider === "azure") return azureBool(() => m.az!.reposTeamPut(org, team, repo, permission));
+  if (m.provider === "azure") return azureBool("repos_team_put", () => m.az!.reposTeamPut(org, team, repo, permission));
   return m.gh!.reposTeamPut(org, team, repo, permission);
 }
 
@@ -152,7 +185,7 @@ export async function reposTeamPut(org: string, team: string, repo: string, perm
 export async function reposCollaboratorPut(repo: string, user: string, permission?: string): Promise<boolean> {
   const m = await load();
   if (m.provider === "azure") {
-    return azureBool(() => m.az!.reposCollaboratorPut(repo, user, permission !== undefined ? { permission } : {}));
+    return azureBool("repos_collaborator_put", () => m.az!.reposCollaboratorPut(repo, user, permission !== undefined ? { permission } : {}));
   }
   return m.gh!.reposCollaboratorPut(repo, user, permission);
 }

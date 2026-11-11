@@ -162,6 +162,17 @@ describe("key-update-azure", () => {
         "",
       ].join("\n"),
     );
+    // Recording stand-in for the TS nuget-sources step module.
+    mkdirSync(join(checkout, "tools", "ts", "setup-steps"), { recursive: true });
+    writeFileSync(
+      join(checkout, "tools", "ts", "setup-steps", "nuget-sources.ts"),
+      [
+        `import { appendFileSync } from "node:fs";`,
+        `appendFileSync(${JSON.stringify(log)}, "nuget-step root=" + process.env.DEVENV_TOOLBOX_ROOT + "\\n");`,
+        `process.exit(process.env.NUGET_STEP_FAIL === "1" ? 1 : 0);`,
+        "",
+      ].join("\n"),
+    );
     return { script: join(checkout, "tools", "lib", "providers", "azure", "key-update.ts"), log, checkout };
   }
 
@@ -194,7 +205,15 @@ describe("key-update-azure", () => {
     expect(r.status).toBe(0);
     expect(r.log).toContain("setup_git");
     expect(r.log).toMatch(/bootstrap configure_npmrc .*\.npmrc npmrc/);
-    expect(r.log).toContain("bootstrap configure_nuget");
+    expect(r.log).not.toContain("bootstrap configure_nuget");
+    expect(r.log).toContain("nuget-step root=" + join(root, "it's a checkout"));
+  });
+
+  it("a failing nuget step warns and exits non-zero without undoing the rotation", () => {
+    const r = rotate({ NUGET_STEP_FAIL: "1" });
+    expect(r.output).toContain("NuGet feed re-wiring failed");
+    expect(r.status).toBe(1);
+    expect(existsSync(join(root, "home", ".keys", "azure-devops-pat"))).toBe(true);
   });
 
   it("warns when a stale AZURE_PAT in the environment differs from the new token", () => {

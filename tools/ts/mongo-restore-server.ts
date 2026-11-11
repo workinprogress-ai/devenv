@@ -54,7 +54,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
   backupDir = positionals[1] ?? "";
 } catch (err) {
   console.error(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 

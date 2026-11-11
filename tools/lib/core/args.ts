@@ -12,15 +12,18 @@ import { logError } from "./logging.ts";
 /** Log a usage error and exit 2 (EXIT_MISUSE). The bash invalid_args contract. */
 export function invalidArgs(message: string): never {
   logError(message);
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
 /**
  * Validate that VALUE is present: non-empty, and not itself the name of an
  * option (a bare --word), which would mean the option's value was left out
- * and the next flag is being swallowed (`--base --force`). Free text starting
- * with dashes ("-- a note") is a value. Exits 2 on misuse.
+ * and the next flag is being swallowed (`--base --force`). Free text with
+ * a space ("-- a note") is a value. A dash-led value can only reach here as
+ * `--opt=-value` (or through --body-file): strict parsing refuses a separated
+ * `--opt -value` as ambiguous before this runs, and a lone `--opt=--word` is
+ * refused here. Exits 2 on misuse.
  */
 export function requireOptionValue(optionName: string, value: string | undefined): string {
   if (value === undefined || value === "") {

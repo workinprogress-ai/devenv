@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
@@ -33,7 +33,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   }
 } catch (err) {
   console.error(errorMessage(err));
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 
 function commandExists(cmd: string): boolean {

@@ -56,6 +56,22 @@ describe("core/stdin-line readLineStdin", () => {
   it("returns null on every read once input is exhausted", () => {
     expect(read("only\n", 3)).toEqual(["only", null, null]);
   });
+
+  it("reads a large line without a newline in linear time", () => {
+    const size = 400_000;
+    const data = Buffer.alloc(size, 0x61);
+    let pos = 0;
+    const reader: StdinReader = (chunk) => {
+      if (pos >= data.length) return 0;
+      chunk[0] = data[pos++] as number;
+      return 1;
+    };
+    const started = Date.now();
+    const line = readLineStdin({ read: reader });
+    const elapsed = Date.now() - started;
+    expect(line?.length).toBe(size);
+    expect(elapsed, "a quadratic reader needs seconds here").toBeLessThan(1500);
+  });
 });
 
 /** A reader that replays steps: a Buffer is delivered one byte per call, an Error is thrown. */

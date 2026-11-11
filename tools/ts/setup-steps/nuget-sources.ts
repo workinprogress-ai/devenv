@@ -15,8 +15,8 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { configGetRaw } from "../../lib/core/config.ts";
 import { toolbox } from "./lib.ts";
-import { providerSecretToken } from "./provider-seam.ts";
-import { providerOrgGet, providerUserGet } from "../../lib/providers/provider-core.ts";
+import { isAzureArtifactsUrl, providerSecretToken } from "./provider-seam.ts";
+import { providerDetect, providerOrgGet, providerUserGet } from "../../lib/providers/provider-core.ts";
 
 const root = toolbox();
 // dotnet_cmd parity: resolve on PATH first, fall back to /usr/bin/dotnet —
@@ -52,6 +52,31 @@ function addNugetSourceIfNotExists(name: string, url: string, username: string, 
 const localNugetDev = join(root, ".debug", "local-nuget-dev");
 mkdirSync(localNugetDev, { recursive: true });
 addNugetSourceIfNotExists("dev", localNugetDev, "", "");
+
+// Azure Artifacts feed: the PAT is only ever registered for an Azure Artifacts
+// host, with a fixed username (Azure ignores it).
+function configureAzureFeed(): void {
+  const override = process.env.NUGET_FEED_URL ?? "";
+  const feedUrl = override !== "" ? override : (configGetRaw(join(root, "devenv.config"), "nuget", "feed_url") ?? "");
+  if (feedUrl === "") {
+    console.log("Skipping NuGet feed registration (azure provider: [nuget] feed_url not configured)");
+  } else if (!isAzureArtifactsUrl(feedUrl)) {
+    console.log("Skipping NuGet feed registration (azure provider: [nuget] feed_url is not an Azure Artifacts URL)");
+  } else {
+    const azureToken = providerSecretToken();
+    if (azureToken === "") {
+      console.log("Skipping NuGet feed registration (azure provider: credentials unavailable)");
+    } else {
+      addNugetSourceIfNotExists("azure", feedUrl, "azure", azureToken);
+    }
+  }
+  console.log("nuget-sources: ok");
+}
+
+if (providerDetect() === "azure") {
+  configureAzureFeed();
+  process.exit(0);
+}
 
 // Provider feed (github scheme): [nuget] feed_url (NUGET_FEED_URL override
 // wins), ${PROVIDER_ORG}/${PROVIDER_USER} templates expanded; the config read

@@ -234,6 +234,8 @@ export function stageSelection(
   // worktree; the hash check proves it held).
   const preStaged = extractPayloads(exec(diffArgs("--cached", "--", path)).stdout);
   const indexBefore = captureIndex(exec, path);
+  const lossyBefore = nonUtf8IndexProblem(exec, path, indexBefore);
+  if (lossyBefore !== null) return { path, kind: "verify", message: lossyBefore };
   const worktreeHashBefore = exec(["hash-object", "--", path]).stdout.trim();
 
   let patch: string;
@@ -388,6 +390,18 @@ export function applyHunks(oldText: string, hunks: readonly DiffHunk[]): string 
   return out.join("");
 }
 
+/** Refusal text when the path's index blob does not survive a UTF-8 text
+ * round-trip: the in-process re-computation would hash replacement characters
+ * instead of the real bytes, so byte-exact verification is impossible. Null
+ * when the blob is lossless (or absent — verification reports that case). */
+export function nonUtf8IndexProblem(exec: GitExec, path: string, capture: IndexCapture): string | null {
+  if (capture.entries === null || capture.text === null) return null;
+  const sha = capture.entries.get(`${path}\x000`)?.split(" ")[1];
+  if (sha === undefined) return null;
+  if (exec(["hash-object", "--stdin"], capture.text).stdout.trim() === sha) return null;
+  return `the index content of '${path}' is not valid UTF-8 — hunk staging cannot verify it byte-exactly; stage the whole file instead`;
+}
+
 /** Check the index after an apply: the path's blob hash equals the
  * independently computed expectation and no other entry changed. Returns a
  * problem description, or null when the index is exactly as intended. */
@@ -441,6 +455,8 @@ export function preflightSelection(exec: GitExec, path: string, numbers: readonl
   if (check.status !== 0) {
     return { path, kind: "apply", message: `patch does not apply to the index for '${path}': ${check.stderr.trim()}` };
   }
+  const lossy = nonUtf8IndexProblem(exec, path, captureIndex(exec, path));
+  if (lossy !== null) return { path, kind: "verify", message: lossy };
   return null;
 }
 

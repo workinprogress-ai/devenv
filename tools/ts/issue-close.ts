@@ -66,6 +66,7 @@ async function main(argv: string[]): Promise<number> {
 
   try {
     const cli = toolCli({
+      rejectEmptyValues: true,
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv: rest,
@@ -88,20 +89,20 @@ async function main(argv: string[]): Promise<number> {
     for (const p of cli.positionals) {
       if (!/^[0-9]+$/.test(p)) {
         logError(`Unknown option or invalid issue number: ${p}`);
-        console.log("Use --help for usage information");
+        console.error("Use --help for usage information");
         return EXIT_MISUSE;
       }
       issueNumbers.push(p);
     }
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   if (issueNumbers.length === 0) {
     logError("At least one issue number is required");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
   if (reason !== "" && action !== "close") {

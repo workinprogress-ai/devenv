@@ -9,7 +9,7 @@ The essentials live in `devenv.config`; repository-creation standards live in `t
 - ✅ Read [The fork-stable surfaces contract](#the-fork-stable-surfaces-contract) below — it defines what you may change without carrying maintenance burden
 - ✅ Update `devenv.config` for org identity (`org` key), provider name, container name, workflows, and bootstrap defaults
 - ✅ (If you customize the issue workflow) Read [Issue Workflow](./Issue-Workflow.md) first — the `[workflows]` vocabulary carries engine contracts, documented in its Workflow customization section. The contract: config renames the board column names (with `tools/config/skill-events.yml` updated in the same change); redesigning the workflow itself — reordering, adding/removing states, changing phases — is a fork of the skills, and you will need to re-write the skill prose to match.
-- ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and provider issue-type IDs
+- ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types
 - ✅ (If you adapt to a non-GitHub provider) Follow [Adapting to Azure DevOps](#adapting-to-azure-devops) — provider modules, protocol reference, and config keys
 - ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
 - ✅ (Optional) Update `copilot/copilot-instructions.md` with organization-specific AI coding guidelines
@@ -80,7 +80,7 @@ Procedure:
 2. **Add provider modules** — create `tools/lib/providers/ado/` with domain modules answering the `provider_<domain>_<verb>` calls (`issues`, `prs`, `repos`, `actions`, …). Start from the GitHub modules as templates; replace the transport, keep the function signatures.
 3. **Flip the config key** — set `[provider] name=ado` in `devenv.config`.
 4. **Map the capabilities** — decide which GH-only capabilities your ADO setup substitutes: rulesets → ADO branch policies, project boards → board columns over `status_workflow`, native issue types → ADO work item type map. Gate what you don't support; degrade what you substitute.
-5. **Replace provider-specific config values** — native type IDs in `issues-config.yml` (GitHub `IT_kwDO…` IDs, discovered via the GraphQL recipe in that file's header), the nuget feed URL (`[nuget] feed_url`, `nuget.pkg.github.com/...`), and the npm feed URL (`[npm] feed_url`, an Azure Artifacts npm registry when on the Azure provider; the matching `[npm] scope` routes a package scope to it) are provider-specific values a fork replaces.
+5. **Replace provider-specific config values** — the nuget feed URL (`[nuget] feed_url`, `nuget.pkg.github.com/...`), and the npm feed URL (`[npm] feed_url`, an Azure Artifacts npm registry when on the Azure provider; the matching `[npm] scope` routes a package scope to it) are provider-specific values a fork replaces.
 6. **Rewrite `setup`** — per the contract exception above, credential intake and bootstrap wiring are expected to be fork-replaced for a new provider.
 
 ### Azure DevOps: the as-built REST provider
@@ -634,11 +634,11 @@ Your ruleset JSON file can use these tokens, which are replaced during applicati
 
 ## Issue Types Configuration (issue-create)
 
-> **Provider capability note:** native issue types are a GitHub-provider capability (`native-issue-types`). A fork without the capability runs the same type vocabulary as labels via the `[issues] types` policy knob — see the [policy library README](../tools/lib/policy/README.md). The `IT_kwDO…` IDs and the GraphQL discovery recipe in `issues-config.yml`'s header are GitHub-specific values.
+> **Provider capability note:** native issue types are a GitHub-provider capability (`native-issue-types`). A fork without the capability runs the same type vocabulary as labels via the `[issues] types` policy knob — see the [policy library README](../tools/lib/policy/README.md).
 
-The `issue-create` tool supports native issue types on providers that declare the capability. Issue types are configured in `tools/config/issues-config.yml`, which is the single source of truth for type names, descriptions, and provider API IDs.
+The `issue-create` tool supports native issue types on providers that declare the capability. Issue types are configured in `tools/config/issues-config.yml`, which is the single source of truth for type names, descriptions, and parent rules (`child_of`). Type names are matched case-insensitively, and the built-in aliases (for example `story` for `Feature`) resolve onto the configured names.
 
-Type names are **load-bearing** for the workflow model: Features and Bugs are deliverables, Tasks are work toward someone else's change (the only type that nests, and the only one born `Ready` under a parent — `issue-create` string-matches `Task` for that birth rule), and Epics group deliverables. Keep these four names, or update the birth rule and the `planning.type_mapping` consumers when renaming. See [Issue Workflow](./Issue-Workflow.md) for the roles.
+Type names are **load-bearing** for the workflow model: Features and Bugs are deliverables, Tasks are work toward someone else's change (the only type that nests, and the only one born `Ready` under a parent — `issue-create` string-matches `Task` for that birth rule), and Epics group deliverables. Keep these four names, or update the birth rule when renaming. See [Issue Workflow](./Issue-Workflow.md) for the roles.
 
 ### Configure Issue Types
 
@@ -648,26 +648,26 @@ Edit `tools/config/issues-config.yml` to define your organization's issue types:
 types:
   - name: Bug
     description: "A bug or defect that needs fixing"
-    id: "IT_kwDOCk-E0c4BWVJJ"
-  
+    child_of: [Epic]
+
   - name: Feature
     description: "A new feature or enhancement"
-    id: "IT_kwDOCk-E0c4BWVJK"
-  
+    child_of: [Epic]
+
   - name: Task
     description: "A task or work item"
-    id: "IT_kwDOCk-E0c4BWVJI"
+    child_of: [Epic, Feature, Bug, Task]
 ```
 
 Each entry needs:
 
 - **name**: The issue type name (displayed in the provider UI and used for validation)
 - **description**: Human-readable description for users selecting a type
-- **id**: Provider organization-level issue type ID (required for setting types via API; GitHub `IT_kwDO…` IDs today)
+- **child_of** *(optional)*: the parent types this type may be placed under; omit for no restriction
 
-### Getting Your Organization's Issue Type IDs (GitHub-native path)
+### Inspecting Your Organization's Issue Types (GitHub-native path)
 
-Get the IDs from your GitHub organization using the workspace wrapper (one-time setup inspection — day-to-day issue operations always go through the `issue-*` tools):
+List the types configured in your GitHub organization using the workspace wrapper (one-time setup inspection — day-to-day issue operations always go through the `issue-*` tools):
 
 ```bash
 issue-types --format json
@@ -687,8 +687,8 @@ To add or modify issue types in GitHub:
 
 After making changes in GitHub:
 
-1. Get the updated IDs using the CLI command above
-2. Update `tools/config/issues-config.yml` with the new types and IDs
+1. List the updated types using the CLI command above
+2. Update `tools/config/issues-config.yml` with the new type names
 
 ### Example: Custom Issue Types
 
@@ -696,40 +696,18 @@ After making changes in GitHub:
 types:
   - name: Bug
     description: "Production bug or critical issue"
-    id: "IT_kwDOXXXXXXXXXXXXX1"
-  
+
   - name: Enhancement
     description: "New feature or improvement"
-    id: "IT_kwDOXXXXXXXXXXXXX2"
-  
+
   - name: Documentation
     description: "Documentation or tutorial"
-    id: "IT_kwDOXXXXXXXXXXXXX3"
-  
+
   - name: Spike
     description: "Research task or investigation"
-    id: "IT_kwDOXXXXXXXXXXXXX4"
 ```
 
-Note: Replace the `id` values with your actual organization's issue type IDs from the provider.
-
-### Planning Type Mapping
-
-The `planning` section in `issues-config.yml` maps concepts from a specifications document to issue types (GitHub native types on the GitHub-native path). This is used when creating issues from a specifications document to determine which issue type to assign for each level of the document hierarchy.
-
-```yaml
-planning:
-  type_mapping:
-    phases: Epic
-    features: Feature
-    tasks: Task
-```
-
-Each key under `type_mapping` corresponds to a concept in a specifications document:
-
-- **phases**: High-level project phases, mapped to an issue type (default: `Epic`). Note the workspace convention: Epic means a long-lived orchestration issue coordinating multiple repos/efforts — for single-repo deliverable phases, map `phases` to `Feature` instead.
-- **features**: Feature-level items, mapped to an issue type (default: `Feature`)
-- **tasks**: Individual work items, mapped to an issue type (default: `Task`)
+Note: the names must match the issue types configured in your provider.
 
 ### Example configuration
 

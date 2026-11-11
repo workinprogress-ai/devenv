@@ -20,8 +20,9 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { gitCheck, gitInherit, wipRangeGuard } from "../lib/core/git.ts";
 import { toolCli } from "../lib/core/cli.ts";
 import { conventionalCommitsOk } from "../lib/core/commit-format.ts";
-import { checkTargetRepo, providerRepoTarget, requireRepoTarget, ghApi } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsCreate, prsList } from "../lib/providers/facade/prs.ts";
+import { reposSquashMergeAllowed } from "../lib/providers/facade/repos.ts";
 import { issuesView, issuesLabelEnsure } from "../lib/providers/facade/issues.ts";
 import { extractUrl, remoteToSpec } from "../lib/providers/facade/urls.ts";
 import { signalPrEventsForPr } from "../lib/domain/events.ts";
@@ -137,6 +138,7 @@ async function main(argv: string[]): Promise<number> {
 
   try {
     const cli = toolCli({
+      rejectEmptyValues: true,
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv,
@@ -181,7 +183,7 @@ async function main(argv: string[]): Promise<number> {
     devenvFlag = cli.common.devenv;
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
@@ -242,12 +244,15 @@ async function main(argv: string[]): Promise<number> {
   let repoSpec = originUrl.ok ? ((await remoteToSpec(originUrl.out.trim())) ?? "") : "";
   if (repoSpec === "") repoSpec = requireRepoTarget(providerRepoTarget(""), "pr-create", "pr");
 
-  // allowSquashMerge rides the provider repos seam (jq kept in argv: the
-  // field decision uses gh's own projection, matching the bash-era shape).
+  // allowSquashMerge rides the provider repos seam; a provider that cannot
+  // say (or fails) reads as not enabled.
   const squashEnabled = async (): Promise<boolean> => {
     if (repoSpec === "") return false;
-    const r = await ghApi(["repo", "view", repoSpec, "--json", "allowSquashMerge", "-q", ".allowSquashMerge"], { tolerateFailure: true });
-    return r.status === 0 && r.stdout.trim() === "true";
+    try {
+      return await reposSquashMergeAllowed(repoSpec);
+    } catch {
+      return false;
+    }
   };
 
   // Issue title (used when no PR title was given).
@@ -312,6 +317,10 @@ async function main(argv: string[]): Promise<number> {
   }
 
   const current = sourceBranch !== "" ? sourceBranch : branchName;
+  if (current === "" || current === "HEAD") {
+    console.error("Error: cannot open a PR from a detached HEAD — check out a branch (or pass --branch <name>) first.");
+    return EXIT_GENERAL_ERROR;
+  }
   if (current.startsWith("review/")) {
     console.error("This script cannot be run on a review/* branch.");
     return EXIT_GENERAL_ERROR;
@@ -449,7 +458,7 @@ async function main(argv: string[]): Promise<number> {
   const prNum = prUrl.split("/").pop() ?? "";
   if (prNum !== "") {
     try {
-      signalPrEventsForPr("created", prNum);
+      await signalPrEventsForPr("created", prNum);
     } catch {
       // best-effort
     }

@@ -9,7 +9,7 @@
 
 import { readFileSync } from "node:fs";
 
-import { providerRepoSplit, providerRepoTarget } from "../provider-core.ts";
+import { ProviderError, providerRepoSplit, providerRepoTarget } from "../provider-core.ts";
 import { ghApi } from "./transport.ts";
 import type { GhOptions, GhResult } from "../provider-core.ts";
 import { neutralComment } from "./issues.ts";
@@ -204,7 +204,7 @@ export async function prsThreadReply(
   // refused rather than truncated to a different comment.
   const id = typeof commentId === "number" ? commentId : /^\d+$/.test(commentId) ? Number(commentId) : Number.NaN;
   if (!Number.isInteger(id) || id <= 0) {
-    throw new Error(`provider_prs_thread_reply: comment id must be numeric, got '${commentId}'`);
+    throw new ProviderError(`provider_prs_thread_reply: comment id must be numeric, got '${commentId}'`);
   }
   const { owner, name } = ownerName(spec);
   const r = await ghApi(

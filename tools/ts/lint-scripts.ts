@@ -11,6 +11,7 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
@@ -69,8 +70,8 @@ try {
   noColor = cli.values["no-color"] === true;
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
-  process.exit(2);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 const C = (code: string): string => (noColor ? "" : code);
@@ -90,13 +91,13 @@ function warn(msg: string): void {
 
 if (!existsSync(searchDir) || !statSync(searchDir).isDirectory()) {
   logError(`Directory not found: ${searchDir}`);
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 
 if (spawnSync("bash", ["-c", "command -v shellcheck"], { stdio: "ignore" }).status !== 0) {
   logError("shellcheck not found");
   console.log("Install with: sudo apt-get install shellcheck");
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 
 // Excluded path fragments (substring match on the posix-relative path).

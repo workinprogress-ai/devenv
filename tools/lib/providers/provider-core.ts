@@ -156,7 +156,7 @@ function originSpec(): string {
 
 /** Require the github provider (the seam functions only github implements
  * today). A non-github checkout gets a named error instead of silently
- * running the github transport against the wrong host (the F10 class).
+ * running the github transport against the wrong host.
  * The typed dispatch facade replaces this guard when it lands. */
 export function requireGithubProvider(action: string): void {
   if (providerDetect() !== "github") {

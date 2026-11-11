@@ -145,6 +145,29 @@ describe("issue-artifact-upsert", () => {
     expect(out.matches).toEqual([1, 2]);
   });
 
+  it("a CRLF stored comment still matches: update, never a duplicate create", () => {
+    const stored = artifactBody("dv1:crlf").replaceAll("\n", "\r\n");
+    writeFileSync(responses, `issues/42/comments\t${JSON.stringify([{ id: 5, body: stored, url: "https://x/5" }])}\n`);
+    const r = runTool(["--issue", "42", "--body", artifactBody("dv1:crlf")]);
+    expect(r.status).toBe(0);
+    expect((JSON.parse(r.stdout) as Record<string, unknown>)["action"]).toBe("updated");
+    expect(ghCalls().some((c) => c.includes("-X POST"))).toBe(false);
+  });
+
+  it("a CRLF body matches an LF stored comment", () => {
+    writeFileSync(responses, `issues/42/comments\t${JSON.stringify([{ id: 6, body: artifactBody("dv1:crlf2"), url: "https://x/6" }])}\n`);
+    const r = runTool(["--issue", "42", "--body", artifactBody("dv1:crlf2").replaceAll("\n", "\r\n")]);
+    expect(r.status).toBe(0);
+    expect((JSON.parse(r.stdout) as Record<string, unknown>)["action"]).toBe("updated");
+  });
+
+  it("an indented doc_id line in a stored comment matches", () => {
+    const stored = artifactBody("dv1:indent").replace("doc_id:", "  doc_id:");
+    writeFileSync(responses, `issues/42/comments\t${JSON.stringify([{ id: 8, body: stored, url: "https://x/8" }])}\n`);
+    const r = runTool(["--issue", "42", "--body", artifactBody("dv1:indent")]);
+    expect((JSON.parse(r.stdout) as Record<string, unknown>)["action"]).toBe("updated");
+  });
+
   it("issue number resolves from the body header when --issue is absent", () => {
     writeFileSync(responses, "issues/56/comments\t[]\n");
     const r = runTool(["--body", artifactBody("dv1:x", { issue: 56 })]);

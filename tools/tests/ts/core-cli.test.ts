@@ -71,6 +71,16 @@ describe("toolCli", () => {
     expect(() => toolCli({ name: "t", version: "1.0.0", argv: ["--bogus"] })).toThrow();
   });
 
+  it("rejectEmptyValues refuses an empty string option, scalar or repeated, and only then", () => {
+    const options = { body: { type: "string" as const }, label: { type: "string" as const, multiple: true }, pretty: { type: "boolean" as const } };
+    const run = (argv: string[], rejectEmptyValues: boolean) => toolCli({ name: "t", version: "1.0.0", argv, options, rejectEmptyValues });
+    expect(() => run(["--body", ""], true)).toThrow(/Missing value for --body/);
+    expect(() => run(["--body="], true)).toThrow(/Missing value for --body/);
+    expect(() => run(["--label", "a", "--label", ""], true)).toThrow(/Missing value for --label/);
+    expect(run(["--body", "x", "--label", "a"], true).values["body"]).toBe("x");
+    expect(run(["--body", ""], false).values["body"]).toBe("");
+  });
+
   it("allowPositionals defaults true (back-compat: positional-consuming tools)", () => {
     const r = toolCli({ name: "t", version: "1.0.0", argv: ["123"] });
     expect(r.positionals).toEqual(["123"]);

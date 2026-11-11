@@ -14,7 +14,7 @@
 //              unconditionally (still behind the Y-confirm preview).
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { readSync } from "node:fs";
+import { readLineStdin } from "../lib/core/stdin-line.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
@@ -64,7 +64,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   force = cli.values["force"] === true;
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
@@ -96,14 +96,7 @@ if (gone.length === 0) {
 console.log("\nThese are the branches that will be pruned.\n");
 for (const b of gone) console.log(b);
 console.log("\nType 'Y' to proceed");
-const buf = Buffer.alloc(1);
-let conf = "";
-try {
-  const n = readSync(0, buf, 0, 1, null);
-  if (n > 0) conf = buf.toString("utf8");
-} catch {
-  // no input — treated as not-Y below
-}
+const conf = readLineStdin() ?? "";
 console.log("\n\n");
 
 if (conf !== "y" && conf !== "Y") {

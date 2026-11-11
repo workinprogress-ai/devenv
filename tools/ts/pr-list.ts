@@ -97,7 +97,7 @@ async function main(argv: string[]): Promise<number> {
     limit = ((values["limit"] as string | undefined) ?? "30");
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 

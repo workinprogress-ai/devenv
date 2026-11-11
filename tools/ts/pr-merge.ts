@@ -371,8 +371,9 @@ async function main(argv: string[]): Promise<number> {
         matchHeadCommit: headSha,
       })
     ).stdout;
-  } catch {
+  } catch (err) {
     logError(`Failed to merge PR #${prId}. Check for merge conflicts or branch protection rules.`);
+    logError(errorMessage(err));
     return EXIT_API_FAILURE;
   }
   if (mergeOut.trim() !== "") console.log(mergeOut);

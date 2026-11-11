@@ -64,6 +64,7 @@ async function main(argv: string[]): Promise<number> {
   let repoOverride = "";
   try {
     const cli = toolCli({
+      rejectEmptyValues: true,
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv,
@@ -86,33 +87,33 @@ async function main(argv: string[]): Promise<number> {
         commentId = p;
       } else {
         logError(`Unexpected argument: ${p}`);
-        console.log("Use --help for usage information");
+        console.error("Use --help for usage information");
         return EXIT_MISUSE;
       }
     }
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   if (commentId === "") {
     logError("Comment ID is required");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   const sources = (bodyText !== "" ? 1 : 0) + (bodyFile !== "" ? 1 : 0);
   if (sources > 1) {
     logError("Only one of --body or --body-file may be specified");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   let body = "";
   if (sources === 0 && process.stdin.isTTY) {
     logError("A comment source is required: --body or --body-file");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   } else {
     // Single source or piped stdin: the shared resolver owns the uniform
@@ -123,7 +124,7 @@ async function main(argv: string[]): Promise<number> {
     });
     if (!resolved.ok) {
       logError(resolved.error.message);
-      console.log("Use --help for usage information");
+      console.error("Use --help for usage information");
       return resolved.error.code === "file-not-found" ? EXIT_API_FAILURE : EXIT_MISUSE;
     }
     body = resolved.body;

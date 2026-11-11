@@ -8,10 +8,11 @@
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { ensureProviderAuth, ghApiSync, providerOrgGet } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, providerOrgGet } from "../lib/providers/provider-core.ts";
+import { queryPackages, packageVersions } from "../lib/domain/artifacts.ts";
 import { formatTable } from "../lib/ui/panels.ts";
 
 assertNodeFloor();
@@ -95,21 +96,6 @@ if (owner === "") {
   process.exit(EXIT_MISUSE);
 }
 
-/** Map a user-facing type alias to the GitHub package_type id. */
-function packageTypeId(raw: string): string {
-  const t = raw.toLowerCase();
-  switch (t) {
-    case "npm": case "node": case "javascript": return "npm";
-    case "nuget": case "cs": case "csharp": case "dotnet": case ".net": return "nuget";
-    case "docker": case "container": case "oci": return "docker";
-    case "maven": case "java": return "maven";
-    case "rubygems": case "gem": case "ruby": return "rubygems";
-    case "composer": case "php": return "composer";
-    case "conda": return "conda";
-    default: return t;
-  }
-}
-
 interface PackageRecord {
   name?: string;
   package_type?: string;
@@ -120,64 +106,26 @@ interface PackageRecord {
   updated_at?: string;
 }
 
-function ghGet(args: string[]): GhResult {
-  const r = ghApiSync(["api", ...args], { tolerateFailure: true });
-  return { stdout: r.stdout, stderr: r.stderr, status: r.status };
-}
-
-interface GhResult {
-  stdout: string;
-  stderr: string;
-  status: number;
-}
-
-/** Query packages per artifact-operations.bash's query_packages: endpoint is
- * org-wide or repo-scoped; empty results (not errors) read as []. */
-function queryPackages(): PackageRecord[] {
-  const typeArg = type !== "" ? ["-f", `package_type=${packageTypeId(type)}`] : [];
-  const endpoint = repo !== "" ? `/repos/${owner}/${repo}/packages` : `/users/${owner}/packages`;
-  const r = ghGet([endpoint, "--method", "GET", ...typeArg]);
-  if (r.status !== 0) {
-    if (/HTTP|error|Error/i.test(r.stderr + r.stdout)) {
-      logError(`GitHub API error: ${(r.stderr + r.stdout).trim()}`);
-      process.exit(EXIT_GENERAL_ERROR);
-    }
-    return [];
-  }
-  let parsed: PackageRecord[] = [];
+/** Run a domain listing; any failure is an API failure, never an empty list. */
+async function listing(run: () => Promise<string>): Promise<PackageRecord[]> {
   try {
-    const asArray: unknown = JSON.parse(r.stdout);
-    parsed = Array.isArray(asArray) ? (asArray as PackageRecord[]) : [];
-  } catch {
-    parsed = [];
+    return JSON.parse(await run()) as PackageRecord[];
+  } catch (err) {
+    logError(errorMessage(err));
+    process.exit(EXIT_API_FAILURE);
   }
-  if (name !== "") {
-    const needle = name.toLowerCase();
-    parsed = parsed.filter((p) => (p.name ?? "").toLowerCase().includes(needle));
-  }
-  return parsed;
 }
 
-/** Query versions of one package (get_package_versions contract). */
-function queryPackageVersions(): PackageRecord[] {
+async function queryPackageList(): Promise<PackageRecord[]> {
+  return listing(() => queryPackages({ owner, ...(type !== "" ? { type } : {}), ...(name !== "" ? { name } : {}), ...(repo !== "" ? { repo } : {}) }));
+}
+
+async function queryPackageVersions(): Promise<PackageRecord[]> {
   if (type === "" || name === "") {
     logError("--versions requires --type TYPE and --name NAME");
     process.exit(EXIT_MISUSE);
   }
-  const typeId = packageTypeId(type);
-  const scope = repo !== "" ? `/repos/${owner}/${repo}` : `/users/${owner}`;
-  const versionsEndpoint = `${scope}/packages/${typeId}/${name}/versions`;
-  const r = ghGet([versionsEndpoint]);
-  if (r.status !== 0) {
-    logError(`Failed to query package versions: ${(r.stderr + r.stdout).trim()}`);
-    process.exit(EXIT_GENERAL_ERROR);
-  }
-  try {
-    const parsed: unknown = JSON.parse(r.stdout);
-    return Array.isArray(parsed) ? (parsed as PackageRecord[]) : [];
-  } catch {
-    return [];
-  }
+  return listing(() => packageVersions({ owner, type, name, ...(repo !== "" ? { repo } : {}) }));
 }
 
 function renderTable(headers: string[], rows: string[][]): void {
@@ -185,7 +133,7 @@ function renderTable(headers: string[], rows: string[][]): void {
 }
 
 if (listVersions) {
-  const versions = queryPackageVersions();
+  const versions = await queryPackageVersions();
   const sorted = [...versions].reverse();
   if (format === "json") {
     console.log(JSON.stringify(sorted, null, 2));
@@ -204,7 +152,7 @@ if (listVersions) {
 
 logInfo(`Fetching packages${type !== "" ? ` of type: ${type}` : ""}${name !== "" ? ` matching: ${name}` : ""}...`);
 
-const packages = queryPackages();
+const packages = await queryPackageList();
 if (packages.length === 0) {
   logInfo("No packages found matching the criteria");
   process.exit(0);

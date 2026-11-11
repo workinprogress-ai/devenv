@@ -6,11 +6,12 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
@@ -23,7 +24,8 @@ const SCRIPT_VERSION = "1.0.0";
 function usage(): never {
   console.log(`Usage: lint-documentation [--fix] [file ...]
 
-Without file arguments, lints README.md and docs/**/*.md
+Without file arguments, lints README.md, docs/**/*.md, copilot/skills/**/*.md
+and tools/**/*.md (test fixtures excluded).
 Also checks relative .md links and their in-page anchors
 (GitHub-style fragments) in the linted files.
 
@@ -51,8 +53,8 @@ try {
   files.push(...cli.positionals);
 } catch (err) {
   console.error(errorMessage(err));
-  console.log("Use --help for usage information");
-  process.exit(2);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 function gitRoot(): string | null {
@@ -65,6 +67,18 @@ function lsFiles(root: string, ...patterns: string[]): string[] {
   return r.status === 0 ? (r.stdout ?? "").split("\n").filter((l) => l !== "") : [];
 }
 
+// In the devenv root: README.md, docs/**, copilot/skills/** and tools/** are
+// in scope; test fixtures are deliberately malformed sample inputs.
+function inDevenvScope(f: string): boolean {
+  if (f.startsWith("tools/tests/fixtures/")) return false;
+  return (
+    f === "README.md" ||
+    f.startsWith("docs/") ||
+    f.startsWith("copilot/skills/") ||
+    f.startsWith("tools/")
+  );
+}
+
 let targetRoot: string;
 if (files.length === 0) {
   // Inside a git repo under repos/, lint that repo; otherwise devenv docs.
@@ -75,19 +89,25 @@ if (files.length === 0) {
   } else {
     targetRoot = devenvRoot;
     files.push(
-      ...lsFiles(targetRoot, "README.md", "docs/*.md", "docs/**/*.md", "copilot/skills/*.md", "copilot/skills/**/*.md"),
+      ...lsFiles(
+        targetRoot,
+        "README.md", "docs/*.md", "docs/**/*.md", "copilot/skills/*.md", "copilot/skills/**/*.md",
+        "tools/*.md", "tools/**/*.md",
+      ).filter(inDevenvScope),
     );
   }
 } else {
   targetRoot = gitRoot() ?? devenvRoot;
-  // For the devenv root, README.md, docs/**, and copilot/skills/** are in scope.
+  // Explicit paths are resolved against the working directory and made
+  // relative to the lint root, so ./docs/x.md and absolute paths match.
+  const normalised = files.map((f) => {
+    const rel = relative(targetRoot, resolve(f));
+    return rel === "" || rel.startsWith("..") || isAbsolute(rel) ? f : rel;
+  });
+  files.length = 0;
+  files.push(...normalised);
   if (resolve(targetRoot) === resolve(devenvRoot)) {
-    const kept = files.filter(
-      (f) =>
-        f === "README.md" ||
-        f.startsWith("docs/") ||
-        f.startsWith("copilot/skills/"),
-    );
+    const kept = files.filter(inDevenvScope);
     files.length = 0;
     files.push(...kept);
   }
@@ -143,19 +163,11 @@ if (fixMode) {
   }
 }
 
-if ((lint.status ?? 1) !== 0) {
+const lintFailed = (lint.status ?? 1) !== 0;
+if (lintFailed) {
   console.log("");
   console.log("⚠ Some linting issues could not be auto-fixed.");
   console.log("Please review the errors above and fix them manually.");
-  process.exit(1);
-}
-
-console.log("");
-console.log("✓ Markdown linting completed successfully!");
-if (fixMode && fixedAny) {
-  console.log("");
-  console.log(`Review the changes with: git -C '${targetRoot}' diff`);
-  console.log(`Stage the changes with: git -C '${targetRoot}' add -A`);
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +212,7 @@ for (const mdFile of files) {
     const target = hash === -1 ? link : link.slice(0, hash);
     const anchor = hash === -1 ? "" : link.slice(hash + 1);
     if (!target) continue;
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(link)) continue;
     const resolvedAbs = resolve(targetRoot, relDir, target);
     const resolved = relative(targetRoot, resolvedAbs);
     linksChecked++;
@@ -221,4 +234,12 @@ for (const mdFile of files) {
 }
 
 console.log(`Checked ${linksChecked} relative .md link(s); ${linkFailures} failure(s).`);
-process.exit(linkFailures === 0 ? 0 : 1);
+if (lintFailed || linkFailures > 0) process.exit(1);
+
+console.log("");
+console.log("✓ Markdown linting completed successfully!");
+if (fixMode && fixedAny) {
+  console.log("");
+  console.log(`Review the changes with: git -C '${targetRoot}' diff`);
+  console.log(`Stage the changes with: git -C '${targetRoot}' add -A`);
+}

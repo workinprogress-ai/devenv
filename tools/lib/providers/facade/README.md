@@ -18,11 +18,11 @@ job is provider introspection.
 | Facade | Normalizations owned |
 |---|---|
 | `issues.ts` | blocked-by list-vs-per-blocker (`blockedByAdd`/`blockedByRemove`); comment-add composed from comment + comment-get on azure; `orgIssueTypes` github-native; edit-option superset with named azure refusals; view projection + jq subset; setType spec-vs-owner/name; create body-file reading |
-| `projects.ts` | the hoisted ops-object (async-neutral verbs); azure tab-line forIssue parsing; fieldSet boolean contract; github-native `projectsNumberByName` |
+| `projects.ts` | the hoisted ops-object (async-neutral verbs); azure tab-line forIssue parsing; fieldSet boolean contract; github-native `projectsNumberByName`; `projectsAddIssue` (title-to-number resolution on github) |
 | `prs.ts` | GhResult-neutral returns; comment body-file content-vs-path; create option mapping; thread verb shapes |
 | `urls.ts` | pure pass-through (auth status, extract/remote parsing, web/transport addresses); azure authStatusOk lives in `auth.ts` |
-| `repos.ts` | commits-count boolean-vs-number; create RunResult shape; github-native `reposTreeCount`; the repo-settings verbs `reposEdit`, `reposPatch`, `reposPatchWithError`, `reposTeamPut`, `reposCollaboratorPut` (boolean results; on azure `reposEdit` and the two patch verbs throw a named "not supported on provider 'azure'" error, team and collaborator writes report a provider failure as `false`) |
-| `org.ts` | async-neutral ruleset verbs; azure policies payload bridging (file -> parsed payload); releases flags gap named |
+| `repos.ts` | commits-count boolean-vs-number; create RunResult shape; github-native `reposTreeCount`; the repo-settings verbs `reposEdit`, `reposPatch`, `reposPatchWithError`, `reposTeamPut`, `reposCollaboratorPut` (boolean results; on azure `reposEdit` and the two patch verbs throw a named "not supported on provider 'azure'" error, team and collaborator writes report a provider failure as `false` and log the reason); `reposExists`; github-native `reposSquashMergeAllowed` (named error on azure) and `reposNameWithOwner` (null on azure) |
+| `org.ts` | async-neutral ruleset verbs; azure policies payload bridging (file -> parsed payload); releases flags gap named; github-native package queries `orgPackagesQuery`/`orgPackageVersionsQuery` (named error on azure) |
 | `pipelines.ts` | JSON-text list/view; `{stdout, status}` for watch/run/rerun/download; azure --ref/-f flag mapping; surplus azure verbs stay internal |
 
 The contract for every verb, with the provider coverage of each, is

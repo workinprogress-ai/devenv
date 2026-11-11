@@ -17,26 +17,27 @@ import { basename, join } from "node:path";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logDebug, logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageEnvBlock } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
-import { checkTargetRepo, requireRepoTarget, ghApiSync, providerRepoSplit, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { checkTargetRepo, requireRepoTarget, providerRepoSplit, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { authStatusOk } from "../lib/providers/facade/urls.ts";
-import { issuesCreate, issuesSetType, issueGraphLink, issuesView } from "../lib/providers/facade/issues.ts";
-import { issueNumberFromRef, childOfMapFromConfig } from "../lib/domain/issues/refs.ts";
+import { reposExists } from "../lib/providers/facade/repos.ts";
+import { projectsAddIssue } from "../lib/providers/facade/projects.ts";
+import { issuesCreate, issuesExists, issuesSetType, issueGraphLink, issuesView, issueWebUrl } from "../lib/providers/facade/issues.ts";
+import { issueNumberFromRef } from "../lib/domain/issues/refs.ts";
+import { childOfMap, issueTypeNames, resolveIssueType } from "../lib/domain/issues/types.ts";
 import { writeStatus } from "../lib/domain/issues/graph.ts";
 
 assertNodeFloor();
 
 const SCRIPT_VERSION = "1.1.0";
 const SCRIPT_NAME = basename(process.argv[1] ?? "issue-create.ts");
-const TOOLS_ROOT = resolveToolsRoot(import.meta.url);
 
 function showUsage(): never {
   const s = SCRIPT_NAME;
@@ -57,7 +58,8 @@ Optional:
     -b, --body TEXT             Issue body/description
     -f, --body-file FILE        Read issue body from file (markdown; '-' reads
                                 stdin; piped stdin with no flag is auto-read)
-    --type TYPE                 Issue type: a type from issues-config.yml
+    --type TYPE                 Issue type: a type (or alias) from issues-config.yml,
+                                case-insensitive
     -l, --label LABEL           Add label (can be specified multiple times)
     -a, --assignee USER         Assign to user (can be specified multiple times)
     -m, --milestone NAME        Assign to milestone
@@ -90,22 +92,9 @@ Examples:
 
 // --- Body-source resolution: the shared resolver (lib/core/body-source) ---
 
-// --- Issues-config: the type vocabulary -----------------------------------
+// --- Placement ---------------------------------------------------------------
 
-function issuesConfigPath(): string {
-  const override = process.env["ISSUES_CONFIG"];
-  if (override !== undefined && override !== "") return override;
-  return join(TOOLS_ROOT, "config", "issues-config.yml");
-}
-
-/** The type -> allowed-parent-types map from issues-config.yml's child_of
- * keys (the org-convention hierarchy, 15.15). Missing key = no restriction.
- * The parser lives in lib/domain/issues/refs.ts (shared with issue-create-batch). */
-function childOfMap(): Map<string, string[]> {
-  return childOfMapFromConfig(issuesConfigPath());
-}
-
-/** 15.15 placement validation: when --parent is given, the parent's type
+/** Placement validation: when --parent is given, the parent's type
  * must appear in the requested type's child_of list (org convention from
  * issues-config.yml). Rejects BEFORE any create, naming the tool, the
  * parent type, the requested type, and the rule. */
@@ -130,29 +119,6 @@ async function validatePlacement(
     );
     process.exit(EXIT_MISUSE);
   }
-}
-
-/** Minimal `types[].name` reader for the config's flat list shape. */
-function issueTypeNames(): string[] {
-  const path = issuesConfigPath();
-  if (!existsSync(path)) {
-    logError(`Issues config not found: ${path}`);
-    process.exit(EXIT_GENERAL_ERROR);
-  }
-  const names: string[] = [];
-  let inTypes = false;
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    if (/^types:\s*$/.test(line)) {
-      inTypes = true;
-      continue;
-    }
-    if (inTypes && /^\S/.test(line) && !/^types:/.test(line)) inTypes = false;
-    if (inTypes) {
-      const m = /^\s*-\s*name:\s*(.+)$/.exec(line);
-      if (m?.[1] !== undefined) names.push(m[1].replace(/^["']|["']$/g, "").trim());
-    }
-  }
-  return names;
 }
 
 // --- Templates -------------------------------------------------------------
@@ -210,17 +176,17 @@ function selectTemplateInteractive(dir: string): string | null {
 // --- Creation flow ---------------------------------------------------------
 
 /** Parent and blocked-by references become real body lines before the content.
- * A cross-repo parent (`owner/repo#N`) renders as a fully-qualified work-item
- * URL - a bare `Part of #N` would point into the child's own repo and mislead.
+ * A cross-repo parent (`owner/repo#N`) renders as the provider's work-item
+ * address - a bare `Part of #N` would point into the child's own repo and mislead.
  */
-function buildBody(
+async function buildBody(
   refs: { parent?: string | undefined; parentSpec?: string | undefined; blockedBy: string[] },
   content: string,
-): string {
+): Promise<string> {
   let body = "";
   if (refs.parent !== undefined && refs.parent !== "") {
     if (refs.parentSpec !== undefined && refs.parentSpec !== "") {
-      body += `Part of https://github.com/${refs.parentSpec}/issues/${refs.parent}\n\n`;
+      body += `Part of ${await issueWebUrl(refs.parentSpec, Number.parseInt(refs.parent, 10))}\n\n`;
     } else {
       body += `Part of #${refs.parent}\n\n`;
     }
@@ -263,10 +229,10 @@ async function checkAuth(): Promise<void> {
 }
 
 /** Fail fast on a wrong or unreachable target, before any prompt. */
-function probeTargetRepo(): void {
+async function probeTargetRepo(): Promise<void> {
   const spec = requireRepoTarget(providerRepoTarget(""), "issue-create", "issues");
   if (spec === "") return;
-  if (ghApiSync(["repo", "view", spec, "--json", "name", "-q", ".name"], { tolerateFailure: true }).status !== 0) {
+  if (!(await reposExists(spec))) {
     logError(`Target repository not found or inaccessible: ${spec}`);
     logInfo("Check the DEVENV_REPO value and your provider access");
     process.exit(EXIT_GENERAL_ERROR);
@@ -287,34 +253,13 @@ interface CreateState {
   dryRun: boolean;
 }
 
-/** Project membership via the provider CLI's project verbs (name -> number). */
-function addToProject(issueUrl: string, project: string): boolean {
-  // Titles are interpolated into a jq select program downstream — a quote
-  // would break out of the literal (the projectsNumberByName facade rejects
-  // them for the same reason).
-  if (project.includes('"')) {
-    logError(`--project: title must not contain double quotes ('${project}')`);
-    process.exit(EXIT_MISUSE);
-  }
+/** Project membership through the provider facade (title or number). */
+async function addToProject(issueUrl: string, project: string): Promise<boolean> {
   const { owner } = providerRepoSplit("");
-  let projectNumber = project;
-  if (!/^[0-9]+$/.test(projectNumber)) {
-    const r = ghApiSync(
-      ["project", "list", "--owner", owner, "--format", "json", "--jq", `.projects[] | select(.title == "${project}") | .number`],
-      { tolerateFailure: true },
-    );
-    const first = (r.stdout ?? "").trim().split("\n")[0] ?? "";
-    if (first === "") {
-      logError(`Issue created but could not be added to project: project '${project}' not found`);
-      logError("Remediation: verify the project name, then add the issue manually");
-      return false;
-    }
-    projectNumber = first;
-    logDebug(`Resolved project '${project}' to number ${projectNumber}`);
-  }
-  const add = ghApiSync(["project", "item-add", projectNumber, issueUrl, "--owner", owner], { tolerateFailure: true });
-  if (add.status !== 0) {
-    logError(`Issue created but could not be added to project: ${project} (project may not exist or you may lack permissions)`);
+  try {
+    await projectsAddIssue(owner, project, issueUrl);
+  } catch (err) {
+    logError(`Issue created but could not be added to project: ${project} (${errorMessage(err)})`);
     logError("Remediation: verify project name and permissions, then add the issue manually");
     return false;
   }
@@ -334,17 +279,28 @@ async function applyBirthStatus(issue: number, status: string): Promise<void> {
   if (!ok) logWarn(`birth status '${status}' was not written for issue #${issue}`);
 }
 
+/** POSIX single-quote quoting; plain words stay bare. */
+function shellQuote(arg: string): string {
+  return /^[A-Za-z0-9_@%+=:,./#-]+$/.test(arg) ? arg : `'${arg.replaceAll("'", "'\\''")}'`;
+}
+
 async function createIssue(st: CreateState): Promise<number> {
   const spec = requireRepoTarget(providerRepoTarget(""), "issue-create", "issues");
-  const finalBody = buildBody({ parent: st.parent, parentSpec: st.parentSpec, blockedBy: st.blockedBy }, st.body);
+  const finalBody = await buildBody({ parent: st.parent, parentSpec: st.parentSpec, blockedBy: st.blockedBy }, st.body);
 
   if (st.dryRun) {
-    logInfo("[DRY RUN] Would create issue via provider_issues_create:");
-    const parts = ["provider_issues_create", spec, "--title", st.title, "--body", finalBody];
+    logInfo(`[DRY RUN] Would create issue in ${spec} with body:\n${finalBody}`);
+    const parts = ["issue-create", "--no-interactive", "--title", st.title, "--type", st.type];
+    if (st.body !== "") parts.push("--body", st.body);
     for (const l of st.labels) parts.push("--label", l);
     for (const a of st.assignees) parts.push("--assignee", a);
     if (st.milestone !== "") parts.push("--milestone", st.milestone);
-    console.log(parts.join(" "));
+    if (st.project !== "") parts.push("--project", st.project);
+    if (st.parent !== undefined && st.parent !== "") {
+      parts.push("--parent", st.parentSpec !== undefined && st.parentSpec !== "" ? `${st.parentSpec}#${st.parent}` : st.parent);
+    }
+    for (const b of st.blockedBy) parts.push("--blocked-by", b);
+    console.log(parts.map(shellQuote).join(" "));
     return 0;
   }
 
@@ -384,7 +340,7 @@ async function createIssue(st: CreateState): Promise<number> {
 
   if (st.project !== "") {
     logDebug(`Adding issue #${issueNumber} to project: ${st.project}`);
-    if (!addToProject(issueUrl, st.project)) enrichFailed = 1;
+    if (!(await addToProject(issueUrl, st.project))) enrichFailed = 1;
   }
 
   // Workflow integration: sub-issue link + birth-status write. Failures
@@ -414,6 +370,7 @@ async function main(argv: string[]): Promise<number> {
   let cli: ReturnType<typeof toolCli>;
   try {
     cli = toolCli({
+      rejectEmptyValues: true,
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv,
@@ -498,18 +455,43 @@ async function main(argv: string[]): Promise<number> {
     logError("Interactive type selection is not available in this build; use --type");
     return EXIT_MISUSE;
   }
-  const validTypes = issueTypeNames();
-  if (!validTypes.includes(issueType)) {
+  let validTypes: string[];
+  let resolvedType: string | null;
+  try {
+    validTypes = issueTypeNames();
+    resolvedType = resolveIssueType(issueType);
+  } catch (err) {
+    logError(errorMessage(err));
+    return EXIT_GENERAL_ERROR;
+  }
+  if (resolvedType === null) {
     logError(`Invalid issue type: ${issueType}`);
     logInfo(`Valid types: ${validTypes.join(" ")}`);
     return EXIT_MISUSE;
   }
 
+  for (const b of blockedBy as string[]) {
+    if (!/^[0-9]+$/.test(b)) {
+      logError(`Invalid --blocked-by reference: ${b} (expected an issue number)`);
+      return EXIT_MISUSE;
+    }
+  }
+
   await checkAuth();
   checkTargetRepo(cli.common.devenv);
-  probeTargetRepo();
+  await probeTargetRepo();
 
-  // 15.15 placement validation: --parent must satisfy the requested type's
+  if (!cli.common.dryRun) {
+    const spec = requireRepoTarget(providerRepoTarget(""), "issue-create", "issues");
+    for (const b of blockedBy as string[]) {
+      if (!(await issuesExists(spec, Number.parseInt(b, 10)))) {
+        logError(`Blocked-by target #${b} not found`);
+        return EXIT_API_FAILURE;
+      }
+    }
+  }
+
+  // Placement validation: --parent must satisfy the requested type's
   // child_of rule (org hierarchy from issues-config.yml) BEFORE any create.
   const parentValue = values["parent"];
   let parentRef: ParentRef | null = null;
@@ -519,17 +501,15 @@ async function main(argv: string[]): Promise<number> {
       logError(`Invalid --parent reference: ${parentValue} (expected N or owner/repo#N)`);
       return EXIT_MISUSE;
     }
-    if (issueType !== "") {
-      // Cross-repo parents validate against their own repo (issuesView
-      // takes a spec; the child_of rule still applies — the parent's type
-      // is a process fact, not a repo-local one).
-      await validatePlacement(
-        requireRepoTarget(providerRepoTarget(""), "issue-create", "issues"),
-        String(parentRef.number),
-        issueType,
-        parentRef.repoSpec,
-      );
-    }
+    // Cross-repo parents validate against their own repo (issuesView
+    // takes a spec; the child_of rule still applies — the parent's type
+    // is a process fact, not a repo-local one).
+    await validatePlacement(
+      requireRepoTarget(providerRepoTarget(""), "issue-create", "issues"),
+      String(parentRef.number),
+      resolvedType,
+      parentRef.repoSpec,
+    );
   }
 
   // Piped-stdin capture happens BEFORE template work so a piped body is never
@@ -552,7 +532,7 @@ async function main(argv: string[]): Promise<number> {
       // body. The capture is skipped entirely.
     } else if (content.replace(/\s/g, "") === "") {
       logError("Refusing empty piped stdin body");
-      console.log("Use --help for usage information");
+      console.error("Use --help for usage information");
       return EXIT_MISUSE;
     } else {
       pipedStdinBody = content;
@@ -612,7 +592,7 @@ async function main(argv: string[]): Promise<number> {
   return await createIssue({
     title,
     body,
-    type: issueType,
+    type: resolvedType,
     labels: labels as string[],
     assignees: assignees as string[],
     milestone: ((values["milestone"] as string | undefined) ?? ""),

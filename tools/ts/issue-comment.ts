@@ -73,6 +73,7 @@ interface Parsed {
 function parseCliArgs(argv: string[]): { parsed: Parsed; positional: string[] } {
   try {
     const cli = toolCli({
+      rejectEmptyValues: true,
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv,
@@ -99,7 +100,7 @@ function parseCliArgs(argv: string[]): { parsed: Parsed; positional: string[] } 
     };
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }
 }
@@ -150,20 +151,20 @@ async function main(argv: string[]): Promise<number> {
       issueNumber = p;
     } else {
       logError(`Unexpected argument: ${p}`);
-      console.log("Use --help for usage information");
+      console.error("Use --help for usage information");
       return EXIT_MISUSE;
     }
   }
   if (issueNumber === "") {
     logError("Issue number is required");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   const sources = (args.body !== "" ? 1 : 0) + (args.bodyFile !== "" ? 1 : 0) + (args.edit ? 1 : 0);
   if (sources > 1) {
     logError("Only one of --body, --body-file, or --edit may be specified");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
@@ -181,7 +182,7 @@ async function main(argv: string[]): Promise<number> {
       });
       if (!resolved.ok) {
         logError(resolved.error.message);
-        console.log("Use --help for usage information");
+        console.error("Use --help for usage information");
         return resolved.error.code === "file-not-found" ? EXIT_API_FAILURE : EXIT_MISUSE;
       }
       body = resolved.body;
@@ -190,13 +191,13 @@ async function main(argv: string[]): Promise<number> {
     // No explicit source: piped stdin auto-reads; a TTY demands one.
     if (process.stdin.isTTY) {
       logError("A comment source is required: --body, --body-file, or --edit");
-      console.log("Use --help for usage information");
+      console.error("Use --help for usage information");
       return EXIT_MISUSE;
     }
     const resolved = resolveBodySource({});
     if (!resolved.ok) {
       logError(resolved.error.message);
-      console.log("Use --help for usage information");
+      console.error("Use --help for usage information");
       return EXIT_MISUSE;
     }
     body = resolved.body;

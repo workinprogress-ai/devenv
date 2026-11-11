@@ -58,7 +58,7 @@ interface WrapperSpec {
   operands: number;
 }
 
-const WRAPPERS: Readonly<Record<string, WrapperSpec>> = {
+const WRAPPERS: ReadonlyMap<string, WrapperSpec> = new Map(Object.entries({
   env: { valueOptions: ["-u", "-C", "-S", "--unset", "--chdir", "--split-string"], operands: 0 },
   command: { valueOptions: [], operands: 0 },
   exec: { valueOptions: ["-a"], operands: 0 },
@@ -72,13 +72,15 @@ const WRAPPERS: Readonly<Record<string, WrapperSpec>> = {
   sudo: { valueOptions: ["-u", "-g", "-h", "-p", "-C", "-D", "-R", "-T", "-U", "-r", "-t"], operands: 0 },
   xargs: { valueOptions: ["-n", "-I", "-L", "-P", "-s", "-d", "-E", "-a"], operands: 0 },
   busybox: { valueOptions: [], operands: 0 },
-};
+} satisfies Record<string, WrapperSpec>));
 
 const SHELLS = new Set(["sh", "bash", "dash", "zsh", "ksh", "ash"]);
 const NOOP_COMMANDS = new Set(["true", ":", ".", "exit", "echo", "printf", "cat", "tee", "touch", "rm", "sleep", "sed", "awk"]);
 const INTERPRETERS = /^(python[0-9.]*|perl|node|ruby|php)$/;
 const INTERPRETER_EXEC_FLAGS = new Set(["-c", "-e", "-E", "-p", "--eval", "--print"]);
 const VI_FAMILY = new Set(["ex", "vi", "vim", "nvim", "view", "vimdiff"]);
+// Ex commands that save/quit at once: `vim +wq`, `vim -c x` never wait for a person.
+const VI_EXIT_COMMAND = /^(wq|x|xit|exit|q|quit|qa|qall|wqa|wqall|xa|xall)!?$/;
 
 /** True when the editor command is judged a non-interactive no-op (an env
  * sentinel or config value that would skip a human editing the message).
@@ -101,7 +103,7 @@ export function editorIsNoninteractive(candidate: string): boolean {
     // leading VAR=value assignments belong to the command's environment
     if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) continue;
     const base = word.split("/").pop() ?? word;
-    const wrapper = WRAPPERS[base];
+    const wrapper = WRAPPERS.get(base);
     if (wrapper !== undefined) {
       while (i < words.length) {
         const w = words[i] ?? "";
@@ -121,7 +123,14 @@ export function editorIsNoninteractive(candidate: string): boolean {
     if (SHELLS.has(base) || NOOP_COMMANDS.has(base)) return true;
     const args = words.slice(i);
     if (INTERPRETERS.test(base)) return args.some((a) => INTERPRETER_EXEC_FLAGS.has(a));
-    if (VI_FAMILY.has(base)) return args.some((a) => /^-[A-Za-z]*s$/.test(a));
+    if (VI_FAMILY.has(base)) {
+      return args.some(
+        (a, idx) =>
+          /^-[A-Za-z]*s$/.test(a) ||
+          (a.startsWith("+") && VI_EXIT_COMMAND.test(a.slice(1))) ||
+          (a === "-c" && VI_EXIT_COMMAND.test(args[idx + 1] ?? "")),
+      );
+    }
     return false;
   }
   // nothing left to run

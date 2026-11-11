@@ -86,4 +86,18 @@ describe("issue-select (non-interactive refusals)", () => {
   it("an unknown flag exits 2", () => {
     expect(runTool(["--bogus"]).status).toBe(2);
   });
+
+  it("an invalid --format is named before the TTY refusal", () => {
+    const r = runTool(["--format", "bogus"]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("Invalid format: bogus");
+    expect(r.stderr).not.toContain("interactive terminal");
+  });
+
+  it("an invalid --state is named before the TTY refusal", () => {
+    const r = runTool(["--state", "bogus"]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("Invalid state: bogus");
+    expect(r.stderr).not.toContain("interactive terminal");
+  });
 });

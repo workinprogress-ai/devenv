@@ -3,7 +3,7 @@
 Org-policy decisions for the devenv tooling, separated from mechanics so a
 fork changes values — not code. This is the policy half of the fork-stable
 surfaces contract (Q-003); the provider half lives in
-[`tools/lib/providers/`](../../providers/README.md).
+[`tools/lib/providers/`](../providers/README.md).
 
 ## Resolution chain
 
@@ -27,9 +27,9 @@ never empty.
 
 **Note on issue types:** the `[issues]` section does not exist in the stock
 `devenv.config` — the fallback is the operative source until a fork sets the
-key. The *native type IDs* (the GitHub-side type identifiers used by
-`issue-create`) live separately in `tools/config/issues-config.yml`, which the
-normalizer does not consume; keep the two lists consistent when overriding.
+key. The type vocabulary and parent rules used by the TypeScript issue tools
+live separately in `tools/config/issues-config.yml`, which the bash normalizer
+does not consume; keep the two lists consistent when overriding.
 | `policy_triage_label <key>` | — | (looks up the vocabulary above) | rc 1 for unknown keys |
 | `policy_delivery_segment_anchor` | `POLICY_DELIVERY_SEGMENT_ANCHOR` | `[workflows] delivery_segment_anchor` | `Implementing` |
 | `policy_status_fallback` | `POLICY_STATUS_FALLBACK` | `[workflows] status_fallback` | `Ready` |

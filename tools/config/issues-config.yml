@@ -1,35 +1,21 @@
 # Issue Type Configuration
-# Defines available issue types for issue-create
-# Uses GitHub's native issue type field (Bug, Feature, Task)
-#
-# To get issue type IDs:
-# - CLI: gh api graphql -f query="query { organization(login: \"$GH_ORG\") { issueTypes(first: 100) { edges { node { id name } } } } }" | jq .
+# Defines the issue-type vocabulary and parent/child hierarchy used by the
+# issue tools. Types are applied through the provider's native issue-type
+# field, matched by name (case-insensitive; aliases resolve onto these names).
+# Provider-side type identifiers are discovered at run time (see `issue-types`).
 
 types:
   - name: Bug
     description: "A bug or defect that needs fixing"
-    id: "IT_kwDOCk-E0c4BWVJJ"
     child_of: [Epic]
-  
+
   - name: Feature
     description: "A new feature or enhancement"
-    id: "IT_kwDOCk-E0c4BWVJK"
     child_of: [Epic]
-  
+
   - name: Task
     description: "A task or work item"
-    id: "IT_kwDOCk-E0c4BWVJI"
     child_of: [Epic, Feature, Bug, Task]
 
   - name: Epic
     description: "Long-lived orchestration issue coordinating work across multiple repos or efforts — not for single deliverables (use Feature)"
-    id: "IT_kwDOCk-E0c4B4VUz"
-
-# Planning Configuration
-# Maps requirement document concepts to GitHub issue types.
-# Used when creating issues from a requirements document.
-planning:
-  type_mapping:
-    phases: Epic
-    features: Feature
-    tasks: Task

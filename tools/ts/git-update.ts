@@ -63,7 +63,7 @@ try {
   // Bash-parity refusal: the full usage block with a non-zero exit (the
   // helper-args suite pins both 'Usage' in the output and status != 0).
   logError(errorMessage(err));
-  console.log(USAGE_TEXT);
+  console.error(USAGE_TEXT);
   process.exit(EXIT_MISUSE);
 }
 

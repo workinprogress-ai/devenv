@@ -72,8 +72,8 @@ function authHeader(pat: string): string {
 export function azureRedact(text: string): string {
   let out = text;
   // Redact every active credential form: the env PAT and the file-based PAT
-  // (F13: azurePatGet serves the file form, whose value never reaches env —
-  // an env-only redaction left file-mode redaction inert).
+  // (azurePatGet serves the file form, whose value never reaches env, so an
+  // env-only redaction would leave file-mode credentials unredacted).
   for (const token of [process.env.AZURE_PAT ?? "", azurePatGet()]) {
     if (token !== "" && out.includes(token)) {
       out = out.split(token).join("***REDACTED***");

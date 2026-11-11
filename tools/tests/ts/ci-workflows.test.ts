@@ -121,10 +121,21 @@ describe("ci workflows", () => {
   });
 
   it("the test workflow's paths filter covers the files that can break the pipeline", () => {
-    const paths = yq(".on.pull_request.paths[]", TESTWF).out;
-    for (const want of ["package.json", "commitlint.config.js", "release.config.js", ".github/workflows/**", "pnpm-lock.yaml"]) {
-      expect(paths, `paths filter misses ${want}`).toContain(want);
+    for (const trigger of ["pull_request", "push"]) {
+      const paths = yq(`.on.${trigger}.paths[]`, TESTWF).out.split("\n");
+      for (const want of [
+        "package.json", "commitlint.config.js", "release.config.js", ".github/workflows/**", "pnpm-lock.yaml",
+        "eslint.config.js", "tsconfig.json", "vitest.config.ts",
+      ]) {
+        expect(paths, `${trigger} paths filter misses ${want}`).toContain(want);
+      }
     }
+  });
+
+  it("the test job runs the suite once: the one-command gate, not also a bare vitest step", () => {
+    const runs = yq(".jobs.test.steps[].run // \"\"", TESTWF).out;
+    expect(runs).toContain("run-devenv-tests.sh");
+    expect(runs).not.toMatch(/pnpm test:ts|vitest run/);
   });
 
   it("markdown linters come from the lockfile, not a global unpinned install", () => {

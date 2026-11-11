@@ -19,13 +19,14 @@ import { basename, join } from "node:path";
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
 
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { select } from "../lib/ui/prompts.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { providerRepoTarget, requireRepoTarget, isDevenvRepoGated } from "../lib/providers/provider-core.ts";
-import { issuesComments, issuesCommentAdd, issuesCommentEdit } from "../lib/providers/facade/issues.ts";
+import { issuesCommentAdd, issuesCommentEdit } from "../lib/providers/facade/issues.ts";
+import { fetchIssueComments, findDocId, type CommentRecord } from "../lib/domain/artifacts.ts";
 
 assertNodeFloor();
 
@@ -180,24 +181,12 @@ export function inferIssueNumberFromDocId(docId: string): string | null {
   return null;
 }
 
-interface CommentRecord {
-  id?: unknown;
-  body?: unknown;
-  url?: unknown;
-}
-
-/** The upsert match rule: a comment whose first-256 window carries a
- * `doc_id:` line equal (whitespace-trimmed) to the target. */
+/** The upsert match rule: a comment whose header carries the target doc_id. */
 export function findMatches(comments: CommentRecord[], docId: string): Array<{ id: unknown; url: unknown }> {
   const matches: Array<{ id: unknown; url: unknown }> = [];
   for (const c of comments) {
     const body = typeof c.body === "string" ? c.body : "";
-    const prefix = body.slice(0, 256).split("\n");
-    const hit = prefix.some((line) => {
-      const m = line.match(/^[ \t]*doc_id:[ \t]*(.*)$/);
-      return m !== null && (m[1]?.replace(/[ \t]+$/, "") ?? "") === docId;
-    });
-    if (hit) matches.push({ id: c.id, url: c.url });
+    if (findDocId(body) === docId) matches.push({ id: c.id, url: c.url });
   }
   return matches;
 }
@@ -222,7 +211,7 @@ async function interactivePickArtifact(all: boolean): Promise<string | null> {
     .filter((f) => all || !f.startsWith("tmp"))
     .filter((f) => {
       const body = readFileSync(join(artifactsDir, f), "utf8");
-      const docId = headerField(body, "doc_id");
+      const docId = findDocId(body);
       if (docId === "") return false;
       const issue = headerField(body, "issue_number");
       if (issue !== "" && issue !== "none" && !/^[0-9]+$/.test(issue)) return false;
@@ -268,7 +257,7 @@ async function main(argv: string[]): Promise<number> {
       const stdin = readFileSync(0, "utf8");
       if (stdin.trim() === "") {
         logError("Refusing empty stdin body");
-        console.log("Use --help for usage information");
+        console.error("Use --help for usage information");
         return EXIT_MISUSE;
       }
       body = stdin;
@@ -331,7 +320,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  const docId = headerField(body, "doc_id");
+  const docId = findDocId(body);
   const inferred = docId !== "" ? inferIssueNumberFromDocId(docId) : null;
 
   let issueNumber = args.issue;
@@ -367,19 +356,12 @@ async function main(argv: string[]): Promise<number> {
 
   const issueNum = Number.parseInt(issueNumber, 10);
 
-  let raw: string;
-  try {
-    raw = await issuesComments(repo, issueNum);
-  } catch (err) {
-    logError(`Failed to fetch comments for issue #${issueNumber}: ${errorMessage(err)}`);
-    return 4;
-  }
   let comments: CommentRecord[];
   try {
-    comments = JSON.parse(raw) as CommentRecord[];
-  } catch {
-    logError("Failed to parse issue comments");
-    return 4;
+    comments = await fetchIssueComments(repo, issueNum);
+  } catch (err) {
+    logError(errorMessage(err));
+    return EXIT_API_FAILURE;
   }
 
   const matches = findMatches(comments, docId);
@@ -417,7 +399,7 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     } catch (err) {
       logError(`Failed to update comment: ${errorMessage(err)}`);
-      return 4;
+      return EXIT_API_FAILURE;
     }
   }
 
@@ -439,7 +421,7 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   } catch (err) {
     logError(`Failed to create issue comment on issue #${issueNumber}: ${errorMessage(err)}`);
-    return 4;
+    return EXIT_API_FAILURE;
   }
 }
 
@@ -447,6 +429,6 @@ main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
     logError(errorMessage(err));
-    process.exit(4);
+    process.exit(EXIT_API_FAILURE);
   },
 );

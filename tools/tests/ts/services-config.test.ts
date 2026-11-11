@@ -3,7 +3,7 @@
 // must be untouched), and the source-level shape locks of the TS port.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -73,7 +73,7 @@ describe("scripts/services-config", () => {
   });
 
   it("get-services-config.sh has cleanup function", () => {
-    expect(sourceHas(["-q", "rmSync(targetFolder", TS_SOURCE])).toBe(true);
+    expect(sourceHas(["-q", "rmSync(staging", TS_SOURCE])).toBe(true);
   });
 
   it("get-services-config.sh clones git repository", () => {
@@ -94,6 +94,50 @@ describe("scripts/services-config", () => {
 
   it("get-services-config.sh creates default.env template", () => {
     expect(sourceHas(["default.env", TS_SOURCE])).toBe(true);
+  });
+
+  function mkRemote(): string {
+    const remote = join(TMP, "remote");
+    mkdirSync(remote, { recursive: true });
+    const g = (...a: string[]) => spawnSync("git", ["-C", remote, ...a], { encoding: "utf8" });
+    g("init", "-q");
+    writeFileSync(join(remote, "app.json"), "{}\n");
+    g("add", "-A");
+    g("commit", "-q", "-m", "init");
+    return remote;
+  }
+
+  function existingConfig(): string {
+    const cfg = join(TMP, "cfg");
+    mkdirSync(cfg, { recursive: true });
+    writeFileSync(join(cfg, "marker"), "keep\n");
+    return cfg;
+  }
+
+  it("keeps the existing config when the clone fails", () => {
+    const cfg = existingConfig();
+    const r = runTool([join(TMP, "no-such-repo")], { CONFIG_FOLDER: cfg });
+    expect(r.status).not.toBe(0);
+    expect(readFileSync(join(cfg, "marker"), "utf8")).toBe("keep\n");
+    expect(readdirSync(TMP).filter((n) => n.startsWith("cfg."))).toEqual([]);
+  });
+
+  it("keeps the existing config when the branch does not exist", () => {
+    const cfg = existingConfig();
+    const r = runTool([mkRemote(), "no-such-branch"], { CONFIG_FOLDER: cfg });
+    expect(r.status).not.toBe(0);
+    expect(readFileSync(join(cfg, "marker"), "utf8")).toBe("keep\n");
+    expect(readdirSync(TMP).filter((n) => n.startsWith("cfg."))).toEqual([]);
+  });
+
+  it("replaces the existing config with the cloned one on success", () => {
+    const cfg = existingConfig();
+    const r = runTool([mkRemote()], { CONFIG_FOLDER: cfg });
+    expect(r.status).toBe(0);
+    expect(existsSync(join(cfg, "marker"))).toBe(false);
+    expect(existsSync(join(cfg, "app.json"))).toBe(true);
+    expect(existsSync(join(cfg, ".git"))).toBe(false);
+    expect(readdirSync(TMP).filter((n) => n.startsWith("cfg."))).toEqual([]);
   });
 
   it("get-services-config.sh handles missing repo URL", () => {

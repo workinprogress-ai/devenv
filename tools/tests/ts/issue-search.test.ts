@@ -139,4 +139,42 @@ describe("issue-search", () => {
   it("an unknown flag exits 2", () => {
     expect(runTool(["x", "--bogus"]).status).toBe(2);
   });
+
+  function listCalls(): string[] {
+    const log = join(stubDir, "calls.log");
+    return existsSync(log) ? readFileSync(log, "utf8").split("\n").filter((l) => l.includes("issue list")) : [];
+  }
+
+  it("an invalid --format is refused before the issues are fetched", () => {
+    const r = runTool(["token", "--format", "bogus"]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("Invalid format: bogus");
+    expect(listCalls()).toEqual([]);
+  });
+
+  it("an invalid --state is refused before the issues are fetched", () => {
+    const r = runTool(["token", "--state", "bogus"]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("Invalid state: bogus");
+    expect(listCalls()).toEqual([]);
+  });
+
+  it("a --limit with trailing junk is refused", () => {
+    const r = runTool(["token", "--limit", "5x"]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("Invalid --limit: 5x");
+    expect(listCalls()).toEqual([]);
+  });
+
+  it("a fetch that fills --fetch-limit warns that the results may be incomplete", () => {
+    const r = runTool(["token", "--fetch-limit", "3", "--format", "json"]);
+    expect(r.status).toBe(0);
+    expect(r.stderr).toContain("--fetch-limit");
+    expect(r.stderr).toContain("incomplete");
+  });
+
+  it("a fetch below --fetch-limit does not warn", () => {
+    const r = runTool(["token", "--fetch-limit", "4", "--format", "json"]);
+    expect(r.stderr).not.toContain("incomplete");
+  });
 });

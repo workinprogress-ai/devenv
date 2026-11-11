@@ -2,7 +2,7 @@
 // stubbed gh (GraphQL response table): org resolution, formats, and the
 // empty/invalid refusals.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
@@ -15,6 +15,7 @@ let responses = "";
 function installGhStub(): void {
   const lines = [
     "#!/usr/bin/env bash",
+    'printf \'%s\\n\' "gh $*" >> "__RESPONSES__.calls"',
     'if [ -s "__RESPONSES__" ]; then',
     "  while IFS= read -r line; do",
     '    [ -z "$line" ] && continue',
@@ -105,6 +106,15 @@ describe("issue-types", () => {
     writeFileSync(join(stubDir, "devenv.config"), "[provider]\nname=github\n");
     const r = runTool([], { DEVENV_REPO: "myorg/whatever" });
     expect(r.status).toBe(0);
+  });
+
+  it("an org key in another config section is never read as the organization", () => {
+    writeFileSync(join(stubDir, "devenv.config"), "[provider]\nname=github\norg=wrong-org\n");
+    const r = runTool([], { DEVENV_REPO: "myorg/whatever" });
+    expect(r.status).toBe(0);
+    const calls = readFileSync(`${responses}.calls`, "utf8");
+    expect(calls).toContain("myorg");
+    expect(calls).not.toContain("wrong-org");
   });
 
   it("an unresolvable org is a defined failure", () => {

@@ -14,7 +14,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "
 import { relative } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_CONFLICT, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
@@ -156,7 +156,7 @@ if (langDefault && langVersion !== "") {
 }
 if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
   console.error(`ERROR: Directory not found: ${targetDir}`);
-  process.exit(3);
+  process.exit(EXIT_CONFLICT);
 }
 
 const csprojs = findCsprojFiles(targetDir);

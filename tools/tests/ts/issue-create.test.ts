@@ -12,12 +12,13 @@ let stubDir = "";
 let repoRoot = "";
 let workDir = "";
 
-function installGhStub(opts: { createOut?: string; repoViewFails?: boolean } = {}): void {
+function installGhStub(opts: { createOut?: string; repoViewFails?: boolean; missingIssue?: string } = {}): void {
   const createOut = opts.createOut ?? "https://github.com/org/repo/issues/777";
   const lines = [
     "#!/usr/bin/env bash",
     'printf \'%s\\n\' "gh $*" >> "__LOG__"',
     `if [ "$1 $2" = "auth status" ]; then exit 0; fi`,
+    ...(opts.missingIssue !== undefined ? [`if [ "$1 $2 $3" = "issue view ${opts.missingIssue}" ]; then echo "Could not resolve to an Issue" >&2; exit 1; fi`] : []),
     `if [ "${opts.repoViewFails ? "1" : "0"}" = "1" ] && [ "$1 $2" = "repo view" ]; then exit 1; fi`,
     `case "$*" in`,
     `  *"repo view"*)`,
@@ -273,5 +274,66 @@ describe("issue-create", () => {
     const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive"], input: "   \n", issuesConfig: cfg });
     expect(r.status).toBe(2);
     expect(r.output).toContain("Refusing empty piped stdin body");
+  });
+
+  it("--type accepts a lower-case name like the other issue tools", () => {
+    const cfg = writeTypesConfig();
+    const r = runTool({ args: ["--title", "T", "--type", "task", "--no-interactive", "--body", "b"], issuesConfig: cfg });
+    expect(r.status).toBe(0);
+    expect(ghCalls().join("\n")).toContain("issue edit 777 --type Task");
+  });
+
+  it("--type accepts an alias that the config vocabulary contains", () => {
+    const cfg = join(workDir, "issues-config.yml");
+    writeFileSync(cfg, "types:\n  - name: Bug\n  - name: Feature\n");
+    const r = runTool({ args: ["--title", "T", "--type", "story", "--no-interactive", "--body", "b"], issuesConfig: cfg });
+    expect(r.status).toBe(0);
+    expect(ghCalls().join("\n")).toContain("issue edit 777 --type Feature");
+  });
+
+  it("a malformed issues config is a named failure, not a silent default", () => {
+    const cfg = join(workDir, "issues-config.yml");
+    writeFileSync(cfg, "types: [unclosed\n");
+    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b"], issuesConfig: cfg });
+    expect(r.status).toBe(1);
+    expect(r.output).toContain("Invalid issues config");
+    expect(ghCalls().some((c) => c.includes("issue create"))).toBe(false);
+  });
+
+  it("--dry-run prints a command that can be run as it stands", () => {
+    const cfg = writeTypesConfig();
+    const r = runTool({
+      args: ["--title", "A title", "--type", "Task", "--no-interactive", "--dry-run", "--parent", "12", "--blocked-by", "7", "--label", "x y", "--body", "it's body"],
+      issuesConfig: cfg,
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout).not.toContain("provider_issues_create");
+    expect(r.stdout.trim()).toBe(
+      "issue-create --no-interactive --title 'A title' --type Task --body 'it'\\''s body' --label 'x y' --parent 12 --blocked-by 7",
+    );
+  });
+
+  it("a non-numeric --blocked-by is refused before anything is created", () => {
+    const cfg = writeTypesConfig();
+    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b", "--blocked-by", "abc"], issuesConfig: cfg });
+    expect(r.status).toBe(2);
+    expect(r.output).toContain("Invalid --blocked-by reference: abc");
+    expect(ghCalls().some((c) => c.includes("issue create"))).toBe(false);
+  });
+
+  it("a --blocked-by issue that does not exist is refused before anything is created", () => {
+    const cfg = writeTypesConfig();
+    installGhStub({ missingIssue: "7" });
+    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b", "--blocked-by", "7"], issuesConfig: cfg });
+    expect(r.status).toBe(4);
+    expect(r.output).toContain("Blocked-by target #7 not found");
+    expect(ghCalls().some((c) => c.includes("issue create"))).toBe(false);
+  });
+
+  it("a cross-repo parent renders as the provider's work-item address", () => {
+    const cfg = writeTypesConfig();
+    const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--body", "b", "--parent", "org/other#50"], issuesConfig: cfg, parentType: "Epic" });
+    expect(r.status).toBe(0);
+    expect(ghCalls().join("\n")).toContain("Part of https://github.com/org/other/issues/50");
   });
 });

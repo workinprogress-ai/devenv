@@ -131,10 +131,11 @@ describe("provider bootstrap hooks", () => {
 
   it("provider_load bootstrap defines the container-side hooks for each provider", () => {
     for (const p of ["github", "azure"]) {
+      const nuget = p === "github" ? "provider_bootstrap_configure_nuget " : "";
       const r = sh(
         `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
           `PROVIDER_NAME=${p}\nprovider_load bootstrap\n` +
-          `for h in provider_bootstrap_validate_token provider_bootstrap_configure_nuget provider_bootstrap_configure_npmrc; do\n` +
+          `for h in provider_bootstrap_validate_token ${nuget}provider_bootstrap_configure_npmrc; do\n` +
           `  declare -F "$h" >/dev/null || { echo "${p} is missing $h"; exit 1; }\ndone\n`,
       );
       expect(r.status, r.out).toBe(0);
@@ -256,63 +257,25 @@ describe("provider bootstrap hooks", () => {
 
   // ── Azure nuget feed ─────────────────────────────────────────────────────
 
-  it("azure package-feed hooks register nothing and say so without a configured feed", () => {
+  it("azure configure_npmrc registers nothing and says so without a configured feed", () => {
     const r = sh(
       `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
         `PROVIDER_NAME=azure\nprovider_load bootstrap\n` +
         `config_read_value() { echo ""; }\n` +
-        `add_nuget_source_if_not_exists() { echo "UNEXPECTED nuget add: $*"; }\n` +
-        `provider_bootstrap_configure_nuget\n` +
         `provider_bootstrap_configure_npmrc "$HOME/.npmrc"\n`,
     );
     expect(r.status).toBe(0);
-    expect(r.out).not.toContain("UNEXPECTED");
     expect(r.out).toContain("Skipping");
   });
 
-  it("azure configure_nuget registers the configured Azure Artifacts feed with the provider token", () => {
+  it("azure ships no bash nuget hook: the setup step owns Azure feed registration", () => {
     const r = sh(
       `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
         `PROVIDER_NAME=azure\nprovider_load bootstrap\n` +
-        `config_read_value() { [ "$2" = feed_url ] && echo "https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json"; }\n` +
-        `provider_secret_get() { echo "tok-123"; }\n` +
-        `add_nuget_source_if_not_exists() { echo "ADD: $1|$2|$3|$4"; }\n` +
-        `provider_bootstrap_configure_nuget\n`,
+        `declare -F provider_bootstrap_configure_nuget\n`,
     );
-    expect(r.status).toBe(0);
-    expect(r.out).toContain("ADD: azure|https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json|");
-    expect(r.out).toContain("|tok-123");
+    expect(r.status).not.toBe(0);
   });
-
-  it("azure configure_nuget skips without registering when the token is unavailable", () => {
-    const r = sh(
-      `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
-        `PROVIDER_NAME=azure\nprovider_load bootstrap\n` +
-        `config_read_value() { [ "$2" = feed_url ] && echo "https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json"; }\n` +
-        `provider_secret_get() { return 1; }\n` +
-        `add_nuget_source_if_not_exists() { echo "UNEXPECTED nuget add: $*"; }\n` +
-        `provider_bootstrap_configure_nuget\n`,
-    );
-    expect(r.status).toBe(0);
-    expect(r.out).not.toContain("UNEXPECTED");
-    expect(r.out).toContain("Skipping");
-  });
-
-  it("azure configure_nuget never sends the Azure token to a non-Azure feed_url", () => {
-    const r = sh(
-      `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
-        `PROVIDER_NAME=azure\nprovider_load bootstrap\n` +
-        `config_read_value() { [ "$2" = feed_url ] && echo "https://nuget.pkg.github.com/some-org/index.json"; }\n` +
-        `provider_secret_get() { echo "tok-123"; }\n` +
-        `add_nuget_source_if_not_exists() { echo "UNEXPECTED nuget add: $*"; }\n` +
-        `provider_bootstrap_configure_nuget\n`,
-    );
-    expect(r.status).toBe(0);
-    expect(r.out).not.toContain("UNEXPECTED");
-    expect(r.out).toContain("not an Azure Artifacts URL");
-  });
-
-  // ── Azure npm hook ───────────────────────────────────────────────────────
 
   it("azure configure_npmrc writes the credential triple for both prefixes (scope set)", () => {
     setupAzureNpm("tok-123", "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/", "npm:scope=@acme");
@@ -420,6 +383,11 @@ describe("provider bootstrap hooks", () => {
     // (the hooks then run against scratch npmrc/nuget state — the log is
     // the wiring side effects themselves).
     const wiringLog = join(TMP, "keyupdate-wiring.log");
+    // The nuget step shells out to dotnet; a stub keeps it off the real sources.
+    writeFileSync(join(TMP, "bin", "dotnet"), "#!/usr/bin/env bash\nexit 0\n");
+    chmodSync(join(TMP, "bin", "dotnet"), 0o755);
+    mkdirSync(join(TMP, "devenv-root"), { recursive: true });
+    writeFileSync(join(TMP, "devenv-root", "devenv.config"), "[provider]\nname=azure\n");
     const r = spawnSync(
       "node",
       [join(TOOLS, "lib/providers/azure/key-update.ts")],
@@ -431,6 +399,7 @@ describe("provider bootstrap hooks", () => {
           GIT_CONFIG_GLOBAL: join(TMP, "gitconfig"),
           HOME: TMP,
           DEVENV_ROOT: join(TMP, "devenv-root"),
+          DEVENV_TOOLBOX_ROOT: join(TMP, "toolbox"),
           // Intercept the two wiring hooks: the bootstrap module source
           // happens inside provider_load; shadow it via a wrapper dir that
           // prep-ends a logging provider_bootstrap_call.
@@ -438,7 +407,7 @@ describe("provider bootstrap hooks", () => {
         }),
       },
     );
-    expect(r.status).toBe(0);
+    expect(r.status, `${r.stdout}${r.stderr}`).toBe(0);
     // The rotation completed and re-ran the wiring hooks: the side effects
     // are observable through the hook contract (configure_npmrc writes
     // ~/.npmrc when a feed URL is configured; absent config = clean skip).

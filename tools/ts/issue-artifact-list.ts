@@ -13,12 +13,12 @@
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { basename } from "node:path";
 
-import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesComments } from "../lib/providers/facade/issues.ts";
+import { listArtifacts, type Artifact } from "../lib/domain/artifacts.ts";
 
 assertNodeFloor();
 
@@ -113,30 +113,6 @@ function parseCliArgs(argv: string[]): Parsed {
   }
 }
 
-interface CommentRecord {
-  id?: unknown;
-  body?: unknown;
-  user?: { login?: unknown };
-  created_at?: unknown;
-  updated_at?: unknown;
-  url?: unknown;
-  issue_url?: unknown;
-}
-
-function headerValue(body: string, key: string): string | null {
-  const prefix = body.slice(0, 256);
-  for (const line of prefix.split("\n")) {
-    if (line.startsWith(`${key}: `)) return line.slice(key.length + 2);
-  }
-  return null;
-}
-
-function issueNumberFromUrl(url: unknown): number | null {
-  if (typeof url !== "string") return null;
-  const m = url.match(/\/issues\/(\d+)$/);
-  return m ? Number.parseInt(m[1] as string, 10) : null;
-}
-
 async function main(argv: string[]): Promise<number> {
   const args = parseCliArgs(argv);
   if (args.help) showUsage();
@@ -160,65 +136,13 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  let raw: string;
+  let results: Artifact[];
   try {
-    raw = await issuesComments(repo, Number.parseInt(args.issue, 10));
+    results = await listArtifacts(repo, Number.parseInt(args.issue, 10), args.artifactType);
   } catch (err) {
-    logError(`Failed to fetch comments for issue #${args.issue}: ${errorMessage(err)}`);
-    return 4;
+    logError(errorMessage(err));
+    return EXIT_API_FAILURE;
   }
-
-  let comments: CommentRecord[];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) throw new Error("not an array");
-    comments = parsed as CommentRecord[];
-  } catch {
-    // Tolerate a newline-delimited JSON stream (one object per comment —
-    // the shape some provider emissions produce): concatenate the objects.
-    const records: CommentRecord[] = [];
-    let streamed = false;
-    for (const line of raw.split("\n")) {
-      const t = line.trim();
-      if (t === "" || t === "[" || t === "]" || t === ",") { continue; }
-      try {
-        const obj = JSON.parse(t) as CommentRecord;
-        if (obj !== null && typeof obj === "object") { records.push(obj); streamed = true; }
-      } catch { /* not NDJSON either — fall through to the named error */ }
-    }
-    if (!streamed || records.length === 0) {
-      logError("Failed to parse issue comments");
-      return 4;
-    }
-    comments = records;
-  }
-
-  const results: Array<Record<string, unknown>> = [];
-  for (const c of comments) {
-    const body = typeof c.body === "string" ? c.body : "";
-    const docId = headerValue(body, "doc_id");
-    if (docId === null || docId === "") continue;
-    const foundType = headerValue(body, "artifact_type");
-    if (args.artifactType !== "" && foundType !== args.artifactType) continue;
-    const heading = body.split("\n").find((l) => l.startsWith("# "));
-    results.push({
-      issue_number: issueNumberFromUrl(c.issue_url),
-      comment_id: typeof c.id === "number" ? c.id : null,
-      doc_id: docId,
-      artifact_type: foundType,
-      source_file: headerValue(body, "source_file"),
-      title: heading === undefined ? null : heading.slice(2),
-      author: typeof c.user?.login === "string" ? c.user.login : null,
-      createdAt: c.created_at ?? null,
-      updatedAt: c.updated_at ?? null,
-      url: c.url ?? null,
-      bodyPreview: body.slice(0, 256),
-      body,
-    });
-  }
-
-  // updatedAt-desc (the bash sort_by(.updatedAt) | reverse).
-  results.sort((a, b) => String(b["updatedAt"]).localeCompare(String(a["updatedAt"])));
 
   const shaped = results.map((r) => {
     const out: Record<string, unknown> = { ...r };
@@ -238,6 +162,6 @@ main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
     logError(errorMessage(err));
-    process.exit(4);
+    process.exit(EXIT_API_FAILURE);
   },
 );

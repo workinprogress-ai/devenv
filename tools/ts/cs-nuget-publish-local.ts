@@ -14,6 +14,7 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { calculateNextVersion, getLatestVersionTag } from "../lib/domain/release/version.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
@@ -78,8 +79,8 @@ function main(): void {
     argv = cli.positionals;
   } catch (err) {
     console.error(errorMessage(err));
-    console.log("Use --help for usage information");
-    process.exit(2);
+    console.error("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
   }
   const target = argv[0] ?? process.cwd();
   const version = argv[1] ?? calculateNextVersion(getLatestVersionTag());

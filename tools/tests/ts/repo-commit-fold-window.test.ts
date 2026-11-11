@@ -53,6 +53,18 @@ describe("repo-commit --fold-window", () => {
     expect(r.out).not.toContain("feat: landed work");
   });
 
+  it("fails closed when no default branch resolves (default branch is neither main nor master)", () => {
+    harnessGit(h, "branch", "-m", "master", "develop");
+    harnessGit(h, "update-ref", "-d", "refs/remotes/origin/master");
+    const target = harnessSeedCommit(h, "feat: unknown-default work", "u1.txt");
+    harnessSeedCommit(h, "feat: tip work", "u2.txt");
+    writeFileSync(join(h.repo, "u1.txt"), "changed\n");
+    harnessGit(h, "add", "u1.txt");
+    const r = harnessRunTool(h, ["--fix", target]);
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("fold window is closed");
+  });
+
   it("overlap section appears when working changes touch a foldable commit's files", () => {
     harnessSeedCommit(h, "feat: touches alpha", "alpha.txt");
     writeFileSync(join(h.repo, "alpha.txt"), "changed\n"); // working-tree change

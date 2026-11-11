@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
-import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_MISUSE, EXIT_SUCCESS } from "../lib/core/exit-codes.ts";
 import { toolCli } from "../lib/core/cli.ts";
 import { siblingInvocation } from "../lib/core/sibling.ts";
 
@@ -20,23 +20,13 @@ function usage(): never {
   console.log("");
   console.log("Rotate the Tailscale Reusable Auth Key and reconnect the node.");
   console.log("With AUTH_KEY: non-interactive. Without: prompts on the terminal.");
-  process.exit(0);
+  process.exit(EXIT_SUCCESS);
 }
 
 function capture(cmd: string): string {
   const r = spawnSync("bash", ["-c", cmd], { encoding: "utf8" });
   return (r.stdout ?? "").trim();
 }
-
-// Detect current hostname from the running Tailscale config, or fall back.
-let currentHostname = capture('tailscale status --json 2>/dev/null | grep -o \'"HostName": "[^"]*"\' | cut -d\'"\' -f4');
-if (currentHostname === "") currentHostname = `devbox-${capture("hostname")}`;
-
-console.log(">>> 🔄 Tailscale Key Update Utility");
-console.log(`    Current hostname: ${currentHostname}`);
-console.log("    -------------------------------------------------------");
-console.log("    This will update your Auth Key and immediately reconnect.");
-console.log("");
 
 // --help/-h must never be interpreted as a key: an unrecognized flag would
 // otherwise fall through to the key path and fail at auth. House flags are
@@ -53,9 +43,19 @@ try {
   if (cli.positionals.length > 0) newKey = cli.positionals[0] as string;
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
+
+// Detect current hostname from the running Tailscale config, or fall back.
+let currentHostname = capture('tailscale status --json 2>/dev/null | grep -o \'"HostName": "[^"]*"\' | cut -d\'"\' -f4');
+if (currentHostname === "") currentHostname = `devbox-${capture("hostname")}`;
+
+console.log(">>> 🔄 Tailscale Key Update Utility");
+console.log(`    Current hostname: ${currentHostname}`);
+console.log("    -------------------------------------------------------");
+console.log("    This will update your Auth Key and immediately reconnect.");
+console.log("");
 
 // Capture the key: the argument when given (the documented non-interactive
 // form), otherwise prompt on the terminal.

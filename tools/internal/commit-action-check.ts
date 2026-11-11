@@ -8,6 +8,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { changeIdGetFromMessage } from "../lib/core/change-id.ts";
 
 assertNodeFloor();
@@ -44,7 +45,7 @@ Exit Codes:
 
 function invalidArgs(message: string): never {
   console.error(`ERROR: ${message}`);
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 
 // True when the message text carries a valid trailer line.

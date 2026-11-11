@@ -29,13 +29,14 @@ function installStubs(): void {
     "",
   ].join("\n").replaceAll("__LOG__", createLog);
   writeFileSync(join(stubDir, "issue-create"), stub, { mode: 0o755 });
-  writeFileSync(join(stubDir, "gh"), "#!/usr/bin/env bash\nexit 0\n", { mode: 0o755 });
+  writeFileSync(join(stubDir, "gh"), '#!/usr/bin/env bash\nif [ "$1 $2" = "issue list" ]; then printf \'%s\\n\' "${FAKE_EXISTING:-[]}"; fi\nexit 0\n', { mode: 0o755 });
 }
 
 interface RunOpts {
   args: string[];
   createOut?: string;
   issuesConfig?: string;
+  existing?: string;
 }
 
 function runTool(opts: RunOpts): { status: number; stdout: string; stderr: string; output: string } {
@@ -45,6 +46,7 @@ function runTool(opts: RunOpts): { status: number; stdout: string; stderr: strin
       PATH: pathWithStubs(stubDir),
       DEVENV_REPO: "org/repo",
       ...(opts.createOut !== undefined ? { FAKE_CREATE_OUT: opts.createOut } : {}),
+      ...(opts.existing !== undefined ? { FAKE_EXISTING: opts.existing } : {}),
       ...(opts.issuesConfig !== undefined ? { ISSUES_CONFIG: opts.issuesConfig } : {}),
     },
   });
@@ -294,5 +296,50 @@ describe("issue-create-batch", () => {
     const r = runTool({ args: ["--issue", "T|type=Task", "--issue", "U|type=Bug"], issuesConfig: cfg });
     expect(r.status).toBe(0);
     expect(r.output).not.toContain("|WARN|");
+  });
+
+  it("manifest: a block list of colon-bearing labels stays a list of labels", () => {
+    const m = join(workDir, "labels.yaml");
+    writeFileSync(m, "defaults:\n  type: Task\nissues:\n  - title: One\n    labels:\n      - priority:high\n      - backend\n      - \"needs, review\"\n");
+    const r = runTool({ args: ["--file", m] });
+    expect(r.status).toBe(0);
+    expect(previewRow(r)).toContain("--label priority:high --label backend --label needs, review");
+  });
+
+  it("manifest: numeric scalars (parent, blocked_by) are read as their text", () => {
+    const m = join(workDir, "nums.yaml");
+    writeFileSync(m, "defaults:\n  type: Task\n  parent: 3\nissues:\n  - title: One\n    blocked_by: [42, 55]\n");
+    const r = runTool({ args: ["--file", m] });
+    expect(r.status).toBe(0);
+    expect(previewRow(r)).toContain("--parent 3 --blocked-by 42 --blocked-by 55");
+  });
+
+  it("manifest: malformed YAML is a named failure", () => {
+    const m = join(workDir, "bad.yaml");
+    writeFileSync(m, "issues: [unclosed\n");
+    const r = runTool({ args: ["--file", m] });
+    expect(r.status).toBe(1);
+    expect(r.output).toContain("Invalid manifest");
+  });
+
+  it("manifest: a re-run skips issues whose title already exists and creates the rest", () => {
+    const m = join(workDir, "m.yaml");
+    writeFileSync(m, MANIFEST);
+    const r = runTool({ args: ["--create", "--file", m], existing: JSON.stringify([{ number: 5, title: "One" }]) });
+    expect(r.status).toBe(0);
+    expect(r.output).toContain("0|5|One|existing");
+    expect(r.output).toContain("created=1 failed=0 skipped=1");
+    expect(createLogLines().filter((l) => l === "CALL")).toHaveLength(1);
+    expect(createLogLines()).toContain("ARG:Two");
+    expect(createLogLines()).not.toContain("ARG:One");
+  });
+
+  it("manifest: an unreadable existing-issue listing stops before anything is created", () => {
+    const m = join(workDir, "m.yaml");
+    writeFileSync(m, MANIFEST);
+    const r = runTool({ args: ["--create", "--file", m], existing: "not json" });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toContain("could not list existing issues");
+    expect(createLogLines()).toEqual([]);
   });
 });

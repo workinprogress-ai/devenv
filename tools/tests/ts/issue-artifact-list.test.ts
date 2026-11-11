@@ -163,4 +163,20 @@ describe("issue-artifact-list", () => {
     expect(rows).toHaveLength(2); // the non-artifact comment is ignored
     expect(rows[0]?.doc_id).toBe("dv1:new"); // newest first
   });
+
+  it("a CRLF body yields clean doc_id and artifact_type values", () => {
+    const c = JSON.parse(artifactComment({ id: 1, docId: "dv1:crlf" })) as { body: string };
+    c.body = c.body.replaceAll("\n", "\r\n");
+    writeFileSync(responses, `issues/42/comments\t${JSON.stringify([c])}\n`);
+    const out = JSON.parse(runTool(["--issue", "42", "--artifact-type", "plan"]).stdout) as Array<Record<string, unknown>>;
+    expect(out).toHaveLength(1);
+    expect(out[0]?.["doc_id"]).toBe("dv1:crlf");
+    expect(out[0]?.["artifact_type"]).toBe("plan");
+  });
+
+  it("--artifact-type implementation-plan lists plan artifacts", () => {
+    writeFileSync(responses, `issues/42/comments\t[${artifactComment({ id: 1, docId: "dv1:p", artifactType: "plan" })}]\n`);
+    const out = JSON.parse(runTool(["--issue", "42", "--artifact-type", "implementation-plan"]).stdout) as unknown[];
+    expect(out).toHaveLength(1);
+  });
 });

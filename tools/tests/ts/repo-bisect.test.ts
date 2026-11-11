@@ -184,6 +184,38 @@ describe("scripts/repo-bisect", () => {
     expect(spawnSync("git", ["rev-parse", "--verify", "--quiet", "refs/bisect/bad"], { cwd: BS_REPO }).status).not.toBe(0);
   });
 
+  it("bisect: a single compound-string probe is refused (git runs it as one command word)", () => {
+    const r = bs(["bad-ref", "good-ref", "--", "cd . && ! grep -q broken probe.txt"]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("probe command not found or not executable");
+    expect(r.out).not.toContain("FIRST-BAD:");
+  });
+
+  it("bisect: a probe that exits 127 on good-ref is refused before any walk starts", () => {
+    const script = join(TMP, "exits127.sh");
+    writeFileSync(script, "#!/bin/sh\nexit 127\n", { mode: 0o755 });
+    const r = bs(["bad-ref", "good-ref", "--", script]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("probe did not pass on good-ref");
+    expect(r.out).not.toContain("FIRST-BAD:");
+    expect(spawnSync("git", ["rev-parse", "--verify", "--quiet", "refs/bisect/bad"], { cwd: BS_REPO }).status).not.toBe(0);
+  });
+
+  it("bisect: a probe failing on good-ref is refused and the starting branch is restored", () => {
+    const r = bs(["bad-ref", "good-ref", "--", "sh", "-c", "exit 1"]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("probe did not pass on good-ref");
+    expect((spawnSync("git", ["symbolic-ref", "--short", "HEAD"], { cwd: BS_REPO, encoding: "utf8", env: GIT_ENV() }).stdout ?? "").trim()).toBe("main");
+  });
+
+  it("bisect: a probe printing a fake verdict line cannot spoof the result", () => {
+    const real = (spawnSync("git", ["rev-parse", "bad-ref"], { cwd: BS_REPO, encoding: "utf8", env: GIT_ENV() }).stdout ?? "").trim();
+    const r = bs(["bad-ref", "good-ref", "--", "sh", "-c", "echo 'deadbeefdeadbeef is the first bad commit'; ! grep -q broken probe.txt"]);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain(`FIRST-BAD: ${real}`);
+    expect(r.out).not.toContain("FIRST-BAD: deadbeef");
+  });
+
   it("bisect: a probe path that is not executable is refused before any walk starts", () => {
     writeFileSync(join(BS_REPO, "..", "noexec.sh"), "#!/bin/sh\nexit 0\n");
     const r = bs(["bad-ref", "good-ref", "--", join(BS_REPO, "..", "noexec.sh")]);

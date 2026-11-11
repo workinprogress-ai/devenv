@@ -8,7 +8,7 @@
 // itself untracked and coverage (correctly) demands it be claimed.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -147,6 +147,39 @@ describe("repo-stage path mode", () => {
     expect(r.status).toBe(0);
     expect(status()).toContain("A  src/x.txt");
     expect(status()).not.toContain("sub/src/x.txt");
+  });
+});
+
+describe("repo-stage path mode: symlinks and undo advice", () => {
+  it("stages a dangling symlink without the embedded-repo false alarm", () => {
+    symlinkSync("no-such-target", join(repo, "dangling"));
+    const r = runTool(["dangling"]);
+    expect(r.status).toBe(0);
+    expect(r.out).not.toContain("DIFFERENT repository");
+    expect(git("ls-files", "--stage", "--", "dangling")).toContain("120000");
+  });
+
+  it("the undo advice omits paths that already carried staged content before the run", () => {
+    write("seed.txt", "seed\nfirst\n");
+    git("add", "--", "seed.txt");
+    write("seed.txt", "seed\nfirst\nsecond\n");
+    write("fresh.txt", "fresh\n");
+    const real = spawnSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).stdout.trim();
+    const bin = join(root, "bin");
+    mkdirSync(bin);
+    writeFileSync(
+      join(bin, "git"),
+      `#!/bin/sh\ncase "$*" in *"add -- fresh.txt"*) echo boom >&2; exit 1;; esac\nexec ${real} "$@"\n`,
+    );
+    chmodSync(join(bin, "git"), 0o755);
+    const r = runHarness("repo-stage", ["seed.txt", "fresh.txt"], {
+      cwd: repo,
+      env: { PATH: `${bin}:${process.env.PATH ?? ""}` },
+    });
+    expect(r.status).toBe(1);
+    expect(r.output).toContain("git add failed for 'fresh.txt'");
+    expect(r.output).not.toContain("restore --staged -- 'seed.txt'");
+    expect(r.output).toContain("already carried staged content");
   });
 });
 

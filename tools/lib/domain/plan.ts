@@ -6,6 +6,7 @@
 import { existsSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { headerField } from "./artifacts.ts";
+import { classifyCheckbox } from "./plan-grammar.ts";
 
 // One extracted record from the shared phase/AC/task pipeline.
 export interface PhaseRec { number: string; title: string; startLine: number }
@@ -17,7 +18,7 @@ export interface AcRec { id: string; done: boolean }
 export interface Parsed { phases: PhaseRec[]; tasks: TaskRec[]; acs: AcRec[] }
 
 export function parsePlan(content: string): Parsed {
-  const lines = content.split("\n");
+  const lines = content.split(/\r?\n/);
   const phases: PhaseRec[] = [];
   const tasks: TaskRec[] = [];
   const acs: AcRec[] = [];
@@ -37,19 +38,22 @@ export function parsePlan(content: string): Parsed {
       continue;
     }
 
+    // Only top-level checkbox items count; nested bullets are detail lines.
+    const item = classifyCheckbox(line);
+    if (item === null || item.indent !== "") continue;
+
     // AC checklist: "- [ ] <a id="ac-1"></a>**AC-1** ..." (link bullets without
     // a checkbox are excluded by the leading checkbox requirement)
-    if (/^-\s+\[[ xX]\]/.test(line) && /AC-\d+/.test(line)) {
-      const id = line.match(/AC-\d+/)?.[0] ?? "";
-      acs.push({ id, done: /^-\s+\[[xX]\]/.test(line) });
+    if (item.kind === "ac") {
+      acs.push({ id: item.id, done: item.done });
       continue;
     }
 
     // Task line: "- [x] **1.1 [S] title**" or "- [ ] 1.2 title"
-    if (currentPhase !== "" && /^-\s+\[[ xX]\]\s+(\*\*)?\d+\.\d+/.test(line)) {
-      const rest = line.replace(/^-\s+\[[ xX]\]\s+/, "").replace(/^\*\*/, "");
-      const id = rest.match(/^\d+(\.\d+)+/)?.[0] ?? "";
-      const done = /^-\s+\[[xX]\]/.test(line);
+    if (currentPhase !== "" && item.kind === "task") {
+      const rest = item.body.replace(/^\*\*/, "");
+      const id = item.id;
+      const done = item.done;
       let text = rest.replace(/^\d+(\.\d+)+\s*/, "").replace(/^\*\*/, "")
         .replace(/\*\*\s*$/, "");
       let size = "";
@@ -202,7 +206,8 @@ export function planCensus(parsed: Parsed): object {
 export function planAnchors(file: string, content: string): object {
   const planDir = dirname(resolve(file));
   const paths = new Set<string>();
-  const re = /[A-Za-z0-9_./-]+\.(cs|ts|tsx|js|json|csproj|sh|md|sql|yaml|yml|py)/g;
+  // The extension must end at a word boundary so `.json` is not read as `.js`.
+  const re = /[A-Za-z0-9_./-]+\.(?:csproj|json|tsx|yaml|yml|cs|ts|js|sh|md|sql|py)(?![A-Za-z0-9_])/g;
   for (const p of content.match(re) ?? []) {
     if (p.includes("://")) continue;
     paths.add(p);

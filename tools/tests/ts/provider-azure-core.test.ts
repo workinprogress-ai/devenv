@@ -135,10 +135,22 @@ describe("provider detection via devenv.config", () => {
 describe("key-update-azure", () => {
   const KEY_UPDATE = join(TOOLS, "lib/providers/azure/key-update.ts");
   const keyUpdateRun = (args: string[], input?: string) => {
+    // The rotation also re-wires the NuGet source through dotnet: a stub on
+    // PATH and a scratch HOME keep it off the real sources and dotfiles.
+    const scratch = mkdtempSync(join(tmpdir(), "key-update-azure-"));
+    mkdirSync(join(scratch, "bin"));
+    writeFileSync(join(scratch, "bin", "dotnet"), "#!/usr/bin/env bash\nexit 0\n");
+    chmodSync(join(scratch, "bin", "dotnet"), 0o755);
     const r = spawnSync("node", [KEY_UPDATE, ...args], {
       encoding: "utf8",
       input: input ?? "",
-      env: { ...process.env, DEVENV_ROOT, AZURE_PAT_FILE: PAT_FILE },
+      env: {
+        ...process.env,
+        DEVENV_ROOT,
+        AZURE_PAT_FILE: PAT_FILE,
+        HOME: scratch,
+        PATH: `${join(scratch, "bin")}:${process.env.PATH ?? ""}`,
+      },
     });
     return { status: r.status, out: `${r.stdout ?? ""}${r.stderr ?? ""}` };
   };

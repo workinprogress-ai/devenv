@@ -265,20 +265,17 @@ export async function issuesEdit(
     if (opts.milestone !== undefined) {
       throw new ProviderError("--milestone is not implemented for provider 'azure' yet (github-only seam)");
     }
-    if ((opts.addLabel?.length ?? 0) > 1) {
-      throw new ProviderError("provider 'azure' takes at most one --add-label/--remove-label per edit");
-    }
-    if ((opts.removeLabel?.length ?? 0) > 1) {
-      throw new ProviderError("provider 'azure' takes at most one --add-label/--remove-label per edit");
-    }
     const body = await resolveBody(opts);
+    // With a body the type is changed first, so the body is written to the
+    // field of the type the item now has.
+    if (opts.type !== undefined && body !== undefined) {
+      await m.az.issuesSetType(spec ?? "", number, opts.type);
+    }
     await m.az.issuesEdit(spec ?? "", number, {
       ...(opts.title !== undefined ? { title: opts.title } : {}),
       ...(body !== undefined ? { body } : {}),
-      ...(opts.addLabel?.[0] !== undefined ? { addLabel: opts.addLabel[0] } : {}),
-      ...(opts.removeLabel?.[0] !== undefined ? { removeLabel: opts.removeLabel[0] } : {}),
-      // With a body the type only selects the body field; without one it is
-      // a type change, routed below.
+      ...(opts.addLabel?.length ? { addLabel: opts.addLabel.join(";") } : {}),
+      ...(opts.removeLabel?.length ? { removeLabel: opts.removeLabel.join(";") } : {}),
       ...(opts.type !== undefined && body !== undefined ? { type: opts.type } : {}),
     });
     if (opts.type !== undefined && body === undefined) {

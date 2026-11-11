@@ -198,6 +198,7 @@ function runFeedConfig(
   stepName: string,
   extraEnv: Record<string, string> = {},
   preSeed?: (homeDir: string) => void,
+  extraConfig = "",
 ): { status: number; out: string; dotnetLog: string; homeDir: string } {
   const homeDir = tmpPath(`feed-home-${provider}-${stepName}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(homeDir, { recursive: true });
@@ -220,7 +221,7 @@ function runFeedConfig(
       // Credential seam stub (the bash test overrode provider_secret_get):
       // an allowlisted GH_TOKEN travels the same seam path the real run uses.
       "token_env_allowlist=feed-token-123\n\n" +
-      "[organization]\norg=the-org\nuser=the-user\n\n[nuget]\nfeed_url=https://nuget.pkg.github.com/the-org/index.json\n",
+      "[organization]\norg=the-org\nuser=the-user\n\n[nuget]\nfeed_url=https://nuget.pkg.github.com/the-org/index.json\n" + extraConfig,
   );
   const module = stepName === "configure_nuget_sources" ? NUGET : NPMRC;
   const r = spawnSync("node", [module], {
@@ -979,7 +980,7 @@ describe("bootstrap: idempotency guards", () => {
     mkdirSync(join(toolbox, ".setup"), { recursive: true });
     const r = spawnSync("node", [ENVVARS], {
       encoding: "utf8",
-      env: runEnv({ DEVENV_TOOLBOX_ROOT: toolbox, toolbox_root: toolbox, setup_dir: join(toolbox, ".setup"), USER_EMAIL: "", DO_API_TOKEN: "" }),
+      env: runEnv({ DEVENV_TOOLBOX_ROOT: toolbox, toolbox_root: toolbox, setup_dir: join(toolbox, ".setup"), USER_EMAIL: "" }),
     });
     expect(r.status).toBe(0);
     const envVars = join(toolbox, ".runtime", "env-vars.sh");
@@ -1086,6 +1087,86 @@ describe("bootstrap: provider feed configuration", () => {
     expect(content).toMatch(/^\/\/npm\.pkg\.github\.com\/:_authToken=feed-token-123$/m);
     expect(content).toMatch(/^registry=https:\/\/registry\.example\.test\/$/m);
     expect(sh(`stat -c '%a' '${npmrc}'`).stdout.trim()).toBe("600");
+  });
+
+  const AZURE_NUGET = "https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json";
+  const AZURE_NPM_CONFIG = "\n[npm]\nfeed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/\nscope=@acme\n";
+  const b64 = (s: string): string => Buffer.from(s).toString("base64");
+
+  it("configure_nuget_sources registers the configured Azure Artifacts feed with the PAT under azure", () => {
+    const r = runFeedConfig("azure", "configure_nuget_sources", { NUGET_FEED_URL: AZURE_NUGET, AZURE_PAT: "az-pat-1" });
+    expect(r.status).toBe(0);
+    expect(r.dotnetLog).toContain(`nuget add source ${AZURE_NUGET} -n azure -u azure -p az-pat-1`);
+  });
+
+  it("configure_nuget_sources never sends the Azure PAT to a non-Azure feed", () => {
+    const r = runFeedConfig("azure", "configure_nuget_sources", { AZURE_PAT: "az-pat-1" });
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("not an Azure Artifacts URL");
+    expect(r.dotnetLog).not.toContain("az-pat-1");
+    expect(r.dotnetLog).not.toContain("nuget.pkg.github.com");
+  });
+
+  it("configure_nuget_sources skips the Azure feed when the PAT is unavailable", () => {
+    const r = runFeedConfig("azure", "configure_nuget_sources", {
+      NUGET_FEED_URL: AZURE_NUGET,
+      AZURE_PAT: "",
+      AZURE_PAT_FILE: "/nonexistent/pat",
+    });
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("Skipping");
+    expect(r.dotnetLog).not.toContain("pkgs.dev.azure.com");
+  });
+
+  it("configure_nuget_sources refreshes the PAT of an existing Azure source", () => {
+    const r = runFeedConfig("azure", "configure_nuget_sources", {
+      NUGET_FEED_URL: AZURE_NUGET,
+      AZURE_PAT: "az-pat-2",
+      DOTNET_LIST: `  1.  azure [Enabled]\n      ${AZURE_NUGET}`,
+    });
+    expect(r.status).toBe(0);
+    expect(r.dotnetLog).toContain(`nuget update source ${AZURE_NUGET} -n azure -u azure -p az-pat-2`);
+  });
+
+  it("configure_user_npmrc under azure writes base64 credentials for both prefixes plus the scope mapping", () => {
+    const r = runFeedConfig("azure", "configure_user_npmrc", { AZURE_PAT: "az-pat-1" }, (home) => {
+      writeFileSync(join(home, ".npmrc"), "registry=https://registry.example.test/\n@other:registry=https://other.example.test/\n");
+      chmodSync(join(home, ".npmrc"), 0o644);
+    }, AZURE_NPM_CONFIG);
+    expect(r.status).toBe(0);
+    const npmrc = join(r.homeDir, ".npmrc");
+    const content = readFileSync(npmrc, "utf8");
+    for (const p of ["//pkgs.dev.azure.com/o/_packaging/f/npm/registry/", "//pkgs.dev.azure.com/o/_packaging/f/npm/"]) {
+      expect(content).toContain(`${p}:username=notempty\n`);
+      expect(content).toContain(`${p}:_password=${b64("az-pat-1")}\n`);
+      expect(content).toContain(`${p}:email=`);
+    }
+    expect(content).toContain("@acme:registry=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/\n");
+    expect(content).toContain("registry=https://registry.example.test/");
+    expect(content).toContain("@other:registry=https://other.example.test/");
+    expect(content).not.toContain("az-pat-1");
+    expect(sh(`stat -c '%a' '${npmrc}'`).stdout.trim()).toBe("600");
+  });
+
+  it("configure_user_npmrc under azure converges on a rerun with a rotated PAT", () => {
+    const first = runFeedConfig("azure", "configure_user_npmrc", { AZURE_PAT: "az-pat-1" }, undefined, AZURE_NPM_CONFIG);
+    const firstContent = readFileSync(join(first.homeDir, ".npmrc"), "utf8");
+    const second = runFeedConfig("azure", "configure_user_npmrc", { AZURE_PAT: "az-pat-2" },
+      (home) => writeFileSync(join(home, ".npmrc"), firstContent), AZURE_NPM_CONFIG);
+    expect(second.status).toBe(0);
+    const content = readFileSync(join(second.homeDir, ".npmrc"), "utf8");
+    expect(content.match(/:_password=/g)?.length).toBe(2);
+    expect(content.match(/^@acme:registry=/gm)?.length).toBe(1);
+    expect(content).toContain(b64("az-pat-2"));
+    expect(content).not.toContain(b64("az-pat-1"));
+  });
+
+  it("configure_user_npmrc under azure skips a non-Azure npm feed without touching the file", () => {
+    const r = runFeedConfig("azure", "configure_user_npmrc", { AZURE_PAT: "az-pat-1" }, undefined,
+      "\n[npm]\nfeed_url=https://registry.npmjs.org/\n");
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("not an Azure Artifacts URL");
+    expect(existsSync(join(r.homeDir, ".npmrc"))).toBe(false);
   });
 });
 

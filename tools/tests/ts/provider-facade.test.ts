@@ -258,6 +258,7 @@ describe("artifacts domain (byte-faithful header)", () => {
   const savedPathArtifacts = process.env.PATH;
   afterEach(() => {
     process.env.PATH = savedPathArtifacts;
+    delete process.env.FACADE_GH_FAIL;
   });
 
   const header = [
@@ -316,7 +317,7 @@ describe("artifacts domain (byte-faithful header)", () => {
   });
 
   it("queryPackages resolves the org from config, scopes by repo, filters by name", async () => {
-    writeFileSync(responses, "users/fixture-org/packages\t[{\"name\":\"Left Pad\"},{\"name\":\"other\"}]\n");
+    writeFileSync(responses, "users/fixture-org/packages\t[{\"name\":\"Left Pad\"},{\"name\":\"other\"}]\nrepos/fixture-org/some-repo/packages\t[]\n");
     const all = JSON.parse(await artifacts.queryPackages()) as Array<{ name: string }>;
     expect(all.length).toBe(2);
     const filtered = JSON.parse(await artifacts.queryPackages({ name: "left" })) as Array<{ name: string }>;
@@ -330,6 +331,62 @@ describe("artifacts domain (byte-faithful header)", () => {
     writeFileSync(responses, "versions\t[[{\"v\":1},{\"v\":2}],[{\"v\":3}]]\n");
     const out = JSON.parse(await artifacts.packageVersions({ type: "npm", name: "left-pad" })) as unknown[];
     expect(out.length).toBe(3);
+  });
+
+  it("findDocId reads one doc_id rule: CRLF, indentation, trailing blanks, 256-char window", () => {
+    expect(artifacts.findDocId("<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:a\n-->")).toBe("dv1:a");
+    expect(artifacts.findDocId("<!-- DEVENV_ARTIFACT_V1\r\ndoc_id: dv1:a\r\n-->\r\n")).toBe("dv1:a");
+    expect(artifacts.findDocId("<!-- DEVENV_ARTIFACT_V1\n  doc_id:   dv1:a  \n-->")).toBe("dv1:a");
+    expect(artifacts.findDocId("no header")).toBe("");
+    expect(artifacts.findDocId(`${"x".repeat(300)}\ndoc_id: late`)).toBe("");
+  });
+
+  it("canonicalArtifactType maps implementation-plan to plan", () => {
+    expect(artifacts.canonicalArtifactType("implementation-plan")).toBe("plan");
+    expect(artifacts.canonicalArtifactType("research")).toBe("research");
+  });
+
+  /** gh stub that models real pagination: without --slurp, --paginate emits
+   * concatenated arrays (not one JSON document); a single page holds 30. */
+  function installPagedStub(): void {
+    const page = (from: number, to: number): string =>
+      JSON.stringify(Array.from({ length: to - from + 1 }, (_, i) => ({ name: `p${from + i}`, version: `v${from + i}` })));
+    const script = `#!/usr/bin/env bash
+printf 'gh %s\\n' "$*" >> "${callLog}"
+all="$*"
+if [[ "$all" == *"--paginate"* && "$all" == *"--slurp"* ]]; then
+  printf '[%s,%s]\\n' '${page(1, 30)}' '${page(31, 45)}'
+elif [[ "$all" == *"--paginate"* ]]; then
+  printf '%s\\n%s\\n' '${page(1, 30)}' '${page(31, 45)}'
+else
+  printf '%s\\n' '${page(1, 30)}'
+fi
+`;
+    writeFileSync(join(stubDir, "gh"), script, { mode: 0o755 });
+  }
+
+  it("queryPackages follows every page (more than 30 packages)", async () => {
+    installPagedStub();
+    const all = JSON.parse(await artifacts.queryPackages({ type: "npm" })) as unknown[];
+    expect(all.length).toBe(45);
+  });
+
+  it("packageVersions follows every page (more than 30 versions)", async () => {
+    installPagedStub();
+    const all = JSON.parse(await artifacts.packageVersions({ type: "npm", name: "left-pad" })) as unknown[];
+    expect(all.length).toBe(45);
+  });
+
+  it("listing failures throw instead of reading as an empty list", async () => {
+    process.env.FACADE_GH_FAIL = "1";
+    await expect(artifacts.queryPackages({ type: "npm" })).rejects.toThrow(/packages/i);
+    await expect(artifacts.packageVersions({ type: "npm", name: "x" })).rejects.toThrow(/versions/i);
+  });
+
+  it("an unparseable listing response throws", async () => {
+    writeFileSync(join(stubDir, "gh"), "#!/usr/bin/env bash\necho 'not json'\n", { mode: 0o755 });
+    await expect(artifacts.queryPackages({ type: "npm" })).rejects.toThrow(/parse/i);
+    await expect(artifacts.packageVersions({ type: "npm", name: "x" })).rejects.toThrow(/parse/i);
   });
 
   it("unconfigured org makes owner resolution fail defined", async () => {

@@ -9,16 +9,33 @@
 // here — they must reach the file as runtime expansions (the GIT_EDITOR
 // scrub case reads the SHELL's value, not this generator's).
 //
-// Idempotent: full rewrite each run.
-// Permissions: owner-only 600 — the file accumulates secrets (tokens).
+// Idempotent: full rewrite each run. User-added variables live in the
+// separate env-vars.user.sh, which the generated file sources last; a legacy
+// env-vars.sh that still carries appended variables is migrated into it once.
+// Permissions: owner-only 600 — the files accumulate secrets (tokens).
 
 import { mkdirSync, writeFileSync, chmodSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { toolbox, setupDir } from "./lib.ts";
+import { bashQuote } from "../../lib/core/shell-quote.ts";
+import { toolbox, setupDir, seed } from "./lib.ts";
 
 const root = toolbox();
 const out = join(root, ".runtime", "env-vars.sh");
+const userOut = join(root, ".runtime", "env-vars.user.sh");
 mkdirSync(join(root, ".runtime"), { recursive: true });
+
+// Variables appended to the generated file by earlier versions follow the
+// template's final `esac`; carry them over before the file is rewritten.
+if (!existsSync(userOut) && existsSync(out)) {
+  const old = readFileSync(out, "utf8");
+  const marker = "\nesac\n";
+  const at = old.lastIndexOf(marker);
+  const tail = at === -1 ? "" : old.slice(at + marker.length);
+  if (/^export /m.test(tail)) {
+    writeFileSync(userOut, `#!/bin/bash\n# User-added variables; sourced by env-vars.sh and kept across updates.\n${tail}`, { mode: 0o600 });
+    chmodSync(userOut, 0o600);
+  }
+}
 
 // Timezone: seed file wins, else the ambient TZ, else UTC (the bash order).
 const tzFile = join(setupDir(), "timezone.txt");
@@ -26,11 +43,12 @@ const tz = existsSync(tzFile)
   ? readFileSync(tzFile, "utf8").trim()
   : (process.env.TZ || "UTC");
 
-const doToken = process.env.DO_API_TOKEN ?? "";
-const userEmail = process.env.USER_EMAIL ?? "";
+// Steps run as separate processes, so the values come from the seeds.
+const doToken = seed("digitalocean_token.txt");
+const userEmail = seed("email.txt");
 
-// The content below is the bash heredoc verbatim: only $SETUP_TZ,
-// $toolbox_root, ${DO_API_TOKEN:-} and ${USER_EMAIL:-} were resolved here;
+// The content below is the bash heredoc verbatim: only the timezone, root,
+// DigitalOcean token and USER_EMAIL slots are resolved here;
 // every other ${VAR} the bash source escaped (\${...}) is kept escaped so
 // the file expands at SHELL runtime, exactly as before.
 const content = `#!/bin/bash
@@ -38,7 +56,7 @@ const content = `#!/bin/bash
 # Do not edit manually - changes will be overwritten on next bootstrap
 
 # Timezone
-export TZ="${tz}"
+export TZ=${bashQuote(tz)}
 
 # .NET settings
 export DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
@@ -59,7 +77,7 @@ export MESSAGE_BROKER_SERVER="\${MESSAGE_BROKER_SERVER:-nats://localhost:4222}"
 export GIT_TERMINAL_PROMPT=1
 
 # Cloud / registry
-export DIGITALOCEAN_API_TOKEN="${doToken}"
+export DIGITALOCEAN_API_TOKEN=${bashQuote(doToken)}
 export DIGITALOCEAN_REGISTRY="\${DIGITALOCEAN_REGISTRY:-}"
 export DO_APP_NAME="\${DO_APP_NAME:-}"
 export DO_REGION="\${DO_REGION:-}"
@@ -68,7 +86,7 @@ export DO_REGION="\${DO_REGION:-}"
 # provider accessors (config → seed); no env var participates.
 
 # User identity
-export USER_EMAIL="${userEmail}"
+export USER_EMAIL=${bashQuote(userEmail)}
 
 # Update-check interval
 export DEVENV_UPDATE_INTERVAL="\${DEVENV_UPDATE_INTERVAL:-7200}"
@@ -93,6 +111,11 @@ export VISUAL="\${VISUAL:-${root}/tools/editor}"
 case "\${GIT_EDITOR:-}" in
     ""|":"|"true") unset GIT_EDITOR ;;
 esac
+
+# User-added variables (devenv-add-env-vars, key updates) win over the above
+if [ -f "${root}/.runtime/env-vars.user.sh" ]; then
+    source "${root}/.runtime/env-vars.user.sh"
+fi
 `;
 
 writeFileSync(out, content);

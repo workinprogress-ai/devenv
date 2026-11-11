@@ -324,7 +324,7 @@ function parseArgs_main(): WizardArgs {
     a.targetDir = positionals[0] ?? "";
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }
   if (a.globalMode && a.targetDir !== "") {

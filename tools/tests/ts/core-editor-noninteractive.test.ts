@@ -101,8 +101,21 @@ describe("core/editor editorIsNoninteractive", () => {
   });
 
   it("accepts real editors", () => {
-    for (const e of ["nano", "vim", "code --wait", "/usr/bin/emacs -nw", "subl -w"]) {
+    for (const e of ["nano", "vim", "code --wait", "/usr/bin/emacs -nw", "subl -w", "vim +10", "vim -c startinsert", "vim -u NONE"]) {
       expect(editorIsNoninteractive(e), e).toBe(false);
+    }
+  });
+
+  it("looks up wrappers by own property: prototype-key names are plain commands, never a crash", () => {
+    for (const e of ["constructor", "toString -x", "__proto__", "hasOwnProperty foo", "valueOf"]) {
+      expect(() => editorIsNoninteractive(e), e).not.toThrow();
+      expect(editorIsNoninteractive(e), e).toBe(false);
+    }
+  });
+
+  it("refuses the vi family when an ex command saves and quits at once", () => {
+    for (const e of ["vim +wq", "vim -c wq", "vim -u NONE -c x", "vi +x", "nvim -c qa!", "vim +q!"]) {
+      expect(editorIsNoninteractive(e), e).toBe(true);
     }
   });
 });

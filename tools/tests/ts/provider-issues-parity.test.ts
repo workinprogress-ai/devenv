@@ -258,6 +258,9 @@ describe("azure list and comment shapes", () => {
   const listHandler = (r: Req): Response | undefined => {
     if (r.url.includes("/wiql")) return json({ workItems: [{ id: 12 }] });
     if (r.url.includes("/workitemsbatch")) return json({ value: [batchItem] });
+    if (/\/workitemtypes(\?|$)/.test(r.url)) {
+      return json({ value: [{ name: "User Story", states: [{ name: "New", category: "Proposed" }, { name: "Closed", category: "Completed" }] }] });
+    }
     return undefined;
   };
 

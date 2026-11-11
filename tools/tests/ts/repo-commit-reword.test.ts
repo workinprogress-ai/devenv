@@ -67,6 +67,18 @@ describe("repo-commit --reword", () => {
     const backup = git("branch", "--format=%(refname:short)", "--list", "backup/pre-reword-*").trim();
     expect(backup).toContain("backup/pre-reword-");
     expect(git("diff", "--stat", backup, "HEAD").trim()).toBe("");
+    expect(r.out).toContain(`git reset --keep ${backup}`);
+    expect(r.out).not.toContain("reset --hard");
+  });
+
+  it("a cancelled reword prints --keep recovery advice, never --hard", () => {
+    seedCommit("feat: first work", "a.txt");
+    seedCommit("feat: second work", "b.txt");
+    setMessageEditorMode("empty");
+    const r = runTool(["--reword", "HEAD~1"]);
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("git reset --keep backup/pre-reword-");
+    expect(r.out).not.toContain("reset --hard");
   });
 
   it("does not require staged content (a reword changes messages only)", () => {

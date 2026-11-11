@@ -1,7 +1,7 @@
 // Tests for issue-label-create.ts — idempotent create / --update / --seed
 // over a stubbed gh with a mutation log.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
@@ -27,6 +27,8 @@ function installGhStub(): void {
     join(stubDir, "gh"),
     [
       "#!/usr/bin/env bash",
+      'printf \'%s\\n\' "gh $*" >> "__CALLS__"',
+      `case "$*" in *"label create"*FAILME*) echo boom >&2; exit 1 ;; esac`,
       `if [ "$1" = "rev-parse" ]; then printf '%s\\n' "${repoRoot}"; exit 0; fi`,
       'if [ -s "__RESPONSES__" ]; then',
       "  while IFS= read -r line; do",
@@ -40,20 +42,30 @@ function installGhStub(): void {
       "fi",
       "exit 0",
       "",
-    ].join("\n").replaceAll("__RESPONSES__", responses),
+    ].join("\n").replaceAll("__RESPONSES__", responses).replaceAll("__CALLS__", join(stubDir, "calls.log")),
     { mode: 0o755 },
   );
-  writeFileSync(join(stubDir, "yq"), "#!/usr/bin/env bash\necho \"yq $*\" >> \"" + stubDir + "/yq.log\"\nexit 0\n", { mode: 0o755 });
+}
+
+function ghCalls(): string[] {
+  const log = join(stubDir, "calls.log");
+  return existsSync(log) ? readFileSync(log, "utf8").split("\n").filter((l) => l.startsWith("gh ")) : [];
+}
+
+function useSeedConfig(yaml: string): string {
+  const p = join(stubDir, "labels-config.yml");
+  writeFileSync(p, yaml);
+  return p;
 }
 
 function setExisting(names: string[]): void {
   writeFileSync(responses, `label list\t${JSON.stringify(names.map((n) => ({ name: n })))}\n`);
 }
 
-function runTool(args: string[]): { status: number; stdout: string; stderr: string; output: string } {
+function runTool(args: string[], env: Record<string, string> = {}): { status: number; stdout: string; stderr: string; output: string } {
   // Thin wrapper over the shared harness: the suite keeps its name and
   // env shape; the spawn boilerplate lives in one place.
-  return runHarness(TOOL, args, { env: { PATH: pathWithStubs(stubDir), DEVENV_REPO: "org/repo" }, cwd: repoRoot });
+  return runHarness(TOOL, args, { env: { PATH: pathWithStubs(stubDir), DEVENV_REPO: "org/repo", ...env }, cwd: repoRoot });
 }
 
 describe("issue-label-create", () => {
@@ -119,5 +131,52 @@ describe("issue-label-create", () => {
 
   it("an unknown flag exits 2", () => {
     expect(runTool(["x", "--bogus"]).status).toBe(2);
+  });
+
+  const SEED = [
+    "labels:",
+    "  - name: alpha",
+    '    color: "ededed"',
+    '    description: "First"',
+    "  - name: Beta",
+    '    color: "0e8a16"',
+    "  - name: gamma",
+    "",
+  ].join("\n");
+
+  it("--seed lists the existing labels once and compares names case-insensitively", () => {
+    setExisting(["alpha", "beta"]);
+    const r = runTool(["--seed"], { LABELS_CONFIG: useSeedConfig(SEED) });
+    expect(r.status).toBe(0);
+    expect(ghCalls().filter((c) => c.includes("label list"))).toHaveLength(1);
+    const creates = ghCalls().filter((c) => c.includes("label create"));
+    expect(creates).toHaveLength(1);
+    expect(creates[0]).toContain("gamma");
+    expect(r.output).toContain("Label already exists (skipped): Beta");
+  });
+
+  it("--seed refuses a malformed entry before creating anything", () => {
+    setExisting([]);
+    const bad = SEED.replace('"0e8a16"', '"#zzz"');
+    const r = runTool(["--seed"], { LABELS_CONFIG: useSeedConfig(bad) });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("Invalid color");
+    expect(r.stderr).toContain("Beta");
+    expect(ghCalls().filter((c) => c.includes("label create"))).toEqual([]);
+  });
+
+  it("--seed keeps going after one label fails and reports the failure at the end", () => {
+    setExisting([]);
+    const cfg = SEED.replace("name: alpha", "name: FAILME");
+    const r = runTool(["--seed"], { LABELS_CONFIG: useSeedConfig(cfg) });
+    expect(r.status).toBe(1);
+    expect(ghCalls().filter((c) => c.includes("label create"))).toHaveLength(3);
+    expect(r.output).toContain("Seed finished with 1 failure");
+  });
+
+  it("--seed without a labels list is a named failure", () => {
+    const r = runTool(["--seed"], { LABELS_CONFIG: useSeedConfig("other: 1\n") });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("No labels defined");
   });
 });

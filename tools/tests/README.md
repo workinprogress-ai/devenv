@@ -13,7 +13,7 @@ The one stay-bats suite is the manual-only live lane (below): it hits real
 provider APIs and never runs in the gate — kept in bats behind an explicit
 runner invocation (the recorded Phase-11 lane decision).
 
-### Shared vitest harness (`tools/tests/ts/harness/`)
+## Shared vitest harness (`tools/tests/ts/harness/`)
 
 Black-box suites spawn tools and assert on status/output; the spawn/stub/
 tmp boilerplate is shared, not per-suite:
@@ -59,13 +59,18 @@ test file and makes the guarantee structural:
   needs another provider or root sets its own value.
 - `HOME` is an empty directory with a fixed git identity, and every devenv
   tools directory (the generated stubs) is removed from `PATH`.
-- A canary fails the test that reaches a backend: shim `gh`, `az`, `curl`,
-  `wget` and `ssh` executables sit first on `PATH` (a suite's own stub
+- A canary fails the test that reaches a backend: a shim executable for every
+  entry of `CANARY_COMMANDS` (`harness/canary.ts`: provider and network
+  clients, package managers, remote-copy tools, host-affecting commands) sits
+  first on `PATH` (a suite's own stub
   directory shadows them), a fetch guard rejects every non-loopback request in
   the worker and in every spawned node process, and a check after every test
-  and after every file turns a recorded hit into a failure. What it does not
-  cover: `git` is not shimmed (suites need it and use local file remotes), and
-  a direct `node:http`/`https`/`net` client would bypass the fetch guard, which
+  and after every file turns a recorded hit into a failure. `git` is not
+  shimmed (suites need it and use local file remotes); instead the worker sets
+  `GIT_ALLOW_PROTOCOL=file` and the fixture `.gitconfig` allows only the file
+  transport, so a clone, fetch, push or ls-remote over https or ssh fails. What
+  it does not cover: a direct `node:http`/`https`/`net` client would bypass the
+  fetch guard, which
   is why `network-egress-guard.test.ts` forbids one in regular tool code. A
   suite that builds a minimal env for a child process spreads `canaryEnv()`
   into it so the shims and the preload still apply; a suite that builds its
@@ -259,6 +264,4 @@ When adding new scripts or functions:
 ## See Also
 
 - [BATS Documentation](https://bats-core.readthedocs.io/)
-- [Contributing Guide](../docs/Contributing.md)
-- [Coding Standards](../docs/Coding-standards.md)
-- [Function Naming Conventions](../docs/Function-Naming-Conventions.md)
+- [Function Naming Conventions](../../docs/Function-Naming-Conventions.md)

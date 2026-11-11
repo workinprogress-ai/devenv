@@ -5,7 +5,7 @@
 // bash line-protocol shape (first line "hasMore CURSOR", following lines are
 // matches) — one gh call per page.
 
-import { providerDeclareCapability, providerRequireCapability } from "../provider-core.ts";
+import { ProviderError, providerDeclareCapability, providerRequireCapability } from "../provider-core.ts";
 import { ghApiSync } from "./transport.ts";
 import { logWarn } from "../../core/logging.ts";
 
@@ -55,7 +55,9 @@ function scanConnection<N>(
     kept.push(...(conn?.nodes ?? []).filter((n): n is N => n !== null && n !== undefined).filter(keep));
     hasMore = conn?.pageInfo?.hasNextPage === true;
     cursor = conn?.pageInfo?.endCursor ?? "";
-    if (hasMore && cursor === "") hasMore = false;
+    // A next page without a cursor cannot be followed; stopping here would
+    // report a partial scan as a complete one.
+    if (hasMore && cursor === "") throw new ProviderError(`${label}: the next page has no cursor (${failure})`);
   }
   return kept;
 }

@@ -13,8 +13,8 @@
 //      updatedAt-desc order makes that the first entry).
 //   4) Else an ambiguity report (exit 5) with the candidates.
 //
-// The candidate list comes from issue-artifact-list's enumeration logic,
-// invoked in-process (same tree, no shell-out).
+// The candidate list comes from the artifacts domain's listArtifacts, the
+// same enumeration issue-artifact-list uses.
 
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { basename } from "node:path";
@@ -24,7 +24,7 @@ import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesComments } from "../lib/providers/facade/issues.ts";
+import { listArtifacts, type Artifact } from "../lib/domain/artifacts.ts";
 
 assertNodeFloor();
 
@@ -117,91 +117,6 @@ function parseCliArgs(argv: string[]): Parsed {
   }
 }
 
-interface CommentRecord {
-  id?: unknown;
-  body?: unknown;
-  user?: { login?: unknown };
-  created_at?: unknown;
-  updated_at?: unknown;
-  url?: unknown;
-  issue_url?: unknown;
-}
-
-interface Artifact {
-  issue_number: number | null;
-  comment_id: number | null;
-  doc_id: string;
-  artifact_type: string | null;
-  source_file: string | null;
-  title: string | null;
-  author: string | null;
-  createdAt: unknown;
-  updatedAt: unknown;
-  url: unknown;
-  bodyPreview: string;
-  body: string;
-}
-
-function headerValue(body: string, key: string): string | null {
-  const prefix = body.slice(0, 256);
-  for (const line of prefix.split("\n")) {
-    if (line.startsWith(`${key}: `)) return line.slice(key.length + 2);
-  }
-  return null;
-}
-
-function issueNumberFromUrl(url: unknown): number | null {
-  if (typeof url !== "string") return null;
-  const m = url.match(/\/issues\/(\d+)$/);
-  return m ? Number.parseInt(m[1] as string, 10) : null;
-}
-
-/** Enumeration logic shared with issue-artifact-list (same field set, same
- * updatedAt-desc order). */
-export async function listArtifacts(
-  repo: string,
-  issue: number,
-  artifactTypeFilter: string,
-): Promise<Artifact[] | null> {
-  let raw: string;
-  try {
-    raw = await issuesComments(repo, issue);
-  } catch {
-    return null;
-  }
-  let comments: CommentRecord[];
-  try {
-    comments = JSON.parse(raw) as CommentRecord[];
-  } catch {
-    return null;
-  }
-  const results: Artifact[] = [];
-  for (const c of comments) {
-    const body = typeof c.body === "string" ? c.body : "";
-    const docId = headerValue(body, "doc_id");
-    if (docId === null || docId === "") continue;
-    const foundType = headerValue(body, "artifact_type");
-    if (artifactTypeFilter !== "" && foundType !== artifactTypeFilter) continue;
-    const heading = body.split("\n").find((l) => l.startsWith("# "));
-    results.push({
-      issue_number: issueNumberFromUrl(c.issue_url),
-      comment_id: typeof c.id === "number" ? c.id : null,
-      doc_id: docId,
-      artifact_type: foundType,
-      source_file: headerValue(body, "source_file"),
-      title: heading === undefined ? null : heading.slice(2),
-      author: typeof c.user?.login === "string" ? c.user.login : null,
-      createdAt: c.created_at ?? null,
-      updatedAt: c.updated_at ?? null,
-      url: c.url ?? null,
-      bodyPreview: body.slice(0, 256),
-      body,
-    });
-  }
-  results.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-  return results;
-}
-
 async function main(argv: string[]): Promise<number> {
   const args = parseCliArgs(argv);
   if (args.help) showUsage();
@@ -229,9 +144,11 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  const artifacts = await listArtifacts(repo, Number.parseInt(args.issue, 10), args.artifactType);
-  if (artifacts === null) {
-    logError("Failed to list artifacts");
+  let artifacts: Artifact[];
+  try {
+    artifacts = await listArtifacts(repo, Number.parseInt(args.issue, 10), args.artifactType);
+  } catch (err) {
+    logError(`Failed to list artifacts: ${errorMessage(err)}`);
     return EXIT_API_FAILURE;
   }
 

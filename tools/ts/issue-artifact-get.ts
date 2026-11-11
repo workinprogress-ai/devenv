@@ -6,8 +6,8 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 //
-// Resolution contract: scan the issue's comments, match by the `doc_id: `
-// line inside the comment body's first 1024 chars, parse the artifact
+// Resolution contract: scan the issue's comments, match by the artifact
+// doc_id (the shared findDocId rule), parse the artifact
 // header keys, and enforce the single-match invariant (0 → not-found,
 // >1 → conflict report). Output field names are the bash tool's exact set.
 
@@ -15,12 +15,12 @@ import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { basename, dirname } from "node:path";
 import { writeFileSync, existsSync } from "node:fs";
 
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT, EXIT_API_FAILURE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { issuesComments } from "../lib/providers/facade/issues.ts";
+import { fetchIssueComments, findDocId, type CommentRecord } from "../lib/domain/artifacts.ts";
 
 assertNodeFloor();
 
@@ -61,16 +61,6 @@ Exit Codes:
     4 API/tool failure
 `);
   process.exit(0);
-}
-
-interface CommentRecord {
-  id?: unknown;
-  body?: unknown;
-  user?: { login?: unknown };
-  created_at?: unknown;
-  updated_at?: unknown;
-  url?: unknown;
-  issue_url?: unknown;
 }
 
 interface Parsed {
@@ -124,18 +114,9 @@ function parseCliArgs(argv: string[]): Parsed {
   }
 }
 
-/** The doc_id line inside the body's first 1024 chars (the match key). */
-function foundDocId(body: string): string {
-  const prefix = body.slice(0, 1024);
-  for (const line of prefix.split("\n")) {
-    if (line.startsWith("doc_id: ")) return line.slice("doc_id: ".length);
-  }
-  return "";
-}
-
 /** The artifact header keys found among the first-1024 lines. */
-function parseHeader(body: string): Record<string, string> {
-  const prefix = body.slice(0, 1024);
+function parseHeader(rawBody: string): Record<string, string> {
+  const prefix = rawBody.replaceAll("\r\n", "\n").slice(0, 1024);
   const header: Record<string, string> = {};
   for (const line of prefix.split("\n")) {
     const m = line.match(/^(doc_id|artifact_type|artifact_scope|issue_number|source_file|updated_at_utc): ?(.*)$/);
@@ -179,43 +160,18 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  let raw: string;
-  try {
-    raw = await issuesComments(repo, Number.parseInt(args.issue, 10));
-  } catch (err) {
-    logError(`Failed to fetch comments for issue #${args.issue}: ${errorMessage(err)}`);
-    return 4;
-  }
-
   let comments: CommentRecord[];
   try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) throw new Error("not an array");
-    comments = parsed as CommentRecord[];
-  } catch {
-    // Tolerate a newline-delimited JSON stream (one object per comment —
-    // the shape some provider emissions produce): concatenate the objects.
-    const records: CommentRecord[] = [];
-    let streamed = false;
-    for (const line of raw.split("\n")) {
-      const t = line.trim();
-      if (t === "" || t === "[" || t === "]" || t === ",") { continue; }
-      try {
-        const obj = JSON.parse(t) as CommentRecord;
-        if (obj !== null && typeof obj === "object") { records.push(obj); streamed = true; }
-      } catch { /* not NDJSON either — fall through to the named error */ }
-    }
-    if (!streamed || records.length === 0) {
-      logError("Failed to parse issue comments");
-      return 4;
-    }
-    comments = records;
+    comments = await fetchIssueComments(repo, Number.parseInt(args.issue, 10));
+  } catch (err) {
+    logError(errorMessage(err));
+    return EXIT_API_FAILURE;
   }
 
   const matches = [];
   for (const c of comments) {
     const body = typeof c.body === "string" ? c.body : "";
-    const found = foundDocId(body);
+    const found = findDocId(body);
     if (found !== args.docId) continue;
     const num = issueNumberFromUrl(c.issue_url);
     matches.push({
@@ -258,7 +214,7 @@ async function main(argv: string[]): Promise<number> {
       writeFileSync(args.writeBody, matches[0]?.["body"] as string);
     } catch (err) {
       logError(`Failed to write body to ${args.writeBody}: ${errorMessage(err)}`);
-      return 4;
+      return EXIT_API_FAILURE;
     }
   }
 
@@ -281,6 +237,6 @@ main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
     logError(errorMessage(err));
-    process.exit(EXIT_GENERAL_ERROR);
+    process.exit(EXIT_API_FAILURE);
   },
 );

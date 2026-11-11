@@ -168,4 +168,15 @@ describe("issue-artifact-get", () => {
     const r = runTool(["--bogus"]);
     expect(r.status).toBe(2);
   });
+
+  it("a CRLF comment body resolves by doc_id with clean header values", () => {
+    const c = JSON.parse(comment(9, "dv1:crlf")) as { body: string };
+    c.body = c.body.replaceAll("\n", "\r\n");
+    setResponses(JSON.stringify([c]));
+    const r = runTool(["--issue", "42", "--doc-id", "dv1:crlf"]);
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout) as { doc_id: string; header: Record<string, string> };
+    expect(out.doc_id).toBe("dv1:crlf");
+    expect(out.header["artifact_type"]).toBe("plan");
+  });
 });

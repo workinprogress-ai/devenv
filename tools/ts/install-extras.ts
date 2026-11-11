@@ -10,6 +10,7 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { select, multiSelect } from "../lib/ui/prompts.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
@@ -46,7 +47,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 } catch (err) {
   console.error(errorMessage(err));
   console.error("Use --help for usage information");
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 
 // The checkout root: the documented DEVENV_ROOT override, else this tool's own checkout.

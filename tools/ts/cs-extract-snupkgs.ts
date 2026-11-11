@@ -15,7 +15,8 @@ import { requireCommandOrExit } from "../lib/core/commands.ts";
 assertNodeFloor();
 
 function usage(exitCode = 0): never {
-  console.log(`Usage: cs-extract-snupkgs <snupkg-path> [output-root]
+  // Misuse keeps stdout empty; only requested help prints there.
+  (exitCode === 0 ? console.log : console.error)(`Usage: cs-extract-snupkgs <snupkg-path> [output-root]
 
 Extract a .snupkg symbol package (a zip) into
 <output-root>/<name-without-extension>/ (default output root: snupkg-extracted).

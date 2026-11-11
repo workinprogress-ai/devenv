@@ -140,7 +140,19 @@ function runModuleStep(step: StepImpl, quiet: boolean): void {
     env: { ...process.env, DEVENV_TOOLBOX_ROOT: toolboxRoot },
   });
   if (r.status !== 0) {
-    throw new Error(`install step ${step.name} failed (exit ${r.status ?? "signal"})`);
+    throw new StepFailure(
+      `install step ${step.name} failed (exit ${r.status ?? "signal"})`,
+      `${r.stdout ?? ""}${r.stderr ?? ""}`.trim(),
+    );
+  }
+}
+
+/** A failed step: the message names it, `output` is what the step printed. */
+class StepFailure extends Error {
+  readonly output: string;
+  constructor(message: string, output: string) {
+    super(message);
+    this.output = output;
   }
 }
 
@@ -211,7 +223,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  const results: { step: string; status: string }[] = [];
+  const results: { step: string; status: string; output?: string }[] = [];
   let failed = false;
   try {
     // Historical bootstrap order: the install stage precedes the configure
@@ -231,17 +243,7 @@ async function main(argv: string[]): Promise<number> {
     // Attribute the failure to the first step that has not yet been reported
     // ok. bash -e stops at the failing function; install-step failures throw
     // with the step name in the message.
-    const markerRe = /^\[step\] (\S+)$/gm;
-    let lastFn = "";
-    {
-      const eo = err as { stdout?: unknown };
-      const outText = typeof eo.stdout === "string"
-        ? eo.stdout
-        : eo.stdout instanceof Buffer ? eo.stdout.toString() : "";
-      let m: RegExpExecArray | null;
-      while ((m = markerRe.exec(outText)) !== null) lastFn = m[1] ?? "";
-    }
-    const failName = lastFn ||
+    const failName =
       (err instanceof Error ? err.message.match(/install step (\S+) failed/)?.[1] : undefined) || "";
     const failedIdx = Math.max(
       0,
@@ -255,16 +257,10 @@ async function main(argv: string[]): Promise<number> {
         }
       } else if (i === failedIdx) {
         logInfo(`[setup] ${step.name}: ${step.description}`);
-        // Surface the step's own output, not the spawn-failure boilerplate:
-        // the execFileSync message is generic; the diagnostic lives in the
-        // captured stdout/stderr of the failed session.
-        const eo = err as { stdout?: unknown; stderr?: unknown };
-        const detail = [eo.stdout, eo.stderr]
-          .map((v) => (typeof v === "string" ? v : v instanceof Buffer ? v.toString() : ""))
-          .join("")
-          .trim();
+        // Surface the step's own output, not the spawn-failure boilerplate.
+        const detail = err instanceof StepFailure ? err.output : "";
         logError(`[setup] ${step.name} failed${detail ? `:\n${detail}` : `: ${errorMessage(err)}`}`);
-        results.push({ step: step.name, status: "failed" });
+        results.push({ step: step.name, status: "failed", ...(detail ? { output: detail } : {}) });
         failed = true;
       } else if (!results.some((r) => r.step === step.name)) {
         results.push({ step: step.name, status: "skipped" });

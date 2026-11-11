@@ -14,6 +14,9 @@ on:
       - 'pnpm-lock.yaml'
       - 'commitlint.config.js'
       - 'release.config.js'
+      - 'eslint.config.js'
+      - 'tsconfig.json'
+      - 'vitest.config.ts'
       - '.husky/**'
       - '.github/workflows/**'
   pull_request:
@@ -29,6 +32,9 @@ on:
       - 'pnpm-lock.yaml'
       - 'commitlint.config.js'
       - 'release.config.js'
+      - 'eslint.config.js'
+      - 'tsconfig.json'
+      - 'vitest.config.ts'
       - '.husky/**'
       - '.github/workflows/**'
   workflow_dispatch:
@@ -84,10 +90,7 @@ jobs:
       - name: Lint TS (eslint gate)
         run: pnpm lint:ts
 
-      - name: TS tests (vitest)
-        run: pnpm test:ts
-
-      - name: Run tests
+      - name: Run tests (vitest, via the one-command gate)
         run: ./tools/tests/run-devenv-tests.sh
 
       - name: Lint scripts

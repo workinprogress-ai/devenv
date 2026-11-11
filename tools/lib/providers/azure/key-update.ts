@@ -143,11 +143,12 @@ if (process.env.HOME !== undefined && process.env.HOME !== "") {
     wiringFailed = true;
   }
 }
-const nuget = spawnSync(
-  "bash",
-  ["-c", 'source "$1/lib/providers/provider-core.bash" && export PROVIDER_NAME=azure && provider_load bootstrap && provider_bootstrap_call configure_nuget', "x", toolsRoot],
-  { stdio: ["ignore", "inherit", "inherit"], encoding: "utf8" },
-);
+// Same invocation the setup orchestrator uses for step modules.
+// Same invocation the setup orchestrator uses for step modules.
+const nuget = spawnSync(process.execPath, [join(toolsRoot, "ts", "setup-steps", "nuget-sources.ts")], {
+  stdio: ["ignore", "inherit", "inherit"],
+  env: { ...process.env, DEVENV_TOOLBOX_ROOT: process.env.DEVENV_TOOLBOX_ROOT || selfRoot(import.meta.url) },
+});
 if (nuget.status !== 0) {
   console.error("    ⚠ NuGet feed re-wiring failed — run bootstrap or configure_nuget_sources to retry.");
   wiringFailed = true;

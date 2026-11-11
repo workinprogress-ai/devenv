@@ -75,6 +75,7 @@ async function main(argv: string[]): Promise<number> {
   let devenv = false;
   try {
     const cli = toolCli({
+      rejectEmptyValues: true,
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv,
@@ -99,32 +100,32 @@ async function main(argv: string[]): Promise<number> {
       if (prNumber === "") prNumber = p;
       else {
         logError(`Unexpected argument: ${p}`);
-        console.log("Use --help for usage information");
+        console.error("Use --help for usage information");
         return EXIT_MISUSE;
       }
     }
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   if (prNumber === "") {
     logError("PR number is required");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   const sources = (bodyText !== "" ? 1 : 0) + (bodyFile !== "" ? 1 : 0) + (useEditor ? 1 : 0);
   if (sources > 1) {
     logError("Only one of --body, --body-file, or --edit may be specified");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   if (sources === 0 && stdinIsTty()) {
     logError("One comment source is required: --body, --body-file, or --edit");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
@@ -156,7 +157,7 @@ async function main(argv: string[]): Promise<number> {
     });
     if (!resolved.ok) {
       logError(resolved.error.message);
-      console.log("Use --help for usage information");
+      console.error("Use --help for usage information");
       return resolved.error.code === "file-not-found" ? EXIT_API_FAILURE : EXIT_MISUSE;
     }
     bodyText = resolved.body;

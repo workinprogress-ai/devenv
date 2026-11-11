@@ -61,6 +61,9 @@ Rules the test applies to the table:
 <!-- contract:verbs -->
 ```text
 provider_repos_view | repos.reposView | repos.reposView | repos.reposView |
+provider_repos_exists | repos.reposExists | repos.reposExists | repos.reposExists | any failure reading the repository (absent, no access) is false
+provider_repos_squash_merge_allowed | repos.reposSquashMergeAllowed | repos.reposSquashMergeAllowed | - | GitHub-native: Azure merge strategies are branch-policy settings; the facade throws a named error on Azure
+provider_repos_name_with_owner | repos.reposNameWithOwner | repos.reposNameWithOwner | - | GitHub-native: gh infers the repository from the directory; the facade answers null on Azure
 provider_repos_list | repos.reposList | repos.reposList | repos.reposList |
 provider_repos_default_branch | - | gap: not yet ported to the TypeScript GitHub module | repos.reposDefaultBranch | no facade export: no tool consumes it
 provider_repos_commits_count | repos.reposCommitsCount | repos.reposCommitsCount | repos.reposCommitsCount | the facade answers a boolean on both providers
@@ -128,11 +131,14 @@ provider_projects_field_option_ids | ops:fieldOptionIds | projects.projectsField
 provider_projects_field_set | ops:fieldSet | projects.projectsFieldSet | projects.projectsFieldSet |
 provider_projects_for_issue | ops:forIssue | projects.projectsForIssue | projects.projectsForIssue |
 provider_projects_number_by_name | projects.projectsNumberByName | projects.projectsNumberByName | - | GitHub-native: gh item-add keys on the project number; Azure boards have no number namespace
+provider_projects_add_issue | projects.projectsAddIssue | via-facade | via-facade | the facade resolves a GitHub title to its number, then adds; Azure adds by name or number
 provider_org_rulesets_list | org.orgRulesetsList | org.orgRulesetsList | policies.orgRulesetsList |
 provider_org_ruleset_get | org.orgRulesetGet | org.orgRulesetGet | policies.orgRulesetGet |
 provider_org_ruleset_create | org.orgRulesetCreate | org.orgRulesetCreate | policies.orgRulesetCreate |
 provider_org_ruleset_update | org.orgRulesetUpdate | org.orgRulesetUpdate | policies.orgRulesetUpdate |
 provider_org_releases_list | org.orgReleasesList | org.orgReleasesList | org.orgReleasesList |
+provider_org_packages_query | org.orgPackagesQuery | org.orgPackagesQuery | - | GitHub-native: GitHub Packages REST; the facade throws a named error on Azure
+provider_org_package_versions_query | org.orgPackageVersionsQuery | org.orgPackageVersionsQuery | - | GitHub-native, as above
 provider_org_packages_list | - | gap: not yet ported to the TypeScript GitHub module | org.orgPackagesList | no facade export: no tool consumes it
 provider_org_package_versions | - | gap: not yet ported to the TypeScript GitHub module | org.orgPackageVersions | no facade export; the Azure verb always throws (feed-scoped versions have no analog)
 provider_org_feeds_list | - | - | org.orgFeedsList | Azure-only: Azure Artifacts feeds
@@ -249,8 +255,10 @@ What the names mean where hosts differ:
   GraphQL id); `null` elsewhere.
 - A review thread `id` is what `prsThreadResolve` takes: a GraphQL node id on GitHub,
   `<pr>/<thread>` on Azure.
-- Issue `state`: on Azure only `Closed`, `Done` and `Removed` read as `CLOSED`; every other
-  state, `Resolved` included, is `OPEN`.
+- Issue `state`: on Azure a state whose category is `Completed` or `Removed` (read from the
+  project's work item types) reads as `CLOSED`; every other state, `Resolved` included, is
+  `OPEN`. `close` moves the item to its type's `Completed`-category state, so a closed item
+  always reads `CLOSED`.
 
 ## Verbs
 
@@ -263,6 +271,9 @@ raw flag-array verbs); anything not listed is not accepted.
 | Verb | TS export | Arguments and options | Result and rules |
 |---|---|---|---|
 | `provider_repos_view` | `reposView` | `[repo]`; `json`, `jq` | Repository record (fields above), as JSON text. A field the host has no value for (an empty repository's default branch) is an error, not `null`. |
+| `provider_repos_exists` | `reposExists` | `repo` | `boolean`. `false` when the repository cannot be read (absent or inaccessible). |
+| `provider_repos_squash_merge_allowed` | `reposSquashMergeAllowed` | `repo` | `boolean`: whether the repository allows squash merges (`false` when GitHub cannot say). GitHub only; the facade throws a named error on Azure. |
+| `provider_repos_name_with_owner` | `reposNameWithOwner` | `CWD` | The `owner/name` of the repository the directory belongs to, or `null`. GitHub only; on Azure the facade answers `null` and the caller falls back to the git remote URL. |
 | `provider_repos_list` | `reposList` | `ORG`; `limit`, `json`, `jq` | `[Repository]` as JSON text |
 | `provider_repos_default_branch` | `reposDefaultBranch` (Azure only) | `repo` | The default branch name. Fails for an unreachable or empty repository. Not yet ported to GitHub; not exposed by the facade. |
 | `provider_repos_commits_count` | `reposCommitsCount` | `repo` | Facade: `true` when the repository has at least one commit. The Azure provider verb returns the commit count. |
@@ -271,8 +282,8 @@ raw flag-array verbs); anything not listed is not accepted.
 | `provider_repos_patch` | `reposPatch` | `repo`, `flags` (`-f`/`-F key=value`, gh-api dialect) | `true` on success. On Azure the facade throws `repos_patch is not supported on provider 'azure'`: the flags name GitHub repository settings (wiki, discussions, merge buttons, forking), which Azure models as project policies or does not model at all, and `-f`/`-F` pairs do not map onto them. Whether and how to map them is an open design question. The Azure provider module keeps a `reposPatch` that PATCHes a key/value record onto the repository; it is reachable only below the facade. |
 | `provider_repos_patch_with_error` | `reposPatchWithError` | `repo`, `flags` | `{ ok, error }`; `error` carries the API's own message on failure. GitHub only; on Azure the facade throws `repos_patch_with_error is not supported on provider 'azure'`. |
 | `provider_repos_protect_branch` | `reposProtectBranch` (Azure only) | `repo BRANCH PAYLOAD` | Idempotent: re-running updates the protection. Not yet ported to GitHub; not exposed by the facade. |
-| `provider_repos_team_put` | `reposTeamPut` | `ORG TEAM repo [PERMISSION]` | `true` on success. Permissions: `pull`, `triage`, `push`, `maintain`, `admin`. On Azure a thrown provider error reads as `false`. |
-| `provider_repos_collaborator_put` | `reposCollaboratorPut` | `repo USER [PERMISSION]` | `true` on success; on Azure a thrown provider error reads as `false`. |
+| `provider_repos_team_put` | `reposTeamPut` | `ORG TEAM repo [PERMISSION]` | `true` on success. Permissions: `pull`, `triage`, `push`, `maintain`, `admin`. On Azure a thrown provider error reads as `false` and its message is logged as a warning. |
+| `provider_repos_collaborator_put` | `reposCollaboratorPut` | `repo USER [PERMISSION]` | `true` on success; on Azure a thrown provider error reads as `false` and its message is logged as a warning. |
 | `provider_repos_tree_count` | `reposTreeCount` | `repo` | Number of entries in the repository tree, or `null`. GitHub only; on Azure the facade throws a named GitHub-native error. |
 
 ### Issues
@@ -283,7 +294,7 @@ raw flag-array verbs); anything not listed is not accepted.
 | `provider_issues_view` | `issuesView` | `[repo] NUMBER`; `json`, `jq` | Issue as JSON text. On Azure the facade projects the requested fields (a missing one is `null`) and supports the jq forms `.field` and `.a.b // empty`. |
 | `provider_issues_exists` | `issuesExists` | `[repo] NUMBER` | `boolean`. Only the item's own absence is `false`: on Azure HTTP 404 or TF401232 (a 404 that says the project or organization does not exist is an error), on GitHub `Could not resolve to an Issue` (or an HTTP 404 that does not say a repository could not be resolved). A wrong-scope, credential, network or server failure throws, never reads as "absent". |
 | `provider_issues_create` | `issuesCreate` | `[repo]`; `title`, `body`, `bodyFile`, `label[]`, `assignee[]`, `type`, `milestone`, `project[]`, `web`, `dryRun` | The issue's URL (GitHub) or number (Azure), one line. On Azure `type` selects the work item type (Task and untyped become a User Story); `assignee`, `milestone`, `project`, `web` and `dryRun` are named errors. `body` and `bodyFile` together are an error. If Azure creates the work item but cannot read the write back, the number is still returned, with a warning, so a retry does not duplicate it. |
-| `provider_issues_edit` | `issuesEdit` | `[repo] NUMBER`; `title`, `body`, `bodyFile` (`-` is stdin), `addLabel[]`, `removeLabel[]`, `addAssignee[]`, `removeAssignee[]`, `milestone`, `type` | Nothing. On Azure `addAssignee`, `removeAssignee` and `milestone` are named errors; at most one add and one remove label is accepted; With a body, `type` only selects which body field the body is written to (the edit never changes the type); without a body, `type` is a type change, applied after the rest of the edit through the set-type verb. Title, body and tag changes go in one JSON-patch led by a `test` op on the revision the item was read at: a concurrent change fails the edit with a named "modified concurrently" error (never retried), so a failure leaves the item unchanged. Azure tags (also through `issuesAddTag`/`issuesRemoveTag`) compare case-insensitively (add skips a tag present in any case; remove drops the stored tag whatever the case of the request) and a label holding `;` is the several tags Azure makes of it; a label that spells no tag is a named error. |
+| `provider_issues_edit` | `issuesEdit` | `[repo] NUMBER`; `title`, `body`, `bodyFile` (`-` is stdin), `addLabel[]`, `removeLabel[]`, `addAssignee[]`, `removeAssignee[]`, `milestone`, `type` | Nothing. On Azure `addAssignee`, `removeAssignee` and `milestone` are named errors; several labels are joined into one tag set; With a body, `type` changes the item's type first (through the set-type verb) and the body is then written to the new type's field; without a body, `type` is a type change, applied after the rest of the edit through the set-type verb. Title, body and tag changes go in one JSON-patch led by a `test` op on the revision the item was read at: a concurrent change fails the edit with a named "modified concurrently" error (never retried), so a failure leaves the item unchanged. Azure tags (also through `issuesAddTag`/`issuesRemoveTag`) compare case-insensitively (add skips a tag present in any case; remove drops the stored tag whatever the case of the request) and a label holding `;` is the several tags Azure makes of it; a label that spells no tag is a named error. |
 | `provider_issues_close` | `issuesClose` | `[repo] NUMBER`; `comment`, `reason` | Nothing meaningful. Azure accepts `reason` and drops it: there is no close reason. |
 | `provider_issues_reopen` | `issuesReopen` | `[repo] NUMBER`; `comment` | Nothing meaningful. |
 | `provider_issues_comment` | `issuesComment` | `[repo] NUMBER`; `body`, `bodyFile` (exactly one; both or neither is an error on both providers; an empty or whitespace-only text is a named error on both) | Display value: the new comment's URL (GitHub) or its `<issue>/<comment>` ref (Azure). Use `issuesCommentAdd` to get a record. |
@@ -305,7 +316,7 @@ raw flag-array verbs); anything not listed is not accepted.
 | `provider_issue_graph_children` | `issueGraphChildren` | `[repo] PARENT` | Child issue numbers (`number[]`). GitHub follows every page of sub-issues. |
 | `provider_issue_graph_parent` | `issueGraphParent` | `[repo] ISSUE` | The parent's number, or `null` |
 | `provider_issue_blocked_by_add` | `blockedByAdd` | `[repo] ISSUE BLOCKERS[]` | Nothing. Records ISSUE as blocked by every blocker. GitHub makes one idempotent body-section write; Azure adds one dependency link per blocker, sequentially (parallel relation writes on one work item would race its revision). Idempotent on both. The Azure link type is `Dependency-Forward`; that choice is pending confirmation against a live organization (see [azure/MAPPING.md](azure/MAPPING.md)). |
-| `provider_issue_blocked_by_remove` | `blockedByRemove` | `[repo] ISSUE BLOCKERS[]` | Nothing. Removing an absent blocker is a no-op success. |
+| `provider_issue_blocked_by_remove` | `blockedByRemove` | `[repo] ISSUE BLOCKERS[]` | Nothing. Removing an absent blocker is a no-op success. On Azure the removal is conditional on the revision the relation index was read at (a concurrent change is a named "modified concurrently" error unless the link is already gone), and adding a link the item already holds, even one that appeared concurrently, is a success. |
 | `provider_org_issue_types` | `orgIssueTypes` | `ORG` | `[{id, name}]`. GitHub only; on Azure the facade throws a named error (the type vocabulary is project configuration, not an organization setting). |
 
 ### Pull requests
@@ -354,6 +365,7 @@ so call sites await uniformly.
 | `provider_projects_field_set` | `fieldSet` | `PROJECT_ID ITEM_ID FIELD_ID OPTION_ID` | `boolean`: `false` means the host reported the item not updated. Azure's verb throws on failure, so the facade reports `true` on return. |
 | `provider_projects_for_issue` | `forIssue` | `ISSUE_URL OWNER` | One `{title, number, status}` row per project (`status` is `-` when none). A status is one of `[workflows] status_workflow`. Azure's tab-separated lines are parsed by the facade. |
 | `provider_projects_number_by_name` | none (`projectsNumberByName` is a separate facade export) | `OWNER NAME_OR_NUMBER` | The project number `gh project item-add` keys on. GitHub only; the facade throws a named error on Azure. |
+| `provider_projects_add_issue` | none (`projectsAddIssue` is a separate facade export) | `OWNER PROJECT ISSUE_URL` | Nothing. Adds the issue to the project given by title or number: GitHub resolves a title to its number first, Azure adds by name or number. A failure throws with the provider's reason. |
 
 ### Organization
 
@@ -364,6 +376,8 @@ so call sites await uniformly.
 | `provider_org_ruleset_create` | `orgRulesetCreate` | `repo PAYLOAD_FILE` | `{ ok, stderr }`. A rejected write is `{ ok: false, stderr }` on both providers (the facade converts Azure's thrown provider error), so callers classify failures the same way; any other error is a defect and propagates. The payload is a GitHub ruleset; Azure translates the pull-request rule to a reviewers policy. |
 | `provider_org_ruleset_update` | `orgRulesetUpdate` | `repo ID PAYLOAD_FILE` | `{ ok, stderr }` as for create. Azure writes the payload's protection for every branch it names (updating in place where a policy exists), then retires only the policy `ID` it was given, when no write reused it, and logs which one; protection on other branches is never touched, and none is removed before the new one exists. A ruleset that names no branch a policy can hold (a wildcard, a tag ref, a bare name) is an error; on Azure `~ALL` protects the default branch only, with a warning. |
 | `provider_org_releases_list` | `orgReleasesList` | `repo`; flags (`--limit N`, `--json F`, `-q P`) | `[Release]` as JSON text, newest first. Azure reads git tags and takes no flags: any flag is an error. |
+| `provider_org_packages_query` | `orgPackagesQuery` | `OWNER`; `type`, `repo`, `paginate` | gh's own result `{ stdout, stderr, status }` for the GitHub Packages REST list (an owner's, or one repository's; `paginate` follows every page and slurps them into one array of pages), failure included so the caller can tell an empty answer from an error. GitHub only; the facade throws a named error on Azure. |
+| `provider_org_package_versions_query` | `orgPackageVersionsQuery` | `OWNER TYPE NAME`; `repo`, `paginate` | gh's own result for one package's versions, as above. |
 | `provider_org_packages_list` | none in the facade | `[ENDPOINT]` | Azure only for now: the Artifacts feeds list. Not yet ported to the TypeScript GitHub module. |
 | `provider_org_package_versions` | none in the facade | `ENDPOINT` | The Azure verb always throws (feed-scoped versions have no GitHub-shaped analog). Not yet ported to the TypeScript GitHub module. |
 | `provider_org_feeds_list` | none in the facade | | Azure Artifacts feeds (`[{name, id, url}]`). Azure only. |

@@ -109,8 +109,24 @@ describe("issue-triage", () => {
 
   it("refuses with no bundle options", () => {
     const r = runTool(["123"]);
-    expect(r.status).toBe(1);
-    expect(r.output).toContain("no bundle options given");
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("no bundle options given");
+    expect(ghCalls()).toEqual([]);
+  });
+
+  it("accepts the --name=value form for bundle options", () => {
+    const r = runTool(["123", "--title=New name", "--milestone=Sprint 9"]);
+    expect(r.status).toBe(0);
+    const calls = ghCalls().join("\n");
+    expect(calls).toContain("--title New name");
+    expect(calls).toContain("--milestone Sprint 9");
+  });
+
+  it("a missing --body-file is refused before any issue is edited", () => {
+    const r = runTool(["5", "6", "--title", "x", "--body-file", join(stubDir, "nope.md")]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("nope.md");
+    expect(ghCalls()).toEqual([]);
   });
 
   it("fails without issue numbers or wizard TTY", () => {

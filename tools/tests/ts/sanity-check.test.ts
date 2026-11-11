@@ -81,12 +81,25 @@ describe("sanity-check", () => {
       `source '${root}/.devcontainer/sanity-check.sh' >/dev/null 2>&1`,
       "after=$(compgen -A function; compgen -v)",
       'diff <(echo "$before" | sort) <(echo "$after" | sort) \\',
-      "  | grep '^>' | grep -v -E 'BASH_|_=|before|after|OLDPWD|PIPESTATUS' || true",
+      "  | grep '^>' | grep -v -E 'BASH_|_=|before|after|OLDPWD|PIPESTATUS|DEVENV_SANITY_CHECKED' || true",
     ].join("\n"));
     const r = spawnSync("bash", ["-c", `env -i HOME='${homeDir}' PATH=/usr/bin:/bin DEVENV_ROOT='${root}' bash '${inner}'`], {
       encoding: "utf8",
     });
     expect(r.stdout ?? "").toBe("");
+  });
+
+  it("a nested shell does not repeat the checks the parent already ran", () => {
+    setup();
+    writeFileSync(join(homeDir, ".bootstrap_container_time"), "1700000000\n");
+    writeFileSync(join(root, ".runtime", ".bootstrap_run_time"), "1700009999\n");
+    const r = spawnSync(
+      "bash",
+      ["-c", `source '${root}/.devcontainer/sanity-check.sh'; bash -c "source '${root}/.devcontainer/sanity-check.sh'"`],
+      { encoding: "utf8", env: { ...canaryEnv("/usr/bin:/bin"), HOME: homeDir, DEVENV_ROOT: root } },
+    );
+    const out = (r.stdout ?? "") + (r.stderr ?? "");
+    expect(out.match(/bootstrap run time does not match/g)).toHaveLength(1);
   });
 
   it("the script has no backslash-escaped dollars (the eval-expansion pretense)", () => {

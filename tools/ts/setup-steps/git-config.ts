@@ -3,9 +3,8 @@
 // Port of provision.bash configure_git (+ git-operations.bash
 // configure_git_global / add_git_safe_directory).
 //
-// Identity: consumes HUMAN_NAME / USER_EMAIL from the environment — set by
-// the credentials step when the orchestrator runs the pair in order (the
-// historical cross-step shell state, carried here via env).
+// Identity: read from the .setup seeds (steps are separate processes, so no
+// state travels between them through the environment).
 //
 // Idempotent: git config set operations converge; safe.directory add is
 // guarded by an exact-match check.
@@ -42,13 +41,10 @@ git(["config", "--global", "difftool.vscode.cmd", "code --wait --diff $LOCAL $RE
 // prompts for hosts without one, and is bounded to a working day.
 git(["config", "--global", "credential.helper", "cache --timeout=28800"]);
 
-// User identity (if provided). Resolution order: env (set by the credentials
-// step in the same orchestrator run), then the .setup seeds — the single
-// source of truth the bash chain ultimately used too (the bridge exported
-// shell globals read from these same files). Absent everywhere: identity
-// keys are left unchanged, exactly as the bash function's -n guards did.
-const name = process.env.HUMAN_NAME || seed("name.txt");
-const email = process.env.USER_EMAIL || seed("email.txt");
+// User identity from the .setup seeds. Absent: identity keys are left
+// unchanged, exactly as the bash function's -n guards did.
+const name = seed("name.txt");
+const email = seed("email.txt");
 if (name !== "") git(["config", "--global", "user.name", name]);
 if (email !== "") git(["config", "--global", "user.email", email]);
 

@@ -67,7 +67,7 @@ try {
   branches.push(...((v["branch"] ?? []) as string[]));
 } catch (err) {
   logError(err instanceof Error ? err.message : String(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 

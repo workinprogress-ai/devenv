@@ -1,5 +1,6 @@
 // docker-restart — restart the Docker daemon by killing it and reloading it.
-// Port of docker-restart.sh: sudo pkill, then the load-docker bootstrap script.
+// Port of docker-restart.sh: stop dockerd by exact name, then the load-docker
+// bootstrap script.
 
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -7,6 +8,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { resolveToolsRoot } from "../lib/core/self-root.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
@@ -21,7 +23,7 @@ try {
   if (cli.common.help) {
     console.log(`Usage: docker-restart
 
-Restart the Docker daemon: stop it (sudo pkill) and reload it via the
+Restart the Docker daemon: stop dockerd (sudo pkill -x) and reload it via the
 devcontainer load-docker script. Takes no arguments.
 
 Options:
@@ -30,15 +32,15 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   }
 } catch (err) {
   console.error(errorMessage(err));
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 
-const root = dirname(dirname(resolveToolsRoot(import.meta.url)));
+const root = dirname(resolveToolsRoot(import.meta.url));
 
 console.log("Stopping Docker daemon...");
-const kill = spawnSync("sudo", ["pkill", "docker"], { stdio: "inherit" });
+const kill = spawnSync("sudo", ["pkill", "-x", "dockerd"], { stdio: "inherit" });
 if (kill.status !== 0 && kill.error === undefined) {
-  // pkill exits 1 when nothing matched — the daemon may already be down; the
+  // pkill -x exits 1 when nothing matched — the daemon may already be down; the
   // reload below still brings it up, so this is not fatal (bash set -e did
   // abort here; the reload path makes continuing the safer port).
 }

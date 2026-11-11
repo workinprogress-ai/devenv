@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { invalidArgs } from "../lib/core/args.ts";
@@ -68,7 +68,7 @@ try {
   sets.push(...((cli.values["set"] as string[] | undefined) ?? []));
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
@@ -80,7 +80,7 @@ try {
   body = readFileSync(file, "utf8");
 } catch (err) {
   logError(`Failed to read ${file}: ${errorMessage(err)}`);
-  process.exit(4);
+  process.exit(EXIT_API_FAILURE);
 }
 
 const header = parseHeaderJson(body);
@@ -148,6 +148,6 @@ if (stamp || sets.length > 0) {
 const after = parseHeaderJson(readFileSync(file, "utf8"));
 if (after === null || Object.keys(after).length === 0) {
   logError("Header lost after rewrite — this is a bug");
-  process.exit(4);
+  process.exit(EXIT_API_FAILURE);
 }
 console.log(JSON.stringify({ found: true, header: after }));

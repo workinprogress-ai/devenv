@@ -21,7 +21,7 @@ import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { formatTable } from "../lib/ui/panels.ts";
 import { issuesList } from "../lib/providers/facade/issues.ts";
-import { normalizeIssueType } from "../lib/domain/issues/types.ts";
+import { resolveIssueType } from "../lib/domain/issues/types.ts";
 
 assertNodeFloor();
 
@@ -108,7 +108,7 @@ async function main(argv: string[]): Promise<number> {
     state = (values["state"] as string | undefined) ?? "open";
     type = (values["type"] as string | undefined) ?? "";
     if (type !== "") {
-      const normalized = normalizeIssueType(type);
+      const normalized = resolveIssueType(type);
       if (normalized === null) {
         logError(`Invalid issue type: ${type} (allowed: Bug, Feature, Task, Epic)`);
         return EXIT_MISUSE;
@@ -134,7 +134,7 @@ async function main(argv: string[]): Promise<number> {
     devenv = cli.common.devenv;
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 

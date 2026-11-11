@@ -10,8 +10,10 @@
 
 import { existsSync, readFileSync, writeFileSync, chmodSync, unlinkSync, renameSync } from "node:fs";
 import { join } from "node:path";
-import { home } from "./lib.ts";
-import { providerSecretToken } from "./provider-seam.ts";
+import { configGetRaw } from "../../lib/core/config.ts";
+import { providerDetect } from "../../lib/providers/provider-core.ts";
+import { home, toolbox } from "./lib.ts";
+import { azureNpmrcLines, isAzureArtifactsUrl, npmrcFeedPrefixes, providerSecretToken } from "./provider-seam.ts";
 
 const npmrc = join(home(), ".npmrc");
 
@@ -23,7 +25,47 @@ if (existsSync(npmrc)) {
   if (cleaned !== content) writeFileSync(npmrc, cleaned);
 }
 
+// mktemp-style write: the temp file is 0600 and the rename carries that mode
+// over, so the npmrc ends up owner-only even if it was wider before.
+function writeOwnerOnly(content: string): void {
+  const tmp = `${npmrc}.setup-${process.pid}-${Math.random().toString(36).slice(2)}`;
+  writeFileSync(tmp, content);
+  chmodSync(tmp, 0o600);
+  try {
+    unlinkSync(npmrc);
+  } catch {
+    // not present
+  }
+  renameSync(tmp, npmrc);
+}
+
+const provider = providerDetect();
 const token = providerSecretToken();
+
+if (provider === "azure") {
+  // Azure Artifacts feed: [npm] feed_url (+ optional [npm] scope). The PAT is
+  // only ever written for an Azure Artifacts host, base64-encoded.
+  const feedUrl = configGetRaw(join(toolbox(), "devenv.config"), "npm", "feed_url") ?? "";
+  if (feedUrl === "") {
+    console.log("Skipping npm registry authentication (azure provider: [npm] feed_url not configured)");
+    process.exit(0);
+  }
+  if (!isAzureArtifactsUrl(feedUrl)) {
+    console.log("Skipping npm registry authentication (azure provider: [npm] feed_url is not an Azure Artifacts URL)");
+    process.exit(0);
+  }
+  if (token === "") {
+    console.log("Skipping npm registry authentication (azure provider: credentials unavailable)");
+    process.exit(0);
+  }
+  const scope = configGetRaw(join(toolbox(), "devenv.config"), "npm", "scope") ?? "";
+  const existing = existsSync(npmrc) ? readFileSync(npmrc, "utf8").split("\n") : [];
+  const tokenB64 = Buffer.from(token).toString("base64");
+  writeOwnerOnly(azureNpmrcLines(existing, npmrcFeedPrefixes(feedUrl), tokenB64, scope).join("\n"));
+  console.log("npmrc: registry authentication configured");
+  process.exit(0);
+}
+
 if (token === "") {
   console.log("Skipping GitHub npm registry authentication (credentials unavailable)");
   process.exit(0);
@@ -53,13 +95,5 @@ lines = lines.map((l) => {
 }).filter((l) => l !== null);
 if (!written) lines.push(AUTH_LINE);
 
-const tmp = `${npmrc}.setup-${process.pid}-${Math.random().toString(36).slice(2)}`;
-writeFileSync(tmp, lines.join("\n"));
-chmodSync(tmp, 0o600);
-try {
-  unlinkSync(npmrc);
-} catch {
-  // not present
-}
-renameSync(tmp, npmrc);
+writeOwnerOnly(lines.join("\n"));
 console.log("npmrc: registry authentication configured");

@@ -154,4 +154,23 @@ describe("issue-update", () => {
     expect(ghCalls().join("\n")).toMatch(/--milestone (\s*$|\n|\s*")/m);
     expect(ghCalls().join("\n")).not.toContain('--milestone none');
   });
+
+  it("an invalid --state is refused before any edit or network call", () => {
+    const r = runTool(["42", "--title", "x", "--state", "bogus"]);
+    expect(r.status).toBe(2);
+    expect(r.output).toContain("Invalid state: bogus");
+    expect(ghCalls()).toEqual([]);
+  });
+
+  it("an invalid --type is refused before any network call", () => {
+    const r = runTool(["42", "--type", "Narrative"]);
+    expect(r.status).toBe(2);
+    expect(ghCalls()).toEqual([]);
+  });
+
+  it("a malformed --add-blocked-by is refused before any network call", () => {
+    const r = runTool(["42", "--title", "x", "--add-blocked-by", "abc"]);
+    expect(r.status).toBe(2);
+    expect(ghCalls()).toEqual([]);
+  });
 });

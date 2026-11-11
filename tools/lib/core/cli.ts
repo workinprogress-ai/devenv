@@ -73,6 +73,10 @@ export interface ToolCliOptions {
   allowPositionals?: boolean;
   /** Extra argv (defaults to process.argv.slice(2)). */
   argv?: string[];
+  /** Refuse an empty value (`--opt ""`, `--opt=`) for any string option: a
+   * mutating tool must not act on a value an unset variable left empty. The
+   * throw takes the caller's usual catch → hint → exit 2 path. */
+  rejectEmptyValues?: boolean;
 }
 
 export interface ToolCliResult {
@@ -98,6 +102,13 @@ export function toolCli(opts: ToolCliOptions): ToolCliResult {
     allowPositionals: opts.allowPositionals ?? true,
     strict: opts.strict ?? true,
   });
+
+  if (opts.rejectEmptyValues) {
+    for (const [name, value] of Object.entries(values)) {
+      const given = Array.isArray(value) ? value : [value];
+      if (merged[name]?.type === "string" && given.some((v) => v === "")) throw new Error(`Missing value for --${name}`);
+    }
+  }
 
   const common: CommonFlags = {
     help: Boolean(values["help"]),

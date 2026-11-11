@@ -84,6 +84,7 @@ import {
   projectsForIssue,
 } from "./projects.ts";
 import { pipelinesWorkflowList } from "./pipelines.ts";
+import { EXIT_MISUSE } from "../../core/exit-codes.ts";
 
 // ---------------------------------------------------------------------------
 // Harness
@@ -182,7 +183,7 @@ if (tier === "") {
   console.error("azure-smoke refuses to run: it exercises a LIVE Azure DevOps org.");
   console.error("  AZURE_SMOKE=1      read-only tier");
   console.error("  AZURE_SMOKE=write  destructive tier (also needs AZURE_SMOKE_CONFIRM=<test project>)");
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 const org = process.env.AZURE_DEVOPS_ORG ?? "";
 const project = process.env.AZURE_SMOKE_TEST_PROJECT ?? "";
@@ -194,7 +195,7 @@ if (tier === "write" && process.env.AZURE_SMOKE_CONFIRM !== project) {
   console.error(
     `destructive tier not confirmed: set AZURE_SMOKE_CONFIRM=${project} (the exact test project name).`,
   );
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 // The transport reads AZURE_PAT from the env; make sure the explicit value
 // (which may have come from a file) is visible to it.

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { filterEnv, cleanPath, keepVariable, restoreAnchors } from "./harness/env.ts";
-import { canaryEnv, canaryNodeOptions } from "./harness/canary.ts";
+import { canaryEnv, canaryNodeOptions, CANARY_COMMANDS } from "./harness/canary.ts";
 import { assertNoCanaryHits, canaryHits, drainCanary } from "./harness/canary.ts";
 import { rmrf, stubGh, tmpStubBin } from "./harness/index.ts";
 import { providerDetect } from "../../lib/providers/provider-core.ts";
@@ -80,11 +80,37 @@ describe("the worker environment", () => {
 });
 
 describe("the no-network canary", () => {
-  it.each(["gh", "az", "curl", "kubectl", "docker", "sudo", "dotnet", "apt-get", "pkill", "mongosh", "telepresence", "terraform"])("a real %s that no stub shadows exits 99 and is recorded", (name) => {
+  it.each(CANARY_COMMANDS)("a real %s that no stub shadows exits 99 and is recorded", (name) => {
     const r = spawnSync(name, ["some", "args"], { encoding: "utf8" });
     expect(r.status).toBe(99);
     expect(r.stderr).toContain("devenv test canary");
     expect(drainCanary()).toEqual([`${name} some args`]);
+  });
+
+  it("shims the package managers and remote-copy tools a tool may reach", () => {
+    for (const name of ["pnpm", "npm", "npx", "tailscale", "scp", "rsync"]) expect(CANARY_COMMANDS, name).toContain(name);
+  });
+
+  it("refuses a git operation over a remote transport and still allows local file remotes", () => {
+    expect(process.env["GIT_ALLOW_PROTOCOL"]).toBe("file");
+    for (const url of ["https://github.com/example/none.git", "ssh://git@github.com/example/none.git", "git://github.com/example/none.git"]) {
+      const r = spawnSync("git", ["ls-remote", url], { encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+      expect(r.status, url).not.toBe(0);
+      expect(r.stderr, url).toMatch(/not allowed/);
+    }
+    // The fixture gitconfig restricts the transports even without the env variable.
+    const env = { ...process.env };
+    delete env["GIT_ALLOW_PROTOCOL"];
+    const viaConfig = spawnSync("git", ["ls-remote", "https://github.com/example/none.git"], { encoding: "utf8", env });
+    expect(viaConfig.status).not.toBe(0);
+    expect(viaConfig.stderr).toMatch(/not allowed/);
+    const dir = mkdtempSync(join(tmpdir(), "local-remote-"));
+    try {
+      spawnSync("git", ["init", "-q", "--bare", dir]);
+      expect(spawnSync("git", ["ls-remote", dir], { encoding: "utf8" }).status).toBe(0);
+    } finally {
+      rmrf(dir);
+    }
   });
 
   it("a stub directory ahead of the shims shadows them without tripping the canary", () => {

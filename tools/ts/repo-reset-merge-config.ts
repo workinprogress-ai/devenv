@@ -16,7 +16,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { configGetRaw } from "../lib/core/config.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
@@ -115,7 +115,7 @@ if (targetRepos.length > 0) {
     reposListOut = raw;
   } catch (err) {
     logError(`Failed to enumerate org repositories: ${err instanceof Error ? err.message : String(err)}`);
-    process.exit(4);
+    process.exit(EXIT_API_FAILURE);
   }
 }
 

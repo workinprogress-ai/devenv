@@ -19,7 +19,8 @@
 //   - `--help` and `--version` exit 0 with output on stdout;
 //   - `--dry-run --help` (for tools that carry the dry-run flag) still prints
 //     help: help wins over flags that precede it;
-//   - an unknown flag exits 2.
+//   - an unknown flag exits 2 and leaves stdout empty (the hint goes to stderr);
+//   - an empty value for a string option exits 2 before anything runs.
 // The unknown-flag probe is the riskiest one: a tool that ignored the flag would
 // run its real main path. It therefore runs ONLY for tools already executed for
 // `--help` (no host-affecting calls) AND whose static strictness check passes
@@ -60,6 +61,15 @@ interface Analysis {
   commandLiterals: string[];
   /** Local import specifiers (static, re-export and literal dynamic imports). */
   imports: string[];
+  /** Names bound by static imports, keyed by module specifier. */
+  importBindings: Map<string, string[]>;
+  /** The toolCli call sets `rejectEmptyValues: true`. */
+  rejectsEmpty: boolean;
+  /** Option names declared with `type: "string"` in the toolCli call's options table. */
+  stringOptions: string[];
+  /** The first call, outside any function or class body, that spawns a process or
+   * writes to stdout (directly or through a local function that does). */
+  loadEffect: { name: string; at: number } | null;
 }
 
 /** Functions that need a provider, a capability or a workspace config. */
@@ -67,25 +77,78 @@ const LOAD_TIME_CALLEES = new Set(["ensureProviderAuth", "requireFamilyCapabilit
 
 const calleeName = (call: ts.CallExpression): string | undefined => (ts.isIdentifier(call.expression) ? call.expression.text : undefined);
 
+/** Modules whose imports run a process. */
+const SPAWN_MODULE = /child_process|\/spawn(\.ts)?$|\/shell(\.ts)?$/;
+
+const rootIdentifier = (expr: ts.Expression): string | undefined => {
+  let e = expr;
+  while (ts.isPropertyAccessExpression(e)) e = e.expression;
+  return ts.isIdentifier(e) ? e.text : undefined;
+};
+
+const chainText = (expr: ts.Expression): string => (ts.isPropertyAccessExpression(expr) ? `${chainText(expr.expression)}.${expr.name.text}` : ts.isIdentifier(expr) ? expr.text : "");
+
+/** Whether a call writes to stdout or (by import binding) spawns a process. */
+function isEffectCall(call: ts.CallExpression, spawnNames: Set<string>): boolean {
+  const text = chainText(call.expression);
+  if (/^console\.(log|info|debug|table|dir)$/.test(text) || text === "process.stdout.write") return true;
+  const root = rootIdentifier(call.expression);
+  return root !== undefined && spawnNames.has(root);
+}
+
 function analyze(src: string): Analysis {
   const sf = ts.createSourceFile("module.ts", src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-  const out: Analysis = { parseAt: -1, nonLiteralStrict: false, loadCall: null, identifiers: new Set(), commandLiterals: [], imports: [] };
+  const out: Analysis = { parseAt: -1, nonLiteralStrict: false, loadCall: null, identifiers: new Set(), commandLiterals: [], imports: [], importBindings: new Map(), rejectsEmpty: false, stringOptions: [], loadEffect: null };
   const visit = (node: ts.Node): void => {
     if (ts.isIdentifier(node)) out.identifiers.add(node.text);
     else if (ts.isStringLiteralLike(node)) {
       const parent = node.parent;
       const inCommandPosition =
-        (ts.isCallExpression(parent) && parent.arguments[0] === node) || (ts.isArrayLiteralExpression(parent) && parent.elements[0] === node);
+        (ts.isCallExpression(parent) && parent.arguments[0] === node) ||
+        (ts.isArrayLiteralExpression(parent) && parent.elements[0] === node) ||
+        // the script of `sh -c "<script>"`: the array ["-c", "<script>"]
+        (ts.isArrayLiteralExpression(parent) &&
+          parent.elements[1] === node &&
+          ts.isStringLiteralLike(parent.elements[0] as ts.Expression) &&
+          (parent.elements[0] as ts.StringLiteral).text === "-c");
       if (inCommandPosition) out.commandLiterals.push(node.text);
     }
     if (ts.isCallExpression(node)) {
       if (calleeName(node) === "toolCli" && (out.parseAt < 0 || node.getStart(sf) < out.parseAt)) out.parseAt = node.getStart(sf);
+      const config = node.arguments[0];
+      if (calleeName(node) === "toolCli" && config !== undefined && ts.isObjectLiteralExpression(config)) {
+        const nameOf = (p: ts.ObjectLiteralElementLike): string | undefined =>
+          p.name !== undefined && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) ? p.name.text : undefined;
+        for (const prop of config.properties) {
+          if (!ts.isPropertyAssignment(prop)) continue;
+          if (nameOf(prop) === "rejectEmptyValues" && prop.initializer.kind === ts.SyntaxKind.TrueKeyword) out.rejectsEmpty = true;
+          if (nameOf(prop) === "options" && ts.isObjectLiteralExpression(prop.initializer)) {
+            for (const opt of prop.initializer.properties) {
+              if (!ts.isPropertyAssignment(opt) || !ts.isObjectLiteralExpression(opt.initializer)) continue;
+              const typeProp = opt.initializer.properties.find((p) => ts.isPropertyAssignment(p) && nameOf(p) === "type");
+              const optName = nameOf(opt);
+              if (optName !== undefined && typeProp !== undefined && ts.isPropertyAssignment(typeProp) && ts.isStringLiteralLike(typeProp.initializer) && typeProp.initializer.text === "string") {
+                out.stringOptions.push(optName);
+              }
+            }
+          }
+        }
+      }
       const arg = node.arguments[0];
       if (node.expression.kind === ts.SyntaxKind.ImportKeyword && arg !== undefined && ts.isStringLiteralLike(arg)) out.imports.push(arg.text);
     }
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
       const spec = node.moduleSpecifier;
       if (spec !== undefined && ts.isStringLiteral(spec)) out.imports.push(spec.text);
+      if (ts.isImportDeclaration(node) && spec !== undefined && ts.isStringLiteral(spec)) {
+        const clause = node.importClause;
+        const names: string[] = [];
+        if (clause?.name !== undefined) names.push(clause.name.text);
+        const bindings = clause?.namedBindings;
+        if (bindings !== undefined && ts.isNamespaceImport(bindings)) names.push(bindings.name.text);
+        else if (bindings !== undefined) for (const el of bindings.elements) names.push(el.name.text);
+        out.importBindings.set(spec.text, [...(out.importBindings.get(spec.text) ?? []), ...names]);
+      }
     }
     if (ts.isPropertyAssignment(node) && (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)) && node.name.text === "strict") {
       if (node.initializer.kind !== ts.SyntaxKind.TrueKeyword) out.nonLiteralStrict = true;
@@ -108,13 +171,62 @@ function analyze(src: string): Analysis {
     ts.forEachChild(node, load);
   };
   load(sf);
+
+  // Process spawns and stdout writes at module load, whatever the callee is
+  // called: names bound by imports from a spawn module, console/process stdout
+  // output, and local functions whose bodies do any of that.
+  const spawnNames = new Set<string>();
+  for (const [spec, names] of out.importBindings) if (SPAWN_MODULE.test(spec)) for (const n of names) spawnNames.add(n);
+  const localFns = new Map<string, ts.Node>();
+  for (const st of sf.statements) {
+    if (ts.isFunctionDeclaration(st) && st.name !== undefined) localFns.set(st.name.text, st);
+    if (ts.isVariableStatement(st)) {
+      for (const d of st.declarationList.declarations) {
+        if (ts.isIdentifier(d.name) && d.initializer !== undefined && ts.isFunctionLike(d.initializer)) localFns.set(d.name.text, d.initializer);
+      }
+    }
+  }
+  const effectful = new Set<string>();
+  const containsEffect = (node: ts.Node): boolean => {
+    let found = false;
+    const walk = (n: ts.Node): void => {
+      if (found) return;
+      if (ts.isCallExpression(n)) {
+        const callee = calleeName(n);
+        if (isEffectCall(n, spawnNames) || (callee !== undefined && effectful.has(callee))) found = true;
+      }
+      ts.forEachChild(n, walk);
+    };
+    walk(node);
+    return found;
+  };
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const [name, fn] of localFns) {
+      if (!effectful.has(name) && containsEffect(fn)) {
+        effectful.add(name);
+        changed = true;
+      }
+    }
+  }
+  const loadEffects = (node: ts.Node): void => {
+    if (ts.isFunctionLike(node) || ts.isClassLike(node)) return;
+    if (ts.isCallExpression(node)) {
+      const callee = calleeName(node);
+      if ((isEffectCall(node, spawnNames) || (callee !== undefined && effectful.has(callee))) && (out.loadEffect === null || node.getStart(sf) < out.loadEffect.at)) {
+        out.loadEffect = { name: chainText(node.expression) || "call", at: node.getStart(sf) };
+      }
+    }
+    ts.forEachChild(node, loadEffects);
+  };
+  loadEffects(sf);
   return out;
 }
 
 const analysis = (tool: string): Analysis => analyze(raw(tool));
 
-/** Tools that forward the rest of their argv to a child command. */
-const FORWARDERS = TOOLS.filter((t) => /forward-argv/.test(raw(t)));
+/** Tools that forward the rest of their argv to a child command: they import the forward-argv helper. */
+const FORWARDERS = TOOLS.filter((t) => analysis(t).imports.some((s) => /(^|\/)forward-argv(\.ts)?$/.test(s)));
 
 /** Tools that do not parse through toolCli. Each needs a stated reason. */
 const EXEMPT_NO_TOOLCLI: Record<string, string> = {};
@@ -126,6 +238,11 @@ const EXEMPT_NON_STRICT: Record<string, string> = {};
 const EXEMPT_UNKNOWN_FLAG: Record<string, string> = {
   "git-wip-recover": "documented exception to the exit-2 contract: an unknown option exits 1, as its predecessor did",
 };
+
+/** Coverage floors: a drop below these means probes silently stopped running. */
+const PROBED_FLOOR = 95;
+const UNKNOWN_FLAG_FLOOR = 90;
+const EMPTY_VALUE_FLOOR = 55;
 
 /** Source that makes a tool's main path host-affecting: never executed by this sweep. */
 const HOST_AFFECTING = /\bsudo\b|\bdocker\b|apt-get|pkill|mongorestore|mongodump|mongosh|kubectl|telepresence|\bdotnet\b|terraform|\bssh\b/;
@@ -201,6 +318,33 @@ describe("CLI contract: source checks (every tool, nothing executed)", () => {
     if (load === null) return;
     expect(parse, `${tool} calls ${load.name} at module load and never parses via toolCli`).toBeGreaterThanOrEqual(0);
     expect(load.at, `${tool} calls ${load.name} at module load before parsing its arguments`).toBeGreaterThan(parse);
+  });
+
+  it.each(TOOLS)("%s spawns nothing and prints nothing at module load before parsing its arguments", (tool) => {
+    const { loadEffect: effect, parseAt: parse } = analysis(tool);
+    if (effect === null || parse < 0) return;
+    expect(effect.at, `${tool} calls ${effect.name} at module load before parsing its arguments`).toBeGreaterThan(parse);
+  });
+
+  it("the load-effect scanner sees spawns, stdout writes and local helpers that do either, under any name", () => {
+    const pre = 'import { spawnSync as run } from "node:child_process";\n';
+    expect(analyze(`${pre}run("x"); toolCli({});`).loadEffect?.name).toBe("run");
+    expect(analyze("console.log('banner'); toolCli({});").loadEffect?.name).toBe("console.log");
+    expect(analyze("console.error('diagnostic'); toolCli({});").loadEffect).toBeNull();
+    expect(analyze(`${pre}function cap(c: string) { return run("bash", [c]); }\nconst h = cap("x"); toolCli({});`).loadEffect?.name).toBe("cap");
+    expect(analyze(`${pre}function cap() { run("x"); }\ntoolCli({});`).loadEffect).toBeNull();
+    expect(analyze("const x = join('a', 'b'); toolCli({});").loadEffect).toBeNull();
+  });
+
+  it("the forwarder check reads imports, not words in comments", () => {
+    expect(FORWARDERS.length).toBeGreaterThan(0);
+    expect(analyze('// forward-argv is mentioned here\nconst a = 1;').imports).toEqual([]);
+    expect(analyze('import { x } from "../lib/core/forward-argv.ts";').imports).toEqual(["../lib/core/forward-argv.ts"]);
+  });
+
+  it("command literals include the script of sh -c, not only the first argument", () => {
+    expect(analyze('spawnSync("sh", ["-c", "docker ps"]);').commandLiterals).toEqual(["sh", "-c", "docker ps"]);
+    expect(analyze('const a = ["x", "docker ps"];').commandLiterals).toEqual(["x"]);
   });
 
   it("the source scanner ignores comments and literals and sees real calls", () => {
@@ -279,7 +423,7 @@ describe("CLI contract: probes (tools with no host-affecting calls)", () => {
   };
 
   it("probes a substantial share of the tools", () => {
-    expect(probed.length).toBeGreaterThan(60);
+    expect(probed.length).toBeGreaterThan(PROBED_FLOOR);
   });
 
   it.each(probed)("%s --help exits 0 with usage on stdout, offline and unauthenticated", (tool) => {
@@ -303,11 +447,31 @@ describe("CLI contract: probes (tools with no host-affecting calls)", () => {
   const unknownFlagProbed = probed.filter((t) => staticallyStrict(t) && !FORWARDERS.includes(t) && EXEMPT_UNKNOWN_FLAG[t] === undefined);
 
   it("runs the unknown-flag probe for a substantial share of the tools", () => {
-    expect(unknownFlagProbed.length).toBeGreaterThan(50);
+    expect(unknownFlagProbed.length).toBeGreaterThan(UNKNOWN_FLAG_FLOOR);
   });
 
   it.each(unknownFlagProbed)("%s rejects an unknown flag with exit 2", (tool) => {
     const r = probe(tool, ["--no-such-flag-zzz"]);
     expect(r.status, `${tool} unknown flag exit status (stderr: ${(r.stderr ?? "").slice(0, 200)})`).toBe(EXIT_MISUSE);
+    expect(r.stdout, `${tool} printed on stdout for an unknown flag; misuse text belongs on stderr`).toBe("");
+  }, 30_000);
+
+  const emptyValueProbes = unknownFlagProbed.flatMap((t) => (analysis(t).rejectsEmpty ? analysis(t).stringOptions.map((o) => [t, o] as const) : []));
+
+  it("runs the empty-value probe for the tools that adopted rejectEmptyValues", () => {
+    expect(emptyValueProbes.length).toBeGreaterThan(EMPTY_VALUE_FLOOR);
+  });
+
+  it("the option scanner reads rejectEmptyValues and string option names from the syntax tree", () => {
+    const a = analyze('toolCli({ rejectEmptyValues: true, options: { body: { type: "string" }, "x-y": { type: "string", short: "x" }, flag: { type: "boolean" } } });');
+    expect(a.rejectsEmpty).toBe(true);
+    expect(a.stringOptions).toEqual(["body", "x-y"]);
+    expect(analyze("// rejectEmptyValues: true\ntoolCli({});").rejectsEmpty).toBe(false);
+  });
+
+  it.each(emptyValueProbes)("%s refuses an empty value for --%s with exit 2 and empty stdout", (tool, option) => {
+    const r = probe(tool, [`--${option}`, ""]);
+    expect(r.status, `${tool} --${option} "" exit status (stderr: ${(r.stderr ?? "").slice(0, 200)})`).toBe(EXIT_MISUSE);
+    expect(r.stdout, `${tool} printed on stdout for an empty --${option}`).toBe("");
   }, 30_000);
 });

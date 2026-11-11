@@ -89,6 +89,49 @@ describe("path mode --patch (Phase 4.2)", () => {
   });
 });
 
+describe("non-UTF-8 index content (byte-exact guarantee)", () => {
+  /** Two-hunk file whose untouched middle line holds a Latin-1 byte. */
+  function latin1TwoHunkFile(): void {
+    const lines = Array.from({ length: 60 }, (_, i) => `line${i + 1}`);
+    const bytes = (l: string[]): Buffer =>
+      Buffer.concat(l.map((x, i) => (i === 24 ? Buffer.concat([Buffer.from("caf"), Buffer.from([0xe9]), Buffer.from("\n")]) : Buffer.from(`${x}\n`))));
+    writeFileSync(`${repo}/f.txt`, bytes(lines));
+    sh("git add f.txt && git commit -qm init");
+    const changed = [...lines];
+    changed[3] = "line4-CHANGED";
+    changed[39] = "line40-CHANGED";
+    writeFileSync(`${repo}/f.txt`, bytes(changed));
+  }
+
+  it("batch hunk claim refuses before any index mutation when the blob is not valid UTF-8", () => {
+    latin1TwoHunkFile();
+    const m = manifest("latin1.md", `# Commit batch: l
+
+## group 1 — feat: first
+- f.txt @ 1
+
+## group 2 — fix: second
+- f.txt @ 2
+`);
+    const r = runTool("repo-stage", ["--batch", m, "--group", "1"], { cwd: repo });
+    expect(r.status).toBe(1);
+    expect(r.output).toContain("UTF-8");
+    expect(r.output).toContain("nothing was staged");
+    expect(sh("git diff --cached --quiet").status).toBe(0);
+  });
+
+  it("--patch refuses before any index mutation when the blob is not valid UTF-8", () => {
+    latin1TwoHunkFile();
+    const h1 = `${manifestDir}/latin1.patch`;
+    sh(`git diff -- f.txt | sed -n '1,4p;5,13p' > ${h1}`);
+    const r = runTool("repo-stage", ["--patch", h1], { cwd: repo });
+    expect(r.status).toBe(1);
+    expect(r.output).toContain("UTF-8");
+    expect(r.output).not.toContain("verification failed");
+    expect(sh("git diff --cached --quiet").status).toBe(0);
+  });
+});
+
 describe("batch mode hunk selectors (Phase 4.3)", () => {
   it("stages one group's claimed hunks of a shared file; the other group's hunks remain", () => {
     twoHunkFile();

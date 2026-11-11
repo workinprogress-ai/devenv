@@ -43,7 +43,7 @@ function useConfig(provider: "github" | "azure"): string {
   dirs.push(root);
   writeFileSync(
     join(root, "devenv.config"),
-    `[provider]\nname=${provider}\nazure_org=org\nazure_project=proj\n\n[organization]\norg=fixture-org\n`,
+    `[provider]\nname=${provider}\nazure_org=org\nazure_project=proj\n\n[organization]\norg=fixture-org\n\n[azure_body_fields]\nBug=Microsoft.VSTS.TCM.ReproSteps\n`,
   );
   process.env.DEVENV_ROOT = root;
   process.env.AZURE_DEVOPS_ORG = "test-org";
@@ -220,7 +220,7 @@ function item(tags: string, patchReply?: () => Response, top: { rev?: number | n
   return stubFetch((r) => {
     if (r.method === "PATCH") {
       if (patchReply !== undefined) return patchReply();
-      rev = 4;
+      rev += 1;
       return json({ id: 9, rev });
     }
     const fields: Record<string, unknown> = { "System.WorkItemType": "User Story", "System.Tags": tags, "System.ChangedDate": `2026-10-30T00:0${rev}:00Z` };
@@ -255,12 +255,14 @@ describe("facade issues edit on azure: --type without a body", () => {
     expect(opsOf(patches[0])[0]?.path).toBe("/fields/System.WorkItemType");
   });
 
-  it("with a body the type keeps selecting the body field and never changes the item's type", async () => {
+  it("with a body the type is changed first and the body is written to the new type's field", async () => {
     useConfig("azure");
     const calls = item("a");
     const facade = await import("../../lib/providers/facade/issues.ts");
     await facade.issuesEdit("", 9, { type: "Bug", body: "text" });
-    expect(patchCalls(calls).some((c) => opsOf(c).some((o) => o.path === "/fields/System.WorkItemType"))).toBe(false);
+    const patches = patchCalls(calls);
+    expect(opsOf(patches[0])[0]?.path).toBe("/fields/System.WorkItemType");
+    expect(patches.slice(1).some((c) => opsOf(c).some((o) => o.path === "/fields/Microsoft.VSTS.TCM.ReproSteps"))).toBe(true);
   });
 });
 

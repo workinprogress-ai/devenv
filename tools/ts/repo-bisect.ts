@@ -5,6 +5,7 @@
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
+import { spawnSync } from "node:child_process";
 import { accessSync, constants, statSync } from "node:fs";
 import { delimiter, join } from "node:path";
 import { gitCheck, gitInherit } from "../lib/core/git.ts";
@@ -75,7 +76,7 @@ try {
   rest = positionals.slice(1);
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
@@ -178,6 +179,32 @@ if (!scratchpadActive()) {
   console.error(`notice: operating on '${branch}' directly — AI hunts should start from: repo-scratchpad enter`);
 }
 
+// A probe that cannot pass on the known-good commit (missing interpreter, wrong
+// directory, exit 126/127) would mark every step bad and fabricate a verdict.
+// Exit 125 is a legitimate skip.
+{
+  const top = git(["rev-parse", "--show-toplevel"]).out.trim();
+  const branchName = git(["symbolic-ref", "--quiet", "--short", "HEAD"]).out.trim();
+  const origin = branchName || git(["rev-parse", "HEAD"]).out.trim();
+  const visit = gitCheck(null, ["checkout", "-q", "--detach", `${good as string}^{commit}`]);
+  if (!visit.ok) {
+    console.error(`Error: could not check out good-ref to validate the probe: ${visit.err.trim()}`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+  const goodRun = spawnSync(probe[0] as string, probe.slice(1), { cwd: top, stdio: "ignore" });
+  const restore = branchName
+    ? gitCheck(null, ["checkout", "-q", branchName, "--"])
+    : gitCheck(null, ["checkout", "-q", "--detach", origin]);
+  if (!restore.ok) {
+    console.error(`Error: could not return to '${branchName || origin}' after validating the probe: ${restore.err.trim()}`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+  if (goodRun.status !== 0 && goodRun.status !== 125) {
+    console.error(`Error: probe did not pass on good-ref (${good}): ${goodRun.error ? goodRun.error.message : `exit ${goodRun.status}`} — fix the probe before bisecting`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+}
+
 const started = gitCheck(null, ["bisect", "start", bad, good as string]);
 if (!started.ok) {
   console.error("Error: git bisect start failed:");
@@ -198,9 +225,10 @@ if (badSha === goodSha) {
 const run = gitCheck(null, ["bisect", "run", ...probe]);
 const firstBad = run.out;
 
-// Only git's own result lines count: the probe's output is untrusted text and
-// may contain any phrase. git prints its verdict as a line of its own.
-const firstBadSha = firstBad.match(/^([0-9a-f]{7,64}) is the first '?bad'? commit$/m)?.[1] ?? "";
+// The probe's output is untrusted text and may contain any phrase; git prints
+// its verdict last, so the last matching line is the real one.
+const verdicts = [...firstBad.matchAll(/^([0-9a-f]{7,64}) is the first '?bad'? commit$/gm)];
+const firstBadSha = verdicts[verdicts.length - 1]?.[1] ?? "";
 const ambiguous = /^The first '?bad'? commit could be any of:$/m.test(firstBad);
 const walkAborted = /^bisect run failed:/m.test(firstBad);
 

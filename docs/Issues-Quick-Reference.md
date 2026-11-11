@@ -323,6 +323,8 @@ Types are a native field (not labels), configured in `tools/config/issues-config
 - `Task` — Work toward someone else's change (native type)
 - `Bug` — Defect (native type)
 
+`--type` is case-insensitive in every issue tool and accepts aliases that map onto a configured type (`story` → `Feature`, `chore` → `Task`, `defect` → `Bug`).
+
 ### Priority Labels
 
 - `priority/P0` - Critical — production broken, data loss, security, blocking

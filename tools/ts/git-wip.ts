@@ -37,7 +37,8 @@ import { gitCapture, gitInherit } from "../lib/core/git.ts";
 import { protectedPushTarget, type ProtectedHit } from "../lib/core/protected-branch.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { requireString } from "../lib/core/args.ts";
+import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_SUCCESS } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
@@ -156,7 +157,7 @@ try {
   stagedOnly = parsed.values["staged-only"] === true;
   dryRun = parsed.common.dryRun;
   allowNonTty = parsed.values["allow-non-tty"] === true;
-  msgFile = typeof parsed.values.file === "string" ? parsed.values.file : "";
+  msgFile = parsed.values.file === undefined ? "" : requireString(parsed.values.file, "--file");
   // Message words are the positionals. A word that looks like a flag (or is
   // -n) is only reachable after the `--` separator, which parseArgs honors.
   words = parsed.positionals;
@@ -180,6 +181,10 @@ if (msgFile !== "") {
   msg = readFileSync(msgFile, "utf8");
 } else {
   msg = words.join(" ");
+}
+if (msg.trim() === "") {
+  console.error("Error: git-wip needs a non-empty message (words, or a non-empty --file); nothing was staged, committed or pushed.");
+  process.exit(EXIT_MISUSE);
 }
 
 // --- refusals before any mutation ---
@@ -215,10 +220,9 @@ if (currentBranch === "" || git(["rev-parse", "--verify", "--quiet", "HEAD"]).st
   }
 }
 
-// TTY gate (incident-driven): two sessions ran git-wip as a probe and each
-// published a hook-bypass commit to the remote. Commit + push require an
-// interactive terminal unless explicitly overridden — an accidental
-// non-interactive invocation fails here instead of on the remote.
+// TTY gate: the snapshot commit bypasses hooks and is pushed, so a commit and
+// push require an interactive terminal unless explicitly overridden — an
+// accidental non-interactive invocation fails here instead of on the remote.
 if (!dryRun && !allowNonTty && !process.stdin.isTTY) {
   console.error(
     "Error: git-wip commits and pushes; it requires an interactive terminal.\n" +
@@ -237,7 +241,7 @@ if (dryRun) {
   const count = tracked.out.split("\n").filter((l) => l.trim() !== "").length;
   console.log(`  Files the snapshot would include (tracked + untracked, modified or new): ${count}`);
   console.log("  Would push to origin.");
-  process.exit(0);
+  process.exit(EXIT_SUCCESS);
 }
 
 // --- stage, commit (hook-bypass by design), push, then move the ref ---
