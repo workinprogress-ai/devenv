@@ -12,7 +12,7 @@
 
 import { basename } from "node:path";
 
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
@@ -83,7 +83,7 @@ async function main(argv: string[]): Promise<number> {
       options: {
         state: { type: "string", short: "s", default: "all" },
         type: { type: "string", short: "t" },
-        label: { type: "string", short: "l" },
+        label: { type: "string", short: "l", multiple: true },
         assignee: { type: "string", short: "a" },
         milestone: { type: "string", short: "m" },
         format: { type: "string", short: "f", default: "table" },
@@ -99,7 +99,7 @@ async function main(argv: string[]): Promise<number> {
       const normalized = normalizeIssueType(type);
       if (normalized === null) {
         logError(`Invalid issue type: ${type} (allowed: Bug, Feature, Task, Epic)`);
-        return EXIT_GENERAL_ERROR;
+        return EXIT_MISUSE;
       }
       type = normalized;
     }
@@ -112,6 +112,10 @@ async function main(argv: string[]): Promise<number> {
     milestone = (values["milestone"] as string | undefined) ?? "";
     format = (values["format"] as string | undefined) ?? "table";
     limit = Number.parseInt((values["limit"] as string | undefined) ?? "30", 10);
+    if (!Number.isFinite(limit) || limit <= 0 || !/^[0-9]+$/.test(String(values["limit"]))) {
+      logError(`Invalid --limit: ${values["limit"]} (expected a positive number)`);
+      return EXIT_MISUSE;
+    }
     fetchLimit = Number.parseInt((values["fetch-limit"] as string | undefined) ?? "200", 10);
     if (!Number.isFinite(fetchLimit) || fetchLimit <= 0) {
       logError(`Invalid --fetch-limit: ${values["fetch-limit"]} (expected a positive number)`);

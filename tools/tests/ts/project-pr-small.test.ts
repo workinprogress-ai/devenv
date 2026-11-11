@@ -12,15 +12,15 @@
 // tmpPath(); the gh stubs are per-test bin dirs under the temp root.
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const PLFI = join(TOOLS, "project-list-for-issue");
-const PUI = join(TOOLS, "project-update-issue");
+const PLFI = join(TOOLS, "ts", "project-list-for-issue.ts");
+const PUI = join(TOOLS, "ts", "project-update-issue.ts");
 const PTR = join(TOOLS, "ts", "pr-thread-reply.ts");
 const PCR = join(TOOLS, "ts", "pr-cleanup-review-branches.ts");
 
@@ -68,6 +68,10 @@ function runWithStub(exe: string, args: string[], stubDir: string, env: Record<s
   }
   // node invocations ride the harness (exe is "node" with a ts path in
   // args); other executables keep their spawn shape.
+  if (exe.endsWith(".ts")) {
+    args = [exe, ...args];
+    exe = "node";
+  }
   if (exe === "node" && args[0]?.endsWith(".ts")) {
     const name = args[0].replace(/\.ts$/, "").split("/").pop() ?? "unknown";
     const r = runHarness(name, args.slice(1), { env: e });
@@ -366,11 +370,9 @@ describe("pr-thread-reply (bats port)", () => {
     expect(path.startsWith("/repos/acme/proj/")).toBe(false);
   });
 
-  it("the numeric comment-id and the <thread>/<comment> token are accepted; nothing else", () => {
-    for (const c of ["456", "62644/2"]) {
-      expect(reply(["7", "--comment-id", c, "--body", "hi"]).status, `rejected: ${c}`).toBe(0);
-    }
-    for (const c of ["abc", "12/", "/3", "12/3/4"]) {
+  it("on github only the numeric comment-id is accepted; an Azure-shaped <thread>/<comment> and the rest are refused", () => {
+    expect(reply(["7", "--comment-id", "456", "--body", "hi"]).status, "rejected: 456").toBe(0);
+    for (const c of ["62644/2", "12abc", "abc", "12/", "/3", "12/3/4"]) {
       expect(reply(["7", "--comment-id", c, "--body", "hi"]).status, `accepted: [${c}]`).not.toBe(0);
     }
   });
@@ -380,10 +382,10 @@ describe("pr-thread-reply (bats port)", () => {
 
 describe("pr review-flow trio contracts (bats port)", () => {
   for (const tool of ["pr-create-for-review", "pr-get-review-link", "pr-cleanup-review-branches"]) {
-    it(`${tool} stub is valid bash and has --help`, () => {
-      const path = join(TOOLS, tool);
-      expect(spawnSync("bash", ["-n", path]).status).toBe(0);
-      const r = spawnSync(path, ["--help"], { encoding: "utf8", env: GIT_ENV() });
+    it(`${tool} entry exists and has --help`, () => {
+      const path = join(TOOLS, "ts", `${tool}.ts`);
+      expect(existsSync(path)).toBe(true);
+      const r = spawnSync("node", [path, "--help"], { encoding: "utf8", env: GIT_ENV() });
       expect(r.status).toBe(0);
       expect(r.stdout ?? "").toMatch(/Usage:/);
     });
@@ -416,8 +418,35 @@ describe("pr-cleanup-review-branches (bats port)", () => {
     return git(REMOTE, ["show-ref", "--verify", "--quiet", `refs/heads/${name}`]).status === 0;
   }
 
-  function cleanup(args: string[]): { status: number; out: string } {
+  // The open-PR check goes through `gh pr list`; the stub answers "9" for any
+  // branch named in OPEN_PR_BRANCHES (space separated) as --head or --base,
+  // and fails outright when PR_LIST_FAIL is set.
+  function cleanup(args: string[], extra: Record<string, string> = {}): { status: number; out: string } {
     const e = GIT_ENV();
+    const bin = tmpPath(`ghbin-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(
+      join(bin, "gh"),
+      [
+        "#!/bin/bash",
+        'printf "gh %s\\n" "$*" >> "${GH_CALL_LOG:-/dev/null}"',
+        '[ -n "${PR_LIST_FAIL:-}" ] && { echo "api down" >&2; exit 1; }',
+        'if [ "$1 $2" = "pr list" ]; then',
+        '  prev=""; for a in "$@"; do',
+        '    if [ "$prev" = "--head" ] || [ "$prev" = "--base" ]; then',
+        '      for b in ${OPEN_PR_BRANCHES:-}; do [ "$a" = "$b" ] && { echo 9; exit 0; }; done',
+        "    fi; prev=\"$a\"",
+        "  done",
+        "  exit 0",
+        "fi",
+        "exit 0",
+        "",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+    e["PATH"] = `${bin}:${process.env.PATH ?? ""}`;
+    e["DEVENV_REPO"] = "test-org/test-repo";
+    Object.assign(e, extra);
     const r = spawnSync("node", [PCR, ...args], { encoding: "utf8", env: e });
     return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
   }
@@ -504,6 +533,32 @@ describe("pr-cleanup-review-branches (bats port)", () => {
     const r = cleanup(["--dry-run", WORK, "30"]);
     expect(r.status).toBe(0);
     expect(r.out).toContain("No review branches found.");
+  });
+
+  it("a review branch with an open PR is never deleted, however old it is", () => {
+    makeBranch("review/a1b2c3d4-2020-01-15-target");
+    makeBranch("review/a1b2c3d4-2020-01-15-source");
+    makeBranch("review/b2c3d4e5-2020-01-15-target");
+    const r = cleanup([WORK, "0"], { OPEN_PR_BRANCHES: "review/a1b2c3d4-2020-01-15-target review/a1b2c3d4-2020-01-15-source" });
+    expect(r.status).toBe(0);
+    expect(remoteHas("review/a1b2c3d4-2020-01-15-target")).toBe(true);
+    expect(remoteHas("review/a1b2c3d4-2020-01-15-source")).toBe(true);
+    expect(remoteHas("review/b2c3d4e5-2020-01-15-target")).toBe(false);
+    expect(r.out).toContain("open PR");
+  });
+
+  it("an open PR on only one of a pair (head or base) still protects that branch", () => {
+    makeBranch("review/a1b2c3d4-2020-01-15-source");
+    const r = cleanup(["--dry-run", WORK, "0"], { OPEN_PR_BRANCHES: "review/a1b2c3d4-2020-01-15-source" });
+    expect(r.out).not.toContain("Would delete remote branch review/a1b2c3d4-2020-01-15-source");
+  });
+
+  it("fails closed: when the open-PR lookup fails nothing is deleted and the run fails", () => {
+    makeBranch("review/a1b2c3d4-2020-01-15-target");
+    const r = cleanup([WORK, "30"], { PR_LIST_FAIL: "1" });
+    expect(r.status).not.toBe(0);
+    expect(remoteHas("review/a1b2c3d4-2020-01-15-target")).toBe(true);
+    expect(r.out).toContain("review/a1b2c3d4-2020-01-15-target");
   });
 
   it("a branch that cannot be deleted does not stop the others; the run fails at the end", () => {

@@ -15,6 +15,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
+import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { selfRoot } from "../lib/core/self-root.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { orgIssueTypes } from "../lib/providers/facade/issues.ts";
@@ -47,7 +49,7 @@ Examples:
 /** Org resolution: config [organization] org first, then DEVENV_REPO's
  * owner segment (the bash verb's policy_org → DEVENV_REPO chain). */
 function resolveOrg(): string {
-  const root = process.env["DEVENV_ROOT"] ?? process.cwd();
+  const root = process.env["DEVENV_ROOT"] ?? selfRoot(import.meta.url);
   const cfg = `${root}/devenv.config`;
   if (existsSync(cfg)) {
     const m = readFileSync(cfg, "utf8").match(/^\s*org\s*=\s*(\S+)/m);
@@ -74,10 +76,13 @@ async function main(argv: string[]): Promise<number> {
     });
     if (cli.common.help) showUsage();
     format = ((cli.values["format"] as string | undefined) ?? "table");
+    if (format !== "table" && format !== "json" && format !== "simple") {
+      throw new Error(`Invalid format: ${format} (must be table, json, or simple)`);
+    }
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
-    return 1;
+    console.error("Use --help for usage information");
+    return EXIT_MISUSE;
   }
 
   const org = resolveOrg();
@@ -88,7 +93,7 @@ async function main(argv: string[]): Promise<number> {
     types = await orgIssueTypes(org);
   } catch (err) {
     logError(`Failed to query issue types for org ${org}: ${errorMessage(err)}`);
-    return 1;
+    return EXIT_API_FAILURE;
   }
 
   if (types.length === 0) {
@@ -109,9 +114,6 @@ async function main(argv: string[]): Promise<number> {
       for (const t of types) console.log(t.name.padEnd(nameW + 2) + t.id);
       break;
     }
-    default:
-      logError(`Invalid format: ${format} (must be table, json, or simple)`);
-      return 1;
   }
   return 0;
 }

@@ -16,6 +16,11 @@ import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, readFileSync, rmSync 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { useProviderDown } from "./harness/index.ts";
+
+// These suites assert behaviour when the provider is down or unauthenticated; the
+// failure is stubbed so the regular run never starts a real gh or az.
+useProviderDown();
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const DISPATCH = join(ROOT, "tools", "internal", "_on_event_dispatch.ts");

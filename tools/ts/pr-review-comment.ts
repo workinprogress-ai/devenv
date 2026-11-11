@@ -35,9 +35,6 @@ Arguments:
     PR_NUMBER                   PR number
 
 Options:
-    -h, --help                  Show this help message and exit
-    -v, --version               Show version information and exit
-    -V, --verbose               Enable verbose output
     -f, --file PATH             File path the comment is on (required)
     -l, --line N                Line number in the file (on the chosen side)
     -s, --side SIDE             Which side of the diff the line is on:

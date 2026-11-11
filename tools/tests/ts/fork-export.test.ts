@@ -2,19 +2,20 @@
 // `it` per source `@test`. Contract tests for exporting commits into a real
 // GitHub clone: range resolution, formats, apply-to mechanics, Change-Id
 // stamping, skip management, and the interactive clack picker surface.
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { existsSync, appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, appendFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createForkFixtureTrio, driveClack, git, installChangeIdHook, scenarioCommit, type ForkFixture } from "./harness/fork-fixture.ts";
+import { toolScript } from "./harness/index.ts";
+import { createForkFixtureTrio, driveClack, git, installChangeIdHook, type ForkFixture } from "./harness/fork-fixture.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const SCRIPT = join(TOOLS, "fork-export");
+const SCRIPT = toolScript("fork-export");
 
 let TMP = "";
 let FX: ForkFixture | undefined;
@@ -41,7 +42,7 @@ function patchesPathFrom(r: { out: string }): string {
 }
 
 function runScript(args: string[], env: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync("bash", [SCRIPT, ...args], {
+  const r = spawnSync("node", [SCRIPT, ...args], {
     cwd: FX ? fx().workingClone : process.cwd(),
     encoding: "utf8",
     env: { ...process.env, DEVENV_ROOT, DEVENV_ROOT_SET: "1", DEVENV_TOOLS: TOOLS, ...env },
@@ -105,7 +106,7 @@ beforeEach(() => {
 
 describe("fork-export", () => {
   it("script has valid syntax", () => {
-    expect(spawnSync("bash", ["-n", SCRIPT]).status).toBe(0);
+    expect(spawnSync("node", ["--check", SCRIPT]).status).toBe(0);
   });
 
   it("--help prints usage without implementing logic", () => {
@@ -144,7 +145,7 @@ describe("fork-export", () => {
     DEVENV_ROOT = join(TMP, "config-root");
     mkdirSync(DEVENV_ROOT, { recursive: true });
     writeFileSync(join(DEVENV_ROOT, "devenv.config"), `[fork]\nupstream_repo=${fx().upstream}\nupstream_branch=master\n`);
-    const r = sh(`cd '${fx().workingClone}' && bash '${SCRIPT}'`);
+    const r = sh(`cd '${fx().workingClone}' && node '${SCRIPT}'`);
     expect(r.status).not.toBe(0);
     expect(r.out).toContain("fork-setup");
   });
@@ -255,7 +256,7 @@ describe("fork-export", () => {
     for (const commit of ["one", "two", "three"]) {
       spawnSync("bash", ["-c", `printf '%s\\n' '${commit}' > '${fx().workingClone}/${commit}.txt' && git -C '${fx().workingClone}' add ${commit}.txt && git -C '${fx().workingClone}' commit -q -m 'Commit ${commit}'`], { encoding: "utf8" });
     }
-    const r = drive("s,d,d,s,r,n,W,Y,W,r", `bash '${SCRIPT}' --apply-to '${fx().ghClone}'`);
+    const r = drive("s,d,d,s,r,n,W,Y,W,r", `node '${SCRIPT}' --apply-to '${fx().ghClone}'`);
     expect(r.status).toBe(0);
     expect(r.out).toContain("Selected commits (2)");
     expect(r.out).toContain("1 commit(s) were not selected");
@@ -275,7 +276,7 @@ describe("fork-export", () => {
     }
     spawnSync("bash", ["-c", `printf 'one\\n' > '${fx().ghClone}/one.txt' && git -C '${fx().ghClone}' add one.txt && git -C '${fx().ghClone}' commit -q -m 'Equivalent patch with different hash'`], { encoding: "utf8" });
     addUpstreamCloneToRepos();
-    const r = drive("s,d,s,r,n,W,Y,A", `bash '${SCRIPT}' --apply-to '${fx().ghClone}'`);
+    const r = drive("s,d,s,r,n,W,Y,A", `node '${SCRIPT}' --apply-to '${fx().ghClone}'`);
     expect(r.status).toBe(0);
     expect(r.out).toContain("excluded 1 commit(s) already present in target");
     expect(git(fx().ghClone, ["log", "--format=%s"]).out.split("\n").filter((s) => s === "Equivalent patch with different hash").length).toBe(1);
@@ -287,7 +288,7 @@ describe("fork-export", () => {
   it("interactive picker cancellation leaves target untouched", () => {
     setupForkExportFixture();
     addExportCommit("Local one");
-    const r = drive("e", `bash '${SCRIPT}' --apply-to '${fx().ghClone}'`);
+    const r = drive("e", `node '${SCRIPT}' --apply-to '${fx().ghClone}'`);
     expect(r.status).not.toBe(0);
     expect(r.out).toContain("commit selection cancelled");
     expect(git(fx().ghClone, ["status", "--porcelain"]).out.trim()).toBe("");
@@ -382,12 +383,11 @@ describe("fork-export", () => {
     // send the continue key. The driveClack driver cannot wait for the
     // prompt, so run script(1) with a slow feeder that waits for the file
     // to appear before resolving: 22s default wait covers the window.
-    const feeder = `sleep 3; while ! grep -q . '${fx().ghClone}/README.md' 2>/dev/null; do sleep 0.5; done`;
     // Simpler deterministic shape: run under script(1) and wait for the
     // conflict marker, then resolve + continue via a second feeder phase.
-    const proc = spawnSync("bash", [
+    spawnSync("bash", [
       "-c",
-      `{ sleep 1; sleep 20; } | script -qec "bash '${SCRIPT}' --all --apply-to '${fx().ghClone}'" /dev/null &
+      `{ sleep 1; sleep 20; } | script -qec "node '${SCRIPT}' --all --apply-to '${fx().ghClone}'" /dev/null &
 SCRIPT_PID=$!
 for i in $(seq 1 60); do
     git -C '${fx().ghClone}' diff --name-only --diff-filter=U 2>/dev/null | grep -q . && break
@@ -529,7 +529,7 @@ wait $SCRIPT_PID`,
     let r = runScript(["--dry-run"]);
     expect(r.status).not.toBe(0);
     expect(r.out).toContain("merge commit");
-    r = sh(`script -qec "bash '${SCRIPT}' --dry-run" /dev/null </dev/null`);
+    r = sh(`script -qec "node '${SCRIPT}' --dry-run" /dev/null </dev/null`);
     expect(r.out).not.toContain("merge commit");
   });
 
@@ -622,7 +622,7 @@ wait $SCRIPT_PID`,
     const oneSha = headOfSource();
     addExportCommit("Two");
     const twoSha = headOfSource();
-    const r = drive("s,r", `bash '${SCRIPT}' --skip`);
+    const r = drive("s,r", `node '${SCRIPT}' --skip`);
     expect(r.status).toBe(0);
     expect(r.out).toContain("skipped 1 commit(s) for good");
     expect(r.out).toContain("One");
@@ -688,7 +688,7 @@ wait $SCRIPT_PID`,
     addFileCommit("two");
     const twoSha = headOfSource();
     addFileCommit("three");
-    const r = drive("d,s,r,y,s,d,s,r,n,W,Y,A", `bash '${SCRIPT}' --apply-to '${fx().ghClone}'`);
+    const r = drive("d,s,r,y,s,d,s,r,n,W,Y,A", `node '${SCRIPT}' --apply-to '${fx().ghClone}'`);
     expect(r.status).toBe(0);
     expect(r.out).toContain("skipped 1 commit(s) for good");
     expect(readFileSync(join(fx().ghClone, "one.txt"), "utf8")).toBe("one\n");
@@ -707,7 +707,7 @@ wait $SCRIPT_PID`,
     const twoSha = headOfSource();
     addFileCommit("three");
     const threeSha = headOfSource();
-    const r = drive("s,r,n,W,Y,A", `bash '${SCRIPT}' --apply-to '${fx().ghClone}'`);
+    const r = drive("s,r,n,W,Y,A", `node '${SCRIPT}' --apply-to '${fx().ghClone}'`);
     expect(r.status).toBe(0);
     expect(r.out).toContain("excluded 2 commit(s) from future exports");
     const list = runScript(["--list-skipped"]);
@@ -719,12 +719,11 @@ wait $SCRIPT_PID`,
   it("the unselected commits to exclude can be chosen", () => {
     setupForkExportFixture();
     addFileCommit("one");
-    const oneSha = headOfSource();
     addFileCommit("two");
     const twoSha = headOfSource();
     addFileCommit("three");
     const threeSha = headOfSource();
-    const r = drive("s,r,n,W,Y,W,C,s,r", `bash '${SCRIPT}' --apply-to '${fx().ghClone}'`);
+    const r = drive("s,r,n,W,Y,W,C,s,r", `node '${SCRIPT}' --apply-to '${fx().ghClone}'`);
     expect(r.status).toBe(0);
     expect(r.out).toContain("excluded 1 commit(s) from future exports");
     const list = runScript(["--list-skipped"]);
@@ -736,7 +735,7 @@ wait $SCRIPT_PID`,
     setupForkExportFixture();
     addFileCommit("one");
     addFileCommit("two");
-    const r = drive("s,r,n,W,N", `bash '${SCRIPT}' --apply-to '${fx().ghClone}'`);
+    const r = drive("s,r,n,W,N", `node '${SCRIPT}' --apply-to '${fx().ghClone}'`);
     expect(r.status).not.toBe(0);
     expect(r.out).toContain("commit export cancelled");
     const list = runScript(["--list-skipped"]);
@@ -748,7 +747,7 @@ wait $SCRIPT_PID`,
     addFileCommit("one");
     addFileCommit("two");
     addFileCommit("three");
-    const r = drive("s,d,d,s,r,n,W,Y,A", `bash '${SCRIPT}' --format patch --apply-to '${fx().ghClone}'`);
+    const r = drive("s,d,d,s,r,n,W,Y,A", `node '${SCRIPT}' --format patch --apply-to '${fx().ghClone}'`);
     expect(r.status).toBe(0);
     expect(readFileSync(join(fx().ghClone, "one.txt"), "utf8")).toBe("one\n");
     expect(readFileSync(join(fx().ghClone, "three.txt"), "utf8")).toBe("three\n");
@@ -805,7 +804,7 @@ wait $SCRIPT_PID`,
     setupForkExportFixture();
     addFileCommit("one");
     addFileCommit("two");
-    const r = drive("d,s,r,y,s,r,n,W,Y,A", `bash '${SCRIPT}' --include-skipped --apply-to '${fx().ghClone}'`);
+    const r = drive("d,s,r,y,s,r,n,W,Y,A", `node '${SCRIPT}' --include-skipped --apply-to '${fx().ghClone}'`);
     expect(r.status).toBe(0);
     expect(readFileSync(join(fx().ghClone, "one.txt"), "utf8")).toBe("one\n");
     expect(existsSync(join(fx().ghClone, "two.txt"))).toBe(false);
@@ -831,7 +830,7 @@ wait $SCRIPT_PID`,
     git(fx().workingClone, ["checkout", "-q", baseBranch]);
     addFileCommit("main_one");
     git(fx().workingClone, ["merge", "-q", "--no-ff", "-m", "merge side", "side"]);
-    const r = drive("s,d,s,r,n,W,Y,A", `bash '${SCRIPT}' --apply-to '${fx().ghClone}'`);
+    const r = drive("s,d,s,r,n,W,Y,A", `node '${SCRIPT}' --apply-to '${fx().ghClone}'`);
     expect(r.status).toBe(0);
     expect(readFileSync(join(fx().ghClone, "main_one.txt"), "utf8")).toBe("main_one\n");
     expect(readFileSync(join(fx().ghClone, "side_one.txt"), "utf8")).toBe("side_one\n");
@@ -895,7 +894,7 @@ wait $SCRIPT_PID`,
     git(fx().workingClone, ["checkout", "-q", baseBranch]);
     addFileCommit("main_one");
     git(fx().workingClone, ["merge", "-q", "--no-ff", "-m", "merge side", "side"]);
-    const r = drive("d,d,s,r,n,W,Y", `bash '${SCRIPT}' --include-untracked --apply-to '${fx().ghClone}'`);
+    const r = drive("d,d,s,r,n,W,Y", `node '${SCRIPT}' --include-untracked --apply-to '${fx().ghClone}'`);
     expect(r.status).not.toBe(0);
     expect(r.out).toContain("the selection contains merge commit(s)");
     expect(git(fx().ghClone, ["rev-parse", "HEAD"]).out.trim()).toBe(git(fx().ghClone, ["rev-parse", "origin/master"]).out.trim());

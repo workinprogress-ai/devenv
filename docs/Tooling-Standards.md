@@ -296,7 +296,7 @@ providers/azure/credential-helper.sh
 
 ## Exit-code contract (suite-wide)
 
-Use the constants from `error-handling.bash`. Never invent numbers.
+Use the constants from `tools/lib/core/exit-codes.ts`. Never invent numbers.
 
 | Constant | Value | Use for |
 |---|---|---|
@@ -313,19 +313,53 @@ Rules:
   1, even if the script historically exited 1.
 - Usage/help errors ("missing value for -f", "unknown option", "PR number is
   required") are **2**.
-- `invalid_args "message"` exits 2 for you — use it instead of hand-rolling.
+- Validate every argument and option value before the first mutation or
+  provider call; a bad value exits 2, never 0 and never 1.
 - Document the codes your script actually uses in the `show_usage` heredoc.
 
-## Argument parsing
+## Argument parsing: the CLI contract
 
-- One `while [[ $# -gt 0 ]]` + `case` loop; handle `-h`/`-v` via
-  `handle_global_flag` at the top of the loop instead of duplicating arms.
-- Guard every value-taking flag with `require_option_value "<flag>" "${2:-}"`.
-  Pass `"${2:-}"`, never raw `"$2"` — under `set -u` a missing value must reach
-  the helper as an empty string, not crash.
-- Unknown options: `die "Unknown option: $1. Use --help for usage information" "$EXIT_MISUSE"`.
-- Two-stage parsers (flags-after-positional) are acceptable for tools with a
-  leading positional, but both stages must handle the global flags.
+Every tool in `tools/ts` follows one contract, enforced by
+`tools/tests/ts/cli-contract-sweep.test.ts` (source checks for every tool, plus
+a `--help` probe for tools with no host-affecting calls):
+
+- **One parse through `toolCli`** (`tools/lib/core/cli.ts`), strictly: no
+  `strict: false`. `-h/--help`, `-v/--version`, `-V/--verbose`, `-n/--dry-run`
+  and `--devenv` come from the house table; a tool advertises only the house
+  flags it honors (`usageCommonFlags({ noDryRun, noDevenv })`).
+- **An unknown flag is misuse**: exit 2, decided before any provider call or
+  mutation, with stdout left empty. New and changed tools print the standard
+  "Use --help for usage information" hint on stderr; the parse-errors test
+  (`tools/tests/ts/cli-contract-parse-errors.test.ts`) pins the exact hint for
+  `tooling-create-script`, `install-extras` and `issue-types`, and holds the
+  other tools it lists (`get-services-config`, `terraform-plan`,
+  `devenv-desktop-menu-add-folder`, `devenv-desktop-menu-add-shortcut`,
+  `config-read`, `devenv-memory-watch`, `pr-get-merge-link`,
+  `pr-get-review-link`, `issue-comment-list`, `cs-dependencies-trace`,
+  `artifacts-list`, `repo-update-config`, `repo-reset-merge-config`) to exit 2
+  with a `--help` mention on stderr. Other tools follow the same convention but
+  are not individually enforced; a runtime failure such as a missing config
+  file keeps its own exit code.
+  The single documented exception is `git-wip-recover`, which keeps the exit 1
+  its predecessor used for an unknown option.
+- **`--help` and `--version` exit 0 with output on stdout** and need neither
+  network, credentials nor a configured workspace. Nothing — provider
+  authentication, capability checks, config reads — runs at module load before
+  arguments are parsed and help is handled; authenticate on the main path,
+  after parsing.
+- **Repeatable flags** are declared `multiple: true`; a flag documented as
+  repeatable that keeps only its last value is a defect.
+- **Forwarders** (a tool that passes the rest of its argv to a child command:
+  `kube-pod-exec`, `kube-logs`, `git-graph`, ...) parse only their own leading
+  options and stop at the first command word, using
+  `tools/lib/core/forward-argv.ts`; everything after is forwarded unread, and a
+  leading `--` ends option scanning. A forwarded `-n` or `-h` is never the
+  tool's own flag. The pod-addressed kube forwarders (`kube-logs`,
+  `kube-pod-exec`, `kube-pod-console`) additionally accept their own
+  `-n/--namespace` (`-n NS`, `-nNS`, `--namespace NS`, `--namespace=NS`) after
+  the pod word and before the command; the command's own `-n` stays the
+  command's.
+- A message or title that begins with `-` needs `--` first (`git-wip -- -n note`).
 
 ## JSON output contract
 
@@ -464,8 +498,21 @@ environment: `env -u DEVENV_REPO -u GH_REPO ...`).
 
 ## Static analysis
 
-`lint-scripts` must report 0 failures. Fix
-shellcheck errors; do not add disables without a comment explaining why.
+Four gates run in the pre-commit hook (when `tools/` or `.devcontainer/`
+changes) and in CI, and all must pass with zero findings:
+
+- `tsc --noEmit` (`pnpm typecheck`) — the strict type gate.
+- `eslint tools` (`pnpm lint:ts`) — unused code, strip-only syntax rules, and
+  the type-aware `no-floating-promises` / `no-misused-promises` rules: an
+  unawaited async provider check (`authStatusOk`) tests a Promise, which is
+  always truthy, so the gate it guards can never fire.
+- `lint-scripts` — shellcheck over the remaining bash; fix errors and do not
+  add disables without a comment explaining why.
+- The vitest suite (`bash tools/tests/run-devenv-tests.sh`).
+
+TypeScript tools execute natively under node, so every job that runs a tool
+needs Node 24.18 or newer (`engines` in `package.json`; CI pins `24.18.0`,
+kept in lockstep with `NODE_VERSION` in `.devcontainer/tool-versions.bash`).
 
 ## Common mistakes this guide exists to prevent
 

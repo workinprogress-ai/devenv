@@ -5,11 +5,14 @@
 //   - Ruleset verbs: github's are sync (gh shells), azure's async (policies
 //     REST, translating the ruleset payload per its mapping) — every facade
 //     verb is async; github's sync bodies wrap in a resolved promise.
-//   - RulesetMutationResult: github returns {ok, output}; azure's create/
-//     update return records — the facade stringifies into the same shape.
+//   - RulesetMutationResult: github returns {ok, stderr} and never throws for
+//     a rejected write; azure's create/update return void and THROW — the
+//     facade turns a thrown ProviderError into {ok:false, stderr:message} so
+//     callers classify failures (name conflict, 403) the same way on both.
 //
 // The module never exits; failures throw ProviderError and callers decide.
 
+import { ProviderError } from "../provider-core.ts";
 import { loadProviderModules } from "./provider-loader.ts";
 import type * as ghTypes from "../github/org.ts";
 import type * as azTypes from "../azure/org.ts";
@@ -39,6 +42,19 @@ async function load(): Promise<{
   return { provider: "github", gh: loaded.get<GithubOrg>("org.ts"), az: undefined, azPolicies: undefined };
 }
 
+/** Run an Azure policy write and report its outcome in github's result
+ * shape. Only a ProviderError (the provider's own failure) is converted;
+ * anything else is a defect and propagates. */
+async function azureMutation(write: () => Promise<unknown>): Promise<RulesetMutationResult> {
+  try {
+    await write();
+    return { ok: true, stderr: "" };
+  } catch (err) {
+    if (err instanceof ProviderError) return { ok: false, stderr: err.message };
+    throw err;
+  }
+}
+
 /** The org's rulesets for a repository (JSON text). */
 export async function orgRulesetsList(repo: string): Promise<string> {
   const m = await load();
@@ -63,8 +79,7 @@ export async function orgRulesetCreate(repo: string, payloadFile: string): Promi
   if (m.provider === "azure") {
     const { readFileSync } = await import("node:fs");
     const payload = JSON.parse(readFileSync(payloadFile, "utf8"));
-    await m.azPolicies!.orgRulesetCreate(repo, payload);
-    return { ok: true, stderr: "" };
+    return azureMutation(() => m.azPolicies!.orgRulesetCreate(repo, payload));
   }
   return m.gh!.orgRulesetCreate(repo, payloadFile);
 }
@@ -75,8 +90,7 @@ export async function orgRulesetUpdate(repo: string, id: string, payloadFile: st
   if (m.provider === "azure") {
     const { readFileSync } = await import("node:fs");
     const payload = JSON.parse(readFileSync(payloadFile, "utf8"));
-    await m.azPolicies!.orgRulesetUpdate(repo, id, payload);
-    return { ok: true, stderr: "" };
+    return azureMutation(() => m.azPolicies!.orgRulesetUpdate(repo, id, payload));
   }
   return m.gh!.orgRulesetUpdate(repo, id, payloadFile);
 }

@@ -19,8 +19,11 @@ function repoArgs(spec: string | undefined): string[] {
   return resolved === "" ? [] : ["-R", resolved];
 }
 
+/** A GitHub repository is always owner/name: when the resolved spec carries more
+ * components (an Azure-shaped org/project/repo), the repository is the LAST one. */
 function ownerName(spec: string | undefined): { owner: string; name: string } {
-  return providerRepoSplit(spec);
+  const { owner, name } = providerRepoSplit(spec);
+  return { owner, name: name.split("/").pop() ?? name };
 }
 
 // ---------------------------------------------------------------------------
@@ -113,8 +116,11 @@ export interface PrsMergeOptions {
   method?: "squash" | "merge" | "rebase";
   subject?: string;
   body?: string;
+  /** Delete the source branch after merging; off unless true. */
   deleteBranch?: boolean;
   admin?: boolean;
+  /** Refuse the merge unless the PR head is still this commit. */
+  matchHeadCommit?: string;
 }
 
 /** Merge a PR (callers pass the method explicitly). */
@@ -129,8 +135,11 @@ export async function prsMerge(
   args.push(`--${method}`);
   if (opts.subject !== undefined) args.push("--subject", opts.subject);
   if (opts.body !== undefined) args.push("--body", opts.body);
-  if (opts.deleteBranch !== false) args.push("--delete-branch");
+  if (opts.deleteBranch === true) args.push("--delete-branch");
   if (opts.admin === true) args.push("--admin");
+  if (opts.matchHeadCommit !== undefined && opts.matchHeadCommit !== "") {
+    args.push("--match-head-commit", opts.matchHeadCommit);
+  }
   args.push(...repoArgs(spec));
   return ghApi(args, gh);
 }
@@ -187,13 +196,19 @@ export interface ThreadsPage {
 export async function prsThreadReply(
   spec: string | undefined,
   pr: number,
-  commentId: number,
+  commentId: string | number,
   body: string,
   gh: GhOptions = {},
 ): Promise<GhResult> {
+  // The whole ref is the numeric REST id: "12abc" and Azure-shaped "5/9" are
+  // refused rather than truncated to a different comment.
+  const id = typeof commentId === "number" ? commentId : /^\d+$/.test(commentId) ? Number(commentId) : Number.NaN;
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error(`provider_prs_thread_reply: comment id must be numeric, got '${commentId}'`);
+  }
   const { owner, name } = ownerName(spec);
   const r = await ghApi(
-    ["api", "-X", "POST", `/repos/${owner}/${name}/pulls/${pr}/comments/${commentId}/replies`, "-f", `body=${body}`],
+    ["api", "-X", "POST", `/repos/${owner}/${name}/pulls/${pr}/comments/${id}/replies`, "-f", `body=${body}`],
     gh,
   );
   try {

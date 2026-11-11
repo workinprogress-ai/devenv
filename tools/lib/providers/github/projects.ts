@@ -18,14 +18,46 @@ export interface GhResult {
 }
 
 
-/** Parse a pagination page: line 1 = "hasMore CURSOR", the rest are matches. */
-function parsePage(output: string): { hasMore: boolean; cursor: string; ids: string[] } {
-  const lines = output.split("\n").filter((l) => l !== "");
-  const first = lines[0] ?? "false ";
-  const spaceIdx = first.indexOf(" ");
-  const hasMore = spaceIdx === -1 ? first === "true" : first.slice(0, spaceIdx) === "true";
-  const cursor = spaceIdx === -1 ? "" : first.slice(spaceIdx + 1);
-  return { hasMore, cursor, ids: lines.slice(1).filter((l) => l !== "") };
+interface GraphqlConnection<N> {
+  pageInfo?: { hasNextPage?: boolean; endCursor?: string | null };
+  nodes?: Array<N | null>;
+}
+
+/** Walk a paginated GraphQL connection one gh call per page and return every
+ * node the caller's filter keeps. The response is parsed and filtered here —
+ * caller-supplied titles and names never enter a jq program, so no value can
+ * alter a program's meaning. `flags` are the query's -f variable flags; the
+ * cursor rides as `c`. */
+function scanConnection<N>(
+  label: string,
+  query: string,
+  flags: string[],
+  connection: (json: unknown) => GraphqlConnection<N> | undefined,
+  keep: (node: N) => boolean,
+  failure: string,
+): N[] {
+  const kept: N[] = [];
+  let cursor = "";
+  let hasMore = true;
+  while (hasMore) {
+    const args = ["-f", `query=${query}`, ...flags];
+    if (cursor !== "") args.push("-f", `c=${cursor}`);
+    const page = ghApiSync(["api", "graphql", ...args], { tolerateFailure: true });
+    if (page.status !== 0) throw new Error(`${label}: ${failure}`);
+    let json: unknown;
+    try {
+      json = JSON.parse(page.stdout);
+    } catch {
+      throw new Error(`${label}: invalid GraphQL response (${failure})`);
+    }
+    const conn = connection(json);
+    // GraphQL list items may be null (an inaccessible node).
+    kept.push(...(conn?.nodes ?? []).filter((n): n is N => n !== null && n !== undefined).filter(keep));
+    hasMore = conn?.pageInfo?.hasNextPage === true;
+    cursor = conn?.pageInfo?.endCursor ?? "";
+    if (hasMore && cursor === "") hasMore = false;
+  }
+  return kept;
 }
 
 /** List projects. The repo argument is not a gh argument (gh project list is
@@ -57,27 +89,16 @@ export function projectsNumberByName(owner: string, nameOrNumber: string): strin
     throw new Error("projectsNumberByName: owner and project required");
   }
   if (/^[0-9]+$/.test(nameOrNumber)) return nameOrNumber;
-  if (nameOrNumber.includes('"')) {
-    throw new Error(`projectsNumberByName: project title must not contain double quotes ('${nameOrNumber}')`);
-  }
   const query = 'query($o:String!,$c:String){ organization(login:$o){ projectsV2(first:50, after:$c){ pageInfo{ hasNextPage endCursor } nodes{ number title } } } }';
-  const jqProgram =
-    '.data.organization.projectsV2 as $p ' +
-    '| "\\($p.pageInfo.hasNextPage) \\($p.pageInfo.endCursor // \"\")", ' +
-    `($p.nodes[] | select(.title == "${nameOrNumber}") | .number)`;
-  const numbers: string[] = [];
-  let cursor = "";
-  let hasMore = true;
-  while (hasMore) {
-    const args = ["-f", `query=${query}`, "-f", `o=${owner}`];
-    if (cursor !== "") args.push("-f", `c=${cursor}`);
-    const page = ghApiSync(["api", "graphql", ...args, "--jq", jqProgram], { tolerateFailure: true });
-    if (page.status !== 0) throw new Error(`projectsNumberByName: page scan failed for '${nameOrNumber}'`);
-    const parsed = parsePage(page.stdout);
-    hasMore = parsed.hasMore;
-    cursor = parsed.cursor;
-    numbers.push(...parsed.ids);
-  }
+  const matches = scanConnection<{ number?: number; title?: string }>(
+    "projectsNumberByName",
+    query,
+    ["-f", `o=${owner}`],
+    (j) => (j as { data?: { organization?: { projectsV2?: GraphqlConnection<{ number?: number; title?: string }> } } }).data?.organization?.projectsV2,
+    (n) => n.title === nameOrNumber,
+    `page scan failed for '${nameOrNumber}'`,
+  );
+  const numbers = matches.map((n) => String(n.number ?? "")).filter((n) => n !== "");
   if (numbers.length === 0) {
     throw new Error(`projectsNumberByName: no project titled '${nameOrNumber}' in org '${owner}'`);
   }
@@ -114,29 +135,17 @@ export function projectsIdByName(owner: string, nameOrNumber: string): string {
   }
 
   // Title match: paginated scan (a >50-project org must not silently lose
-  // tail projects). A title containing a double quote cannot be safely
-  // interpolated into gh's --jq program — rejected, named.
-  if (nameOrNumber.includes('"')) {
-    throw new Error(`projectsIdByName: project title must not contain double quotes ('${nameOrNumber}')`);
-  }
+  // tail projects); the title is compared in code, never interpolated.
   const query = 'query($o:String!,$c:String){ organization(login:$o){ projectsV2(first:50, after:$c){ pageInfo{ hasNextPage endCursor } nodes{ id title } } } }';
-  const jqProgram =
-    '.data.organization.projectsV2 as $p ' +
-    '| "\\($p.pageInfo.hasNextPage) \\($p.pageInfo.endCursor // \"\")", ' +
-    `($p.nodes[] | select(.title == "${nameOrNumber}") | .id)`;
-  const ids: string[] = [];
-  let cursor = "";
-  let hasMore = true;
-  while (hasMore) {
-    const args = ["-f", `query=${query}`, "-f", `o=${owner}`];
-    if (cursor !== "") args.push("-f", `c=${cursor}`);
-    const page = ghApiSync(["api", "graphql", ...args, "--jq", jqProgram], { tolerateFailure: true });
-    if (page.status !== 0) throw new Error(`projectsIdByName: page scan failed for '${nameOrNumber}'`);
-    const parsed = parsePage(page.stdout);
-    hasMore = parsed.hasMore;
-    cursor = parsed.cursor;
-    ids.push(...parsed.ids);
-  }
+  const matches = scanConnection<{ id?: string; title?: string }>(
+    "projectsIdByName",
+    query,
+    ["-f", `o=${owner}`],
+    (j) => (j as { data?: { organization?: { projectsV2?: GraphqlConnection<{ id?: string; title?: string }> } } }).data?.organization?.projectsV2,
+    (n) => n.title === nameOrNumber,
+    `page scan failed for '${nameOrNumber}'`,
+  );
+  const ids = matches.map((n) => n.id ?? "").filter((n) => n !== "");
   if (ids.length === 0) {
     throw new Error(`projectsIdByName: no project titled '${nameOrNumber}' in org '${owner}'`);
   }
@@ -154,28 +163,18 @@ export function projectsItemIdForIssue(projectId: string, issueNumber: string, o
   if (!/^[0-9]+$/.test(issueNumber)) {
     throw new Error(`projectsItemIdForIssue: issue number must be numeric ('${issueNumber}')`);
   }
-  if ((owner + repo).includes('"')) {
-    throw new Error("projectsItemIdForIssue: owner/repo must not contain double quotes");
-  }
   const fullName = `${owner}/${repo}`;
   const query = 'query($p:ID!,$c:String){ node(id:$p){ ... on ProjectV2 { items(first:100, after:$c){ pageInfo{ hasNextPage endCursor } nodes{ id content{ ... on Issue{ number repository{ nameWithOwner } } } } } } } }';
-  const jqProgram =
-    '.data.node.items as $items ' +
-    '| "\\($items.pageInfo.hasNextPage) \\($items.pageInfo.endCursor // \"\")", ' +
-    `($items.nodes[] | select(.content.number == ${issueNumber} and .content.repository.nameWithOwner == "${fullName}") | .id)`;
-  const ids: string[] = [];
-  let cursor = "";
-  let hasMore = true;
-  while (hasMore) {
-    const args = ["-f", `query=${query}`, "-f", `p=${projectId}`];
-    if (cursor !== "") args.push("-f", `c=${cursor}`);
-    const page = ghApiSync(["api", "graphql", ...args, "--jq", jqProgram], { tolerateFailure: true });
-    if (page.status !== 0) throw new Error(`projectsItemIdForIssue: page scan failed for ${fullName}#${issueNumber}`);
-    const parsed = parsePage(page.stdout);
-    hasMore = parsed.hasMore;
-    cursor = parsed.cursor;
-    ids.push(...parsed.ids);
-  }
+  type Item = { id?: string; content?: { number?: number; repository?: { nameWithOwner?: string } } };
+  const matches = scanConnection<Item>(
+    "projectsItemIdForIssue",
+    query,
+    ["-f", `p=${projectId}`],
+    (j) => (j as { data?: { node?: { items?: GraphqlConnection<Item> } } }).data?.node?.items,
+    (n) => n.content?.number === Number(issueNumber) && n.content?.repository?.nameWithOwner === fullName,
+    `page scan failed for ${fullName}#${issueNumber}`,
+  );
+  const ids = matches.map((n) => n.id ?? "").filter((n) => n !== "");
   if (ids.length === 0) {
     throw new Error(`projectsItemIdForIssue: ${fullName}#${issueNumber} is not in project ${projectId}`);
   }

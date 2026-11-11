@@ -9,16 +9,17 @@
 // --at merge-branch dance, push) are preserved exactly — no "improvements".
 // Scratchpad guard retained.
 
-import { basename } from "node:path";
 import { spawnSync } from "node:child_process";
+import { basename } from "node:path";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { gitCheck, gitInherit } from "../lib/core/git.ts";
+import { gitCheck, gitInherit, wipRangeGuard } from "../lib/core/git.ts";
 import { toolCli } from "../lib/core/cli.ts";
+import { conventionalCommitsOk } from "../lib/core/commit-format.ts";
 import { checkTargetRepo, providerRepoTarget, requireRepoTarget, ghApi } from "../lib/providers/provider-core.ts";
 import { prsCreate, prsList } from "../lib/providers/facade/prs.ts";
 import { issuesView, issuesLabelEnsure } from "../lib/providers/facade/issues.ts";
@@ -30,26 +31,29 @@ assertNodeFloor();
 const SCRIPT_VERSION = "1.0.0";
 const SCRIPT_NAME = basename(process.argv[1] ?? "pr-create.ts");
 
-const COMMIT_TYPES = ["feat", "fix", "chore", "docs", "style", "refactor", "perf", "test", "build", "ci", "revert", "patch", "minor", "major"];
-
 function usage(): never {
-  console.error(`Usage: ${SCRIPT_NAME} [<title>] [options]`);
-  console.error("");
-  console.error("Options:");
-  console.error("  --issue <number>     Issue number this PR addresses. Omitted: inferred from the branch name ([<type>/]<issue>-<slug>); if not inferable, an error asks for --issue or --no-issue");
-  console.error("  --no-issue           Explicitly indicate this PR has no associated issue");
-  console.error("  <title>              PR title. Optional for non-squash repos without a message (the issue title is used); required for squash-merge repos, where it must follow Conventional Commits");
-  console.error("  --base <branch>      Target branch for PR (default: repository's default branch)");
-  console.error("  --repo-dir <path>    Repository directory (default: current)");
-  console.error("  --branch <name>      Source branch for PR (default: current branch)");
-  console.error("  --body <text>        PR body text");
-  console.error("  --body-file <file>   Read PR body from a file");
-  console.error("  --draft              Create as draft");
-  console.error("  --reviewer <handle>  Add a reviewer (can be repeated)");
-  console.error("  --assignee <handle>  Add an assignee (default: @me)");
-  console.error("  --label <name>       Add a label (can be repeated)");
-  console.error("  --at <hash-or-title> Partial-branch mode: open the PR from a merge branch created at the chosen commit");
-  process.exit(EXIT_GENERAL_ERROR);
+  // Help is requested output: stdout, exit 0.
+  console.log(`Usage: ${SCRIPT_NAME} [<title>] [options]`);
+  console.log("");
+  console.log("Options:");
+  console.log("  --issue <number>     Issue number this PR addresses. Omitted: inferred from the branch name ([<type>/]<issue>-<slug>); if not inferable, an error asks for --issue or --no-issue");
+  console.log("  --no-issue           Explicitly indicate this PR has no associated issue");
+  console.log("  <title>              PR title. Optional for non-squash repos without a message (the issue title is used); required for squash-merge repos, where it must follow Conventional Commits");
+  console.log("  --base <branch>      Target branch for PR (default: repository's default branch)");
+  console.log("  --repo-dir <path>    Repository directory (default: current)");
+  console.log("  --branch <name>      Source branch for PR (default: current branch)");
+  console.log("  --body <text>        PR body text");
+  console.log("  --body-file <file>   Read PR body from a file");
+  console.log("  --draft              Create as draft");
+  console.log("  --reviewer <handle>  Add a reviewer (can be repeated)");
+  console.log("  --assignee <handle>  Add an assignee (default: @me)");
+  console.log("  --label <name>       Add a label (can be repeated)");
+  console.log("  --at <hash-or-title> Partial-branch mode: open the PR from a merge branch created at the chosen commit");
+  console.log("  -h, --help           Show this help message and exit");
+  console.log("  -v, --version        Show version information and exit");
+  console.log("  -V, --verbose        Enable verbose output (debug logging)");
+  console.log("  --devenv             Safety override for devenv-repo operations");
+  process.exit(0);
 }
 
 function git(args: string[], opts: { capture?: boolean; quiet?: boolean } = {}): { ok: boolean; out: string } {
@@ -62,27 +66,57 @@ function git(args: string[], opts: { capture?: boolean; quiet?: boolean } = {}):
   return gitInherit(null, args);
 }
 
-function conventionalCommitsOk(title: string): boolean {
-  return new RegExp(`^(${COMMIT_TYPES.join("|")})(\\([^)]+\\))?!?: .+`).test(title);
+/**
+ * The ref whose commits a PR from BRANCH carries: the remote-tracking ref when
+ * the branch is already on origin (what the provider will show), else the
+ * local branch (about to be pushed).
+ */
+function prHeadRef(repoDir: string, branch: string): string {
+  const remote = `origin/${branch}`;
+  return gitCheck(repoDir, ["show-ref", "--verify", "--quiet", `refs/remotes/${remote}`]).ok ? remote : branch;
 }
 
-/** WIP scan (git-operations'): anchored ` WIP:` subject prefix in the range. */
-function wipScan(repoDir: string, range: string): { clean: boolean; offenders: string } {
-  const r = gitCheck(repoDir, ["log", range, "--format=%h %s"]);
-  const offenders = r.out.split("\n").filter((l) => l.includes(" WIP:")).join("\n");
-  return { clean: offenders === "", offenders };
-}
-
-function wipGuard(repoDir: string, range: string, context: string): boolean {
-  const wip = wipScan(repoDir, range);
-  if (!wip.clean) {
-    logError(`WIP: commits present in ${context} (${range}) — merge rejected.`);
-    logError("Offending commits:");
-    for (const line of wip.offenders.split("\n")) logError(`  ${line}`);
-    logError("Recovery: git-unwip (soft-reset past the WIP) or finish the work into real commits.");
+/**
+ * Refresh origin/<branch> so the WIP scan sees what the remote holds now (a WIP
+ * pushed from another clone is invisible while the tracking ref is stale).
+ * A branch that is not on the remote yet is fine (ls-remote exits 2 for "no
+ * matching refs"); any other failure to ask or to fetch blocks, because the
+ * scan would otherwise run against stale data.
+ */
+function refreshRemoteBranch(repoDir: string, branch: string): boolean {
+  const remote = spawnSync("git", ["-C", repoDir, "ls-remote", "--exit-code", "--heads", "origin", `refs/heads/${branch}`], { encoding: "utf8" });
+  if (remote.status === 2) return true;
+  if (remote.status !== 0) {
+    logError(`Could not refresh origin/${branch} (git ls-remote failed): ${(remote.stderr ?? "").trim()}`);
+    logError("PR creation rejected — the WIP scan needs the remote's current state.");
+    return false;
+  }
+  const fetched = gitCheck(repoDir, ["fetch", "--quiet", "origin", `+refs/heads/${branch}:refs/remotes/origin/${branch}`]);
+  if (!fetched.ok) {
+    logError(`Could not refresh origin/${branch} (git fetch failed): ${fetched.err.trim()}`);
+    logError("PR creation rejected — the WIP scan needs the remote's current state.");
     return false;
   }
   return true;
+}
+
+/**
+ * Fail-closed WIP gate over BASE..HEAD_REF: returns false (after printing why)
+ * when the range holds a WIP: commit or cannot be scanned at all.
+ */
+function wipGuard(repoDir: string, baseRef: string, headRef: string, context: string): boolean {
+  const range = `${baseRef}..${headRef}`;
+  const guard = wipRangeGuard(repoDir, range);
+  if (guard.ok) return true;
+  if (guard.offenders.length === 0) {
+    logError(`Could not scan ${context} (${range}) for WIP: commits — PR creation rejected.`);
+    return false;
+  }
+  logError(`WIP: commits present in ${context} (${range}) — merge rejected.`);
+  logError("Offending commits:");
+  for (const line of guard.offenders) logError(`  ${line}`);
+  logError("Recovery: git-unwip (soft-reset past the WIP) or finish the work into real commits.");
+  return false;
 }
 
 async function main(argv: string[]): Promise<number> {
@@ -122,6 +156,7 @@ async function main(argv: string[]): Promise<number> {
         at: { type: "string" },
       },
     });
+    if (cli.common.help) usage();
     const values = cli.values as Record<string, string | boolean | string[] | undefined>;
     issueNumber = ((values["issue"] as string | undefined) ?? "");
     noIssue = values["no-issue"] === true;
@@ -144,9 +179,6 @@ async function main(argv: string[]): Promise<number> {
     }
     prTitle = cli.positionals[0] ?? "";
     devenvFlag = cli.common.devenv;
-    if (cli.common.help) {
-      usage();
-    }
   } catch (err) {
     logError(errorMessage(err));
     console.log("Use --help for usage information");
@@ -170,29 +202,32 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_CONFLICT;
   }
 
-  // Issue inference: leading number of the branch leaf.
+  // Issue inference: leading `<number>-` of the branch leaf, accepted only
+  // after the issue is confirmed to exist (below).
+  let issueInferred = false;
   if (issueNumber === "" && !noIssue) {
     const leaf = branchName.includes("/") ? (branchName.split("/").pop() ?? "") : branchName;
-    const m = /^([0-9]+)/.exec(leaf);
+    const m = /^([0-9]+)-/.exec(leaf);
     if (m?.[1] === undefined) {
       console.error(`Error: No issue passed (--issue) and none inferable from branch name '${branchName || "<none>"}' — pass --issue <number> or --no-issue.`);
       return EXIT_MISUSE;
     }
     issueNumber = m[1];
+    issueInferred = true;
     console.error(`Inferred issue #${issueNumber} from branch '${branchName}'.`);
   }
 
   if (bodyFile !== "") {
     if (!existsSync(bodyFile)) {
       console.error(`Error: body file not found: ${bodyFile}`);
-      return EXIT_GENERAL_ERROR;
+      return EXIT_MISUSE;
     }
     prBody = readFileSync(bodyFile, "utf8");
   }
 
   if (issueNumber !== "" && noIssue) {
     console.error("Error: Cannot specify both --issue and --no-issue.");
-    return EXIT_GENERAL_ERROR;
+    return EXIT_MISUSE;
   }
   if (issueNumber !== "" && !/^[1-9][0-9]*$/.test(issueNumber)) {
     console.error("Error: Issue number must be numeric and positive.");
@@ -217,12 +252,18 @@ async function main(argv: string[]): Promise<number> {
 
   // Issue title (used when no PR title was given).
   let issueTitle = "";
+  let issueLookupOk = false;
   if (issueNumber !== "" && repoSpec !== "") {
     try {
       issueTitle = (await issuesView(repoSpec, Number.parseInt(issueNumber, 10), { json: "title", jq: ".title" })).trim();
+      issueLookupOk = true;
     } catch {
       issueTitle = "";
     }
+  }
+  if (issueInferred && !issueLookupOk) {
+    console.error(`Error: branch '${branchName}' suggests issue #${issueNumber}, but that issue could not be found — pass --issue <number> or --no-issue.`);
+    return EXIT_GENERAL_ERROR;
   }
 
   if (prTitle === "") {
@@ -283,8 +324,8 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (atCommit === "") {
-    const guardRange = current.startsWith("merge/") ? `${targetBranch}..${current}` : `${targetBranch}..HEAD`;
-    if (!wipGuard(repoDir, guardRange, "PR creation range")) {
+    if (!refreshRemoteBranch(repoDir, current)) return EXIT_GENERAL_ERROR;
+    if (!wipGuard(repoDir, `origin/${targetBranch}`, prHeadRef(repoDir, current), "PR creation range")) {
       return EXIT_GENERAL_ERROR;
     }
   }
@@ -321,15 +362,20 @@ async function main(argv: string[]): Promise<number> {
     const short = shortHash.out.trim();
     const mergeBranch = `merge/${short}-${current}`;
     if (gitCheck(repoDir, ["show-ref", "--verify", "--quiet", `refs/heads/${mergeBranch}`]).ok) {
-      console.error(`Merge branch ${mergeBranch} already exists — reusing it.`);
+      const tip = gitCheck(repoDir, ["rev-parse", "--verify", `refs/heads/${mergeBranch}^{commit}`]).out.trim();
+      if (tip !== resolvedHash) {
+        console.error(`Error: merge branch ${mergeBranch} already exists but does not point at ${resolvedHash} (it points at ${tip || "an unresolvable commit"}) — delete or rename it, then retry.`);
+        return EXIT_GENERAL_ERROR;
+      }
+      console.error(`Merge branch ${mergeBranch} already exists at the requested commit — reusing it.`);
       git(["-C", repoDir, "checkout", "-q", mergeBranch], { quiet: true });
     } else {
       git(["-C", repoDir, "checkout", "-q", "-b", mergeBranch, resolvedHash], { quiet: true });
     }
     currentBranchVar = mergeBranch;
-    if (!wipGuard(repoDir, `${targetBranch}..${currentBranchVar}`, "merge-branch range")) {
+    if (!wipGuard(repoDir, `origin/${targetBranch}`, mergeBranch, "merge-branch range")) {
       restoreBranch(repoDir, current);
-      return EXIT_API_FAILURE; // the restore matches the bash tool's EXIT trap
+      return EXIT_GENERAL_ERROR; // the restore matches the bash tool's EXIT trap
     }
     const push = gitInherit(repoDir, ["push", "-q", "-u", "origin", mergeBranch]);
     if (!push.ok) {

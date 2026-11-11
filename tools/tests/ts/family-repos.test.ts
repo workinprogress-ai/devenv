@@ -10,6 +10,11 @@ import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, mkdirSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { useProviderDown } from "./harness/index.ts";
+
+// These suites assert behaviour when the provider is down or unauthenticated; the
+// failure is stubbed so the regular run never starts a real gh or az.
+useProviderDown();
 
 const REPOS_TS = join(fileURLToPath(new URL(".", import.meta.url)), "../../lib/providers/github/repos.ts");
 const ORG_TS = join(fileURLToPath(new URL(".", import.meta.url)), "../../lib/providers/github/org.ts");
@@ -200,7 +205,7 @@ describe("repos.ts facade", () => {
       const cfg = m.RepoTypesConfigSchema.parse({ types: {
         service: { naming_pattern: ".*", naming_example: "x", has_wiki: true, has_issues: true, allow_auto_merge: true },
       }});
-      m.configureRepositoryFeaturesForType("org/repo", "service", cfg);
+      await m.configureRepositoryFeaturesForType("org/repo", "service", cfg);
       console.log("done");
     `.replaceAll("__FILE__", typesTs));
     expect(r.status).toBe(0);
@@ -228,7 +233,7 @@ describe("repos.ts facade", () => {
       const cfg = m.RepoTypesConfigSchema.parse({ types: {
         service: { naming_pattern: ".*", naming_example: "x", has_wiki: true, has_issues: true, allowForking: true },
       }});
-      m.configureRepositoryFeaturesForType("org/repo", "service", cfg);
+      await m.configureRepositoryFeaturesForType("org/repo", "service", cfg);
       console.log("done");
     `);
     expect(r.status).toBe(0);
@@ -427,7 +432,7 @@ describe("domain/repos/types.ts", () => {
       // (existingId = "") and the create attempt rides the (failing) PATH
       // gh — the contract under test is "no crash from the stale dir",
       // not the ruleset write itself.
-      m.configureRulesetsForType("org/service.a", "service", cfg, ${JSON.stringify(toolsRoot)});
+      await m.configureRulesetsForType("org/service.a", "service", cfg, ${JSON.stringify(toolsRoot)});
       console.log("survived");
     `);
     rmSync(join(tmpdir(), "ruleset-payload-"), { recursive: true, force: true });

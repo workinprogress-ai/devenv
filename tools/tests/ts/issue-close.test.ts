@@ -5,7 +5,6 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
 const TOOL = "issue-close";
@@ -17,7 +16,7 @@ function installGhStub(opts: { failClose?: boolean; missingIssue?: boolean } = {
   const lines = [
     "#!/usr/bin/env bash",
     'printf \'%s\\n\' "gh $*" >> "__LOG__"',
-    `if [ "${opts.missingIssue ? "1" : "0"}" = "1" ] && [ "$1 $2" = "issue view" ]; then exit 1; fi`,
+    `if [ "${opts.missingIssue ? "1" : "0"}" = "1" ] && [ "$1 $2" = "issue view" ]; then echo "GraphQL: Could not resolve to an Issue with the number of $3." >&2; exit 1; fi`,
     `if [ "${opts.failClose ? "1" : "0"}" = "1" ] && [ "$1 $2" = "issue close" ]; then echo "boom" >&2; exit 1; fi`,
     "exit 0",
     "",

@@ -6,7 +6,7 @@
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_CONFLICT, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { select } from "../lib/ui/prompts.ts";
@@ -49,7 +49,8 @@ try {
   header = cli.positionals[1] ?? "";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 const resolution = resolveNamespace(nsInput);

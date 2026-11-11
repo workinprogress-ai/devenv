@@ -414,11 +414,14 @@ export async function prsCreate(
 export interface PrsMergeOptions {
   /** rebase (default) | squash | noFastForward (--merge). */
   method?: "rebase" | "squash" | "noFastForward";
+  /** Delete the source branch after completion; off unless true. */
   deleteBranch?: boolean;
   /** --admin maps to completionOptions.bypassPolicy. */
   admin?: boolean;
   subject?: string;
   body?: string;
+  /** Refuse the completion unless the PR's source head is this commit. */
+  matchHeadCommit?: string;
 }
 
 /** Merge (complete) a PR. Guards with lastMergeSourceCommit (Azure would
@@ -444,6 +447,11 @@ export async function prsMerge(
       `could not resolve lastMergeSourceCommit for PR ${number} — refusing to complete without it (Azure would accept the PATCH but leave the PR active)`,
     );
   }
+  if (opts.matchHeadCommit !== undefined && opts.matchHeadCommit !== "" && opts.matchHeadCommit !== commitId) {
+    throw new ProviderError(
+      `PR ${number} head ${commitId} does not match the expected head ${opts.matchHeadCommit} — refusing to complete`,
+    );
+  }
   let message = opts.subject ?? "";
   if (message !== "" && opts.body !== undefined && opts.body !== "") {
     message = `${message}\n\n${opts.body}`;
@@ -452,7 +460,7 @@ export async function prsMerge(
   }
   const completionOptions: Record<string, unknown> = {
     mergeStrategy: method,
-    deleteSourceBranch: opts.deleteBranch !== false,
+    deleteSourceBranch: opts.deleteBranch === true,
   };
   if (opts.admin === true) {
     completionOptions.bypassPolicy = true;

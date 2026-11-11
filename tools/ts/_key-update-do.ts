@@ -8,15 +8,15 @@ import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { selfRoot, resolveToolsRoot } from "../lib/core/self-root.ts";
+import { selfRoot } from "../lib/core/self-root.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli } from "../lib/core/cli.ts";
+import { siblingInvocation } from "../lib/core/sibling.ts";
 
 assertNodeFloor();
 
 const devenvRoot = process.env["DEVENV_ROOT"] ?? selfRoot(import.meta.url);
-const tools = resolveToolsRoot(import.meta.url);
 const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
@@ -74,10 +74,10 @@ if (newToken.length < 32) {
   logWarn("Proceeding anyway...");
 }
 
-// 1. Update env-vars (Persistence): invoke the depth-1 entry by exact path —
-// the tools-root stub that honors the override chain.
+// 1. Update env-vars (Persistence) through the sibling devenv-add-env-vars tool.
 console.log("    - Updating environment variables...");
-const updater = spawnSync("bash", [join(tools, "devenv-add-env-vars"), `DO_TOKEN=${newToken}`], {
+const addEnv = siblingInvocation("devenv-add-env-vars", [`DO_TOKEN=${newToken}`]);
+const updater = spawnSync(addEnv.command, addEnv.args, {
   stdio: "inherit",
 });
 if ((updater.status ?? 1) !== 0) process.exit(updater.status ?? 1);

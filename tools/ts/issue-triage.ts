@@ -14,18 +14,16 @@
 //   deferred to the interactive polish pass — this port implements the
 //   scripted surface and refuses the wizard without a TTY.
 
-import { basename, join } from "node:path";
-import { existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { basename } from "node:path";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
-import { logError, logInfo } from "../lib/core/logging.ts";
+import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesEdit } from "../lib/providers/facade/issues.ts";
+import { fireEvent } from "../lib/domain/issues/graph.ts";
 
 assertNodeFloor();
 
@@ -91,19 +89,13 @@ async function applyIssueBundle(
   }
   if (bundle.triageComplete === true) {
     didAny = true;
-    // Resolve the dispatcher relative to this script (../../internal/ from
-    // tools/ts/) so it fires from any cwd.
-    const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-    const dispatcher = join(scriptDir, "..", "internal", "_on_triage_complete.sh");
-    if (existsSync(dispatcher)) {
-      try {
-        execFileSync("bash", [dispatcher, String(issue)], { stdio: ["ignore", "ignore", "ignore"] });
-      } catch {
-        logError("triage-complete signal failed");
-        failed = 1;
-      }
-    } else {
-      logError("event script internal/_on_triage_complete.sh not found");
+    // Fire the event in-process: the same path workflow-signal uses, so a
+    // failed status write is reported here instead of vanishing in a child.
+    const fired = await fireEvent("_on_triage_complete", Number(issue), {
+      onWarning: (m) => logWarn(m.replace(/^WARNING: /, "")),
+    });
+    if (!fired.ok) {
+      logError(`triage-complete signal failed${fired.error !== undefined ? `: ${fired.error}` : ""}`);
       failed = 1;
     }
   }

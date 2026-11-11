@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { runTool as runHarness } from "./harness/index.ts";
+import { runTool as runHarness, toolScript } from "./harness/index.ts";
 import { fileURLToPath } from "node:url";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
@@ -108,9 +108,7 @@ describe("issue management family (behavioral port)", () => {
 
   it("issue-create: Task with parent is born Ready", () => {
     setupBirthRuleHarness();
-    const r = spawnSync(
-      "bash",
-      [join(TOOLS, "issue-create"), "--title", "birth rule probe", "--type", "Task", "--parent", "42", "--no-interactive"],
+    const r = spawnSync("node", [toolScript("issue-create"), "--title", "birth rule probe", "--type", "Task", "--parent", "42", "--no-interactive"],
       { encoding: "utf8", env: birthEnv() },
     );
     const out = (r.stdout ?? "") + (r.stderr ?? "");
@@ -126,9 +124,7 @@ describe("issue management family (behavioral port)", () => {
 
   it("issue-create: standalone issue is born TBD", () => {
     setupBirthRuleHarness();
-    const r = spawnSync(
-      "bash",
-      [join(TOOLS, "issue-create"), "--title", "birth rule probe standalone", "--type", "Task", "--no-interactive"],
+    const r = spawnSync("node", [toolScript("issue-create"), "--title", "birth rule probe standalone", "--type", "Task", "--no-interactive"],
       { encoding: "utf8", env: birthEnv() },
     );
     const out = (r.stdout ?? "") + (r.stderr ?? "");
@@ -145,9 +141,7 @@ describe("issue management family (behavioral port)", () => {
     // someone else's change) start Ready under a parent; deliverables start
     // at TBD regardless of nesting.
     setupBirthRuleHarness();
-    const r = spawnSync(
-      "bash",
-      [join(TOOLS, "issue-create"), "--title", "birth rule probe bug", "--type", "Bug", "--parent", "42", "--no-interactive"],
+    const r = spawnSync("node", [toolScript("issue-create"), "--title", "birth rule probe bug", "--type", "Bug", "--parent", "42", "--no-interactive"],
       { encoding: "utf8", env: birthEnv() },
     );
     expect(r.status).toBe(0);
@@ -258,7 +252,7 @@ describe("issue management family (behavioral port)", () => {
     spawnSync("chmod", ["+x", join(bin, "gh")]);
     const repo = join(TMP, "test-repo");
     spawnSync("git", ["init", "-q", repo]);
-    const r = spawnSync("bash", [join(TOOLS, "issue-close"), "5"], {
+    const r = spawnSync("node", [toolScript("issue-close"), "5"], {
       cwd: repo,
       encoding: "utf8",
       env: {
@@ -284,7 +278,7 @@ describe("issue management family (behavioral port)", () => {
     spawnSync("chmod", ["+x", join(bin, "gh")]);
     const repo = join(TMP, "test-repo");
     spawnSync("git", ["init", "-q", repo]);
-    const r = spawnSync("bash", [join(TOOLS, "issue-close"), "--select"], {
+    const r = spawnSync("node", [toolScript("issue-close"), "--select"], {
       cwd: repo,
       encoding: "utf8",
       env: {
@@ -308,7 +302,7 @@ describe("issue management family (behavioral port)", () => {
     spawnSync("chmod", ["+x", join(bin, "gh")]);
     const repo = join(TMP, "test-repo");
     spawnSync("git", ["init", "-q", repo]);
-    const r = spawnSync("bash", [join(TOOLS, "issue-update"), "--select"], {
+    const r = spawnSync("node", [toolScript("issue-update"), "--select"], {
       cwd: repo,
       encoding: "utf8",
       env: {

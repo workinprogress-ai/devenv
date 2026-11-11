@@ -6,7 +6,6 @@
 
 import { copyFileSync, existsSync, mkdirSync, chmodSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
@@ -60,19 +59,25 @@ try {
   const positionals = cli.positionals;
   if (positionals.length > 1) {
     logError(`Unexpected argument: ${positionals[1]}`);
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }
   scriptName = positionals[0] ?? "";
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
 if (scriptName === "") {
   logError("Script name is required");
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
+
+if (scriptName.includes("/")) {
+  logError(`Script name must not contain '/': ${scriptName} (use --dir to choose the directory)`);
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
@@ -88,7 +93,7 @@ if (!existsSync(templateFile)) {
   process.exit(1);
 }
 
-if (outputDir === "") outputDir = `${process.env.PROJECT_ROOT ?? process.env.DEVENV_ROOT ?? process.cwd()}/scripts`;
+if (outputDir === "") outputDir = `${process.env.PROJECT_ROOT ?? process.env.DEVENV_ROOT ?? selfRoot(import.meta.url)}/scripts`;
 mkdirSync(outputDir, { recursive: true });
 
 const outputFile = join(outputDir, scriptName);

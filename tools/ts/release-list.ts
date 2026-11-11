@@ -10,12 +10,10 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, checkTargetRepo, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { orgReleasesList } from "../lib/providers/facade/org.ts";
 
 assertNodeFloor();
-
-ensureProviderAuth();
 
 let outputFormat: "table" | "json" | "simple" = "table";
 let limit = "20";
@@ -53,19 +51,26 @@ try {
   if (cli.common.help) usage();
   devenvOverride = cli.values.devenv === true;
   if (typeof cli.values.format === "string" && cli.values.format !== "") {
-    outputFormat = cli.values.format as "table" | "json" | "simple";
+    if (cli.values.format !== "table" && cli.values.format !== "json" && cli.values.format !== "simple") {
+      throw new Error(`Invalid format: ${cli.values.format} (must be table, json or simple)`);
+    }
+    outputFormat = cli.values.format;
   }
   if (typeof cli.values.limit === "string" && cli.values.limit !== "") {
     if (!/^[0-9]+$/.test(cli.values.limit)) {
-      logError(`--limit requires a numeric argument: ${cli.values.limit}`);
-      process.exit(EXIT_MISUSE);
+      throw new Error(`--limit requires a numeric argument: ${cli.values.limit}`);
     }
     limit = cli.values.limit;
   }
+  if (cli.positionals.length > 0) throw new Error(`Unexpected argument: ${cli.positionals[0]}`);
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
+
+// Authenticate only after the arguments parsed: help and misuse need no provider.
+ensureProviderAuth();
 
 if (providerOrgGet() === "") {
   logError("Organization identity unresolved. Configure [organization] org in devenv.config or run setup.");
@@ -78,14 +83,8 @@ if (repoSpec === "") {
   process.exit(EXIT_GENERAL_ERROR);
 }
 
-// Devenv-repo safety gate (resolve_target_repo parity): implicit targets only.
-if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "") && !devenvOverride) {
-  logError("The current repository appears to be the devenv repository itself");
-  console.log("Operations should be performed in target project repositories, not in devenv");
-  console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");
-  console.log("To override this safety check (devenv-repo work only), pass the --devenv flag");
-  process.exit(EXIT_GENERAL_ERROR);
-}
+// Devenv-repo safety gate: implicit targets only.
+checkTargetRepo(devenvOverride);
 
 interface Release {
   tagName?: string;

@@ -8,6 +8,7 @@ import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toolScript } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -50,27 +51,27 @@ function git(args: string[]): string {
 
 describe("scripts/git-helper-args", () => {
   it("git-unwip --help prints usage and leaves history alone", () => {
-    const r = spawnSync("bash", [join(TOOLS, "git-unwip"), "--help"], { cwd: REPO, encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("git-unwip"), "--help"], { cwd: REPO, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).toBe(0);
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("Usage");
     expect(git(["rev-parse", "HEAD"])).toBe(HEAD_BEFORE);
   });
 
   it("git-unwip refuses an unknown argument and leaves history alone", () => {
-    const r = spawnSync("bash", [join(TOOLS, "git-unwip"), "--bogus"], { cwd: REPO, encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("git-unwip"), "--bogus"], { cwd: REPO, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).not.toBe(0);
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("Usage");
     expect(git(["rev-parse", "HEAD"])).toBe(HEAD_BEFORE);
   });
 
   it("git-update --help prints usage without touching the repository", () => {
-    const r = spawnSync("bash", [join(TOOLS, "git-update"), "--help"], { cwd: REPO, encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("git-update"), "--help"], { cwd: REPO, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).toBe(0);
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("Usage");
   });
 
   it("git-update refuses an unknown argument", () => {
-    const r = spawnSync("bash", [join(TOOLS, "git-update"), "--bogus"], { cwd: REPO, encoding: "utf8", env: GIT_ENV() });
+    const r = spawnSync("node", [toolScript("git-update"), "--bogus"], { cwd: REPO, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).not.toBe(0);
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("Usage");
   });

@@ -10,13 +10,13 @@ import { spawnSync } from "node:child_process";
 import { requireCommandOrExit } from "../lib/core/commands.ts";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, basename } from "node:path";
-import { fileURLToPath } from "node:url";
 import { resolveToolsRoot, selfRoot } from "../lib/core/self-root.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { siblingInvocation } from "../lib/core/sibling.ts";
 import {
   getReverseDependencyTree,
   getTopologicalGenerations,
@@ -222,7 +222,7 @@ function waitForWorkflowRuns(repo: string, branch: string, interval: number, tim
 /** Sync wrapper over the facade's run list (the wizard is a top-level
  * script; the facade verb is async — bridge with spawnSync on the stub). */
 function runPipelinesListSync(repo: string, branch: string, limit: number, json: string): string {
-  const toolsRoot = process.env.DEVENV_TOOLS ?? resolveToolsRoot(fileURLToPath(import.meta.url));
+  const toolsRoot = resolveToolsRoot(import.meta.url);
   // Through the provider facade verb via its own module import in-process is
   // async; the wizard's sync flow bridges through the facade-backed lib with
   // a subprocess import — the provider seam stays the only gh caller.
@@ -251,7 +251,7 @@ function getFullRepoName(repoDir: string): string {
 function defaultBranch(repoFull: string): string {
   try {
     // Sync bridge over the async facade verb (same mechanism as the run list).
-    const toolsRoot = process.env.DEVENV_TOOLS ?? resolveToolsRoot(fileURLToPath(import.meta.url));
+    const toolsRoot = resolveToolsRoot(import.meta.url);
     const script = `import { reposView } from "${join(toolsRoot, "lib/providers/facade/repos.ts")}";
     const out = await reposView(${JSON.stringify(repoFull)}, { json: "defaultBranch" });
     const j = JSON.parse(out) as { defaultBranch?: string };
@@ -362,13 +362,13 @@ function countNonTestCsproj(dir: string): number {
 }
 
 function runSingleRepoWizard(args: WizardArgs, repoDir: string): number {
-  const toolsRoot = process.env.DEVENV_TOOLS ?? resolveToolsRoot(fileURLToPath(import.meta.url));
   const wizardArgs = ["--branch", UPDATE_BRANCH];
   if (args.framework !== "") wizardArgs.push("--framework", args.framework);
   if (args.langVersion !== "") wizardArgs.push("--lang-version", args.langVersion);
   if (args.langDefault) wizardArgs.push("--lang-default");
   wizardArgs.push(repoDir);
-  const r = spawnSync(join(toolsRoot, SINGLE_REPO_WIZARD), wizardArgs, { stdio: "inherit" });
+  const inv = siblingInvocation(SINGLE_REPO_WIZARD, wizardArgs);
+  const r = spawnSync(inv.command, inv.args, { stdio: "inherit" });
   return r.status ?? 1;
 }
 
@@ -492,7 +492,7 @@ async function main(): Promise<void> {
 
   // ── Step 4: process each generation ──
   const repoCacheDir =
-  process.env.REPO_CACHE_DIR ?? join(selfRoot(process.cwd()), "tools", "cache", "repo_cache");
+  process.env.REPO_CACHE_DIR ?? join(selfRoot(import.meta.url), "tools", "cache", "repo_cache");
 
   for (let idx = 0; idx < depths.length; idx++) {
     const depth = depths[idx] as number;

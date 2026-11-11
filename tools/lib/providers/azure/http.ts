@@ -183,13 +183,17 @@ export async function azureHttp<T = unknown>(
     if ([429, 500, 502, 503, 504].includes(r.status)) {
       const canRetry = r.status === 429 || retryOk;
       if (canRetry && attempt < AZURE_HTTP_MAX_RETRIES) {
-        const ra = r.headers.get("Retry-After");
-        if (ra !== null && r.status === 429) {
-          await sleep(Number(ra) * 1000);
-        } else {
-          await sleep(attempt * 2000);
-        }
+        const hinted = r.status === 429 ? retryAfterMs(r.headers.get("Retry-After")) : null;
+        await sleep(hinted ?? attempt * 2000);
         continue;
+      }
+      if (!canRetry) {
+        // A POST/PATCH that may have taken effect is never re-sent, so no
+        // retry was attempted: say that, not "gave up after N attempts".
+        throw new ProviderError(
+          `azure http ${r.status}: not retried (the ${method} request may have taken effect)` +
+            buildBodySuffix(r.body),
+        );
       }
       throw new ProviderError(
         `azure http ${r.status}: gave up after ${attempt} attempt(s)` +
@@ -207,7 +211,7 @@ export async function azureHttp<T = unknown>(
     } catch {
       // keep the HTTP-code fallback
     }
-    throw new ProviderError(azureRedact(message).slice(0, 500));
+    throw new ProviderError(azureRedact(message).slice(0, 500), r.status);
   }
   throw new ProviderError(lastError === "" ? "azure http: exhausted retries" : lastError);
 }
@@ -215,6 +219,17 @@ export async function azureHttp<T = unknown>(
 // ---------------------------------------------------------------------------
 // Pagination
 // ---------------------------------------------------------------------------
+/** Longest wait a server's Retry-After may impose. */
+export const AZURE_RETRY_AFTER_CAP_MS = 60_000;
+
+/** The delay a Retry-After header asks for, in ms, capped at one minute;
+ * null when the header is absent or not a non-negative whole number of
+ * seconds (the caller then uses its own backoff). */
+export function retryAfterMs(header: string | null): number | null {
+  if (header === null || !/^\d{1,9}$/.test(header.trim())) return null;
+  return Math.min(Number(header.trim()) * 1000, AZURE_RETRY_AFTER_CAP_MS);
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }

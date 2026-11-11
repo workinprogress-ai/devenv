@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { runTool as runHarness } from "./harness/index.ts";
+import { runTool as runHarness, toolScript } from "./harness/index.ts";
 
 function TMPDIR(): string {
   return tmpdir();
@@ -25,14 +25,14 @@ function runTool(tool: string, args: string[], via: "node" | "bash" | "direct" =
   }
   const r =
     via === "bash"
-      ? spawnSync("bash", [join(TOOLS, tool), ...args], { encoding: "utf8" })
-      : spawnSync(join(TOOLS, tool), args, { encoding: "utf8" });
+      ? spawnSync("node", [toolScript(tool), ...args], { encoding: "utf8" })
+      : spawnSync("node", [toolScript(tool), ...args], { encoding: "utf8" });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
 describe("scripts/issue-labels", () => {
   it("issue-label-list.sh has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", join(TOOLS, "issue-label-list")]).status).toBe(0);
+    expect(spawnSync("node", ["--check", toolScript("issue-label-list")]).status).toBe(0);
   });
 
   it("issue-label-list.sh has --help flag", () => {
@@ -49,7 +49,7 @@ describe("scripts/issue-labels", () => {
   });
 
   it("issue-label-create.sh has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", join(TOOLS, "issue-label-create")]).status).toBe(0);
+    expect(spawnSync("node", ["--check", toolScript("issue-label-create")]).status).toBe(0);
   });
 
   it("issue-label-create.sh has --help flag", () => {
@@ -91,7 +91,7 @@ describe("scripts/issue-labels", () => {
   });
 
   it("issue-update.sh has valid bash syntax", () => {
-    expect(spawnSync("bash", ["-n", join(TOOLS, "issue-update")]).status).toBe(0);
+    expect(spawnSync("node", ["--check", toolScript("issue-update")]).status).toBe(0);
   });
 
   it("issue-update help documents --type and --remove-type", () => {
@@ -104,7 +104,7 @@ describe("scripts/issue-labels", () => {
   it("issue-update.sh rejects invalid type", () => {
     // Validation fires in update_issue after auth. Without auth in the test
     // env this may exit earlier; accept either the type error or skip on auth.
-    const r = spawnSync(join(TOOLS, "issue-update"), ["42", "--type", "InvalidType"], { encoding: "utf8", env: { ...process.env, DEVENV_ROOT: join(TMPDIR(), "issue-labels-noauth") } });
+    const r = spawnSync("node", [toolScript("issue-update"), "42", "--type", "InvalidType"], { encoding: "utf8", env: { ...process.env, DEVENV_ROOT: join(TMPDIR(), "issue-labels-noauth") } });
     const result = (r.stdout ?? "") + (r.stderr ?? "");
     if (!result.includes("Invalid issue type")) {
       // skip: validation unreachable without auth in test env

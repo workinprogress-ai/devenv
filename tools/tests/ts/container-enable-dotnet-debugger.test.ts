@@ -3,7 +3,6 @@
 // a given container name reaches docker. docker is a recording stand-in on
 // PATH.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { spawnSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync, chmodSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

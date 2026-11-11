@@ -10,6 +10,8 @@ import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { toolCli } from "../lib/core/cli.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 import { remoteToWeb } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
@@ -31,12 +33,19 @@ Options:
   process.exit(0);
 }
 
-const cli = toolCli({
-  name: "repo-get-web-url",
-  version: SCRIPT_VERSION,
-  argv: process.argv.slice(2),
-  noDryRun: true,
-});
+let cli: ReturnType<typeof toolCli>;
+try {
+  cli = toolCli({
+    name: "repo-get-web-url",
+    version: SCRIPT_VERSION,
+    argv: process.argv.slice(2),
+    noDryRun: true,
+  });
+} catch (err) {
+  console.error(errorMessage(err));
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
 if (cli.common.help) showUsage();
 const repoDirArg = cli.positionals[0];
 

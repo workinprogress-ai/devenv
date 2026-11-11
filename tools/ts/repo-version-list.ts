@@ -6,7 +6,6 @@
 //              Takes no arguments.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { gitCapture } from "../lib/core/git.ts";
@@ -63,22 +62,40 @@ if (git(["rev-parse", "--is-inside-work-tree"]).status !== 0) {
   process.exit(1);
 }
 
-const tags = git(["tag", "-l", "v*"]).out.trim();
-if (tags === "") {
+// Two git processes in total, whatever the tag count: one lists the tags in
+// version order with the commit each points at (peeled through annotated
+// tags), one prints the facts of all those commits.
+const US = "\x1f";
+const tagRows = git([
+  "for-each-ref",
+  "--sort=version:refname",
+  `--format=%(refname:short)${US}%(if)%(*objectname)%(then)%(*objectname)%(else)%(objectname)%(end)`,
+  "refs/tags/v*",
+]).out
+  .split("\n")
+  .filter((l) => l !== "")
+  .map((l) => l.split(US) as [string, string]);
+if (tagRows.length === 0) {
   console.error("No version tags found in the repository.");
   process.exit(0);
 }
+const uniqueHashes = [...new Set(tagRows.map(([, hash]) => hash))];
+const facts = new Map<string, { date: string; short: string; title: string }>();
+for (const line of git(["show", "-s", "--format=%H" + US + "%ci" + US + "%h" + US + "%s", ...uniqueHashes]).out.split("\n")) {
+  const [hash, ci, short, ...title] = line.split(US);
+  if (hash !== undefined && ci !== undefined && short !== undefined) {
+    facts.set(hash, { date: ci, short, title: title.join(US) });
+  }
+}
 
 let firstCommit = true;
-for (const tag of tags.split("\n")) {
-  if (tag === "") continue;
-  const commitHash = git(["rev-list", "-n", "1", tag]).out.trim();
-  // cut -d' ' -f1,2 then cut -d':' -f1,2 → "YYYY-MM-DD HH:MM"
-  const dateRaw = git(["show", "-s", "--format=%ci", commitHash]).out.trim();
-  const dateTime = dateRaw.split(" ").slice(0, 2).join(" ");
+for (const [tag, commitHash] of tagRows) {
+  const fact = facts.get(commitHash);
+  // "YYYY-MM-DD HH:MM:SS +ZZZZ" → "YYYY-MM-DD HH:MM"
+  const dateTime = (fact?.date ?? "").split(" ").slice(0, 2).join(" ");
   const commitDate = dateTime.split(":").slice(0, 2).join(":");
-  const shortHash = git(["show", "-s", "--format=%h", commitHash]).out.trim();
-  const title = git(["show", "-s", "--format=%s", commitHash]).out.trim();
+  const shortHash = fact?.short ?? "";
+  const title = fact?.title ?? "";
   const version = tag.replace(/^v/, "");
 
   let changeType: string;

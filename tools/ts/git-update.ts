@@ -7,9 +7,9 @@
 // Version: 1.1.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { spawnSync } from "node:child_process";
-import { readSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { readLineStdin } from "../lib/core/stdin-line.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { gitCheck } from "../lib/core/git.ts";
 import { logError } from "../lib/core/logging.ts";
@@ -80,7 +80,8 @@ const currentBranch = git(["rev-parse", "--abbrev-ref", "HEAD"]).out.trim();
 console.log(`On branch '${currentBranch}'.`);
 
 // Check if the current branch has an upstream branch set
-if (git(["rev-parse", "--abbrev-ref", "@{u}"]).status !== 0) {
+const upstreamName = git(["rev-parse", "--abbrev-ref", "@{u}"]);
+if (upstreamName.status !== 0) {
   fail(
     `Error: No upstream branch is set for '${currentBranch}'.`,
     `Please set the upstream branch (e.g., 'git branch --set-upstream-to=origin/${currentBranch}') or switch branches.`,
@@ -91,8 +92,10 @@ if (git(["rev-parse", "--abbrev-ref", "@{u}"]).status !== 0) {
 const localSha = git(["rev-parse", "@"]).out.trim();
 const remoteSha = git(["rev-parse", "@{u}"]).out.trim();
 const baseSha = git(["merge-base", "@", "@{u}"]).out.trim();
-// Every action below targets the same ref the classification used.
+// Every action below targets the same ref the classification used: the
+// branch's own upstream (rewriteDetectState derives it from the branch).
 const upstreamRef = remoteSha;
+const upstreamShort = upstreamName.out.trim();
 
 if (localSha === remoteSha) {
   console.log("Your branch is up to date with the remote.");
@@ -123,18 +126,18 @@ if (localSha === remoteSha) {
   }
   if (state.verdict === "clean") {
     console.log(`The remote history of branch '${currentBranch}' was rewritten; this clone has no unique commits.`);
-    console.log(`Resetting to the rewritten origin/${currentBranch}...`);
+    console.log(`Resetting to the rewritten ${upstreamShort}...`);
     const reset = git(["reset", "--hard", upstreamRef]);
     if (reset.status !== 0) {
       fail(
         "Error: reset failed. Recovery: re-run git-update,",
-        `or 'git reset --hard origin/${currentBranch}' manually.`,
+        `or 'git reset --hard ${upstreamShort}' manually.`,
       );
     }
     // The parent env cannot be mutated from a child process — emit the scan
     // base as a parseable line for the consumers (provision devenv-update,
     // check-update-devenv-repo.sh): GIT_UPDATE_SCAN_BASE=<sha>.
-    console.log(`Reset to origin/${currentBranch} complete.`);
+    console.log(`Reset to ${upstreamShort} complete.`);
     console.log(`GIT_UPDATE_SCAN_BASE=${pastTip}`);
     process.exit(0);
   }
@@ -145,7 +148,7 @@ if (localSha === remoteSha) {
   if (merges !== "") {
     console.log(`The remote history of branch '${currentBranch}' was rewritten, and local history`);
     console.log("contains merge commit(s), which a rebase would not preserve.");
-    console.log("Manual intervention is required: rebase onto origin/" + currentBranch + " yourself");
+    console.log("Manual intervention is required: rebase onto " + upstreamShort + " yourself");
     console.log("(consider --rebase-merges) or reset if the local work is disposable.");
     process.exit(1);
   }
@@ -165,23 +168,22 @@ if (localSha === remoteSha) {
       (mergePath !== "" && existsGitPath(mergePath)) || (applyPath !== "" && existsGitPath(applyPath));
     if (inProgress) {
       git(["rebase", "--abort"]);
-      console.log(`Rebase onto the rewritten origin/${currentBranch} conflicted; the rebase was aborted.`);
+      console.log(`Rebase onto the rewritten ${upstreamShort} conflicted; the rebase was aborted.`);
       console.log("Your branch is unchanged. Resolve manually:");
-      console.log(`  git rebase --onto origin/${currentBranch} ${pastTip}   (resolve conflicts as they appear)`);
-      console.log(`  or discard local commits: git reset --hard origin/${currentBranch}`);
+      console.log(`  git rebase --onto ${upstreamShort} ${pastTip}   (resolve conflicts as they appear)`);
+      console.log(`  or discard local commits: git reset --hard ${upstreamShort}`);
     } else {
-      console.error(`Rebase onto the rewritten origin/${currentBranch} failed to start; nothing changed.`);
+      console.error(`Rebase onto the rewritten ${upstreamShort} failed to start; nothing changed.`);
     }
     process.exit(1);
   }
-  console.log(`Replayed local commits on the rewritten origin/${currentBranch}.`);
+  console.log(`Replayed local commits on the rewritten ${upstreamShort}.`);
   console.log(`GIT_UPDATE_SCAN_BASE=${pastTip}`);
   process.exit(0);
 }
 
 function existsGitPath(p: string): boolean {
-  const r = spawnSync("test", ["-d", p]);
-  return r.status === 0;
+  return existsSync(p);
 }
 
 // Check for uncommitted changes
@@ -192,7 +194,7 @@ if (git(["status", "--porcelain"]).out.trim() !== "") {
   console.log("  2) Discard all local changes and pull updates (WARNING: This cannot be undone)");
   console.log("  3) Abort the update");
   console.error("Enter your choice (1/2/3): ");
-  const choice = readLineStdin();
+  const choice = readLineStdin() ?? "";
 
   if (choice === "1") {
     console.log("Stashing changes...");
@@ -254,24 +256,3 @@ if (git(["status", "--porcelain"]).out.trim() !== "") {
 }
 
 console.log("Repository update complete.");
-
-function readLineStdin(): string {
-  let buf = Buffer.alloc(0);
-  const chunk = Buffer.alloc(1);
-  while (true) {
-    const idx = buf.indexOf(0x0a);
-    if (idx !== -1) return buf.subarray(0, idx).toString("utf8").trim();
-    let n = 0;
-    try {
-      n = readSync0(chunk);
-    } catch {
-      return "";
-    }
-    if (n <= 0) return buf.toString("utf8").trim();
-    buf = Buffer.concat([buf, chunk.subarray(0, n)]);
-  }
-}
-
-function readSync0(chunk: Buffer): number {
-  return readSync(0, chunk, 0, 1, null);
-}

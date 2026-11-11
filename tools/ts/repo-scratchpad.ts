@@ -10,7 +10,7 @@ import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import {
   SCRATCHPAD_BRANCH_PREFIX, SCRATCHPAD_STATE_REF, activeBranch, baseCommit,
-  bisectInFlight, clearState, git, isActive, isDirty, onScratchBranch,
+  bisectInFlight, clearState, git, isActive, isDirty, onActiveScratchBranch, onScratchBranch,
   recordState, returnToBaseChecked, snapshotCarry, syncStateRef, validateSlug,
   workingBranch,
 } from "../lib/domain/scratchpad.ts";
@@ -51,33 +51,33 @@ const requireRepo = (): void => {
 };
 
 // Subcommand dispatch is positionally driven (status/reset/promote/...);
-// only the house flags and --carry route through toolCli — the subcommand
-// and its own operands (slug, title words, sha) stay raw tokens.
+// toolCli parses strictly, so an unknown flag is misuse and the subcommand and
+// its operands (slug, title words, sha) are the positionals. A title word that
+// looks like a flag is only reachable after `--` (repo-scratchpad commit -- "-x fix").
 let carryFlag = false;
+let positionals: string[] = [];
 try {
   const cli = toolCli({
     name: "repo-scratchpad",
     version: "1.0.0",
     argv: process.argv.slice(2),
     noDryRun: true,
-    // Non-strict: the subcommand and its operands are raw tokens, and a
-    // title word may look like a flag (repo-scratchpad commit "-x fix").
-    strict: false,
     options: {
       carry: { type: "boolean", default: false },
     },
   });
   if (cli.common.help) usage();
   carryFlag = cli.values["carry"] === true;
+  positionals = cli.positionals;
 } catch (err) {
   console.error(errorMessage(err));
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
-const argv = process.argv.slice(2);
-if (argv.length === 0) usage();
-const cmd = argv[0] as string;
-const rest = argv.slice(1);
+if (positionals.length === 0) usage();
+const cmd = positionals[0] as string;
+const rest = positionals.slice(1);
 
 // --- enter ---
 if (cmd === "enter") {
@@ -88,9 +88,7 @@ if (cmd === "enter") {
   }
   let slug = "";
   for (const a of rest) {
-    if (a === "--carry") continue; // already lifted by toolCli
-    else if (a === "-h" || a === "--help") usage();
-    else if (slug === "") slug = a;
+    if (slug === "") slug = a;
     else { console.error(`Error: unexpected argument '${a}'`); process.exit(EXIT_MISUSE); }
   }
   if (slug === "") slug = "exp";
@@ -105,7 +103,10 @@ if (cmd === "enter") {
   if (isDirty()) {
     if (carryFlag) {
       console.error("⚠️  CARRY: dirty tree carried into the scratchpad. scratchpad reset will DESTROY carried work.");
-      snapshotCarry(slug);
+      if (!snapshotCarry(slug)) {
+        console.error("Error: the carry snapshot could not be written — refusing entry (reset would destroy the carried work with no salvage record).");
+        process.exit(EXIT_GENERAL_ERROR);
+      }
     } else {
       console.error("Error: working tree is dirty — save work first (git wip or commit), or use --carry to snapshot and proceed.");
       process.exit(EXIT_GENERAL_ERROR);
@@ -118,9 +119,29 @@ if (cmd === "enter") {
     console.error(`Error: branch '${branch}' already exists — pick another slug or remove it.`);
     process.exit(EXIT_CONFLICT);
   }
-  git(["checkout", "-q", "-b", branch]);
-  if (!recordState(slug, base, branch, origin)) {
-    console.error(`Error: a scratchpad was activated concurrently — refusing to overwrite its state. Existing: ${activeBranch()}`);
+  if (base === "") {
+    console.error("Error: cannot resolve HEAD (repository has no commits?) — nothing to cut a scratchpad from.");
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+  const cut = git(["checkout", "-q", "-b", branch]);
+  if (!cut.ok) {
+    console.error(`Error: could not create and check out '${branch}' — nothing was activated.`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+  const recorded = recordState(slug, base, branch, origin);
+  if (!recorded.ok) {
+    // Roll the activation back: return to where entry started, then drop the
+    // just-cut (commit-less) branch — never while still standing on it.
+    const back = origin !== "" ? git(["checkout", "-q", origin]) : git(["checkout", "-q", "--detach", base]);
+    const dropped = back.ok && git(["branch", "-q", "-D", branch]).ok;
+    if (recorded.reason === "concurrent") {
+      console.error(`Error: a scratchpad was activated concurrently — refusing to overwrite its state. Existing: ${activeBranch()}`);
+    } else {
+      console.error(`Error: could not record the scratchpad state (${recorded.detail}).`);
+    }
+    if (!dropped) {
+      console.error(`Error: the activation rollback was incomplete — you may still be on '${branch}'. Recovery (user's hands): git checkout ${origin !== "" ? origin : base}; git branch -D ${branch}`);
+    }
     process.exit(EXIT_GENERAL_ERROR);
   }
   console.log(`Scratchpad active: ${branch} (base: ${base.slice(0, 7)})`);
@@ -173,7 +194,10 @@ if (cmd === "resume") {
     console.error("Error: working tree/index is dirty — a post-promote pause may hold the staged salvage. Land it first (repo-scratchpad exit keeps staged work; then commit via the normal flow), or clean the tree, then resume.");
     process.exit(EXIT_GENERAL_ERROR);
   }
-  git(["checkout", "-q", branch]);
+  if (!git(["checkout", "-q", branch]).ok) {
+    console.error(`Error: could not check out ${branch} — still not resumed.`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
   syncStateRef();
   console.log(`Resumed: HEAD on ${branch}`);
   process.exit(0);
@@ -190,8 +214,8 @@ if (cmd === "commit") {
     console.error("Error: no scratchpad active — enter one first (commits here are hook-bypassing and must stay on the scratchpad branch)");
     process.exit(EXIT_GENERAL_ERROR);
   }
-  if (!onScratchBranch()) {
-    console.error("Error: HEAD is not on the scratch branch — return first: repo-scratchpad resume (raw git checkout is not sanctioned)");
+  if (!onActiveScratchBranch()) {
+    console.error("Error: HEAD is not on the scratch branch (the active one) — return first: repo-scratchpad resume (raw git checkout is not sanctioned)");
     process.exit(EXIT_GENERAL_ERROR);
   }
   const title = rest.join(" ");
@@ -217,8 +241,8 @@ if (cmd === "reset") {
     console.error("Error: a git bisect session is mid-flight — finish or abort it (git bisect reset) before resetting the scratchpad.");
     process.exit(EXIT_GENERAL_ERROR);
   }
-  if (!onScratchBranch()) {
-    console.error("Error: HEAD is not on the scratch branch — reset would rewind a non-scratch branch. Return first: repo-scratchpad resume");
+  if (!onActiveScratchBranch()) {
+    console.error("Error: HEAD is not on the scratch branch (the active one) — reset would rewind some other branch. Return first: repo-scratchpad resume");
     process.exit(EXIT_GENERAL_ERROR);
   }
   const base = baseCommit();
@@ -226,11 +250,17 @@ if (cmd === "reset") {
     console.error("Error: base ref missing — scratchpad state corrupt; exit and re-enter.");
     process.exit(EXIT_GENERAL_ERROR);
   }
-  git(["reset", "--hard", "-q", base]);
+  if (!git(["reset", "--hard", "-q", base]).ok) {
+    console.error("Error: git reset --hard failed — the scratchpad was NOT reset; inspect with git status.");
+    process.exit(EXIT_GENERAL_ERROR);
+  }
   // Clean untracked scratch debris repo-wide BUT preserve .local-artifacts/
   // (the carry-snapshot salvage record). Runs at the toplevel, cwd-independent.
   const top = git(["rev-parse", "--show-toplevel"]).out;
-  git(["-C", top, "clean", "-qfd", "-e", ".local-artifacts"]);
+  if (top === "" || !git(["-C", top, "clean", "-qfd", "-e", ".local-artifacts"]).ok) {
+    console.error("Error: git clean failed after the reset — untracked scratch files may remain; inspect with git status.");
+    process.exit(EXIT_GENERAL_ERROR);
+  }
   syncStateRef();
   console.log(`Reset to base ${base.slice(0, 7)}`);
   process.exit(0);
@@ -261,21 +291,37 @@ if (cmd === "promote") {
     console.error(`Error: '${sha}' is not a commit on the scratchpad branch`);
     process.exit(EXIT_API_FAILURE);
   }
+  if (!git(["diff", "--cached", "--quiet"]).ok) {
+    console.error("Error: the index already holds staged changes (an earlier promote's salvage, or other staged work). Land or clear them first — a second promote would mix with them. Nothing changed.");
+    process.exit(EXIT_CONFLICT);
+  }
   const rb = returnToBaseChecked();
   if (!rb.ok) {
-    // F23: never cherry-pick onto the scratch branch because checkout failed.
+    // Never cherry-pick onto the scratch branch because checkout failed.
     console.error(`Error: could not leave the scratch branch — ${rb.error}. Promote aborted; nothing changed.`);
     process.exit(EXIT_GENERAL_ERROR);
   }
-  if (!git(["cherry-pick", "--no-commit", sha]).ok) {
+  if (!git(["cherry-pick", "--no-commit", shaFull]).ok) {
+    // The index was empty before the pick (checked above), so reset --merge
+    // undoes exactly the pick's staged and conflicted changes and keeps any
+    // unrelated working-tree edits; no --hard on whatever branch we landed on.
     git(["cherry-pick", "--quit"]);
-    git(["reset", "--hard", "-q", base]);
-    git(["checkout", "-q", branch]);
-    syncStateRef();
-    console.error("Error: cherry-pick conflicted — promote aborted, scratchpad state restored");
+    const undone = git(["reset", "--merge"]);
+    const back = undone.ok && git(["checkout", "-q", branch]).ok;
+    if (back) syncStateRef();
+    console.error("Error: cherry-pick conflicted — promote aborted");
+    if (!back) {
+      console.error(`Error: the abort could not be completed — inspect with git status. Recovery (user's hands): git reset --merge; git checkout ${branch}`);
+    } else {
+      console.error("Scratchpad state restored");
+    }
     process.exit(EXIT_CONFLICT);
   }
-  git(["update-ref", SCRATCHPAD_STATE_REF, git(["rev-parse", `refs/heads/${branch}`]).out]);
+  const scratchTip = git(["rev-parse", `refs/heads/${branch}`]).out;
+  if (scratchTip === "" || !git(["update-ref", SCRATCHPAD_STATE_REF, scratchTip]).ok) {
+    console.error("Error: the promote landed, but the scratchpad state ref could not be refreshed — run repo-scratchpad status.");
+    process.exit(EXIT_GENERAL_ERROR);
+  }
   console.log(`Promoted ${shaFull.slice(0, 7)} onto ${base.slice(0, 7)} — staged, uncommitted.`);
   console.log("The scratchpad is PAUSED (state kept). To land the salvage: repo-scratchpad exit (staged work survives), then commit via the normal flow (/devenv-commit).");
   console.log("To keep hunting: repo-scratchpad resume");
@@ -309,7 +355,10 @@ if (cmd === "exit") {
     console.error(`Error: could not leave the scratch branch — ${rb.error}. Exit aborted; nothing deleted.`);
     process.exit(EXIT_GENERAL_ERROR);
   }
-  git(["branch", "-q", "-D", branch]);
+  if (!git(["branch", "-q", "-D", branch]).ok) {
+    console.error(`Error: could not delete ${branch} — the scratchpad state is kept so the mode stays consistent. Retry repo-scratchpad exit.`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
   clearState();
   console.log(`Scratchpad exited; branch ${branch} deleted (${commits} scratch commit(s)).`);
   console.log(`Tip ${tip} remains reachable via reflog until gc — salvage with cherry-pick if needed.`);

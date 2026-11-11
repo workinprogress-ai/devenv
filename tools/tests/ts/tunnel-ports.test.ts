@@ -1,17 +1,16 @@
 // Port of tools/tests/scripts/test_tunnel_ports.bats (6 tests).
 // tunnel-ports smoke tests. ssh is a stand-in that records its arguments,
 // notes its PID and sleeps, so tunnels can be "opened" and closed for real.
+import { toolScript } from "./harness/index.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 60_000 });
 
-const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const SCRIPT = join(ROOT, "tools", "tunnel-ports");
+const SCRIPT = toolScript("tunnel-ports");
 
 let TMP = "";
 let SSH_LOG = "";
@@ -64,7 +63,7 @@ function runTunnels(args: string[], expectCalls = 1): { status: number; out: str
     `for i in $(seq 1 100); do` +
     ` [ "$(wc -l < '${SSH_PID_LOG}')" -ge ${expectCalls} ] && break;` +
     ` sleep 0.1; done; printf 'x'`;
-  const r = spawnSync("bash", ["-c", `{ ${waitLoop}; } | '${SCRIPT}' ${args.map((a) => `'${a}'`).join(" ")}`], {
+  const r = spawnSync("bash", ["-c", `{ ${waitLoop}; } | node '${SCRIPT}' ${args.map((a) => `'${a}'`).join(" ")}`], {
     encoding: "utf8",
     env: env(),
   });
@@ -77,8 +76,8 @@ function sshLogHas(line: string): boolean {
 
 describe("scripts/tunnel-ports", () => {
   it("no arguments prints the usage line instead of an unbound-variable error", () => {
-    const r = spawnSync(SCRIPT, [], { encoding: "utf8", env: env() });
-    expect(r.status).toBe(1);
+    const r = spawnSync("node", [SCRIPT, ], { encoding: "utf8", env: env() });
+    expect(r.status).toBe(2);
     const out = (r.stdout ?? "") + (r.stderr ?? "");
     expect(out).toContain("Usage:");
     expect(out).not.toContain("unbound variable");
@@ -124,8 +123,8 @@ describe("scripts/tunnel-ports", () => {
   });
 
   it("options without a target print usage instead of an unbound-variable error", () => {
-    const r = spawnSync(SCRIPT, ["-p", "2222"], { encoding: "utf8", env: env() });
-    expect(r.status).toBe(1);
+    const r = spawnSync("node", [SCRIPT, "-p", "2222"], { encoding: "utf8", env: env() });
+    expect(r.status).toBe(2);
     const out = (r.stdout ?? "") + (r.stderr ?? "");
     expect(out).toContain("Usage:");
     expect(out).not.toContain("unbound variable");

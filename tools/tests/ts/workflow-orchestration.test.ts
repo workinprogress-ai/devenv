@@ -14,6 +14,11 @@ import {
   writeStatus,
   type WorkflowWriteContext,
 } from "../../lib/domain/issues/graph.ts";
+import { useProviderDown } from "./harness/index.ts";
+
+// The graph reads and writes go through a stubbed wrapper; anything that falls
+// through to gh is a provider that is down, stubbed so no real gh ever starts.
+useProviderDown();
 
 const VOCAB = "TBD,To-Groom,Groomed,Ready,Implementing,Staged,Staging,Production";
 
@@ -120,7 +125,9 @@ describe("writeStatus", () => {
     delete process.env["WORKFLOW_CORE_TOOLS"];
     const graphUrl = new URL("../../lib/domain/issues/graph.ts", import.meta.url);
     const resolved = fileURLToPath(new URL("../../..", graphUrl));
-    expect(existsSync(join(resolved, "project-update-issue"))).toBe(true);
+    // The depth-1 stub is generated at install time (absent in a clean
+    // clone); the wrapper's source under tools/ts/ is the committed anchor.
+    expect(existsSync(join(resolved, "ts", "project-update-issue.ts"))).toBe(true);
     expect(resolved.replace(/\/$/, "").endsWith("/tools")).toBe(true);
   });
 

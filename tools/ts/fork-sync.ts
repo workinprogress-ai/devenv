@@ -9,6 +9,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { SPAWN_MAX_BUFFER, assertSpawnCompleted } from "../lib/core/spawn.ts";
 import { changeIdGetFromCommit } from "../lib/core/change-id.ts";
 import { loadConfig, normalizeGitUrl, upstreamMatches } from "../lib/domain/fork/index.ts";
 import {
@@ -25,11 +26,12 @@ const die = (msg: string, code = 1): never => {
   process.exit(code);
 };
 const g = (args: string[]): { out: string; ok: boolean } => {
-  const r = spawnSync("git", args, { encoding: "utf8" });
+  const r = spawnSync("git", args, { encoding: "utf8", maxBuffer: SPAWN_MAX_BUFFER });
+  assertSpawnCompleted(r, ["git", ...args]);
   return { out: (r.stdout ?? "").trim(), ok: r.status === 0 };
 };
 
-if (process.argv[2] === "--help" || process.argv[2] === "-h") {
+function showHelp(): never {
   console.log(`fork-sync — report or apply upstream's new commits against the configured upstream
 
 Fetches \`upstream\` and reports ahead/behind counts and commits by default;
@@ -59,20 +61,12 @@ ${usageCommonFlags()}`);
   process.exit(0);
 }
 
-process.env.DEVENV_ROOT = process.env.DEVENV_ROOT ?? selfRoot(process.cwd());
-const config = loadConfig();
-
 let dryRun = false, replay = false, push = false, rewriteOrigin = false, yes = false;
-let linkLocal = "", linkUpstream = "", unlinkSha = "";
+let linkRequested = false, linkLocal = "", linkUpstream = "", unlinkSha = "";
 let proposeLinks = false, drift = false;
 
-// Superseded-flag guard before toolCli: parseArgs's own unknown-option
-// text differs from the pinned lowercase contract.
-for (const a of process.argv.slice(2)) {
-  if (a.startsWith("--") && !["--dry-run","--replay","--push-to-origin","--rewrite-origin","--yes","--link","--unlink","--drift","--propose-links","--help","--verbose","--version","--devenv"].includes(a)) {
-    die(`unknown option: ${a}`, EXIT_MISUSE);
-  }
-}
+// Arguments are parsed (strictly) before the workspace config is read, so
+// --help, --version and misuse need no configured workspace.
 try {
   const cli = toolCli({
     name: "fork-sync",
@@ -83,24 +77,34 @@ try {
       "push-to-origin": { type: "boolean", default: false },
       "rewrite-origin": { type: "boolean", default: false },
       yes: { type: "boolean", default: false },
-      link: { type: "string", multiple: true },
+      link: { type: "string" },
       unlink: { type: "string" },
       "propose-links": { type: "boolean", default: false },
       drift: { type: "boolean", default: false },
       rebase: { type: "boolean", default: false },
     },
   });
+  if (cli.common.help) showHelp();
   dryRun = cli.common.dryRun;
   replay = cli.values["replay"] === true;
   push = cli.values["push-to-origin"] === true;
   rewriteOrigin = cli.values["rewrite-origin"] === true;
   yes = cli.values["yes"] === true;
   // --link takes two values; parseArgs options take one, so the second
-  // arrives as a positional. Reassemble: --link <a> <b>.
+  // arrives as a positional. Reassemble: --link <a> <b>. A repeated --link
+  // would silently keep only the last value, so it is misuse.
+  const beforeTerminator = process.argv.slice(2).indexOf("--");
+  const linkFlags = process.argv
+    .slice(2, beforeTerminator < 0 ? undefined : beforeTerminator + 2)
+    .filter((a) => a === "--link" || a.startsWith("--link="));
+  if (linkFlags.length > 1) die("--link may be given only once (it takes <local-commit> <upstream-commit>)", EXIT_MISUSE);
   const linkFirst = cli.values["link"] as string | undefined;
   if (linkFirst !== undefined) {
     const linkSecond = cli.positionals[0];
     if (linkSecond === undefined) die("Missing value for --link", EXIT_MISUSE);
+    if (linkFirst === "" || linkSecond === "") die("--link needs two non-empty commit references", EXIT_MISUSE);
+    if (cli.positionals.length > 1) die(`unexpected argument after --link <local-commit> <upstream-commit>: ${cli.positionals[1]}`, EXIT_MISUSE);
+    linkRequested = true;
     linkLocal = linkFirst;
     linkUpstream = linkSecond as string;
     cli.positionals.shift();
@@ -112,14 +116,21 @@ try {
     die("--rebase was renamed --replay (the sync applies upstream's commits on top of the branch; it no longer describes itself as a rebase)", EXIT_MISUSE);
   }
 } catch (err) {
-  die(errorMessage(err), EXIT_MISUSE);
+  // The contract pins a lowercase "unknown option: <flag>" text, not parseArgs's own wording.
+  const unknown = /Unknown option '([^']+)'/.exec(errorMessage(err));
+  console.error(`ERROR: ${unknown !== null ? `unknown option: ${unknown[1]}` : errorMessage(err)}`);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
+process.env.DEVENV_ROOT = process.env.DEVENV_ROOT ?? selfRoot(import.meta.url);
+const config = loadConfig();
+
 if (yes && !push && !replay) die("--yes requires --push-to-origin or --replay", EXIT_MISUSE);
-if (linkLocal !== "" && (replay || push || dryRun || proposeLinks || unlinkSha !== "")) die("--link runs alone", EXIT_MISUSE);
-if (proposeLinks && (replay || push || dryRun || linkLocal !== "" || unlinkSha !== "")) die("--propose-links runs alone", EXIT_MISUSE);
-if (drift && (replay || push || dryRun || proposeLinks || linkLocal !== "" || unlinkSha !== "")) die("--drift runs alone", EXIT_MISUSE);
-if (unlinkSha !== "" && (replay || push || dryRun || linkLocal !== "" || proposeLinks)) die("--unlink runs alone", EXIT_MISUSE);
+if (linkRequested && (replay || push || dryRun || proposeLinks || unlinkSha !== "")) die("--link runs alone", EXIT_MISUSE);
+if (proposeLinks && (replay || push || dryRun || linkRequested || unlinkSha !== "")) die("--propose-links runs alone", EXIT_MISUSE);
+if (drift && (replay || push || dryRun || proposeLinks || linkRequested || unlinkSha !== "")) die("--drift runs alone", EXIT_MISUSE);
+if (unlinkSha !== "" && (replay || push || dryRun || linkRequested || proposeLinks)) die("--unlink runs alone", EXIT_MISUSE);
 if (rewriteOrigin && !push) die("--rewrite-origin requires --push-to-origin", EXIT_MISUSE);
 if (push && !yes && process.stdin.isTTY !== true) {
   die("non-TTY --push-to-origin requires --yes", EXIT_MISUSE);
@@ -170,7 +181,7 @@ if (unlinkSha !== "") {
 }
 
 // --- --link / --propose-links ---
-if (linkLocal !== "" || proposeLinks) {
+if (linkRequested || proposeLinks) {
   if (!g(["-C", repoRoot, "remote", "get-url", "upstream"]).ok) {
     die("upstream remote is missing; run fork-setup first", EXIT_GENERAL_ERROR);
   }
@@ -178,7 +189,7 @@ if (linkLocal !== "" || proposeLinks) {
   if (upstreamClone === "") {
     die("could not identify the upstream clone (set FORK_UPSTREAM_CLONE, or keep exactly one matching clone under repos/)", EXIT_MISUSE);
   }
-  if (linkLocal !== "") {
+  if (linkRequested) {
     if (!mapAdd(repoRoot, linkLocal, linkUpstream, "", upstreamClone)) {
       die("could not record the adoption pair", EXIT_GENERAL_ERROR);
     }

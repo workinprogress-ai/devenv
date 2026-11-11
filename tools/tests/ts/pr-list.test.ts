@@ -12,10 +12,8 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-// The suite drove the depth-1 stub (bash → exec node); the harness runs the
-// .ts source directly — the same execution path the stub resolves to. The
-// stub itself stays bash: the syntax check below pins it.
-const SCRIPT = join(TOOLS, "pr-list");
+// The harness runs the .ts source directly; the syntax check below pins it.
+const SCRIPT = join(TOOLS, "ts", "pr-list.ts");
 
 let TMP = "";
 let GH_CALL_LOG = "";
@@ -86,8 +84,8 @@ function firstListCall(): string {
 }
 
 describe("scripts/pr-list", () => {
-  it("pr-list has valid bash syntax", () => {
-    const r = spawnSync("bash", ["-n", SCRIPT], { encoding: "utf8" });
+  it("pr-list entry exists and has a valid TypeScript syntax", () => {
+    const r = spawnSync("node", ["--check", SCRIPT], { encoding: "utf8" });
     expect(r.status).toBe(0);
   });
 

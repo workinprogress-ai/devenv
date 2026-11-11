@@ -12,13 +12,11 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
-import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, checkTargetRepo, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesView } from "../lib/providers/facade/issues.ts";
 import { projectsOps, projectsNumberByName } from "../lib/providers/facade/projects.ts";
 
 assertNodeFloor();
-
-ensureProviderAuth();
 
 let projectName = "";
 const issueNumbers: string[] = [];
@@ -54,7 +52,6 @@ try {
     name: "project-add-issue",
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
-    strict: false,
     options: {
       field: { type: "string", multiple: true },
     },
@@ -74,30 +71,36 @@ const args = [...rawPositionals];
 if (args.length === 0) {
   logError("Project name and at least one issue number are required");
   console.error("Use --help for usage information");
-  process.exit(EXIT_GENERAL_ERROR);
+  process.exit(EXIT_MISUSE);
 }
 projectName = args.shift() ?? "";
 for (const a of args) {
-  if (a.startsWith("-")) {
-    logError(`Unknown option or invalid issue number: ${a}`);
-    console.error("Use --help for usage information");
-    process.exit(EXIT_GENERAL_ERROR);
-  }
   if (!/^[0-9]+$/.test(a)) {
     logError(`Unknown option or invalid issue number: ${a}`);
     console.error("Use --help for usage information");
-    process.exit(EXIT_GENERAL_ERROR);
+    process.exit(EXIT_MISUSE);
   }
   issueNumbers.push(a);
 }
 if (issueNumbers.length === 0) {
   logError("At least one issue number is required");
   console.error("Use --help for usage information");
-  process.exit(EXIT_GENERAL_ERROR);
+  process.exit(EXIT_MISUSE);
 }
+// Field specs are validated before any mutation: a malformed one would
+// otherwise abort only after the card was added.
 for (const fv of fieldEntries) {
+  const eq = fv.indexOf("=");
+  if (eq <= 0 || eq === fv.length - 1) {
+    logError(`Invalid field format: ${fv} (expected NAME=VALUE)`);
+    console.error("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
+  }
   fieldValues.push(fv);
 }
+
+// Authenticate only after the arguments parsed: help and misuse need no provider.
+ensureProviderAuth();
 
 // Org identity gate (fail fast, bash parity).
 if (providerOrgGet() === "") {
@@ -107,21 +110,9 @@ if (providerOrgGet() === "") {
 
 const repoSpec = requireRepoTarget(providerRepoTarget(), "project-add-issue", "project");
 
-// Devenv-repo safety gate (resolve_target_repo parity): applies to implicit
-// (cwd-inferred) targets only — an explicit DEVENV_REPO or --devenv bypasses.
-if (!isDevenvRepoGated()) {
-  // not a devenv checkout: gate is a no-op
-} else if (process.env["DEVENV_REPO"] !== undefined && process.env["DEVENV_REPO"] !== "") {
-  // explicit target: allowed
-} else if (devenvOverride) {
-  // explicit override: allowed
-} else {
-  logError("The current repository appears to be the devenv repository itself");
-  console.log("Operations should be performed in target project repositories, not in devenv");
-  console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");
-  console.log("To override this safety check (devenv-repo work only), pass the --devenv flag");
-  process.exit(EXIT_GENERAL_ERROR);
-}
+// Devenv-repo safety gate: applies to implicit (cwd-inferred) targets only —
+// an explicit DEVENV_REPO or --devenv bypasses.
+checkTargetRepo(devenvOverride);
 
 async function getIssueUrl(issueNum: string): Promise<string> {
   const raw = await issuesView(repoSpec, Number(issueNum), { json: "url", jq: ".url" });

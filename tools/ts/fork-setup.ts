@@ -35,7 +35,7 @@ ${usageCommonFlags()}`);
   process.exit(0);
 }
 
-process.env.DEVENV_ROOT = process.env.DEVENV_ROOT ?? selfRoot(process.cwd());
+process.env.DEVENV_ROOT = process.env.DEVENV_ROOT ?? selfRoot(import.meta.url);
 
 let dryRun = false;
 try {

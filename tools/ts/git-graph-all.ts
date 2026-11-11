@@ -8,10 +8,38 @@
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { errorMessage } from "../lib/core/logging.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { splitLeadingHouseFlags } from "../lib/core/forward-argv.ts";
 
 assertNodeFloor();
 
-const r = spawnSync("git", ["log", "--all", "--decorate", "--oneline", "--graph", ...process.argv.slice(2)], {
+// Only the leading house flags are ours; every other argument is git log's
+// (including its own -n and -h), so the split is positional.
+const { head, rest } = splitLeadingHouseFlags(process.argv.slice(2));
+try {
+  const cli = toolCli({ name: "git-graph-all", version: "1.1.0", argv: head, noDryRun: true, allowPositionals: false });
+  if (cli.common.help) {
+    console.log(`Usage: git-graph-all [options] [git-log-arguments...]
+
+Show a one-line decorated graph of all branches and remotes.
+Only the leading -h/--help, -v/--version and -V/--verbose are this tool's own
+(one at a time: a bundle such as -vV is forwarded). Everything else, including
+-n and --devenv, is forwarded to git log verbatim; use -- before an argument that looks like
+one of these flags.
+
+Options:
+${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
+    process.exit(0);
+  }
+} catch (err) {
+  console.error(errorMessage(err));
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
+
+const r = spawnSync("git", ["log", "--all", "--decorate", "--oneline", "--graph", ...rest], {
   stdio: "inherit",
 });
 process.exit(r.status ?? 1);

@@ -22,6 +22,9 @@ let WORKSPACE = "";
 const GIT_ENV = (): Record<string, string> => ({
   ...process.env,
   HOME: join(TMP, "home"),
+  // The hook block delegates through DEVENV_TOOLS; the hermetic env no longer
+  // inherits it, so name the checkout's tools dir explicitly.
+  DEVENV_TOOLS: TOOLS,
   GIT_AUTHOR_NAME: "t",
   GIT_AUTHOR_EMAIL: "t@t.test",
   GIT_COMMITTER_NAME: "t",
@@ -140,5 +143,105 @@ describe("scripts/wip-gate", () => {
     spawnSync("git", ["commit", "-q", "-m", "WIP: thin", "-n"], { cwd: repo, env: GIT_ENV() });
     r = spawnSync("bash", [join(TOOLS, "git-hooks", "pre-commit")], { cwd: repo, encoding: "utf8", env: GIT_ENV() });
     expect(r.status).toBe(1);
+  });
+
+  function commitFile(repo: string, msg: string): void {
+    writeFileSync(join(repo, "f"), `${msg}\n`);
+    spawnSync("git", ["add", "f"], { cwd: repo, env: GIT_ENV() });
+    spawnSync("git", ["commit", "-q", "-n", "-m", msg], { cwd: repo, env: GIT_ENV() });
+  }
+
+  it("gate script: blocks a buried WIP on a never-pushed branch (no upstream, no remotes)", () => {
+    const repo = join(WORKSPACE, "repos", "alpha");
+    commitFile(repo, "WIP: buried");
+    commitFile(repo, "feat: on top");
+    const r = spawnSync("bash", [GATE], { cwd: repo, encoding: "utf8", env: GIT_ENV() });
+    expect(r.status).toBe(1);
+    expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("unpushed branch history");
+  });
+
+  it("gate script: no-upstream branch ignores a WIP that already lives on a remote", () => {
+    const repo = join(WORKSPACE, "repos", "alpha");
+    const remote = join(TMP, "remote.git");
+    spawnSync("git", ["init", "-q", "--bare", remote], { env: GIT_ENV() });
+    spawnSync("git", ["remote", "add", "origin", remote], { cwd: repo, env: GIT_ENV() });
+    commitFile(repo, "WIP: already published");
+    spawnSync("git", ["push", "-q", "origin", "HEAD:refs/heads/other"], { cwd: repo, env: GIT_ENV() });
+    spawnSync("git", ["fetch", "-q", "origin"], { cwd: repo, env: GIT_ENV() });
+    // A normal commit directly on a published WIP tip is the HEAD check's job
+    // (it blocks); here HEAD is a real commit above it, so only the
+    // "unpushed" scan matters and it must see no unpushed WIP.
+    commitFile(repo, "feat: on top");
+    const r = spawnSync("bash", [GATE], { cwd: repo, encoding: "utf8", env: GIT_ENV() });
+    expect(r.status).toBe(0);
+  });
+
+  // A PATH shim that runs the real git but fails every `git log` whose
+  // arguments match `failOn` (a shell glob over "$*").
+  function gitShimFailingLog(failOn: string): string {
+    const bin = join(TMP, "shim-bin");
+    mkdirSync(bin, { recursive: true });
+    const real = spawnSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).stdout.trim();
+    const shim = join(bin, "git");
+    writeFileSync(shim, `#!/bin/sh\nif [ "$1" = log ]; then\n  case "$*" in\n    ${failOn}) echo "fatal: simulated git log failure" >&2; exit 128 ;;\n  esac\nfi\nexec ${real} "$@"\n`);
+    spawnSync("chmod", ["+x", shim]);
+    return `${bin}:${process.env.PATH ?? ""}`;
+  }
+
+  it("gate script: blocks (fails closed) when the HEAD `git log` fails", () => {
+    const repo = join(WORKSPACE, "repos", "alpha");
+    const PATH = gitShimFailingLog("*");
+    const r = spawnSync("bash", [GATE], { cwd: repo, encoding: "utf8", env: { ...GIT_ENV(), PATH } });
+    expect(r.status).toBe(1);
+    expect((r.stdout ?? "") + (r.stderr ?? "")).toMatch(/could not read|cannot read|git log failed/i);
+  });
+
+  it("gate script: blocks (fails closed) when the unpushed-range `git log` fails", () => {
+    const repo = join(WORKSPACE, "repos", "alpha");
+    const PATH = gitShimFailingLog("*--not*");
+    const r = spawnSync("bash", [GATE], { cwd: repo, encoding: "utf8", env: { ...GIT_ENV(), PATH } });
+    expect(r.status).toBe(1);
+    expect((r.stdout ?? "") + (r.stderr ?? "")).toMatch(/could not read|cannot read|git log failed/i);
+  });
+
+  it("gate script: the first commit of a repo (unborn HEAD) still passes", () => {
+    const repo = join(TMP, "fresh");
+    mkdirSync(repo, { recursive: true });
+    spawnSync("git", ["init", "-q", "-b", "main"], { cwd: repo, env: GIT_ENV() });
+    const r = spawnSync("bash", [GATE], { cwd: repo, encoding: "utf8", env: GIT_ENV() });
+    expect(r.status).toBe(0);
+  });
+
+  it("gate script: a buried WIP is still found when the history is far larger than the pipe buffer", () => {
+    const repo = join(WORKSPACE, "repos", "alpha");
+    // 3000 commits with ~100 char subjects => far more than the 64K pipe
+    // buffer after the match, so an early-exiting reader would SIGPIPE git log.
+    const lines: string[] = [];
+    const pad = "x".repeat(100);
+    const total = 3000;
+    for (let i = 0; i < total; i++) {
+      const subject = i === total - 2 ? "WIP: buried near the tip" : `chore: filler ${i} ${pad}`;
+      lines.push(
+        "commit refs/heads/big",
+        `committer t <t@t.test> ${1_700_000_000 + i} +0000`,
+        `data ${Buffer.byteLength(subject)}`,
+        subject,
+        "",
+      );
+    }
+    const imp = spawnSync("git", ["fast-import", "--quiet"], { cwd: repo, input: lines.join("\n") + "\n", env: GIT_ENV(), encoding: "utf8" });
+    expect(imp.stderr).toBe("");
+    expect(imp.status).toBe(0);
+    // Give it an upstream so the scan runs on the very path that used to pipe.
+    const remote = join(TMP, "remote-big.git");
+    spawnSync("git", ["init", "-q", "--bare", remote], { env: GIT_ENV() });
+    spawnSync("git", ["remote", "add", "origin", remote], { cwd: repo, env: GIT_ENV() });
+    spawnSync("git", ["push", "-q", "origin", "main"], { cwd: repo, env: GIT_ENV() });
+    spawnSync("git", ["fetch", "-q", "origin"], { cwd: repo, env: GIT_ENV() });
+    spawnSync("git", ["branch", "-q", "-u", "origin/main", "big"], { cwd: repo, env: GIT_ENV() });
+    spawnSync("git", ["checkout", "-q", "big"], { cwd: repo, env: GIT_ENV() });
+    const r = spawnSync("bash", [GATE], { cwd: repo, encoding: "utf8", env: GIT_ENV() });
+    expect(r.status).toBe(1);
+    expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("unpushed branch history");
   });
 });

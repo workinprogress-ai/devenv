@@ -16,22 +16,29 @@
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { gitCapture, gitCheck } from "../lib/core/git.ts";
+import { gitCapture, gitCheck, getDefaultBranch } from "../lib/core/git.ts";
 import { toolCli } from "../lib/core/cli.ts";
-import { EXIT_CONFLICT, EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { editorIsNoninteractive } from "../lib/core/editor.ts";
+import { siblingInvocation } from "../lib/core/sibling.ts";
+import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { errorMessage } from "../lib/core/logging.ts";
 
 assertNodeFloor();
 
-const toolsDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
 function die(...lines: string[]): never {
   for (const l of lines) console.error(`repo-commit: ${l}`);
   process.exit(EXIT_GENERAL_ERROR);
+}
+
+// Usage errors (bad flags, flag combinations, missing operands) are misuse.
+function dieUsage(...lines: string[]): never {
+  for (const l of lines) console.error(`repo-commit: ${l}`);
+  process.exit(EXIT_MISUSE);
 }
 
 function git(args: string[], opts: { cwd?: string } = {}): { status: number; out: string } {
@@ -55,22 +62,43 @@ function git(args: string[], opts: { cwd?: string } = {}): { status: number; out
 // both fold lanes (--amend HEAD check, --fix target check) and the picker's
 // eligibility filter, so the boundary cannot drift between them.
 function foldWindowClosed(shaOrRef: string): boolean {
-  const sha = git(["rev-parse", "--verify", `${shaOrRef}^{commit}`]).out.trim() || shaOrRef;
+  const resolved = gitCheck(null, ["rev-parse", "--verify", `${shaOrRef}^{commit}`]);
+  // An unresolvable ref cannot be proven foldable: fail closed.
+  if (!resolved.ok) return true;
+  const sha = resolved.out.trim();
+  if (sha === "") return true;
   const tagged = git(["tag", "--contains", sha]).out.trim() !== "";
   if (tagged) return true;
-  const remoteMaster = git(["rev-parse", "--verify", "--quiet", "refs/remotes/origin/master"]);
-  if (remoteMaster.status === 0) {
-    // The permanent record is the remote-tracking master: a commit it reaches
-    // has landed, one it does not reach is unlanded even if a local master
+  // The default branch is whatever origin/HEAD names; without that pointer the
+  // conventional names are probed so a `main` repo is not judged by `master`.
+  const known = getDefaultBranch();
+  const names = known !== null ? [known] : ["main", "master"];
+  const remoteName = names.find((n) => git(["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${n}`]).status === 0);
+  if (remoteName !== undefined) {
+    // The permanent record is the remote-tracking default branch: a commit it
+    // reaches has landed, one it does not reach is unlanded even if a local
     // branch (or a pushed feature branch) contains it. The local branch ref is
-    // skipped here deliberately — HEAD sitting on master is always trivially
-    // "contained" by it, which would refuse every amend on a master checkout.
-    return git(["merge-base", "--is-ancestor", sha, "refs/remotes/origin/master"]).status === 0;
+    // skipped here deliberately — HEAD sitting on the default branch is always
+    // trivially "contained" by it, which would refuse every amend on a
+    // default-branch checkout.
+    return git(["merge-base", "--is-ancestor", sha, `refs/remotes/origin/${remoteName}`]).status === 0;
   }
-  // No remote-tracking master (local-only repo): local master is the record.
-  const localMaster = git(["rev-parse", "--verify", "--quiet", "master"]);
-  return localMaster.status === 0
-    && git(["merge-base", "--is-ancestor", sha, "master"]).status === 0;
+  // No remote-tracking default branch (local-only repo): the local one is the record.
+  const localName = names.find((n) => git(["rev-parse", "--verify", "--quiet", `refs/heads/${n}`]).status === 0);
+  return localName !== undefined
+    && git(["merge-base", "--is-ancestor", sha, `refs/heads/${localName}`]).status === 0;
+}
+
+/** A comment character no line of the given texts starts with: `#` unless a
+ * line already does. `--cleanup=strip` drops every line starting with git's
+ * comment character, so a body line such as `#42 fixes the thing` would be
+ * silently eaten; the banner and git's own template use the chosen character. */
+function pickCommentChar(...texts: string[]): string {
+  const starts = new Set<string>();
+  for (const t of texts) for (const line of t.split("\n")) if (line !== "") starts.add(line[0] ?? "");
+  const pick = ["#", ";", "@", "!", "%", "|", "~", "^", "`"].find((c) => !starts.has(c));
+  if (pick === undefined) die("cannot choose a comment character: every candidate starts a line of the message");
+  return pick;
 }
 
 function usage(): void {
@@ -111,7 +139,9 @@ Commits the existing index only if the editor session yields a non-empty message
                   pushes, records refs/wip/last). No editor step — the invocation is
                   the confirmation.
 
-Refuses (normal lane):
+Refuses (normal, --amend and --reword lanes):
+  - running without a terminal: stdin AND stdout must both be a TTY; an env-supplied
+    GIT_EDITOR/EDITOR/VISUAL is never accepted as proof of a human
   - any option other than --file (there is no -m, no --yes, no non-interactive path)
   - a finally resolved editor that is a non-interactive command (true, :, echo, cat, exit),
     also behind a wrapper (env, nice, timeout, ...) or a shell (sh -c ...)
@@ -127,90 +157,20 @@ inspects hooks.
 Only /devenv-commit may invoke this tool.`);
 }
 
-// House flags (-h/-v/-V) parse through the shared toolCli scaffold; the lane
-// grammar below stays a hand-rolled token walk because it is order-dependent
-// (--staged-only only after --wip) and forwards raw message words — parseArgs
-// cannot express it faithfully. Non-strict so unknown tokens keep reaching
-// the by-design refusal in the walk.
-try {
-  const cli = toolCli({
-    name: "repo-commit",
-    version: "1.1.0",
-    argv: process.argv.slice(2),
-    strict: false,
-  });
-  if (cli.common.help) {
-    usage();
-    process.exit(0);
-  }
-} catch {
-  // Non-strict parse cannot throw on unknown tokens; defensive only.
-}
-
-/** True when the editor command is a known non-interactive no-op (an env sentinel
- * or config value that would bypass the editor gate entirely). Wrappers are looked
- * through, so "env true" or "nice -n 5 true" is judged by the command they run;
- * a shell as the editor (sh -c ...) can only be a scripted bypass.
- * Port of editor_is_noninteractive: word-walking with identical lists. */
-export function editorIsNoninteractive(candidate: string): boolean {
-  const words = candidate.trim().split(/\s+/).filter((w) => w !== "");
-  let i = 0;
-  while (i < words.length) {
-    const word = words[i];
-    if (word === undefined) break;
-    i += 1;
-    // leading VAR=value assignments belong to the command's environment
-    if (/^[A-Za-z_]+=/.test(word)) continue;
-    const base = word.split("/").pop() ?? word;
-    switch (base) {
-      case "env":
-      case "command":
-      case "exec":
-      case "nice":
-      case "nohup":
-      case "timeout":
-      case "setsid":
-      case "stdbuf":
-      case "time":
-        // skip the wrapper's own options and numeric operands
-        while (i < words.length) {
-          const w = words[i] ?? "";
-          if (w.startsWith("-") || /^[0-9]/.test(w) || /^[A-Za-z_]+=/.test(w)) i += 1;
-          else break;
-        }
-        continue;
-      case "sh":
-      case "bash":
-      case "dash":
-      case "zsh":
-      case "ksh":
-      case "ash":
-        return true;
-      case "true":
-      case ":":
-      case ".":
-      case "exit":
-      case "echo":
-      case "cat":
-      case "tee":
-      case "touch":
-      case "rm":
-      case "sleep":
-        return true;
-      default:
-        return false;
-    }
-  }
-  // nothing left to run
-  return true;
-}
-
 let editor = "";
 
 /** Resolve the interactive editor once (shared by the normal and amend
  * lanes): non-interactive values are treated as UNSET — automation hosts
  * inject no-op editors; the user's own config must outrank them. */
 function resolveEditor(): void {
+  // An env-supplied editor is no proof of a human: only a terminal on both
+  // stdin and stdout is. The deny-list below stays as an additional layer.
+  if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) {
+    dieUsage(
+      "refusing to open an editor without a terminal: stdin and stdout must both be a TTY — the editor save is the permission gate",
+      "run repo-commit from an interactive terminal (an env-supplied GIT_EDITOR/EDITOR/VISUAL is not accepted as proof of a human)",
+    );
+  }
   const candidates: string[] = [
     process.env.GIT_EDITOR ?? "",
     git(["config", "--get", "core.editor"]).out.trim(),
@@ -249,22 +209,6 @@ function stagedStat(): string {
   return `${files} file${files === 1 ? "" : "s"}, +${add} −${del}`;
 }
 
-// --- Scratchpad refusal: repo-commit is blocked while a scratchpad is active in
-// this repo — sandbox commits belong on the scratch branch via `repo-scratchpad
-// commit`, and the WIP lane would push. Standalone implementation (this tool has
-// no lib deps beyond core): same sentinel text as the scratchpad_refuse contract
-// in scratchpad.bash, exit EXIT_CONFLICT.
-if (git(["rev-parse", "--is-inside-work-tree"]).status === 0) {
-  if (git(["show-ref", "--verify", "--quiet", "refs/scratchpad/state"]).status === 0) {
-    const spBranch = git(["for-each-ref", "--format=%(refname:short)", "refs/heads/scratchpad/"])
-      .out.split("\n")
-      .find((l) => l !== "");
-    console.error(`Error: repo-commit is blocked while a scratchpad is active (${spBranch ?? "scratchpad branch"}).`);
-    console.error("Salvage: repo-scratchpad promote <sha> · or leave the mode: repo-scratchpad exit");
-    process.exit(EXIT_CONFLICT);
-  }
-}
-
 // --- Argument parsing: message via argv or --file; --wip delegates to git-wip;
 // --amend rewrites HEAD not yet landed in master under the editor gate.
 // The fold window closes when origin/master reaches the commit, or a tag
@@ -284,58 +228,54 @@ let dryRun = false;
 const wipArgs: string[] = [];
 const rest: string[] = [];
 
-const argv = process.argv.slice(2);
-while (argv.length > 0) {
-  const arg = argv.shift() ?? "";
-  switch (arg) {
-    case "-h":
-    case "--help":
-      usage();
-      process.exit(0);
-      break;
-    case "--file": {
-      const v = argv.shift();
-      if (v === undefined || v === "") die("--file requires a path argument");
-      msgfileArg = v;
-      break;
-    }
-    case "--wip":
-      wipLane = true;
-      break;
-    case "--amend":
-      amendLane = true;
-      break;
-    case "--fix": {
-      fixLane = true;
-      const v = argv[0] ?? "";
-      if (v !== "" && !v.startsWith("-")) fixRef = argv.shift() ?? "";
-      break;
-    }
-    case "--fold-window":
-      foldWindowLane = true;
-      break;
-    case "--reword": {
-      rewordLane = true;
-      const v = argv[0] ?? "";
-      if (v !== "" && !v.startsWith("-")) rewordRef = argv.shift() ?? "";
-      break;
-    }
-    case "--dry-run":
-      dryRun = true; // context validated after the argv loop (order-free)
-      break;
-    case "--staged-only":
-      if (wipLane) wipArgs.push(arg);
-      else die(`options are refused by design ('${arg}'); there is no non-interactive path`);
-      break;
-    default:
-      if (arg.startsWith("-")) {
-        die(`options are refused by design ('${arg}'); there is no non-interactive path`);
-      } else if (wipLane) {
-        wipArgs.push(arg);
-      } else {
-        rest.push(arg);
-      }
+// One strict parse (toolCli): unknown options are refused by design — there
+// is no non-interactive path — and exit as misuse. --fix/--reword take their
+// optional ref as the first positional; --wip takes message words; a message
+// that looks like an option is only reachable after `--`.
+try {
+  const cli = toolCli({
+    name: "repo-commit",
+    version: "1.1.0",
+    argv: process.argv.slice(2),
+    options: {
+      file: { type: "string" },
+      wip: { type: "boolean", default: false },
+      amend: { type: "boolean", default: false },
+      fix: { type: "boolean", default: false },
+      "fold-window": { type: "boolean", default: false },
+      reword: { type: "boolean", default: false },
+      "staged-only": { type: "boolean", default: false },
+    },
+  });
+  if (cli.common.help) {
+    usage();
+    process.exit(0);
   }
+  if (typeof cli.values["file"] === "string") {
+    if (cli.values["file"] === "") dieUsage("--file requires a path argument");
+    msgfileArg = cli.values["file"];
+  }
+  wipLane = cli.values["wip"] === true;
+  amendLane = cli.values["amend"] === true;
+  fixLane = cli.values["fix"] === true;
+  foldWindowLane = cli.values["fold-window"] === true;
+  rewordLane = cli.values["reword"] === true;
+  dryRun = cli.common.dryRun; // context validated below (order-free)
+  const positionals = [...cli.positionals];
+  if (cli.values["staged-only"] === true) {
+    if (!wipLane) dieUsage("options are refused by design ('--staged-only' outside --wip); there is no non-interactive path");
+    wipArgs.push("--staged-only");
+  }
+  if (fixLane) fixRef = positionals.shift() ?? "";
+  else if (rewordLane) rewordRef = positionals.shift() ?? "";
+  if (wipLane) wipArgs.push("--", ...positionals);
+  else rest.push(...positionals);
+} catch (err) {
+  const unknown = /Unknown option '([^']+)'/.exec(errorMessage(err));
+  if (unknown !== null) console.error(`repo-commit: options are refused by design ('${unknown[1] ?? ""}'); there is no non-interactive path`);
+  else console.error(`repo-commit: ${errorMessage(err)}`);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 // --- Lane-flag validation: exclusivity + --dry-run context, checked after
@@ -344,16 +284,32 @@ while (argv.length > 0) {
 // first, silently swallowing the other flag).
 {
   if (dryRun && !fixLane && !amendLane && !rewordLane) {
-    die("--dry-run applies to the --amend, --fix, and --reword lanes only");
+    dieUsage("--dry-run applies to the --amend, --fix, and --reword lanes only");
   }
   const lanes = [wipLane, amendLane, fixLane, foldWindowLane, rewordLane].filter(Boolean).length;
-  if (lanes > 1) die("--wip, --amend, --fix, --fold-window, and --reword are mutually exclusive");
-  if (rewordLane && rewordRef === "") die("--reword requires a target ref (--reword <commit-ish>)");
+  if (lanes > 1) dieUsage("--wip, --amend, --fix, --fold-window, and --reword are mutually exclusive");
+  if (rewordLane && rewordRef === "") dieUsage("--reword requires a target ref (--reword <commit-ish>)");
   if (foldWindowLane && (msgfileArg !== "" || rest.length > 0 || dryRun)) {
-    die("--fold-window takes no message, no --file, and no --dry-run (read-only report)");
+    dieUsage("--fold-window takes no message, no --file, and no --dry-run (read-only report)");
   }
   if (fixLane && (msgfileArg !== "" || rest.length > 0)) {
-    die("--fix takes no message (its fixup! subject is machine-written and consumed by the fold)");
+    dieUsage("--fix takes no message (its fixup! subject is machine-written and consumed by the fold)");
+  }
+}
+
+// --- Scratchpad refusal: repo-commit is blocked while a scratchpad is active in
+// this repo — sandbox commits belong on the scratch branch via `repo-scratchpad
+// commit`, and the WIP lane would push. Standalone implementation (this tool has
+// no lib deps beyond core): same sentinel text as the scratchpad_refuse contract
+// in scratchpad.bash, exit EXIT_CONFLICT.
+if (git(["rev-parse", "--is-inside-work-tree"]).status === 0) {
+  if (git(["show-ref", "--verify", "--quiet", "refs/scratchpad/state"]).status === 0) {
+    const spBranch = git(["for-each-ref", "--format=%(refname:short)", "refs/heads/scratchpad/"])
+      .out.split("\n")
+      .find((l) => l !== "");
+    console.error(`Error: repo-commit is blocked while a scratchpad is active (${spBranch ?? "scratchpad branch"}).`);
+    console.error("Salvage: repo-scratchpad promote <sha> · or leave the mode: repo-scratchpad exit");
+    process.exit(EXIT_CONFLICT);
   }
 }
 
@@ -407,10 +363,9 @@ if (foldWindowLane) {
 
 // --- WIP lane: delegate to git-wip; WIP commit shape lives there alone.
 if (wipLane) {
-  if (msgfileArg !== "") wipArgs.push("--file", msgfileArg);
-  const stub = join(toolsDir, "git-wip");
-  if (!existsSync(stub)) die(`git-wip stub not found next to repo-commit: ${stub}`);
-  const r = spawnSync(stub, wipArgs, { stdio: "inherit" });
+  if (msgfileArg !== "") wipArgs.unshift("--file", msgfileArg);
+  const wip = siblingInvocation("git-wip", wipArgs);
+  const r = spawnSync(wip.command, wip.args, { stdio: "inherit" });
   process.exit(r.status ?? EXIT_GENERAL_ERROR);
 }
 
@@ -451,16 +406,17 @@ if (amendLane) {
   console.log(`repo-commit: opening editor: ${editor}  (amend: save & close to fold staged content into HEAD; empty/abort cancels)`);
   const amendTmp = mkdtempSync(join(tmpdir(), "repo-commit-msg-"));
   const amendMsgfile = join(amendTmp, "message");
-  // Leading # comments make the re-edit unmistakable in the editor; git's
+  // Leading comment lines make the re-edit unmistakable in the editor; git's
   // --cleanup=strip removes every comment line before the message is used.
+  const ac = pickCommentChar(headMsg);
   const amendBanner = [
-    `# EDIT of a previous commit — this is NOT a new commit.`,
-    `# Re-editing: ${headSha}`,
-    `# Save & close to fold the staged content into it; empty the message to cancel.`,
+    `${ac} EDIT of a previous commit — this is NOT a new commit.`,
+    `${ac} Re-editing: ${headSha}`,
+    `${ac} Save & close to fold the staged content into it; empty the message to cancel.`,
     "",
   ].join("\n");
   writeFileSync(amendMsgfile, `${amendBanner}${headMsg.endsWith("\n") ? headMsg : `${headMsg}\n`}`);
-  const amend = spawnSync("git", ["commit", "--cleanup=strip", "--amend", "--edit", "-F", amendMsgfile], {
+  const amend = spawnSync("git", ["-c", `core.commentChar=${ac}`, "commit", "--cleanup=strip", "--amend", "--edit", "-F", amendMsgfile], {
     stdio: "inherit",
     env: { ...process.env, GIT_EDITOR: editor },
   });
@@ -545,6 +501,26 @@ if (fixLane) {
       "remediation: land a plain fix commit instead",
     );
   }
+  // A plain autosquash rebase linearizes merge commits silently, so a range
+  // containing one is refused (an unreadable range is refused too).
+  const merges = gitCheck(null, ["rev-list", "--merges", `${targetSha}..HEAD`]);
+  if (!merges.ok) die(`cannot inspect ${targetSha.slice(0, 8)}..HEAD for merge commits: ${merges.err.trim()}`);
+  if (merges.out.trim() !== "") {
+    die(
+      `the range ${targetSha.slice(0, 8)}..HEAD contains merge commit(s) — a fold would flatten them`,
+      "remediation: land a plain fix commit instead, or fold by hand with git rebase --rebase-merges",
+    );
+  }
+  // The fold is `rebase --autosquash` over the whole range: any other pending
+  // fixup!/squash!/amend! commit there would be folded too, so only a range
+  // whose sole autosquash commit is the one created below is accepted.
+  const pendingFix = pendingAutosquashSubjects(`${targetSha}~1..HEAD`);
+  if (pendingFix.length > 0) {
+    die(
+      `the range ${targetSha.slice(0, 8)}..HEAD already holds ${pendingFix.length} pending autosquash commit(s) (first: ${pendingFix[0]}) — a fold would squash them too`,
+      "remediation: fold or drop those commits first (git rebase -i --autosquash), then re-run --fix",
+    );
+  }
   const targetSubject = git(["log", "-1", "--format=%s", targetSha]).out.trim();
   const oldHead = git(["rev-parse", "HEAD"]).out.trim();
   const oldHeadShort = git(["rev-parse", "--short", oldHead]).out.trim();
@@ -575,22 +551,36 @@ if (fixLane) {
     die(`fixup commit failed (hooks?): ${fixup.out.trim()}`, `recovery: the backup branch ${backup} holds the old stack`);
   }
 
+  // The fold must reproduce the fixup commit's tree exactly: record it first.
+  const fixupTree = gitCheck(null, ["rev-parse", "HEAD^{tree}"]);
+  if (!fixupTree.ok) die(`cannot read the fixup commit's tree: ${fixupTree.err.trim()}`, `recovery: the backup branch ${backup} holds the old stack`);
+
   // Autosquash fold: GIT_SEQUENCE_EDITOR=: runs the todo-list editor as a
   // no-op — the standard non-interactive autosquash. --autostash preserves
   // unstaged work (built to be reversible).
   const fold = spawnSync(
     "git",
-    ["rebase", "--autosquash", "--autostash", "-i", `${targetSha}~1`],
+    // updateRefs=false: a user-level rebase.updateRefs=true would otherwise
+    // drag the backup branch (which names the old tip) onto the new stack.
+    ["-c", "rebase.updateRefs=false", "rebase", "--autosquash", "--autostash", "-i", `${targetSha}~1`],
     { encoding: "utf8", env: { ...process.env, GIT_SEQUENCE_EDITOR: ":" } },
   );
+  const foldDiagnostics = `${fold.stdout ?? ""}${fold.stderr ?? ""}`.trim();
   if (fold.status !== 0) {
     // Fail to a describable state: abort the rebase (the fixup commit
     // survives at HEAD — the work is an ordinary commit, nothing lost).
-    gitCheck(null, ["rebase", "--abort"]);
+    if (foldDiagnostics !== "") console.error(foldDiagnostics);
+    const aborted = gitCheck(null, ["rebase", "--abort"]);
     const fixupAtHead = git(["log", "-1", "--format=%s"]).out.trim().startsWith("fixup!");
+    if (!aborted.ok) {
+      die(
+        `autosquash rebase failed AND the abort failed (${aborted.err.trim()}) — the repository may be mid-rebase`,
+        `inspect with git status; recover: git rebase --abort, then git reset --hard ${oldHead}`,
+      );
+    }
     die(
       `autosquash rebase failed (conflict) — rebase aborted${fixupAtHead ? "; the fixup commit is preserved at HEAD" : ""}`,
-      `resolve manually or recover: git reset --hard ${backup}`,
+      `resolve manually or recover: git reset --hard ${oldHead}`,
     );
   }
 
@@ -599,17 +589,18 @@ if (fixLane) {
   // history and "fail" after a successful fold.
   const newHead = git(["rev-parse", "HEAD"]).out.trim();
   const foldedSubject = git(["log", "--format=%s", `--grep=^fixup!`, `${targetSha}..HEAD`]).out.trim();
-  if (newHead === oldHead || foldedSubject !== "") {
+  const newTree = gitCheck(null, ["rev-parse", "HEAD^{tree}"]);
+  if (newHead === oldHead || foldedSubject !== "" || !newTree.ok || newTree.out.trim() !== fixupTree.out.trim()) {
+    if (foldDiagnostics !== "") console.error(foldDiagnostics);
     die(
-      "fold verification failed (HEAD unchanged or a fixup! commit remains) — inspect manually",
-      `recovery: git reset --hard ${backup}`,
+      "fold verification failed (HEAD unchanged, a fixup! commit remains, or the resulting tree differs from the fixup tip's tree) — inspect manually",
+      `recovery: git reset --hard ${oldHead}`,
     );
   }
   const newTarget = git(["log", "--format=%h %s", `--grep=${escapeGrep(targetSubject)}`, "-1", `${targetSha}..HEAD`]).out.trim();
   console.log(`repo-commit: folded staged content into ${newTarget || targetSubject}`);
   console.log(`  old stack: ${backup}`);
-  const diverged = git(["status", "-sb"]).out.includes("ahead");
-  console.log(`  note: ${diverged ? "branch diverged from its remote — push with --force-with-lease when ready" : "no remote tracking"}`);
+  console.log(`  note: ${remoteNote()}`);
   process.exit(0);
 }
 
@@ -654,7 +645,28 @@ if (rewordLane) {
       "remediation: land a plain docs/fix commit noting the correction instead",
     );
   }
+  // An interactive rebase without --rebase-merges flattens merge commits
+  // silently (the tree check cannot see it), so such a range is refused.
+  const rewordMerges = gitCheck(null, ["rev-list", "--merges", `${targetSha}..HEAD`]);
+  if (!rewordMerges.ok) die(`cannot inspect ${targetSha.slice(0, 8)}..HEAD for merge commits: ${rewordMerges.err.trim()}`);
+  if (rewordMerges.out.trim() !== "") {
+    die(
+      `the range ${targetSha.slice(0, 8)}..HEAD contains merge commit(s) — a reword would flatten them`,
+      "remediation: reword by hand with git rebase --rebase-merges, or land a plain docs/fix commit instead",
+    );
+  }
+  // A reword must not reorder or squash anything: a range holding an
+  // autosquash-subject commit is refused outright (the rebase below also
+  // disables autosquash, whatever the user's configuration says).
+  const pendingReword = pendingAutosquashSubjects(`${targetSha}~1..HEAD`);
+  if (pendingReword.length > 0) {
+    die(
+      `the range ${targetSha.slice(0, 8)}..HEAD holds ${pendingReword.length} autosquash commit(s) (first: ${pendingReword[0]}) — a reword would risk folding them`,
+      "remediation: fold or drop those commits first (git rebase -i --autosquash), then re-run --reword",
+    );
+  }
   const targetSubject = git(["log", "-1", "--format=%s", targetSha]).out.trim();
+  const targetMessage = git(["log", "-1", "--format=%B", targetSha]).out.trim();
   const oldHead = git(["rev-parse", "HEAD"]).out.trim();
   const oldHeadShort = git(["rev-parse", "--short", oldHead]).out.trim();
 
@@ -675,40 +687,55 @@ if (rewordLane) {
   // only come from a previous attempt at this same HEAD (the name encodes
   // it); a stale backup must not block the retry.
   const backup = `backup/pre-reword-${oldHeadShort}`;
+  const backupPreexisting = git(["rev-parse", "--verify", "--quiet", `refs/heads/${backup}`]).status === 0;
   const bk = git(["branch", "-f", backup, oldHead]);
   if (bk.status !== 0) die(`failed to create backup branch ${backup}: ${bk.out.trim()}`);
-  console.log(`repo-commit: backup branch ${backup} (recovery: git reset --hard ${backup})`);
 
   // The reword: one rebase whose GIT_SEQUENCE_EDITOR script flips the target's
   // todo entry from "pick" to "reword" and lets git open the user's editor on
   // the message file. The editor save is the permission gate; git aborts the
   // rebase when the editor session empties the message (the cancel path).
-  // Todo shas vary in length across git versions (short here, full elsewhere);
-  // ask git how IT abbreviates this sha (core.abbrev resolves to the same
-  // uniqueness length the todo uses) and match on that. The edit is verified
-  // (grep -q) so a non-match aborts loudly instead of silently rewording the
-  // wrong commit.
+  // Todo shas vary in length (core.abbrev, repository size) and the command
+  // word is a single letter under rebase.abbreviateCommands, so the entry is
+  // matched as `<pick|p> <sha7><more hex> `. The edit is verified: zero or
+  // several matches abort loudly instead of rewording the wrong commit. The
+  // todo is rewritten in-process (no sed: portable across platforms).
   const todoSha = git(["rev-parse", "--short=7", targetSha]).out.trim();
-  const seqEditor = join(mkdtempSync(join(tmpdir(), "repo-commit-reword-")), "seq.sh");
+  const seqDir = mkdtempSync(join(tmpdir(), "repo-commit-reword-"));
+  const seqEditor = join(seqDir, "seq.mjs");
   writeFileSync(
     seqEditor,
     [
-      "#!/bin/sh",
-      `if sed -i "s/^pick ${todoSha} /reword ${todoSha} /" "$1" && grep -q "^reword ${todoSha} " "$1"; then`,
-      "  exit 0",
-      "fi",
-      'echo "repo-commit: reword preflight failed — target entry not found in the rebase todo" >&2',
-      "exit 1",
+      'import { readFileSync, writeFileSync } from "node:fs";',
+      'const file = process.argv[2];',
+      'const sha = process.env.REPO_COMMIT_REWORD_SHA ?? "";',
+      'const re = new RegExp(`^(?:pick|p) (${sha}[0-9a-f]*) `);',
+      'const lines = readFileSync(file, "utf8").split("\\n");',
+      'const hits = lines.filter((l) => re.test(l));',
+      'if (hits.length !== 1) {',
+      '  console.error("repo-commit: reword preflight failed — target entry not found (or ambiguous) in the rebase todo");',
+      '  process.exit(1);',
+      '}',
+      'writeFileSync(file, lines.map((l) => (re.test(l) ? l.replace(/^(?:pick|p) /, "reword ") : l)).join("\\n"));',
       "",
     ].join("\n"),
   );
-  chmodSync(seqEditor, 0o755);
+  const shq = (v: string): string => `'${v.replace(/'/g, `'\\''`)}'`;
   const reword = spawnSync(
     "git",
-    ["rebase", "--autostash", "-i", `${targetSha}~1`],
-    { stdio: "inherit", env: { ...process.env, GIT_SEQUENCE_EDITOR: seqEditor } },
+    // updateRefs=false: keeps the backup branch on the old tip (see the fix lane).
+    ["-c", "rebase.updateRefs=false", "-c", "rebase.autoSquash=false", "rebase", "--autostash", "-i", `${targetSha}~1`],
+    {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        GIT_EDITOR: editor,
+        GIT_SEQUENCE_EDITOR: `${shq(process.execPath)} ${shq(seqEditor)}`,
+        REPO_COMMIT_REWORD_SHA: todoSha,
+      },
+    },
   );
-  rmSync(dirname(seqEditor), { recursive: true, force: true });
+  rmSync(seqDir, { recursive: true, force: true });
   if (reword.status !== 0) {
     gitCheck(null, ["rebase", "--abort"]);
     die(
@@ -723,24 +750,57 @@ if (rewordLane) {
   // the subject AT the target's depth must differ from the old subject, and
   // the content tree must be untouched (a reword rewrites messages only).
   const depth = git(["rev-list", "--count", `${targetSha}~1..${oldHead}`]).out.trim();
-  const newTarget = git(["log", "--format=%H %s", `-n ${depth}`, "HEAD"]).out.split("\n").filter((l) => l.trim() !== "");
-  // newTarget is newest-first over the rewritten range; the target is the
+  const newShas = git(["rev-list", "-n", depth, "HEAD"]).out.split("\n").filter((l) => l.trim() !== "");
+  // newShas is newest-first over the rewritten range; the target is the
   // OLDEST entry in that range (depth-th from HEAD).
-  const targetLine = newTarget[newTarget.length - 1] ?? "";
-  const newSubject = targetLine.split(" ").slice(1).join(" ");
-  if (newSubject === targetSubject) {
-    die("reword verification failed (message unchanged) — inspect manually", `recovery: git reset --hard ${backup}`);
+  const newTargetSha = newShas[newShas.length - 1] ?? "";
+  const newSubject = git(["log", "-1", "--format=%s", newTargetSha]).out.trim();
+  const newMessage = git(["log", "-1", "--format=%B", newTargetSha]).out.trim();
+  if (newMessage === targetMessage) {
+    // The editor was saved without edits: nothing to rewrite. Put the branch
+    // back exactly where it was (the rebase may have re-stamped the commits)
+    // and drop the backup this run created, so the repository is unchanged.
+    if (git(["rev-parse", "HEAD"]).out.trim() !== oldHead) {
+      const restore = git(["reset", "--keep", oldHead]);
+      if (restore.status !== 0) {
+        die(`message unchanged, but restoring the branch failed: ${restore.out.trim()}`, `recovery: git reset --keep ${backup}`);
+      }
+    }
+    if (!backupPreexisting) git(["branch", "-D", backup]);
+    console.log("repo-commit: reword: the message was left unchanged — nothing to do, no commits were rewritten.");
+    process.exit(0);
   }
-  const treeDiff = git(["diff", "--stat", `${backup}`, "HEAD"]).out.trim();
+  console.log(`repo-commit: backup branch ${backup} (recovery: git reset --hard ${backup})`);
+  // Compared against the saved old tip, not the backup branch name.
+  const treeDiff = git(["diff", "--stat", oldHead, "HEAD"]).out.trim();
   if (treeDiff !== "") {
-    die("reword verification failed (content changed — a reword must not touch the tree)", `recovery: git reset --hard ${backup}`);
+    die("reword verification failed (content changed — a reword must not touch the tree)", `recovery: git reset --hard ${oldHead}`);
   }
   console.log(`repo-commit: reworded. was: ${targetSubject}`);
   console.log(`  now: ${newSubject}`);
   console.log(`  old stack: ${backup}`);
-  const diverged = git(["status", "-sb"]).out.includes("ahead");
-  console.log(`  note: ${diverged ? "branch diverged from its remote — push with --force-with-lease when ready" : "no remote tracking"}`);
+  console.log(`  note: ${remoteNote()}`);
   process.exit(0);
+}
+
+/** Subjects git's autosquash acts on (fixup!/squash!/amend!) among the commits
+ * of `range`, newest first. */
+function pendingAutosquashSubjects(range: string): string[] {
+  return git(["log", "--format=%s", range]).out
+    .split("\n")
+    .filter((subject) => /^(?:fixup|squash|amend)! /.test(subject));
+}
+
+/** One-line description of the branch against its upstream after a history
+ * rewrite: diverged only when it is both ahead of and behind it. */
+function remoteNote(): string {
+  const counts = gitCheck(null, ["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]);
+  if (!counts.ok) return "no remote tracking";
+  const [behind = 0, ahead = 0] = counts.out.trim().split(/\s+/).map(Number);
+  if (ahead > 0 && behind > 0) return "branch diverged from its remote — push with --force-with-lease when ready";
+  if (ahead > 0) return `branch is ahead of its remote by ${ahead} commit(s) — a plain push suffices`;
+  if (behind > 0) return `branch is behind its remote by ${behind} commit(s)`;
+  return "branch is in sync with its remote";
 }
 
 /** Escape ERE metacharacters for --grep (subjects may contain them).
@@ -757,16 +817,16 @@ function escapeGrep(s: string): string {
 // --- Resolve the suggested message.
 let suggested: string;
 if (msgfileArg !== "") {
-  if (rest.length > 0) die("--file and a positional message are mutually exclusive");
+  if (rest.length > 0) dieUsage("--file and a positional message are mutually exclusive");
   if (!existsSync(msgfileArg)) die(`message file not found: ${msgfileArg}`);
   suggested = readFileSync(msgfileArg, "utf8");
   if (suggested === "") die(`message file is empty: ${msgfileArg}`);
 } else {
   if (rest.length === 0) {
     console.error("Usage: repo-commit \"<suggested commit message>\"");
-    die("a suggested commit message is required as the only argument (or pass --file <message-file>)");
+    dieUsage("a suggested commit message is required as the only argument (or pass --file <message-file>)");
   }
-  if (rest.length > 1) die("exactly one argument (the suggested message) or --file is required");
+  if (rest.length > 1) dieUsage("exactly one argument (the suggested message) or --file is required");
   suggested = rest[0] ?? "";
 }
 
@@ -869,11 +929,12 @@ const msgfile = join(tmpDir, "message");
 const finalMessage = wrapEligible ? wrapBodyAt72(suggested) : suggested;
 validateWithCommitlint(finalMessage);
 // Context banner: what this commit lands on, so a stale prefill is visible
-// against its neighbor. # comments are stripped by --cleanup=strip.
+// against its neighbor. Comment lines are stripped by --cleanup=strip.
+const cc = pickCommentChar(finalMessage);
 const contextBanner = [
-  `# NEW commit on top of: ${headShort}`,
+  `${cc} NEW commit on top of: ${headShort}`,
   ...(duplicateOfHead
-    ? ["# WARNING: this message is identical to the commit above — abort or edit unless a verbatim duplicate is intended.", ""]
+    ? [`${cc} WARNING: this message is identical to the commit above — abort or edit unless a verbatim duplicate is intended.`, ""]
     : [""]),
 ].join("\n");
 writeFileSync(msgfile, `${contextBanner}${finalMessage}\n`);
@@ -890,7 +951,7 @@ console.log("repo-commit: pre-commit hooks run after the editor closes; on this 
 // stdin/stdout stay inherited (terminal editors draw their UI there); stderr is
 // piped so a HOOK rejection can be told apart from an editor abort — with full
 // inherit, spawnSync captures nothing and the two failures are indistinguishable.
-const commit = spawnSync("git", ["commit", "--cleanup=strip", "--edit", "-F", msgfile], {
+const commit = spawnSync("git", ["-c", `core.commentChar=${cc}`, "commit", "--cleanup=strip", "--edit", "-F", msgfile], {
   stdio: ["inherit", "inherit", "pipe"],
   env: { ...process.env, GIT_EDITOR: editor },
 });

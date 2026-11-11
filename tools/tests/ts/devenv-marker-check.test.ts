@@ -13,7 +13,7 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
-const SCRIPT = join(TOOLS, "devenv-marker-check");
+const SCRIPT = join(TOOLS, "ts", "devenv-marker-check.ts");
 
 let TMP = "";
 let WORK_DIR = "";
@@ -35,7 +35,7 @@ function write(name: string, content: string): void {
 }
 
 function run(args: string[]): { status: number; out: string } {
-  const r = spawnSync(SCRIPT, args, { encoding: "utf8" });
+  const r = spawnSync("node", [SCRIPT, ...args], { encoding: "utf8" });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 

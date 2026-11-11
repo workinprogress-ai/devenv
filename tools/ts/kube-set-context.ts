@@ -3,7 +3,6 @@
 // substring, auto-select the single match, menu when several (clack on a
 // TTY; first-line pick when KUBE_NO_INTERACTIVE=1, the test contract).
 
-import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";

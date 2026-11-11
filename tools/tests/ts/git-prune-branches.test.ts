@@ -7,7 +7,6 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runTool as runHarness } from "./harness/index.ts";
 
 const TOOL = "git-prune-branches";
@@ -92,6 +91,9 @@ describe("git-prune-branches (real git fixture)", () => {
     // needed since we only move the ref), and the remote-tracking ref is
     // still present until a fetch -p clears it — the tool's own fetch does
     // that.
+    // The merge proof is measured against origin's default branch: the work
+    // must have landed there, not merely on the local checkout.
+    git(repo, "push", "-q", "origin", "master");
     git(repo, "branch", "-f", "feature/rebased", sha);
     git(repo, "update-ref", `refs/remotes/origin/feature/rebased`, sha);
     git(repo, "branch", "--set-upstream-to=origin/feature/rebased", "feature/rebased");
@@ -99,8 +101,6 @@ describe("git-prune-branches (real git fixture)", () => {
     expect(r.status).toBe(0);
     expect(r.out).toContain("fully merged by patch content");
     expect(branchExists("feature/rebased")).toBe(false);
-    // cleanup the picked commit for the next scenario
-    git(repo, "reset", "-q", "--hard", "HEAD~1");
   });
 
   it("a branch with unique commits is skipped even under the default path", () => {

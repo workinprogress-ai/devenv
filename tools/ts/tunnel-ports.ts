@@ -5,12 +5,14 @@
 import { spawn, spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
-function usage(): never {
-  console.log(`Usage: tunnel-ports [-p <ssh port>] [-i <path to ssh key>] <user@target> <port1:destination1> [<port2:destination2> ...]
+function usage(status: number = EXIT_MISUSE): never {
+  // Requested help is stdout / exit 0; a misuse hint is stderr / exit 2.
+  (status === 0 ? console.log : console.error)(`Usage: tunnel-ports [-p <ssh port>] [-i <path to ssh key>] <user@target> <port1:destination1> [<port2:destination2> ...]
 
 Open SSH local port-forwards and hold until a keypress, then close them all.
 
@@ -18,7 +20,7 @@ Options:
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
   -p <ssh port>          SSH port (default: 22)
   -i <ssh key path>      Path to the SSH key`);
-  process.exit(1);
+  process.exit(status);
 }
 
 let sshPort = "22";
@@ -36,22 +38,28 @@ try {
       i: { type: "string" },
     },
   });
-  if (cli.common.help) {
-    // Bash parity: usage exits 1 (it is also the missing-argument refusal).
-    usage();
-  }
+  if (cli.common.help) usage(0);
   sshPort = typeof cli.values.p === "string" && cli.values.p !== "" ? cli.values.p : "22";
   sshCert = typeof cli.values.i === "string" ? cli.values.i : "";
   target = cli.positionals[0] ?? "";
   tunnelArgs = cli.positionals.slice(1);
 } catch (err) {
   console.error(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (target === "") usage();
 const tunnels = tunnelArgs;
 if (tunnels.length === 0) usage();
+// Every mapping is validated before the first tunnel opens, so a malformed
+// later one cannot leave earlier ssh processes running.
+for (const t of tunnels) {
+  if (!t.includes(":")) {
+    console.error(`Invalid tunnel mapping '${t}': expected <port>:<destination>`);
+    usage();
+  }
+}
 
 const children: ReturnType<typeof spawn>[] = [];
 

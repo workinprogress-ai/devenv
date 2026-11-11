@@ -1,6 +1,7 @@
 # Provider facade (tools layer boundary)
 
-The TypeScript tools layer never imports a provider module
+The TypeScript tools layer (`tools/ts/`) and the domain layer
+(`tools/lib/domain/`) never import a provider module
 (`providers/github/`, `providers/azure/`) directly. Every provider access
 flows through **this directory** — `facade/<family>.ts` — which resolves the
 active provider at call time (dynamic `import()` through
@@ -16,25 +17,32 @@ job is provider introspection.
 
 | Facade | Normalizations owned |
 |---|---|
-| `issues.ts` | blocked-by list-vs-per-blocker; edit-option superset with named azure refusals; view projection + jq subset; setType spec-vs-owner/name; create body-file reading |
+| `issues.ts` | blocked-by list-vs-per-blocker (`blockedByAdd`/`blockedByRemove`); comment-add composed from comment + comment-get on azure; `orgIssueTypes` github-native; edit-option superset with named azure refusals; view projection + jq subset; setType spec-vs-owner/name; create body-file reading |
 | `projects.ts` | the hoisted ops-object (async-neutral verbs); azure tab-line forIssue parsing; fieldSet boolean contract; github-native `projectsNumberByName` |
 | `prs.ts` | GhResult-neutral returns; comment body-file content-vs-path; create option mapping; thread verb shapes |
 | `urls.ts` | pure pass-through (auth status, extract/remote parsing, web/transport addresses); azure authStatusOk lives in `auth.ts` |
-| `repos.ts` | commits-count boolean-vs-number; create RunResult shape; github-native `reposTreeCount` |
+| `repos.ts` | commits-count boolean-vs-number; create RunResult shape; github-native `reposTreeCount`; the repo-settings verbs `reposEdit`, `reposPatch`, `reposPatchWithError`, `reposTeamPut`, `reposCollaboratorPut` (boolean results; on azure `reposEdit` and the two patch verbs throw a named "not supported on provider 'azure'" error, team and collaborator writes report a provider failure as `false`) |
 | `org.ts` | async-neutral ruleset verbs; azure policies payload bridging (file -> parsed payload); releases flags gap named |
 | `pipelines.ts` | JSON-text list/view; `{stdout, status}` for watch/run/rerun/download; azure --ref/-f flag mapping; surplus azure verbs stay internal |
 
+The contract for every verb, with the provider coverage of each, is
+[../CONTRACT.md](../CONTRACT.md); `tools/tests/ts/provider-azure-parity.test.ts`
+compares every export of these facade modules with that table, so a facade
+verb without a contract row fails the suite.
+
 ## The boundary rule
 
-- Tools import `facade/<family>.ts` only. `provider-core.ts` (detection,
+- Tools and domain code import `facade/<family>.ts` only. `provider-core.ts` (detection,
   repo targeting, capabilities, errors) stays importable — it is the shared
   seam, not a provider implementation.
 - A facade file imports only its own family's manifest modules
   (`FAMILY_MANIFEST` in provider-loader.ts is the source of truth; the
   boundary test reads it).
-- The ratchet lives in `tools/tests/ts/provider-boundary.test.ts`:
-  `RATCHET_CAP` is the allowlist size and may only shrink. New
-  provider-importing tools are boundary breaches, not allowlist entries.
+- The boundary lives in `tools/tests/ts/provider-boundary.test.ts`. It scans
+  `tools/ts/` and `tools/lib/domain/**` with an empty allowlist: a
+  provider-importing tool or domain file is a boundary breach, not an
+  allowlist entry. The only sanctioned direct importer is
+  `tools/ts/provider-explain.ts`.
 
 ## Adding a provider (the checklist)
 
@@ -50,9 +58,12 @@ A new provider `X` must, per family it supports:
    returns stringified into the github-path return type, gaps thrown as
    named `ProviderError`s ("not implemented for provider 'X'"), never
    silently dropped.
-3. Add the arm to the facade's `load()` switch (exhaustive — the default
-   arm throws; a provider is never silently dispatched into github).
+3. Add the arm to the facade's `load()`. `issues.ts` switches exhaustively
+   and throws for an unknown provider; the other families branch on `azure`
+   and fall through to github, so extend each branch by hand.
 4. Provider detection: `TS_PROVIDERS` in provider-core gains the name; the
    capability declarations its modules make must cover the canonical list.
-5. Run the boundary + loader tests (`pnpm test:ts`) — the manifest-driven
-   checks verify the family rows and the same-family import rule.
+5. Add the provider's column to the coverage table in
+   [../CONTRACT.md](../CONTRACT.md) and run the parity, boundary and loader
+   tests (`pnpm test:ts`): the manifest-driven checks verify the family rows
+   and the same-family import rule, and the parity test verifies the exports.

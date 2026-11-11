@@ -5,9 +5,10 @@
 // bash libs it sourced delete with this port).
 //
 // Dry-run default: report per-repo type/open-PRs/WIP state. --apply is
-// gated exactly as the bash gate was: type detected, rebase-only in
-// repo-types.yaml, attention report clear. Anything else reports NOT
-// APPLIED with the reason and exits 1 at the end.
+// gated: type detected, rebase-only in repo-types.yaml, attention report
+// clear — and "clear" means known: an unreadable open-PR count or a failed WIP
+// scan counts as attention. Anything else reports NOT APPLIED with the reason
+// and exits 1 at the end; so does a ruleset that could not be applied.
 //
 // Org identity: config [organization] org first (the policy layer's
 // resolution order), then the provider accessor.
@@ -37,8 +38,9 @@ assertNodeFloor();
 
 const SCRIPT_VERSION = "1.0.0";
 
-function usage(): never {
-  console.error(`Usage: repo-reset-merge-config [--apply] [--all | <name>...] [--limit <n>]
+function usage(status: number = EXIT_MISUSE): never {
+  // Requested help is stdout / exit 0; a misuse hint is stderr / exit 2.
+  (status === 0 ? console.log : console.error)(`Usage: repo-reset-merge-config [--apply] [--all | <name>...] [--limit <n>]
 
 One-time reset of merge configuration to the rebase-only policy.
 Default mode is dry-run (report only). --apply performs the configuration.
@@ -51,7 +53,7 @@ Options:
   --apply            Apply the configuration (default: dry-run report only)
   --limit <n>        Max org repositories to scan in --all mode (default 1000)
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
-  process.exit(EXIT_GENERAL_ERROR);
+  process.exit(status);
 }
 
 let apply = false;
@@ -71,7 +73,7 @@ try {
       limit: { type: "string", default: "1000" },
     },
   });
-  if (cli.common.help) usage();
+  if (cli.common.help) usage(0);
   apply = cli.values["apply"] === true;
   allRepos = cli.values["all"] === true;
   limit = (cli.values["limit"] as string | undefined) ?? "1000";
@@ -91,7 +93,7 @@ if (!allRepos && targetRepos.length === 0) {
 }
 
 // Org identity: config first (the policy layer's order), then provider.
-const devenvRoot = selfRoot(process.cwd());
+const devenvRoot = selfRoot(import.meta.url);
 let org = configGetRaw(join(devenvRoot, "devenv.config"), "organization", "org") ?? "";
 if (org === "") org = providerOrgGet();
 if (org === "") {
@@ -138,7 +140,8 @@ for (const repoName of names) {
 
   let attention = "";
 
-  // Open PR count (best-effort; a provider outage must not kill the run).
+  // Open PR count (a provider outage must not kill the run, but an unknown
+  // count is not a clean one: it blocks --apply like an open PR does).
   let openPrs = "?";
   try {
     const r = await prsList(fullName, { state: "open", limit: 100, json: "number" });
@@ -150,13 +153,17 @@ for (const repoName of names) {
 
   // WIP-range scan needs a local clone; the checked-out branch only (the
   // open-PR count is the broader signal).
-  const localClone = join(devenvRoot, "repos", repoName);
+  const localClone = join(process.env.DEVENV_ROOT !== undefined && process.env.DEVENV_ROOT !== "" ? process.env.DEVENV_ROOT : devenvRoot, "repos", repoName);
   let wipNote = "";
   if (existsSync(join(localClone, ".git"))) {
     const ref = gitCapture(localClone, ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]).out.trim();
     const defaultBranch = ref.replace(/^origin\//, "") || "master";
     const offenders = wipRangeScan(localClone, `${defaultBranch}..HEAD`);
-    if (offenders === null || offenders.length === 0) {
+    if (offenders === null) {
+      // The scan could not run (unknown range): fail closed, never "clean".
+      wipNote = `scan failed (${defaultBranch}..HEAD)`;
+      attention = "yes";
+    } else if (offenders.length === 0) {
       wipNote = "clean(checked-out)";
     } else {
       wipNote = `WIP in checked-out branch (${defaultBranch}..HEAD)`;
@@ -166,7 +173,7 @@ for (const repoName of names) {
     wipNote = "no local clone (unscanned)";
   }
 
-  if (openPrs !== "0" && openPrs !== "?") attention = "yes";
+  if (openPrs !== "0") attention = "yes";
 
   // --apply gate: decide before writing the report line.
   let applyNote = "";
@@ -177,7 +184,7 @@ for (const repoName of names) {
     } else if (allowed !== '["rebase"]') {
       applyNote = `NOT APPLIED: type '${repoType}' is not rebase-only in repo-types.yaml`;
     } else if (attention !== "") {
-      applyNote = "NOT APPLIED: needs attention first (open PRs or WIP — see the line above)";
+      applyNote = "NOT APPLIED: needs attention first (open PRs, an unreadable PR count, or WIP / a failed WIP scan — see the line above)";
     }
   }
 
@@ -195,14 +202,18 @@ for (const repoName of names) {
       logError(`${fullName}: ${applyNote}`);
       notAppliedCount += 1;
     } else {
-      configureRulesetsForType(fullName, repoType, config, join(devenvRoot, "tools"));
-      const mergeOk = configureMergeTypesForType(fullName, repoType, config);
-      if (mergeOk) {
+      const rulesets = await configureRulesetsForType(fullName, repoType, config, join(devenvRoot, "tools"));
+      const mergeOk = await configureMergeTypesForType(fullName, repoType, config);
+      if (mergeOk && rulesets.failures.length === 0) {
         appliedCount += 1;
         logInfo(`Applied rebase-only config to ${fullName} (type: ${repoType})`);
       } else {
-        report.push("          NOT APPLIED: Failed to apply (provider call failed)");
-        logWarn(`Failed to apply config to ${fullName} — check provider connectivity and type mapping.`);
+        if (!mergeOk) report.push("          NOT APPLIED: Failed to apply merge types (provider call failed)");
+        for (const failure of rulesets.failures) {
+          report.push(`          NOT APPLIED: ruleset: ${failure}`);
+          logError(`${fullName}: ruleset: ${failure}`);
+        }
+        logWarn(`Failed to fully apply config to ${fullName} — check provider connectivity and type mapping.`);
         notAppliedCount += 1;
       }
     }

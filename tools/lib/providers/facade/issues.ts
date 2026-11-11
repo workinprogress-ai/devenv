@@ -277,8 +277,13 @@ export async function issuesEdit(
       ...(body !== undefined ? { body } : {}),
       ...(opts.addLabel?.[0] !== undefined ? { addLabel: opts.addLabel[0] } : {}),
       ...(opts.removeLabel?.[0] !== undefined ? { removeLabel: opts.removeLabel[0] } : {}),
-      ...(opts.type !== undefined ? { type: opts.type } : {}),
+      // With a body the type only selects the body field; without one it is
+      // a type change, routed below.
+      ...(opts.type !== undefined && body !== undefined ? { type: opts.type } : {}),
     });
+    if (opts.type !== undefined && body === undefined) {
+      await m.az.issuesSetType(spec ?? "", number, opts.type);
+    }
     return;
   }
   await m.gh.issuesEdit(spec, number, opts);
@@ -549,8 +554,12 @@ export async function blockedByRemove(spec: string | undefined, issue: number, b
 
 /** Body resolution shared by create/edit: `--body-file F` (`-` is stdin)
  * reads to text on the providers whose verbs take body text only. Both
- * being absent is the caller's business (no body update). */
+ * given is refused (GitHub's own rule); both absent is the caller's
+ * business (no body update). */
 async function resolveBody(opts: { body?: string; bodyFile?: string }): Promise<string | undefined> {
+  if (opts.body !== undefined && opts.bodyFile !== undefined) {
+    throw new ProviderError("--body and --body-file are mutually exclusive");
+  }
   if (opts.body !== undefined) return opts.body;
   if (opts.bodyFile === undefined) return undefined;
   const { readFileSync } = await import("node:fs");

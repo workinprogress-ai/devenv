@@ -7,16 +7,14 @@
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { ensureProviderAuth, isDevenvRepoGated, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, checkTargetRepo, providerOrgGet, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
 import { issueWebUrl } from "../lib/providers/facade/issues.ts";
 import { projectsOps } from "../lib/providers/facade/projects.ts";
 
 assertNodeFloor();
-
-ensureProviderAuth();
 
 let issueNumber = "";
 let devenvOverride = false;
@@ -50,18 +48,22 @@ try {
   });
   if (cli.common.help) usage();
   devenvOverride = cli.values.devenv === true;
-  const positionals = cli.positionals.filter((p) => !p.startsWith("-"));
-  if (positionals.length > 0) issueNumber = positionals[0] ?? "";
+  if (cli.positionals.length > 1) throw new Error("At most one ISSUE_NUMBER positional is allowed");
+  issueNumber = cli.positionals[0] ?? "";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (issueNumber === "" || !/^[0-9]+$/.test(issueNumber)) {
   logError("A numeric ISSUE_NUMBER is required");
   console.error("Use --help for usage information");
-  process.exit(EXIT_GENERAL_ERROR);
+  process.exit(EXIT_MISUSE);
 }
+
+// Authenticate only after the arguments parsed: help and misuse need no provider.
+ensureProviderAuth();
 
 if (providerOrgGet() === "") {
   logError("Organization identity unresolved. Configure [organization] org in devenv.config or run setup.");
@@ -74,13 +76,7 @@ if (repoSpec === "") {
   logError("Cannot resolve the target repository — pass DEVENV_REPO or run inside a repository.");
   process.exit(EXIT_GENERAL_ERROR);
 }
-if (isDevenvRepoGated() && (process.env["DEVENV_REPO"] === undefined || process.env["DEVENV_REPO"] === "") && !devenvOverride) {
-  logError("The current repository appears to be the devenv repository itself");
-  console.log("Operations should be performed in target project repositories, not in devenv");
-  console.log("To target a project repo, prefix the command with DEVENV_REPO=<owner>/<repo>");
-  console.log("To override this safety check (devenv-repo work only), pass the --devenv flag");
-  process.exit(EXIT_GENERAL_ERROR);
-}
+checkTargetRepo(devenvOverride);
 const owner = repoSpec.split("/")[0] ?? "";
 const issueUrl = await issueWebUrl(repoSpec, Number(issueNumber));
 

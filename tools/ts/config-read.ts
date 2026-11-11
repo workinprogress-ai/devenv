@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { logError } from "../lib/core/logging.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { configGet } from "../lib/core/config.ts";
 import { providerOrgGet, providerUserGet } from "../lib/providers/provider-core.ts";
@@ -26,7 +27,8 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
 
 Exit codes:
     0 value printed
-    1 invalid arguments / config problem
+    1 config problem (config file not found)
+    2 invalid arguments (unknown option, too many or missing operands)
 
 Examples:
     config-read copilot engineering_repo
@@ -40,7 +42,7 @@ let key = "";
 let fallback = "";
 let configFile = process.env.DEVENV_ROOT
   ? join(process.env.DEVENV_ROOT, "devenv.config")
-  : join(selfRoot(process.cwd()), "devenv.config");
+  : join(selfRoot(import.meta.url), "devenv.config");
 
 try {
   const cli = toolCli({
@@ -55,7 +57,8 @@ try {
   if (cli.common.help) usage();
   if (cli.positionals.length > 3) {
     logError("Too many arguments");
-    process.exit(1);
+    console.error("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
   }
   section = cli.positionals[0] ?? "";
   key = cli.positionals[1] ?? "";
@@ -65,16 +68,18 @@ try {
     : configFile;
 } catch (err) {
   logError(errorMessage(err));
-  process.exit(1);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (section === "" || key === "") {
   logError("Usage: config-read SECTION KEY [DEFAULT]");
-  process.exit(1);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 if (!existsSync(configFile)) {
   logError(`Config file not found: ${configFile}`);
-  process.exit(1);
+  process.exit(EXIT_GENERAL_ERROR);
 }
 
 const value = configGet(configFile, section, key, {

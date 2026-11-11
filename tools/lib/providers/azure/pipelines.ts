@@ -4,15 +4,24 @@
 // vocabulary onto statusFilter+resultFilter pairs. Contract: throw
 // ProviderError; never exit.
 
-import { ProviderError } from "../provider-core.ts";
+import { ProviderError, providerDeclareCapability } from "../provider-core.ts";
 import { azureHttp, azureHttpPaginate, azureHttpDownload } from "./http.ts";
 import { azureRepoParts, azureUri } from "./urls.ts";
 import { repoGuidShared, reposDefaultBranch } from "./repos.ts";
+
+// Azure implements the whole pipelines verb family (builds = runs).
+providerDeclareCapability("pipelines");
 
 /** Build API root for a repo spec's org/project. */
 function buildRoot(repo: string): string {
   const { org, project } = azureRepoParts(repo);
   return `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}/_apis/build`;
+}
+
+/** The project's web base ("https://dev.azure.com/org/project"). */
+function webBase(repo: string): string {
+  const { org, project } = azureRepoParts(repo);
+  return `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}`;
 }
 
 /** Resolve a pipeline (build definition) to its numeric id(s): a number is
@@ -76,6 +85,7 @@ export const AZURE_BUILD_FIELDS = [
 export function mapBuild(
   build: Record<string, unknown>,
   fieldList?: string,
+  webBase?: string,
 ): Record<string, unknown> {
   const definition = build.definition as { name?: string } | undefined;
   const status = build.status as string | undefined;
@@ -91,7 +101,8 @@ export function mapBuild(
     headSha: build.sourceVersion ?? "",
     createdAt: build.queueTime ?? "",
     updatedAt: build.finishTime ?? build.queueTime ?? "",
-    url: build.url ?? "",
+    // The browser page of the build; the REST address (build.url) is not a link.
+    url: webBase !== undefined && build.id !== undefined ? `${webBase}/_build/results?buildId=${String(build.id)}` : (build.url ?? ""),
   };
   if (fieldList === undefined || fieldList === "") return rec;
   const keys = fieldList.split(",").map((k) => k.trim());
@@ -139,7 +150,8 @@ export async function pipelinesRunList(
         break;
       case "success":
         statusFilterQ = "completed";
-        resultFilterQ = "succeeded";
+        // mapBuild reports partiallySucceeded as success, so the filter does too.
+        resultFilterQ = "succeeded,partiallySucceeded";
         break;
       case "failure":
       case "timed_out":
@@ -175,23 +187,28 @@ export async function pipelinesRunList(
   if (statusFilterQ !== "") query += `&statusFilter=${statusFilterQ}`;
   if (resultFilterQ !== "") query += `&resultFilter=${resultFilterQ}`;
   const builds = await azureHttpPaginate<Record<string, unknown>>(query, limit);
-  const mapped = builds.map((b) => mapBuild(b, opts.json));
+  const mapped = builds.map((b) => mapBuild(b, opts.json, webBase(repo)));
   if (opts.jq !== undefined) {
-    // The bash side applied the -q program over the whole assembled array
-    // through jq; the TS verbs support the same three program shapes as the
-    // other azure list verbs.
-    const each = /^\.\[\]\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(opts.jq.trim());
-    if (each?.[1] !== undefined) {
-      return mapped
+    // The program subset the run tools pass to gh on the other provider:
+    // `.[].f`, `.[N].f`, each optionally followed by `// empty` or
+    // `// "default"` (an absent value is dropped, or replaced by the default).
+    const m = /^\.\[(\d*)\]\.([A-Za-z_][A-Za-z0-9_]*)(?:\s*\/\/\s*(empty|"([^"]*)"))?$/.exec(opts.jq.trim());
+    if (m?.[2] !== undefined) {
+      // An index past the end is an absent element (jq yields null), so the
+      // default still applies.
+      const rows = m[1] === "" ? mapped : [mapped[Number(m[1])] ?? {}];
+      const fallback = m[4];
+      return rows
         .map((r) => {
-          const v = r[each[1] as string];
-          return v === undefined || v === null ? null : typeof v === "string" ? v : JSON.stringify(v);
+          const v = r[m[2] as string];
+          if (v === undefined || v === null) return fallback ?? null;
+          return typeof v === "string" ? v : JSON.stringify(v);
         })
         .filter((v) => v !== null)
         .join("\n");
     }
     throw new ProviderError(
-      `unsupported jq program '${opts.jq}' — azure run list supports '.[].field'`,
+      `unsupported jq program '${opts.jq}' — azure run list supports '.[].field' and '.[N].field', optionally followed by '// empty' or '// "default"'`,
     );
   }
   return mapped;
@@ -210,7 +227,7 @@ export async function pipelinesRunView(
 ): Promise<string> {
   const root = buildRoot(repo);
   const raw = await azureHttp<Record<string, unknown>>("GET", `${root}/builds/${runId}`);
-  const mapped = mapBuild(raw, opts.json);
+  const mapped = mapBuild(raw, opts.json, webBase(repo));
   if (opts.jq !== undefined) {
     const one = /^\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(opts.jq.trim());
     if (one?.[1] !== undefined) {
@@ -455,12 +472,25 @@ export async function pipelinesRunDownload(
   const r = await azureHttp<{
     value?: Array<{ name?: string; resource?: { downloadUrl?: string } }>;
   }>("GET", `${root}/builds/${runId}/artifacts`);
+  const wanted = opts.name !== undefined && opts.name !== "" ? opts.name : undefined;
+  const picked: Array<{ name: string; url: string }> = [];
   for (const a of r.value ?? []) {
     const name = a.name ?? "";
     if (name === "") continue;
-    if (opts.name !== undefined && opts.name !== "" && name !== opts.name) continue;
+    if (wanted !== undefined && name !== wanted) continue;
+    // The name becomes a file name under destDir: a separator or '..' would
+    // write outside it. Every candidate is checked before any download starts.
+    if (/[\\/]/.test(name) || name.includes("..")) {
+      throw new ProviderError(`unsafe artifact name '${name}': it must not contain '/', '\\' or '..'`);
+    }
     const url = a.resource?.downloadUrl ?? "";
     if (url === "") continue;
+    picked.push({ name, url });
+  }
+  if (wanted !== undefined && picked.length === 0) {
+    throw new ProviderError(`artifact '${wanted}' not found on run ${runId}`);
+  }
+  for (const { name, url } of picked) {
     await azureHttpDownload(url, join(destDir, `${name}.zip`));
   }
 }

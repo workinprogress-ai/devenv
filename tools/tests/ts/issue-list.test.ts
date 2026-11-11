@@ -4,7 +4,6 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
 const TOOL = "issue-list";
@@ -86,6 +85,13 @@ describe("issue-list", () => {
     expect(calls).toContain("--assignee octocat");
     expect(calls).toContain("--milestone M1");
     expect(calls).toContain("--author alice");
+  });
+
+  it("every repeated --label value reaches gh", () => {
+    const r = runTool(["--label", "bug", "--label", "area/auth", "-l", "p1"]);
+    expect(r.status).toBe(0);
+    const calls = ghCalls().join("\n");
+    for (const l of ["bug", "area/auth", "p1"]) expect(calls).toContain(`--label ${l}`);
   });
 
   it("simple format renders number - title lines", () => {

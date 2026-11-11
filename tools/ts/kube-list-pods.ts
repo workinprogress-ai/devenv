@@ -5,7 +5,7 @@
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { listPods, resolveNamespace } from "../lib/domain/kube/kube.ts";
@@ -44,7 +44,8 @@ try {
   filter = cli.positionals[0] ?? "";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 const resolution = resolveNamespace(nsInput);

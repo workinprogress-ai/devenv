@@ -20,7 +20,7 @@ export function forkConfigFromEnv(): ForkConfig {
 /** Read [fork] upstream_repo / upstream_branch from $DEVENV_ROOT/devenv.config.
  * Throws with the bash die-messages when either is missing. */
 export function loadConfig(devenvRoot?: string): ForkConfig {
-  const root = devenvRoot ?? process.env.DEVENV_ROOT ?? selfRoot(process.cwd());
+  const root = devenvRoot ?? process.env.DEVENV_ROOT ?? selfRoot(import.meta.url);
   const file = join(root, "devenv.config");
   if (!existsSync(file)) throw new Error(`could not read ${file}`);
   const upstreamRepo = configGetRaw(file, "fork", "upstream_repo") ?? "";
@@ -106,7 +106,7 @@ export function isFullRangeSelection(repoRoot: string, base: string, end: string
 
 /** Read fork-surfaces config paths (fork-surfaces.bash parity). */
 export function surfacesConfigPath(devenvRoot?: string): string {
-  return join(devenvRoot ?? selfRoot(process.cwd()), "tools", "config", "fork-surfaces.yml");
+  return join(devenvRoot ?? selfRoot(import.meta.url), "tools", "config", "fork-surfaces.yml");
 }
 
 /** Fork-only: the change-id lib lives in core; re-export nothing — importers

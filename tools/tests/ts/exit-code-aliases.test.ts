@@ -35,7 +35,6 @@ function makeUnconfiguredTree(base: string): string {
   cpSync(join(TOOLS, "lib"), join(TREE, "tools", "lib"), { recursive: true });
   const stem = base.replace(/\.ts$/, "").replace(/\.sh$/, "");
   if (spawnSync("test", ["-f", join(TOOLS, "ts", `${stem}.ts`)]).status === 0) {
-    cpSync(join(TOOLS, stem), join(TREE, "tools", stem));
     cpSync(join(TOOLS, "ts", `${stem}.ts`), join(TREE, "tools", "ts", `${stem}.ts`));
   } else {
     cpSync(join(TOOLS, "scripts", `${stem}.sh`), join(TREE, "tools", "scripts", `${stem}.sh`));
@@ -51,7 +50,7 @@ const { GH_ORG: _g, PROVIDER_ORG: _p, DEVENV_REPO: _r, DEVENV_ROOT: _d, DEVENV_R
 function runUnconfigured(base: string): { status: number; out: string } {
   const tree = makeUnconfiguredTree(base);
   const stem = base.replace(/\.ts$/, "").replace(/\.sh$/, "");
-  const r = spawnSync("bash", [join(tree, "tools", stem), "svc.x.y", "--type", "service"], {
+  const r = spawnSync("node", [join(tree, "tools", "ts", `${stem}.ts`), "svc.x.y", "--type", "service"], {
     cwd: tree,
     encoding: "utf8",
     env: { ...cleanEnv },

@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
-const SCRIPT = join(ROOT, "tools", "git-update");
+const SCRIPT = join(ROOT, "tools", "ts", "git-update.ts");
 
 let TMP = "";
 let ORIGIN = "";
@@ -43,7 +43,7 @@ function revIn(repo: string, ref: string): string {
 }
 
 function runUpdate(args: string[] = []): { status: number; out: string } {
-  const r = spawnSync(SCRIPT, args, { cwd: CLONE, encoding: "utf8", env: GIT_ENV() });
+  const r = spawnSync("node", [SCRIPT, ...args], { cwd: CLONE, encoding: "utf8", env: GIT_ENV() });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 

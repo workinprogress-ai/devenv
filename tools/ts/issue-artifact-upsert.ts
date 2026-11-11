@@ -14,7 +14,7 @@
 // Interactive .local-artifacts picking is a TTY-only flow (D1); the non-TTY
 // path requires an explicit source or piped stdin.
 
-import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { toolCli } from "../lib/core/cli.ts";
 import { basename, join } from "node:path";
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
