@@ -141,6 +141,9 @@ describe("key-update-azure", () => {
     mkdirSync(join(scratch, "bin"));
     writeFileSync(join(scratch, "bin", "dotnet"), "#!/usr/bin/env bash\nexit 0\n");
     chmodSync(join(scratch, "bin", "dotnet"), 0o755);
+    if (!existsSync(join(DEVENV_ROOT, "devenv.config"))) {
+      writeFileSync(join(DEVENV_ROOT, "devenv.config"), "[provider]\nname=azure\n");
+    }
     const r = spawnSync("node", [KEY_UPDATE, ...args], {
       encoding: "utf8",
       input: input ?? "",
