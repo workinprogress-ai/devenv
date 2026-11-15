@@ -159,6 +159,14 @@ done
 # under an earlier contract. Non-stub files are foreign and left alone.
 for entry in "$tools_dir"/*; do
     [ -f "$entry" ] || [ -L "$entry" ] || continue
+    # A broken symlink is unreadable by definition (no content to check
+    # against the stub contract) and cannot dispatch, so it is stale
+    # regardless of what it used to point at.
+    if [ ! -e "$entry" ]; then
+        rm -f "$entry"
+        removed=$((removed + 1))
+        continue
+    fi
     # Exact-stub contract: the file must be ONLY the exec line (header plus
     # one stub line, nothing else). Multi-line hand-rolled wrappers are
     # foreign and left alone even when their target has vanished.
