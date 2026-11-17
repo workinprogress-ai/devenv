@@ -1,5 +1,5 @@
 // artifact-header — parse, verify, and stamp DEVENV_ARTIFACT_V1 headers.
-// Port of artifact-header.sh over lib/domain/artifacts.ts's
+// Built over lib/domain/artifacts.ts's
 // parseHeaderJson. Modes: default (print header JSON), --field, --stamp,
 // --set KEY=VALUE (repeatable; inserts missing keys before the closing -->).
 
@@ -10,7 +10,7 @@ import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { invalidArgs } from "../lib/core/args.ts";
-import { parseHeaderJson, HEADER_KEY_PATTERN } from "../lib/domain/artifacts.ts";
+import { parseHeaderJson, headerField, headerSpan, HEADER_KEY_LINE } from "../lib/domain/artifacts.ts";
 
 assertNodeFloor();
 
@@ -110,38 +110,48 @@ if (stamp || sets.length > 0) {
   }
   if (stamp) rewrite.set("updated_at_utc", now);
 
-  const headerKeyLine = new RegExp(`^[ \\t]*${HEADER_KEY_PATTERN}[ \\t]*:`);
+  // The writer edits exactly the span the reader parses (headerSpan), so a
+  // key it rewrites or inserts is a key the reader sees, and a body line
+  // outside the span is never touched.
+  //  - A key inside the span is replaced in place (indent kept); a key line
+  //    carrying the inline closer keeps its ` -->`.
+  //  - A missing key goes on its own line before the closing line. For a block
+  //    closed inline on its last key line, new keys go before that line, so
+  //    the existing line stays byte-identical and the comment stays closed.
+  //    An unclosed block grows at the end of its leading key run.
+  const span = headerSpan(body);
+  if (span === null) {
+    logError("No DEVENV_ARTIFACT_V1 header span to update");
+    process.exit(1);
+  }
   const lines = body.split("\n");
-  const out: string[] = [];
-  let inBlock = false;
+  const edited = lines.slice();
   const seen = new Set<string>();
-  for (const line of lines) {
-    if (line.includes("DEVENV_ARTIFACT_V1")) {
-      inBlock = true;
-      out.push(line);
-      continue;
+  for (let i = span.firstLine; i < span.endLine; i++) {
+    const raw = lines[i] ?? "";
+    const cr = raw.endsWith("\r") ? "\r" : "";
+    const line = cr === "" ? raw : raw.slice(0, -1);
+    const key = line.match(HEADER_KEY_LINE)?.[1];
+    if (key === undefined || !rewrite.has(key)) continue;
+    seen.add(key);
+    const indent = line.match(/^[ \t]*/)?.[0] ?? "";
+    const inlineCloser = span.closerKind === "inline" && i === span.closerLine ? " -->" : "";
+    edited[i] = `${indent}${key}: ${rewrite.get(key)}${inlineCloser}${cr}`;
+  }
+  const insertAt = span.closerKind === "inline" ? (span.closerLine ?? span.endLine) : span.endLine;
+  const eolSource = span.closerKind === null ? span.endLine - 1 : insertAt;
+  const insertEol = (lines[eolSource] ?? "").endsWith("\r") ? "\r" : "";
+  const missing = [...rewrite].filter(([k]) => !seen.has(k)).map(([k, v]) => `${k}: ${v}${insertEol}`);
+  edited.splice(insertAt, 0, ...missing);
+  const updated = edited.join("\n");
+  for (const [k, v] of rewrite) {
+    if (headerField(updated, k) !== v.trim()) {
+      logError(`Could not set header key '${k}': the value would not read back from the header block`);
+      process.exit(EXIT_API_FAILURE);
     }
-    if (inBlock && /^-->/.test(line)) {
-      for (const [k, v] of rewrite) {
-        if (!seen.has(k)) out.push(`${k}: ${v}`);
-      }
-      out.push(line);
-      inBlock = false;
-      continue;
-    }
-    if (inBlock && headerKeyLine.test(line)) {
-      const indent = line.match(/^[ \t]*/)?.[0] ?? "";
-      const key = line.trim().replace(/:.*/, "").trimEnd();
-      if (rewrite.has(key)) {
-        seen.add(key);
-        out.push(`${indent}${key}: ${rewrite.get(key)}`);
-        continue;
-      }
-    }
-    out.push(line);
   }
   const tmp = `${file}.tmp-${process.pid}`;
-  writeFileSync(tmp, out.join("\n"));
+  writeFileSync(tmp, updated);
   renameSync(tmp, file);
 }
 

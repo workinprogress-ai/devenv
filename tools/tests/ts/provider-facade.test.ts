@@ -397,6 +397,62 @@ describe("artifacts domain (byte-faithful header)", () => {
     expect(artifacts.parseHeaderJson(body)).toEqual({ "x-y": "1", v2: "1" });
   });
 
+  it("a header closed inline on its last key line ends there; a later closer and key-shaped text are not header", () => {
+    const body = [
+      "<!-- DEVENV_ARTIFACT_V1",
+      "doc_id: dv1:a",
+      "artifact_type: plan -->",
+      "",
+      "Example:",
+      "issue_number: 7",
+      "<!-- note",
+      "issue_number: 7",
+      "-->",
+    ].join("\n");
+    expect(artifacts.parseHeaderJson(body)).toEqual({ doc_id: "dv1:a", artifact_type: "plan" });
+    expect(artifacts.headerField(body, "artifact_type")).toBe("plan");
+    expect(artifacts.headerField(body, "issue_number")).toBe("");
+    expect(artifacts.bodyUpsertable(body).ok).toBe(false);
+    const withIssue = body.replace("doc_id: dv1:a", "doc_id: dv1:a\nissue_number: 3");
+    expect(artifacts.headerField(withIssue, "issue_number")).toBe("3");
+    expect(artifacts.bodyUpsertable(withIssue)).toEqual({ ok: true });
+  });
+
+  it("prose before a later closer leaves the header unclosed at the first non-key line", () => {
+    const body = "<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:a\nSome prose.\nissue_number: 7\n-->";
+    expect(artifacts.parseHeaderJson(body)).toEqual({ doc_id: "dv1:a" });
+    const afterBlank = "<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:a\n\n```\nissue_number: 7\n```\n-->";
+    expect(artifacts.parseHeaderJson(afterBlank)).toEqual({ doc_id: "dv1:a" });
+  });
+
+  it("a closer reachable through blank and comment lines closes the header, with BOM and indented closer", () => {
+    const body = "\uFEFF<!-- DEVENV_ARTIFACT_V1 trailing text\n\ndoc_id: dv1:a\n// c\nissue_number: 7\n  -->\nissue_number: 9";
+    expect(artifacts.parseHeaderJson(body)).toEqual({ doc_id: "dv1:a", issue_number: "7" });
+    expect(artifacts.parseHeaderJson(body.replaceAll("\n", "\r\n"))).toEqual({ doc_id: "dv1:a", issue_number: "7" });
+  });
+
+  it("headerSpan reports the block range and closer for each header shape", () => {
+    const bare = "<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:a\nx: 1\n-->\nbody";
+    expect(artifacts.headerSpan(bare)).toEqual({ markerLine: 0, firstLine: 1, endLine: 3, closerKind: "line", closerLine: 3 });
+    const inline = "intro\n<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:a\nx: 1 -->\nbody";
+    expect(artifacts.headerSpan(inline)).toEqual({ markerLine: 1, firstLine: 2, endLine: 4, closerKind: "inline", closerLine: 3 });
+    const unclosed = "<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:a\nprose\nissue_number: 9\n-->";
+    expect(artifacts.headerSpan(unclosed)).toEqual({ markerLine: 0, firstLine: 1, endLine: 2, closerKind: null, closerLine: null });
+    expect(artifacts.headerSpan("no marker")).toBeNull();
+    expect(artifacts.headerSpan(bare.replaceAll("\n", "\r\n"))).toEqual(artifacts.headerSpan(bare));
+  });
+
+  it("an inline-closer check is linear on a very long whitespace run", () => {
+    const value = " ".repeat(65_000);
+    const body = `<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:a\nnote:${value}\n-->`;
+    const start = performance.now();
+    for (let i = 0; i < 3; i++) artifacts.parseHeaderJson(body);
+    artifacts.headerField(body, "doc_id");
+    expect(performance.now() - start).toBeLessThan(200);
+    expect(artifacts.parseHeaderJson(body)).toMatchObject({ doc_id: "dv1:a" });
+    expect(artifacts.stripInlineCloser(`k: v${value}-->${value}`)).toBe("k: v");
+  });
+
   it("a doc_id line outside the delimited block is not a header", () => {
     expect(artifacts.findDocId("<!-- DEVENV_ARTIFACT_V1\nartifact_type: plan\n-->\ndoc_id: dv1:after")).toBe("");
     expect(artifacts.bodyUpsertable("doc_id: dv1:a\nissue_number: 1").ok).toBe(false);
