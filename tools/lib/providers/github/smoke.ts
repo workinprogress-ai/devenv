@@ -8,20 +8,24 @@
 // so on, records every one of them by identifier the moment it exists, and
 // tears down exactly the recorded items (newest first) at the end — also on
 // failure and on SIGINT/SIGTERM. It never touches a repository it did not
-// create.
+// create. The recording, teardown and signal logic is shared with the Azure
+// suite (../smoke-teardown.ts).
 //
 // Opt-in gate (everything below is required; the suite refuses otherwise):
 //   GITHUB_SMOKE=write              the only accepted value (the suite is destructive)
 //   GITHUB_SMOKE_OWNER=<org>        the organisation that receives the throwaway items
 //   GITHUB_SMOKE_CONFIRM=<org>      must equal GITHUB_SMOKE_OWNER exactly
-//   GITHUB_SMOKE_ALLOW_REAL_ORG=<org>   additionally required when <org> is the
-//                                   organisation configured in devenv.config
+//   GITHUB_SMOKE_ALLOW_REAL_ORG=<org>   additionally required when <org> (as typed,
+//                                   and again as GitHub resolves it) is the
+//                                   organisation configured in devenv.config, or
+//                                   when that configured organisation cannot be read
 // Optional inputs:
 //   GITHUB_SMOKE_COLLABORATOR=<login>   enables the collaborator scenario
 //   GITHUB_SMOKE_REPORT=<path>          per-probe report file
 // Credentials come from gh's own store; the suite never reads or prints a token.
 //
-// Exit: 0 only when no probe failed AND teardown succeeded.
+// Exit: 0 only when no probe failed AND teardown succeeded; 2 when the gate
+// refuses; 130 after an interrupt, once teardown has finished.
 //
 // Run directly:
 //   GITHUB_SMOKE=write GITHUB_SMOKE_OWNER=<org> GITHUB_SMOKE_CONFIRM=<org> \
@@ -38,6 +42,8 @@ import { join } from "node:path";
 import { EXIT_MISUSE, EXIT_SUCCESS } from "../../core/exit-codes.ts";
 import { providerOrgGet } from "../provider-core.ts";
 import { ghApi, type GhResult } from "./transport.ts";
+import { absentOk, lacksDeleteRepo, notFoundOk, parseOAuthScopes, scrubTokens } from "./live-guards.ts";
+import { createTeardown, describeError, InterruptedError, installSignalHandlers, ResourceCapError } from "../smoke-teardown.ts";
 import * as fIssues from "../facade/issues.ts";
 import * as fPrs from "../facade/prs.ts";
 import * as fRepos from "../facade/repos.ts";
@@ -80,19 +86,8 @@ const MAX_RESOURCES = 60;
 
 const REPORT_FILE = process.env.GITHUB_SMOKE_REPORT ?? "";
 
-/** Strip anything shaped like a GitHub token (and the literal env tokens)
- * from text before it reaches the console or the report. */
-function scrub(text: string): string {
-  let out = text.replace(/(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})/g, "[redacted]");
-  for (const name of ["GH_TOKEN", "GITHUB_TOKEN"]) {
-    const value = process.env[name];
-    if (value !== undefined && value.length >= 8) out = out.split(value).join("[redacted]");
-  }
-  return out;
-}
-
 function out(line: string): void {
-  const text = scrub(line);
+  const text = scrubTokens(line);
   console.log(text);
   if (REPORT_FILE !== "") {
     try {
@@ -104,7 +99,7 @@ function out(line: string): void {
 }
 
 function errOut(line: string): void {
-  console.error(scrub(line));
+  console.error(scrubTokens(line));
 }
 
 let pass = 0;
@@ -130,10 +125,10 @@ function skip(name: string, reason: string): void {
 class SkipError extends Error {}
 /** Thrown to stop the run (the remaining scenarios cannot work). */
 class FatalError extends Error {}
+/** Thrown when a gate re-check refuses the run (exit code 2, nothing created). */
+class RefusalError extends Error {}
 
-function errText(e: unknown): string {
-  return (e instanceof Error ? e.message : String(e)).split("\n")[0]?.slice(0, 300) ?? "";
-}
+const errText = describeError;
 
 const exercised = new Set<string>();
 
@@ -147,6 +142,8 @@ async function check<T>(
   fn: () => Promise<T> | T,
   assert?: (v: T) => true | string,
 ): Promise<Result<T>> {
+  // After an interrupt no further verb call is made; the scenario unwinds.
+  td.throwIfInterrupted();
   if (verb !== null) exercised.add(verb);
   let value: T;
   try {
@@ -167,7 +164,9 @@ async function check<T>(
       return { ok: false };
     }
   }
-  probe(name, true);
+  // Without an assertion only the absence of an error is known; say so rather
+  // than imply the outcome was verified.
+  probe(name, true, assert === undefined ? "call returned without error; outcome not asserted here" : "");
   return { ok: true, value };
 }
 
@@ -177,6 +176,7 @@ function sleep(ms: number): Promise<void> {
 
 async function poll<T>(fn: () => Promise<T | undefined>, tries: number, ms: number): Promise<T | undefined> {
   for (let i = 0; i < tries; i++) {
+    td.throwIfInterrupted();
     let value: T | undefined;
     try {
       value = await fn();
@@ -193,80 +193,22 @@ async function poll<T>(fn: () => Promise<T | undefined>, tries: number, ms: numb
 // Recorded resources and teardown
 // ---------------------------------------------------------------------------
 
-interface Resource {
-  kind: string;
-  id: string;
-  manual: string;
-  cleanup: () => Promise<void>;
-}
+const td = createTeardown({
+  cap: MAX_RESOURCES,
+  out,
+  err: errOut,
+  verbose: true,
+  leftoverHints: () => [
+    "Find any other leftovers by the naming prefix:",
+    `  gh repo list ${state.owner} --limit 200 --json name -q '.[].name' | grep '^devenv-smoke-'`,
+    `  gh project list --owner ${state.owner} --format json | grep devenv-smoke-project-`,
+    `  gh api orgs/${state.owner}/teams --paginate --jq '.[].slug' | grep '^devenv-smoke-team-'`,
+  ],
+});
+const record = td.record;
+const assertCapacity = td.assertCapacity;
 
-const resources: Resource[] = [];
-let teardownDone = false;
-let teardownFailed = 0;
-
-function assertCapacity(): void {
-  if (resources.length >= MAX_RESOURCES) {
-    throw new FatalError(`resource cap reached (${MAX_RESOURCES}); stopping before creating more`);
-  }
-}
-
-// Cleanups started because a resource was recorded after teardown had already
-// passed (an operation still in flight when the run was interrupted).
-const lateCleanups: Promise<void>[] = [];
-
-function record(kind: string, id: string, manual: string, cleanup: () => Promise<void>): void {
-  assertCapacity();
-  resources.push({ kind, id, manual, cleanup });
-  out(`  recorded ${kind} ${id}`);
-  if (teardownDone) {
-    errOut(`  ${kind} ${id} was created while the run was shutting down; cleaning it up now`);
-    lateCleanups.push(
-      cleanup().then(
-        () => out(`  teardown ok: ${kind} ${id}`),
-        (e) => {
-          teardownFailed++;
-          errOut(`  TEARDOWN FAILED: ${kind} ${id} — ${errText(e)}`);
-          errOut(`  ${manual}`);
-        },
-      ),
-    );
-  }
-}
-
-async function teardownRun(): Promise<void> {
-  if (teardownDone) return;
-  teardownDone = true;
-  const failures: Resource[] = [];
-  for (let i = resources.length - 1; i >= 0; i--) {
-    const r = resources[i]!;
-    try {
-      await r.cleanup();
-      out(`  teardown ok: ${r.kind} ${r.id}`);
-    } catch (e) {
-      teardownFailed++;
-      failures.push(r);
-      errOut(`  TEARDOWN FAILED: ${r.kind} ${r.id} — ${errText(e)}`);
-    }
-  }
-  if (failures.length > 0) {
-    errOut("");
-    errOut("!!! TEARDOWN INCOMPLETE — these items were created by this run and still exist:");
-    for (const r of failures) errOut(`  ${r.kind} ${r.id}: ${r.manual}`);
-    errOut("Find any other leftovers by the naming prefix:");
-    errOut(`  gh repo list ${state.owner} --limit 200 --json name -q '.[].name' | grep '^devenv-smoke-'`);
-    errOut(`  gh project list --owner ${state.owner} --format json | grep devenv-smoke-project-`);
-    errOut(`  gh api orgs/${state.owner}/teams --paginate --jq '.[].slug' | grep '^devenv-smoke-team-'`);
-  }
-}
-
-for (const sig of ["SIGINT", "SIGTERM"] as const) {
-  process.on(sig, () => {
-    errOut(`received ${sig}: tearing down recorded resources`);
-    void teardownRun()
-      .then(() => Promise.allSettled(lateCleanups))
-      .then(() => process.exit(130));
-  });
-}
+installSignalHandlers(td, { host: process, exit: (code) => process.exit(code), err: errOut });
 
 // ---------------------------------------------------------------------------
 // Run state and transport helpers
@@ -316,11 +258,6 @@ function parse<T>(text: string): T {
   return JSON.parse(text) as T;
 }
 
-/** A tolerated absence while cleaning up: gone already counts as cleaned. */
-function absentOk(r: GhResult): boolean {
-  return r.status === 0 || /not found|404|does not exist|422|already/i.test(r.stderr);
-}
-
 async function pushBranch(branch: string, path: string, content: string): Promise<void> {
   assertCapacity();
   const spec = R();
@@ -365,10 +302,34 @@ async function createIssue(key: string, title: string, labels: string[]): Promis
 async function reposCreateAndInspect(): Promise<void> {
   assertCapacity();
   const spec = state.spec;
+  // Recorded BEFORE the create call: the name embeds the process id and a
+  // timestamp and was verified absent during the preflight, so a repository
+  // that exists under it afterwards is this run's. If the create never happened
+  // the cleanup finds nothing and succeeds; a create still in flight when a
+  // signal arrives is waited for by teardown before it cleans up. The resource
+  // is confirmed once the create call succeeds or the repository is seen to exist.
+  const owner = state.owner;
+  const expectedSpec = `${owner}/devenv-smoke-${process.pid}-${stamp}`;
+  const repoRecord = record("repo", spec, `gh repo delete ${spec} --yes   (needs: gh auth refresh -s delete_repo)`, async () => {
+    // Independent of the recorded spec: the target must be the exact name this
+    // process builds from the resolved owner, and must carry the throwaway prefix.
+    if (spec !== expectedSpec || !spec.slice(owner.length + 1).startsWith("devenv-smoke-")) {
+      throw new Error(`refusing to delete '${spec}': not the repository this run created`);
+    }
+    const r = await ghTry(["api", "-X", "DELETE", `repos/${spec}`]);
+    if (!notFoundOk(r)) throw new Error(r.stderr.trim().split("\n")[0] ?? "delete failed");
+  }, false);
   const created = await check(
     "repos_create (private, with README)",
     "provider_repos_create",
-    () => fRepos.reposCreate(spec, { visibility: "private", addReadme: true, description: `devenv smoke ${state.repoName}` }),
+    () =>
+      td.inflight(
+        fRepos.reposCreate(spec, { visibility: "private", addReadme: true, description: `devenv smoke ${state.repoName}` }).then((r) => {
+          if (r.status === 0) repoRecord.confirm();
+          return r;
+        }),
+        `gh repo delete ${spec} --yes`,
+      ),
     (r) => (r.status === 0 ? true : `exit ${r.status}: ${r.stderr.trim().split("\n")[0] ?? ""}`),
   );
   // The name is unique to this run, so a repository that exists after a
@@ -376,12 +337,7 @@ async function reposCreateAndInspect(): Promise<void> {
   const exists = created.ok || (await fRepos.reposExists(spec).catch(() => false));
   if (exists) {
     state.repoCreated = true;
-    record("repo", spec, `gh repo delete ${spec} --yes   (needs: gh auth refresh -s delete_repo)`, async () => {
-      if (spec !== state.spec || !state.repoName.startsWith("devenv-smoke-")) {
-        throw new Error(`refusing to delete '${spec}': not the repository this run created`);
-      }
-      await gh(["repo", "delete", spec, "--yes"]);
-    });
+    repoRecord.confirm();
   }
   if (!created.ok || !state.repoCreated) throw new FatalError("the throwaway repository could not be created");
 
@@ -455,15 +411,31 @@ async function reposTeamAccess(): Promise<void> {
   assertCapacity();
   const spec = R();
   const slug = `devenv-smoke-team-${process.pid}-${stamp}`;
-  const created = await ghTry(["api", "-X", "POST", `orgs/${state.owner}/teams`, "-f", `name=${slug}`, "-f", "privacy=closed", "--jq", ".slug"]);
+  const owner = state.owner;
+  const recordTeam = (teamSlug: string, confirmed: boolean) =>
+    record("team", `${owner}/${teamSlug}`, `gh api -X DELETE orgs/${owner}/teams/${teamSlug}`, async () => {
+      // Only a real not-found counts as cleaned; the team is not protected by
+      // the repository delete.
+      const r = await ghTry(["api", "-X", "DELETE", `orgs/${owner}/teams/${teamSlug}`]);
+      if (!notFoundOk(r)) throw new Error(r.stderr.trim().split("\n")[0] ?? "delete failed");
+    }, confirmed);
+  // Recorded before the create call; the slug GitHub derives from this name is
+  // the name itself, and a cleanup of a team that was never created finds
+  // nothing. The record is confirmed when the create succeeds, so a refused
+  // create whose cleanup then fails is only a notice. Teardown waits for the
+  // create call if a signal arrives while it is in flight.
+  const teamRecord = recordTeam(slug, false);
+  const created = await td.inflight(
+    ghTry(["api", "-X", "POST", `orgs/${owner}/teams`, "-f", `name=${slug}`, "-f", "privacy=closed", "--jq", ".slug"]).then((r) => {
+      if (r.status === 0) teamRecord.confirm();
+      return r;
+    }),
+    `gh api -X DELETE orgs/${owner}/teams/${slug}`,
+  );
   if (created.status !== 0) throw new SkipError(`team creation refused: ${created.stderr.trim().split("\n")[0] ?? ""}`);
   state.teamSlug = created.stdout.trim();
   const teamSlug = state.teamSlug;
-  const owner = state.owner;
-  record("team", `${owner}/${teamSlug}`, `gh api -X DELETE orgs/${owner}/teams/${teamSlug}`, async () => {
-    const r = await ghTry(["api", "-X", "DELETE", `orgs/${owner}/teams/${teamSlug}`]);
-    if (!absentOk(r)) throw new Error(r.stderr.trim().split("\n")[0] ?? "delete failed");
-  });
+  if (teamSlug !== slug) recordTeam(teamSlug, true);
   await check("repos_team_put grants the team pull access", "provider_repos_team_put", () => fRepos.reposTeamPut(owner, teamSlug, spec, "pull"), (b) => b === true || "false");
   await check(
     "the team has the repository",
@@ -698,26 +670,43 @@ async function issuesNativeTypes(): Promise<void> {
 async function projectsLifecycle(): Promise<void> {
   assertCapacity();
   const owner = state.owner;
-  const created = await ghTry(["project", "create", "--owner", owner, "--title", state.project.title, "--format", "json"]);
+  const originalTitle = state.project.title;
+  // Recorded before the create call. A project has no identifier until the
+  // create response arrives, so until then the cleanup looks the project up by
+  // the exact throwaway titles this run uses (the original and the edited one)
+  // and deletes only an exact single match; once the number is known it deletes
+  // by number.
+  const projectRecord = record("project", `${owner} project titled ${originalTitle}`, `gh project list --owner ${owner} --format json   (find the title, then: gh project delete <number> --owner ${owner})`, async () => {
+    let number = state.project.number;
+    if (number === "") {
+      const titles = new Set([originalTitle, `${originalTitle}-edited`]);
+      const listed = await ghTry(["project", "list", "--owner", owner, "--format", "json", "--limit", "200"]);
+      if (listed.status !== 0) throw new Error(`could not list projects to find '${originalTitle}': ${listed.stderr.trim().split("\n")[0] ?? ""}`);
+      const matches = parse<{ projects?: Array<{ number: number; title: string }> }>(listed.stdout).projects?.filter((p) => titles.has(p.title)) ?? [];
+      if (matches.length === 0) return;
+      if (matches.length > 1) throw new Error(`${matches.length} projects match '${originalTitle}'; refusing to delete any automatically`);
+      number = String(matches[0]!.number);
+    }
+    const d = await ghTry(["project", "delete", number, "--owner", owner]);
+    if (!notFoundOk(d)) throw new Error(d.stderr.trim().split("\n")[0] ?? "delete failed");
+  }, false);
+  // The record is confirmed when the create call succeeds, whether or not its
+  // response is readable; teardown waits for the call if a signal arrives
+  // while it is in flight.
+  const created = await td.inflight(
+    ghTry(["project", "create", "--owner", owner, "--title", originalTitle, "--format", "json"]).then((r) => {
+      if (r.status === 0) projectRecord.confirm();
+      return r;
+    }),
+    `gh project list --owner ${owner} --format json   (find '${originalTitle}', then: gh project delete <number> --owner ${owner})`,
+  );
   if (created.status !== 0) throw new SkipError(`project creation refused (token needs the 'project' scope and organisation project permission): ${created.stderr.trim().split("\n")[0] ?? ""}`);
-  let rec: { number: number; id: string };
-  try {
-    rec = parse<{ number: number; id: string }>(created.stdout);
-  } catch (e) {
-    // The project exists but its identifier is unknown, so nothing can be
-    // deleted by identifier. Record it so teardown reports it as a leftover.
-    record("project", `${owner} project titled ${state.project.title}`, `gh project list --owner ${owner} --format json   (find the title, then: gh project delete <number> --owner ${owner})`, async () => {
-      throw new Error("the project's identifier was not readable from the create response, so it cannot be deleted automatically");
-    });
-    throw e;
-  }
+  // An unreadable response leaves the number unset; the recorded cleanup then
+  // finds the project by its title.
+  const rec = parse<{ number: number; id: string }>(created.stdout);
   state.project.number = String(rec.number);
   state.project.id = rec.id;
   const number = state.project.number;
-  record("project", `${owner} project #${number}`, `gh project delete ${number} --owner ${owner}`, async () => {
-    const d = await ghTry(["project", "delete", number, "--owner", owner]);
-    if (!absentOk(d)) throw new Error(d.stderr.trim().split("\n")[0] ?? "delete failed");
-  });
   const edited = `${state.project.title}-edited`;
   const e = await ghTry(["project", "edit", number, "--owner", owner, "--title", edited, "--description", "devenv smoke"]);
   probe("project edit (title and description)", e.status === 0, e.status === 0 ? "" : e.stderr.trim().split("\n")[0] ?? "");
@@ -1055,9 +1044,21 @@ if (process.env.GITHUB_SMOKE_CONFIRM !== owner) {
   process.exit(EXIT_MISUSE);
 }
 // The configured organisation is read before the suite points the provider
-// layer at its own temporary configuration.
-const configuredOrg = providerOrgGet();
-if (configuredOrg !== "" && configuredOrg.toLowerCase() === owner.toLowerCase() && process.env.GITHUB_SMOKE_ALLOW_REAL_ORG !== owner) {
+// layer at its own temporary configuration. An unreadable configuration is
+// not evidence that no real organisation exists, so it refuses as well.
+let configuredOrg = "";
+try {
+  configuredOrg = providerOrgGet();
+} catch {
+  configuredOrg = "";
+}
+const realOrgAllowed = process.env.GITHUB_SMOKE_ALLOW_REAL_ORG === owner;
+if (configuredOrg === "" && !realOrgAllowed) {
+  errOut("github-smoke refuses to run: the real-organisation guard could not be evaluated (no organisation could be read from devenv.config or the setup seed file).");
+  errOut(`  Fix the configuration, or set GITHUB_SMOKE_ALLOW_REAL_ORG=${owner} to accept that '${owner}' may be the real organisation.`);
+  process.exit(EXIT_MISUSE);
+}
+if (configuredOrg !== "" && configuredOrg.toLowerCase() === owner.toLowerCase() && !realOrgAllowed) {
   errOut(`github-smoke refuses to run: '${owner}' is the organisation configured in devenv.config.`);
   errOut(`  Use a dedicated test organisation, or set GITHUB_SMOKE_ALLOW_REAL_ORG=${owner} to accept creating throwaway items there.`);
   process.exit(EXIT_MISUSE);
@@ -1084,6 +1085,29 @@ async function main(): Promise<void> {
     throw new FatalError(`'${owner}' is not an organisation visible to this gh login: ${login.stderr.trim().split("\n")[0] ?? ""}`);
   }
   state.owner = login.stdout.trim();
+  // GitHub redirects a renamed organisation, so the name it resolves to can
+  // differ from the one typed: compare the configured organisation again
+  // against the owner every destructive call will use.
+  if (configuredOrg !== "" && configuredOrg.toLowerCase() === state.owner.toLowerCase() && process.env.GITHUB_SMOKE_ALLOW_REAL_ORG?.toLowerCase() !== state.owner.toLowerCase()) {
+    throw new RefusalError(
+      `'${owner}' resolves to '${state.owner}', the organisation configured in devenv.config; set GITHUB_SMOKE_ALLOW_REAL_ORG=${state.owner} to accept creating throwaway items there.`,
+    );
+  }
+  // The throwaway repository can only be deleted with the delete_repo scope.
+  // A classic token reports its scopes in a header. An installation (app)
+  // token is refused by `GET /user`, so the run stops with the 'could not read
+  // the token's scopes' error. A fine-grained user token reads the user but
+  // exposes no scope header, so the check is skipped for it with a notice.
+  const scopeProbe = await ghTry(["api", "-i", "user"]);
+  if (scopeProbe.status !== 0) {
+    throw new FatalError(`could not read the token's scopes: ${scopeProbe.stderr.trim().split("\n")[0] ?? ""}`);
+  }
+  const scopes = parseOAuthScopes(scopeProbe.stdout);
+  if (scopes === null) {
+    out("notice: token scopes could not be checked (fine-grained token); a missing delete_repo permission would only show at teardown");
+  } else if (lacksDeleteRepo(scopes)) {
+    throw new FatalError("the token lacks the delete_repo scope, so the throwaway repository could not be removed (run: gh auth refresh -s delete_repo)");
+  }
   writeFileSync(join(state.tmp, "devenv.config"), `[provider]\nname=github\n\n[organization]\norg=${state.owner}\n`);
   state.spec = `${state.owner}/${state.repoName}`;
   if (await fRepos.reposExists(state.spec)) {
@@ -1096,13 +1120,15 @@ async function main(): Promise<void> {
   out(`resource cap: ${MAX_RESOURCES}`);
 
   for (const s of SCENARIOS) {
+    if (td.isInterrupted()) break;
     out(`\n[${s.family}] ${s.id}`);
     const failBefore = fail;
     const skipBefore = skipped;
     try {
       await s.run();
     } catch (e) {
-      if (e instanceof FatalError) {
+      if (e instanceof InterruptedError) break;
+      if (e instanceof FatalError || e instanceof ResourceCapError) {
         probe(s.id, false, e.message);
         break;
       }
@@ -1117,14 +1143,23 @@ async function main(): Promise<void> {
 }
 
 let fatal = "";
+let refused = false;
 try {
   await main();
 } catch (e) {
   fatal = errText(e);
-  errOut(`aborted: ${fatal}`);
+  refused = e instanceof RefusalError;
+  errOut(`${refused ? "github-smoke refuses to run" : "aborted"}: ${fatal}`);
 } finally {
-  await teardownRun();
+  // The same shared run a signal started, if one did: never a second pass.
+  await td.teardown();
 }
 out("================================");
-out(`summary: ${pass} pass, ${fail} fail, ${skipped} skip; ${resources.length} resources recorded, ${teardownFailed} teardown failures`);
-process.exit(fail === 0 && teardownFailed === 0 && fatal === "" ? EXIT_SUCCESS : 1);
+out(`summary: ${pass} pass, ${fail} fail, ${skipped} skip; ${td.recordedCount()} resources recorded, ${td.failedCount()} teardown failures`);
+const unexercised = SCENARIOS.flatMap((s) => s.verbs).filter((v) => !exercised.has(v));
+if (unexercised.length > 0) {
+  out(`not exercised (skipped or stopped early): ${[...new Set(unexercised)].join(", ")}`);
+}
+if (td.isInterrupted()) process.exit(130);
+if (refused) process.exit(EXIT_MISUSE);
+process.exit(fail === 0 && td.failedCount() === 0 && fatal === "" ? EXIT_SUCCESS : 1);

@@ -94,7 +94,8 @@ adapters: [GitHub](../lib/providers/github/SMOKE.md) and
 - **How to opt in.** Each refuses to run (exit code 2, no request made) without explicit
   variables. GitHub: `GITHUB_SMOKE=write`, `GITHUB_SMOKE_OWNER=<test organisation>` and
   `GITHUB_SMOKE_CONFIRM=<the same organisation>`, plus `GITHUB_SMOKE_ALLOW_REAL_ORG` when the
-  target is the organisation configured in `devenv.config`. Azure: `AZURE_SMOKE=1` (read-only)
+  target is the organisation configured in `devenv.config` (also required when that
+  organisation cannot be read). Azure: `AZURE_SMOKE=1` (read-only)
   or `AZURE_SMOKE=write` with `AZURE_SMOKE_CONFIRM=<test project>` (destructive), plus
   `AZURE_DEVOPS_ORG`, `AZURE_SMOKE_TEST_PROJECT` and `AZURE_PAT`.
 - **What each creates and cleans up.** The GitHub suite creates its own private repository
@@ -111,9 +112,13 @@ adapters: [GitHub](../lib/providers/github/SMOKE.md) and
   reason instead of failing.
 - **Guard test.** `provider-smoke-guard.test.ts` runs without a backend: it spawns each suite
   with failing `gh`, `curl`, `az` and `git` stubs on `PATH` to prove the opt-in refusal reaches
-  no backend, reads the GitHub suite's registry with `--list-coverage`, and checks it against the
-  contract table: every verb in the contract's GitHub column is exercised by a scenario or listed
-  as excluded with a reason.
+  no backend, checks the real-organisation refusal (a fixture `devenv.config` through
+  `DEVENV_ROOT`) and that a fully opted-in GitHub run stops at authentication with no create call
+  in the stub log, reads the GitHub suite's registry with `--list-coverage`, and checks it
+  against the contract table: every verb in the contract's GitHub column is exercised by a
+  scenario or listed as excluded with a reason. `provider-smoke-teardown.test.ts` drives the
+  shared teardown module (newest-first order, failure reporting, one shared run, repeat signals,
+  late cleanups, the cap) and the GitHub cleanup matchers without importing a suite.
 
 ## Test hygiene: scratch artifacts live in tmp, never in the repo
 

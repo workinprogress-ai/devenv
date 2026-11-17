@@ -16,6 +16,7 @@ tools/lib/providers/
 ├── provider-core.ts      # detection, repo targeting, capability gates, errors, auth pre-flight, gh transport re-exports
 ├── provider-core.bash    # bootstrap chain only (see "Bash bootstrap surface")
 ├── explain.ts            # the calling-requirements shape every provider's explain module returns
+├── smoke-teardown.ts     # resource recording, one interrupt-safe teardown run and signal handling shared by both smoke suites
 ├── facade/               # the only import surface for tools and domain code
 │   ├── README.md         # the boundary rule and the facade checklist
 │   ├── provider-loader.ts   # per-process loader, family manifest, capability gate
@@ -26,6 +27,7 @@ tools/lib/providers/
 │   ├── explain.ts        # calling requirements for provider-explain
 │   ├── key-update.ts     # credential rotation entry point
 │   ├── smoke.ts          # on-demand live smoke suite (never part of the regular run)
+│   ├── live-guards.ts    # pure helpers of the smoke suite: cleanup matchers, scope parsing, token scrubbing
 │   ├── SMOKE.md          # how to run the GitHub smoke suite, what it creates, cautions, cleanup
 │   └── auth.bash  setup.bash  bootstrap.bash   # bootstrap chain only
 └── azure/                # the Azure DevOps provider (REST)
@@ -131,7 +133,10 @@ allowlist. [facade/README.md](facade/README.md) has the rule in full.
 - **Live smoke suites** are the only code allowed to touch a backend, run by hand against a
   disposable target: `azure/smoke.ts` and `github/smoke.ts`. Each refuses to run without an
   explicit opt-in variable; no vitest pattern collects them and `provider-smoke-guard.test.ts`
-  pins that, and checks the GitHub suite's scenario registry against the contract's verb table.
+  pins that, runs the real-organisation refusal and the opted-in path under failing stubs, and
+  checks the GitHub suite's scenario registry against the contract's verb table. The teardown
+  logic both suites share (`smoke-teardown.ts`) and the GitHub cleanup matchers are unit-tested
+  without importing a suite (`provider-smoke-teardown.test.ts`).
   Each suite is documented beside its adapter: [github/SMOKE.md](github/SMOKE.md) and
   [azure/SMOKE.md](azure/SMOKE.md); the provider smoke section of
   [tools/tests/README.md](../../tests/README.md) says when to run them.
