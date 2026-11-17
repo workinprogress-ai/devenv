@@ -3,12 +3,13 @@
 // snapshots, a current-culprits TSV (delta/peak aggregation per signature).
 
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, openSync, closeSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync, openSync, closeSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { acquireInstanceLock } from "../lib/core/instance-lock.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
@@ -16,6 +17,7 @@ assertNodeFloor();
 const DEFAULT_INTERVAL_MINUTES = 10;
 const DEFAULT_TOP_COUNT = 10;
 const DEFAULT_MAX_PROCESSES = 250;
+const DEFAULT_RETAIN_DAYS = 7;
 const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
@@ -30,6 +32,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
   -t, --top N                Show the top N culprits in the summary TSV (default: ${DEFAULT_TOP_COUNT})
   -s, --state-dir PATH        Directory used to store samples and progress
   -m, --max-processes N       Maximum processes captured per sample (default: ${DEFAULT_MAX_PROCESSES})
+  -d, --retain-days N         Keep only samples from the last N days in both history files (default: ${DEFAULT_RETAIN_DAYS})
   -r, --reset                 Clear persisted history before starting
   -o, --once                  Capture one sample, print a report, then exit
 
@@ -44,6 +47,7 @@ let intervalMinutes = DEFAULT_INTERVAL_MINUTES;
 let topCount = DEFAULT_TOP_COUNT;
 const maxProcessesEnv = process.env.DEVENV_MEMORY_WATCH_MAX_PROCESSES;
 let maxProcesses = Number(maxProcessesEnv ?? DEFAULT_MAX_PROCESSES);
+let retainDays = DEFAULT_RETAIN_DAYS;
 let resetState = false;
 let once = false;
 
@@ -65,6 +69,7 @@ try {
       top: { type: "string", short: "t", default: String(DEFAULT_TOP_COUNT) },
       "state-dir": { type: "string", short: "s" },
       "max-processes": { type: "string", short: "m" },
+      "retain-days": { type: "string", short: "d", default: String(DEFAULT_RETAIN_DAYS) },
       reset: { type: "boolean", short: "r", default: false },
       once: { type: "boolean", short: "o", default: false },
     },
@@ -85,6 +90,9 @@ try {
   } else if (!isPositiveInt(String(maxProcesses))) {
     die(`DEVENV_MEMORY_WATCH_MAX_PROCESSES must be a positive integer (got '${maxProcessesEnv ?? ""}')`);
   }
+  const rd = (cli.values["retain-days"] as string | undefined) ?? String(DEFAULT_RETAIN_DAYS);
+  if (!isPositiveInt(rd)) die("--retain-days must be a positive integer");
+  retainDays = Number(rd);
   resetState = cli.values["reset"] === true;
   once = cli.values["once"] === true;
 } catch (err) {
@@ -170,6 +178,56 @@ function loadState(): { samples: SampleRow[]; procs: ProcRow[] } {
 
 function nextSampleId(samples: SampleRow[]): number {
   return samples.length === 0 ? 1 : Number(samples[samples.length - 1]?.id) + 1;
+}
+
+function writeFileAtomic(file: string, content: string): void {
+  const tmp = `${file}.${process.pid}.tmp`;
+  try {
+    writeFileSync(tmp, content);
+    renameSync(tmp, file);
+  } catch (err) {
+    rmSync(tmp, { force: true });
+    throw err;
+  }
+}
+
+function readLines(file: string): string[] {
+  try {
+    return readFileSync(file, "utf8").split("\n").filter((l) => l !== "");
+  } catch {
+    return [];
+  }
+}
+
+// Drops samples older than the retention window from both history files together.
+// The newest sample is always kept (a large clock jump must not empty the history),
+// sample ids are never renumbered, and rows that cannot be interpreted (an
+// unparsable timestamp, an unknown row kind) are kept rather than silently deleted.
+// Process rows are dropped with their sample, and when their sample id has no sample row.
+function trimHistory(): void {
+  const sampleLines = readLines(samplesFile);
+  const cutoff = Math.floor(Date.now() / 1000) - retainDays * 86400;
+  let newestId: string | undefined;
+  for (const line of sampleLines) {
+    const [kind, id] = line.split("\t");
+    if (kind === "S") newestId = id;
+  }
+  const keptIds = new Set<string>();
+  const keptSamples = sampleLines.filter((line) => {
+    const [kind, id, ts] = line.split("\t");
+    if (kind !== "S") return true;
+    const t = Number(ts);
+    const keep = id === newestId || !Number.isFinite(t) || t >= cutoff;
+    if (keep) keptIds.add(id as string);
+    return keep;
+  });
+  const procLines = readLines(processesFile);
+  const keptProcs = procLines.filter((line) => {
+    const [kind, id] = line.split("\t");
+    return kind !== "P" || keptIds.has(id as string);
+  });
+  if (keptSamples.length !== sampleLines.length) writeFileAtomic(samplesFile, `${keptSamples.join("\n")}\n`);
+  if (keptProcs.length !== procLines.length) writeFileAtomic(processesFile, keptProcs.length === 0 ? "" : `${keptProcs.join("\n")}\n`);
 }
 
 function collectProcessSnapshot(sampleId: string): void {
@@ -263,6 +321,15 @@ function renderReport(): void {
 // --- main loop ---
 
 mkdirSync(stateDir, { recursive: true });
+
+const lockResult = acquireInstanceLock(lockFile);
+if (!lockResult.ok) die(`Another memory watch is already running in ${stateDir}`);
+const lock = (lockResult as Extract<typeof lockResult, { ok: true }>).lock;
+process.on("exit", () => lock.release());
+process.on("SIGINT", () => process.exit(130));
+process.on("SIGTERM", () => process.exit(143));
+
+// History is cleared only once the lock is held, so a refused instance never touches it.
 if (resetState) {
   for (const f of [samplesFile, processesFile, currentCulpritsFile]) {
     try { rmSync(f, { force: true }); } catch { /* absent */ }
@@ -270,20 +337,9 @@ if (resetState) {
 }
 for (const f of [samplesFile, processesFile]) closeSync(openSync(f, "a"));
 
-// Single-instance lock: O_EXCL lockfile with a stale-lock reclaim (the bash
-// tool used flock, which has no TS equivalent — see Tooling-Standards).
-try {
-  if (existsSync(lockFile) && Date.now() - statSync(lockFile).mtimeMs > 30_000) {
-    rmSync(lockFile, { force: true });
-  }
-  writeFileSync(lockFile, String(process.pid), { flag: "wx" });
-} catch {
-  die(`Another memory watch is already running in ${stateDir}`);
-}
-process.on("exit", () => { try { rmSync(lockFile, { force: true }); } catch { /* gone */ } });
-
 const sleepSeconds = intervalMinutes * 60;
 for (;;) {
+  lock.refresh();
   const { samples } = loadState();
   const sampleId = nextSampleId(samples);
   const timestamp = Math.floor(Date.now() / 1000).toString();
@@ -292,7 +348,8 @@ for (;;) {
   appendFileSync(samplesFile, `S\t${sampleId}\t${timestamp}\t${cgroupCurrent}\t${cgroupMax}\n`);
   collectProcessSnapshot(String(sampleId));
   console.log(`Captured sample #${sampleId} into ${stateDir}`);
+  trimHistory();
   renderReport();
   if (once) break;
-  spawnSync("sleep", [String(sleepSeconds)], { stdio: "ignore" });
+  await new Promise<void>((resolve) => setTimeout(resolve, sleepSeconds * 1000));
 }
