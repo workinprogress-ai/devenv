@@ -193,7 +193,9 @@ export function harnessRunTool(
   args: string[],
   opts: RunToolOptions = {},
 ): { status: number; out: string } {
-  const env: Record<string, string | undefined> = { ...process.env, GIT_EDITOR: h.editorScript };
+  // LC_ALL=C by default so message-text assertions do not depend on the host
+  // locale; a test that targets locale behavior overrides it through opts.env.
+  const env: Record<string, string | undefined> = { ...process.env, LC_ALL: "C", GIT_EDITOR: h.editorScript };
   if (opts.envEditor !== undefined) env.GIT_EDITOR = opts.envEditor;
   if (opts.barePath && h.binDir !== null) env.PATH = h.binDir;
   if (opts.env !== undefined) for (const [k, v] of Object.entries(opts.env)) env[k] = v;
