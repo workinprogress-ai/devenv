@@ -3,31 +3,72 @@
 // remain until the bash retirement sweep).
 //
 // Two halves:
-//   1. Header parse (BYTE-FAITHFUL): the DEVENV_ARTIFACT_V1 metadata block
-//      parser. Artifact identity depends on this exact awk engine's
-//      semantics — first-1024-char marker window, key lines inside the
-//      block, first `-->` ends it, values are quoted-and-joined into a flat
-//      JSON object. Do not "improve" it; parity tests pin it.
+//   1. Header parse: the DEVENV_ARTIFACT_V1 metadata block parser. The
+//      marker must open within the first 1024 chars; a block closed by a
+//      `-->` line holds every key line before it (other lines are skipped);
+//      an unclosed block holds the leading run of key lines. Values are
+//      collected into a flat object. Every lookup in this file reads the
+//      same delimited block (headerBlock), never a fixed-length prefix.
+//      Tests pin the rules.
 //   2. GitHub Packages reads: the package-type registry and the paginated
-//      package/version queries (transport via the provider facade's gh).
+//      package/version queries (transport via the provider facade).
 
 import { readFileSync } from "node:fs";
 import * as configModule from "../core/config.ts";
 import * as coreModule from "../providers/provider-core.ts";
-import { ghApi } from "../providers/provider-core.ts";
+import { orgPackagesQuery, orgPackageVersionsQuery } from "../providers/facade/org.ts";
+import { issuesComments } from "../providers/facade/issues.ts";
 import { ProviderError } from "../providers/provider-core.ts";
 
 // ---------------------------------------------------------------------------
-// Header parse — BYTE-FAITHFUL port of artifact-header.bash
+// Header parse
 // ---------------------------------------------------------------------------
 
 export interface ArtifactHeader {
   [key: string]: string;
 }
 
+/** The marker must open within this many leading characters of a body. */
+const MARKER_WINDOW = 1024;
+
 /**
- * Parse the DEVENV_ARTIFACT_V1 block from `body` (the caller scopes the
- * prefix window, e.g. first 256/1024 chars). Returns null when the body has
+ * A header key name: a letter or underscore, then letters, digits, hyphens
+ * and underscores. Every reader and the header rewrite tool share it.
+ */
+export const HEADER_KEY_PATTERN = "[A-Za-z_][A-Za-z0-9_-]*";
+
+/** A `key: value` header line: indent and spaces before the colon tolerated. */
+const HEADER_KEY_LINE = new RegExp(`^[ \\t]*(${HEADER_KEY_PATTERN})[ \\t]*:[ \\t]*(.*)$`);
+
+/**
+ * The lines of the DEVENV_ARTIFACT_V1 block: everything after the marker
+ * line up to (not including) the first line that starts with `-->`. When
+ * that closing line exists, the block holds the `key: value` lines between
+ * the two and other lines (blank lines, comment lines) are skipped rather
+ * than ending the block. A block that is never closed ends at the first
+ * line that is not a `key: value` line (a blank line or prose) instead of
+ * extending over the body. CRLF is normalized. Null when no marker opens within the first
+ * MARKER_WINDOW characters. Every header lookup in this file reads this
+ * block, so no value is cut at a character offset.
+ */
+function headerBlock(body: string): string[] | null {
+  const normalized = body.replaceAll("\r\n", "\n");
+  const markerAt = normalized.indexOf("DEVENV_ARTIFACT_V1");
+  if (markerAt < 0 || markerAt >= MARKER_WINDOW) return null;
+  const lines = normalized.slice(markerAt).split("\n");
+  const rest = lines.slice(1);
+  const closeAt = rest.findIndex((line) => /^-->/.test(line));
+  if (closeAt >= 0) return rest.slice(0, closeAt).filter((line) => HEADER_KEY_LINE.test(line));
+  const block: string[] = [];
+  for (const line of rest) {
+    if (!HEADER_KEY_LINE.test(line)) break;
+    block.push(line);
+  }
+  return block;
+}
+
+/**
+ * Parse the DEVENV_ARTIFACT_V1 block from `body`. Returns null when the body has
  * no artifact header marker.
  *
  * Port of the bash awk engine for the values this header carries (machine
@@ -42,55 +83,50 @@ export interface ArtifactHeader {
  * headers is identical.
  */
 export function parseHeaderJson(body: string): ArtifactHeader | null {
-  const prefix = body.slice(0, 1024);
-  if (!prefix.includes("DEVENV_ARTIFACT_V1")) return null;
-
-  const lines = prefix.split("\n");
-  let inBlock = false;
+  const block = headerBlock(body);
+  if (block === null) return null;
   const pairs: Record<string, string> = {};
-  for (const rawLine of lines) {
-    if (rawLine.includes("DEVENV_ARTIFACT_V1")) {
-      inBlock = true;
-      continue;
-    }
-    if (!inBlock) continue;
-    if (/^-->/.test(rawLine)) break;
-    if (!/^[ \t]*[A-Za-z_]+[ \t]*:/.test(rawLine)) continue;
-    const line = rawLine.replace(/^[ \t]+/, "");
-    const colon = line.indexOf(":");
-    const key = line.slice(0, colon);
-    const value = line.slice(colon).replace(/^[^:]*:[ \t]*/, "");
-    // The bash engine gsub-escapes `"` into `\"` and re-emits; the parsed
-    // value here is the unescaped text, matching what jq read back.
-    pairs[key] = value.replace(/\\"/g, '"');
+  for (const rawLine of block) {
+    const m = rawLine.match(HEADER_KEY_LINE);
+    if (m === null) continue;
+    const key = m[1] ?? "";
+    // First occurrence wins, the same rule headerField applies. The bash
+    // engine gsub-escapes `"` into `\"` and re-emits; the parsed value here
+    // is the unescaped text, matching what jq read back.
+    if (key in pairs) continue;
+    pairs[key] = (m[2] ?? "").replace(/\\"/g, '"');
   }
   return pairs;
 }
 
 /**
- * The value of KEY from the DEVENV_ARTIFACT_V1 block in body (leading and
- * trailing whitespace of the value stripped; the bash contract uses sed's
- * `[[:space:]]*KEY:[[:space:]]*` match and takes the first hit). Empty
- * string when the key is absent.
+ * The one header lookup rule: the value of the first `KEY:` line inside the
+ * DEVENV_ARTIFACT_V1 block (CRLF-safe, indent-tolerant, spaces before the
+ * colon tolerated, value trimmed). Empty string when the block or the key is
+ * absent. findDocId, bodyUpsertable, the upsert tool and the artifact
+ * listing all resolve fields through this function.
  */
 export function headerField(body: string, key: string): string {
-  const re = new RegExp(`^[ \\t]*${key}:[ \\t]*(.*)$`, "m");
-  const m = body.match(re);
-  return m?.[1]?.trim() ?? "";
+  const block = headerBlock(body);
+  if (block === null) return "";
+  for (const line of block) {
+    const m = line.match(HEADER_KEY_LINE);
+    if (m !== null && m[1] === key) return (m[2] ?? "").trim();
+  }
+  return "";
 }
 
 /**
  * Mirror of issue-artifact-upsert's resolution contract: the body must
- * carry a doc_id line within the first 256 characters, and an issue number
+ * carry a doc_id line inside its DEVENV_ARTIFACT_V1 block, and an issue number
  * must be resolvable from the `issue_number` metadata field (a literal
  * "none" counts as absent) or from an `issue-<N>` segment inside the
  * doc_id. A present issue_number must be all digits. Returns
  * `{ ok: true }` or `{ ok: false, reason }`.
  */
 export function bodyUpsertable(body: string): { ok: true } | { ok: false; reason: string } {
-  const prefix = body.slice(0, 256);
-  const docId = headerField(prefix, "doc_id");
-  let issueField = headerField(prefix, "issue_number");
+  const docId = findDocId(body);
+  let issueField = headerField(body, "issue_number");
   if (issueField === "none") issueField = "";
   if (issueField !== "" && !/^[0-9]+$/.test(issueField)) {
     return { ok: false, reason: `issue_number '${issueField}' is not a number (must be digits only)` };
@@ -101,7 +137,7 @@ export function bodyUpsertable(body: string): { ok: true } | { ok: false; reason
     if (m) inferred = m[1] ?? "";
   }
   if (docId === "") {
-    return { ok: false, reason: "no DEVENV_ARTIFACT_V1 header (no doc_id line within the first 256 characters)" };
+    return { ok: false, reason: "no DEVENV_ARTIFACT_V1 header (no doc_id line inside the header block)" };
   }
   if (issueField === "" && inferred === "") {
     return { ok: false, reason: "no resolvable issue number (no issue_number metadata line and no issue-<N> in the doc_id)" };
@@ -115,6 +151,118 @@ export function fileUpsertable(file: string): { ok: true } | { ok: false; reason
 }
 
 // ---------------------------------------------------------------------------
+// Issue-comment artifacts: one doc_id rule, one enumeration
+// ---------------------------------------------------------------------------
+
+/** Characters of a comment body shown as its preview. */
+const PREVIEW_CHARS = 256;
+
+/** The doc_id carried by a comment body: the first `doc_id:` line inside the
+ * header block, indent-tolerant, CRLF-safe, value trimmed. "" when absent. */
+export function findDocId(body: string): string {
+  return headerField(body, "doc_id");
+}
+
+/** The artifact type used for comparisons: `implementation-plan` is the
+ * accepted spelling of `plan`. */
+export function canonicalArtifactType(type: string): string {
+  return type === "implementation-plan" ? "plan" : type;
+}
+
+export interface CommentRecord {
+  id?: unknown;
+  body?: unknown;
+  user?: { login?: unknown };
+  created_at?: unknown;
+  updated_at?: unknown;
+  url?: unknown;
+  issue_url?: unknown;
+}
+
+export interface Artifact {
+  issue_number: number | null;
+  comment_id: number | null;
+  doc_id: string;
+  artifact_type: string | null;
+  source_file: string | null;
+  title: string | null;
+  author: string | null;
+  createdAt: unknown;
+  updatedAt: unknown;
+  url: unknown;
+  bodyPreview: string;
+  body: string;
+}
+
+/** All comments of an issue. Accepts a JSON array or a newline-delimited
+ * stream of comment objects; throws a named error when the fetch fails or
+ * the response is neither. */
+export async function fetchIssueComments(repo: string, issue: number): Promise<CommentRecord[]> {
+  let raw: string;
+  try {
+    raw = await issuesComments(repo, issue);
+  } catch (err) {
+    throw new ProviderError(`Failed to fetch comments for issue #${issue}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    const records: CommentRecord[] = [];
+    for (const line of raw.split("\n")) {
+      const t = line.trim();
+      if (t === "" || t === "[" || t === "]" || t === ",") continue;
+      try {
+        const obj = JSON.parse(t) as CommentRecord;
+        if (obj !== null && typeof obj === "object") records.push(obj);
+      } catch { /* not a record line */ }
+    }
+    if (records.length === 0) throw new ProviderError("Failed to parse issue comments");
+    return records;
+  }
+  if (!Array.isArray(parsed)) throw new ProviderError("Failed to parse issue comments");
+  return parsed as CommentRecord[];
+}
+
+function issueNumberFromUrl(url: unknown): number | null {
+  if (typeof url !== "string") return null;
+  const m = url.match(/\/issues\/(\d+)$/);
+  return m ? Number.parseInt(m[1] as string, 10) : null;
+}
+
+/** Artifact comments of an issue (comments carrying a doc_id), newest
+ * update first. `artifactTypeFilter` compares canonical types. */
+export async function listArtifacts(repo: string, issue: number, artifactTypeFilter = ""): Promise<Artifact[]> {
+  const comments = await fetchIssueComments(repo, issue);
+  const wanted = canonicalArtifactType(artifactTypeFilter);
+  const results: Artifact[] = [];
+  for (const c of comments) {
+    const body = typeof c.body === "string" ? c.body : "";
+    const docId = findDocId(body);
+    if (docId === "") continue;
+    const foundType = headerField(body, "artifact_type") || null;
+    if (artifactTypeFilter !== "" && canonicalArtifactType(foundType ?? "") !== wanted) continue;
+    const heading = body.replaceAll("\r\n", "\n").split("\n").find((l) => l.startsWith("# "));
+    results.push({
+      issue_number: issueNumberFromUrl(c.issue_url),
+      comment_id: typeof c.id === "number" ? c.id : null,
+      doc_id: docId,
+      artifact_type: foundType,
+      source_file: headerField(body, "source_file") || null,
+      title: heading === undefined ? null : heading.slice(2),
+      author: typeof c.user?.login === "string" ? c.user.login : null,
+      createdAt: c.created_at ?? null,
+      updatedAt: c.updated_at ?? null,
+      url: c.url ?? null,
+      bodyPreview: body.slice(0, PREVIEW_CHARS),
+      body,
+    });
+  }
+  results.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  return results;
+}
+
+// ---------------------------------------------------------------------------
 // Package-type registry — faithful port of artifact-operations.bash
 // ---------------------------------------------------------------------------
 
@@ -124,12 +272,14 @@ const PACKAGE_TYPE_ALIASES: Record<string, string> = {
   nuget: "nuget", cs: "nuget", csharp: "nuget", dotnet: "nuget", ".net": "nuget",
   docker: "docker", container: "docker", oci: "docker",
   maven: "maven", java: "maven",
-  rubygems: "rubygems", ruby: "rubygems", gems: "rubygems",
+  rubygems: "rubygems", ruby: "rubygems", gems: "rubygems", gem: "rubygems",
   gradle: "gradle",
   rust: "cargo", cargo: "cargo",
+  composer: "composer", php: "composer",
+  conda: "conda",
 };
 
-const SUPPORTED_PACKAGE_TYPES = ["npm", "nuget", "docker", "maven", "rubygems", "gradle", "cargo"];
+const SUPPORTED_PACKAGE_TYPES = ["npm", "nuget", "docker", "maven", "rubygems", "gradle", "cargo", "composer", "conda"];
 
 /** Normalized type id for filtering/matching (unknown names pass through,
  * lowercased — the bash verb's `*)` branch). */
@@ -147,7 +297,7 @@ export function isSupportedPackageType(type: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// GitHub Packages reads (transport via the facade's gh)
+// GitHub Packages reads (transport via the provider facade)
 // ---------------------------------------------------------------------------
 
 export interface QueryPackagesOptions {
@@ -183,36 +333,52 @@ export function resolveOwner(explicit?: string): string {
   return org;
 }
 
+/** Flatten a paginated (`--slurp`) response into one item list. Throws a
+ * named error on a failed call or an unparseable body: an empty list is only
+ * ever a real empty answer. */
+function packageItems(r: { stdout: string; stderr: string; status: number }, what: string): unknown[] {
+  if (r.status !== 0) {
+    throw new ProviderError(`Failed to list ${what}: ${(r.stderr || r.stdout).trim()}`);
+  }
+  let pages: unknown;
+  try {
+    pages = JSON.parse(r.stdout);
+  } catch {
+    throw new ProviderError(`Failed to parse the ${what} response`);
+  }
+  if (!Array.isArray(pages)) throw new ProviderError(`Failed to parse the ${what} response`);
+  const flat: unknown[] = [];
+  const walk = (v: unknown): void => {
+    if (Array.isArray(v)) {
+      for (const item of v) walk(item);
+    } else {
+      flat.push(v);
+    }
+  };
+  walk(pages);
+  return flat;
+}
+
 /**
- * Query GitHub Packages. Returns a JSON array string of package objects.
- * Empty results are `[]`, never an error; transport failures with an
- * error-shaped body throw.
+ * Query GitHub Packages across every page. Returns a JSON array string of
+ * package objects; an empty answer is `[]`, a failed or unparseable call
+ * throws.
  */
 export async function queryPackages(opts: QueryPackagesOptions = {}): Promise<string> {
   let owner = resolveOwner(opts.owner);
   const type = opts.type !== undefined ? packageTypeId(opts.type) : undefined;
-  let endpoint = `/users/${owner}/packages`;
+  let repo: string | undefined;
   if (opts.repo !== undefined && opts.repo !== "") {
     const scoped = splitRepoScope(opts.repo, owner);
     owner = scoped.owner;
-    endpoint = `/repos/${owner}/${scoped.repo}/packages`;
+    repo = scoped.repo;
   }
-  const args = ["api", endpoint, "--method", "GET"];
-  if (type !== undefined && type !== "") args.push("-f", `package_type=${type}`);
-  const r = await ghApi(args, { tolerateFailure: true });
-  if (r.status !== 0) {
-    if (/HTTP|error|Error/.test(r.stdout + r.stderr)) {
-      throw new ProviderError(`GitHub API error: ${(r.stderr || r.stdout).trim()}`);
-    }
-    return "[]";
-  }
-  let items: unknown[] = [];
-  try {
-    const parsed: unknown = JSON.parse(r.stdout);
-    if (Array.isArray(parsed)) items = parsed;
-  } catch {
-    return "[]";
-  }
+  const r = await orgPackagesQuery(owner, {
+    paginate: true,
+    ...(type !== undefined ? { type } : {}),
+    ...(repo !== undefined ? { repo } : {}),
+  });
+  let items = packageItems(r, "packages");
   if (opts.name !== undefined && opts.name !== "") {
     const needle = opts.name.toLowerCase();
     items = items.filter((p) => {
@@ -235,9 +401,8 @@ export interface PackageVersionsOptions {
 }
 
 /**
- * Versions for one package, as a flat JSON array (the paginated response is
- * flattened exactly as the bash verb's `jq -s 'flatten'`). Empty results
- * are `[]`; transport failures with an error-shaped body throw.
+ * Versions for one package across every page, as a flat JSON array. An empty
+ * answer is `[]`; a failed or unparseable call throws.
  */
 export async function packageVersions(opts: PackageVersionsOptions): Promise<string> {
   let owner = resolveOwner(opts.owner);
@@ -245,36 +410,15 @@ export async function packageVersions(opts: PackageVersionsOptions): Promise<str
   if (opts.name === undefined || opts.name === "") {
     throw new ProviderError("owner (set --owner or configure [organization] org), type, and name are all required");
   }
-  let endpoint = `/users/${owner}/packages/${type}/${opts.name}/versions`;
+  let repo: string | undefined;
   if (opts.repo !== undefined && opts.repo !== "") {
     const scoped = splitRepoScope(opts.repo, owner);
     owner = scoped.owner;
-    endpoint = `/repos/${owner}/${scoped.repo}/packages/${type}/${opts.name}/versions`;
+    repo = scoped.repo;
   }
-  const r = await ghApi(["api", endpoint, "--paginate"], { tolerateFailure: true });
-  if (r.status !== 0) {
-    if (/HTTP|error|Error/.test(r.stdout + r.stderr)) {
-      throw new ProviderError(`GitHub API error: ${(r.stderr || r.stdout).trim()}`);
-    }
-    return "[]";
-  }
-  let pages: unknown;
-  try {
-    pages = JSON.parse(r.stdout);
-  } catch {
-    return "[]";
-  }
-  if (!Array.isArray(pages)) return "[]";
-  // flatten: pages are arrays of version objects; nested arrays flatten one
-  // level deep, mirroring `jq -s 'flatten'` (fully recursive).
-  const flat: unknown[] = [];
-  const walk = (v: unknown): void => {
-    if (Array.isArray(v)) {
-      for (const item of v) walk(item);
-    } else {
-      flat.push(v);
-    }
-  };
-  walk(pages);
-  return JSON.stringify(flat);
+  const r = await orgPackageVersionsQuery(owner, type, opts.name, {
+    paginate: true,
+    ...(repo !== undefined ? { repo } : {}),
+  });
+  return JSON.stringify(packageItems(r, "package versions"));
 }

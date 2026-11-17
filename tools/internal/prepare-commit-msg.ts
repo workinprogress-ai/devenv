@@ -8,6 +8,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { editorIsNoninteractive } from "../lib/core/editor.ts";
 import {
   changeIdGenerate,
@@ -50,7 +51,7 @@ const sourceKind = argv[1] ?? "";
 
 if (file === "") {
   console.error("ERROR: Provide the commit message file");
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 let isFile = false;
 try {
@@ -60,7 +61,7 @@ try {
 }
 if (!isFile) {
   console.error(`ERROR: Message file not found: ${file}`);
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 
 // merge and squash: left untouched.

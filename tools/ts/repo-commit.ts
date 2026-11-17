@@ -83,10 +83,12 @@ function foldWindowClosed(shaOrRef: string): boolean {
     // default-branch checkout.
     return git(["merge-base", "--is-ancestor", sha, `refs/remotes/origin/${remoteName}`]).status === 0;
   }
-  // No remote-tracking default branch (local-only repo): the local one is the record.
+  // No remote-tracking default branch (local-only repo): the local one is the
+  // record. When no default branch resolves at all, landing cannot be judged:
+  // fail closed.
   const localName = names.find((n) => git(["rev-parse", "--verify", "--quiet", `refs/heads/${n}`]).status === 0);
-  return localName !== undefined
-    && git(["merge-base", "--is-ancestor", sha, `refs/heads/${localName}`]).status === 0;
+  return localName === undefined
+    || git(["merge-base", "--is-ancestor", sha, `refs/heads/${localName}`]).status === 0;
 }
 
 /** A comment character no line of the given texts starts with: `#` unless a
@@ -542,7 +544,7 @@ if (fixLane) {
   const backup = `backup/pre-fixup-${oldHeadShort}`;
   const bk = git(["branch", "-f", backup, oldHead]);
   if (bk.status !== 0) die(`failed to create backup branch ${backup}: ${bk.out.trim()}`);
-  console.log(`repo-commit: backup branch ${backup} (recovery: git reset --hard ${backup})`);
+  console.log(`repo-commit: backup branch ${backup} (recovery: git reset --soft ${backup})`);
 
   // Fixup commit: machine message, hooks run (the commitlint ignores entry
   // exists precisely so this passes).
@@ -575,12 +577,12 @@ if (fixLane) {
     if (!aborted.ok) {
       die(
         `autosquash rebase failed AND the abort failed (${aborted.err.trim()}) — the repository may be mid-rebase`,
-        `inspect with git status; recover: git rebase --abort, then git reset --hard ${oldHead}`,
+        `inspect with git status; recover: git rebase --abort, then git reset --soft ${oldHead}`,
       );
     }
     die(
       `autosquash rebase failed (conflict) — rebase aborted${fixupAtHead ? "; the fixup commit is preserved at HEAD" : ""}`,
-      `resolve manually or recover: git reset --hard ${oldHead}`,
+      `resolve manually or recover (the staged fix stays staged): git reset --soft ${oldHead}`,
     );
   }
 
@@ -594,7 +596,7 @@ if (fixLane) {
     if (foldDiagnostics !== "") console.error(foldDiagnostics);
     die(
       "fold verification failed (HEAD unchanged, a fixup! commit remains, or the resulting tree differs from the fixup tip's tree) — inspect manually",
-      `recovery: git reset --hard ${oldHead}`,
+      `recovery: git reset --soft ${oldHead}`,
     );
   }
   const newTarget = git(["log", "--format=%h %s", `--grep=${escapeGrep(targetSubject)}`, "-1", `${targetSha}..HEAD`]).out.trim();
@@ -740,7 +742,7 @@ if (rewordLane) {
     gitCheck(null, ["rebase", "--abort"]);
     die(
       "reword rebase failed (conflict or editor abort) — rebase aborted; the stack is unchanged",
-      `recovery: git reset --hard ${backup}`,
+      `recovery: git reset --keep ${backup}`,
     );
   }
 
@@ -770,11 +772,11 @@ if (rewordLane) {
     console.log("repo-commit: reword: the message was left unchanged — nothing to do, no commits were rewritten.");
     process.exit(0);
   }
-  console.log(`repo-commit: backup branch ${backup} (recovery: git reset --hard ${backup})`);
+  console.log(`repo-commit: backup branch ${backup} (recovery: git reset --keep ${backup})`);
   // Compared against the saved old tip, not the backup branch name.
   const treeDiff = git(["diff", "--stat", oldHead, "HEAD"]).out.trim();
   if (treeDiff !== "") {
-    die("reword verification failed (content changed — a reword must not touch the tree)", `recovery: git reset --hard ${oldHead}`);
+    die("reword verification failed (content changed — a reword must not touch the tree)", `recovery: git reset --keep ${oldHead}`);
   }
   console.log(`repo-commit: reworded. was: ${targetSubject}`);
   console.log(`  now: ${newSubject}`);

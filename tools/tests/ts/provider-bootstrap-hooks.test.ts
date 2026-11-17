@@ -67,36 +67,6 @@ function validate(provider: string, org: string, token: string, httpCode: string
   );
 }
 
-// azure_npm_hook_run: the npm hook with config_read_value answering from a
-// section:key=value file and provider_secret_get from AZURE_NPM_SECRET.
-function azureNpmHookRun(): { status: number; out: string } {
-  return sh(
-    `cfg="$AZURE_NPM_CFG_FILE"\n` +
-      `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
-      `PROVIDER_NAME=azure\nprovider_load bootstrap\n` +
-      `config_read_value() {\n` +
-      `  local section="$1" key="$2" line want\n  want="$section:$key="\n` +
-      `  while IFS= read -r line; do\n    case "$line" in\n      "$want"*) printf "%s" "\${line#"$want"}"; return 0 ;;\n    esac\n  done < "$cfg"\n  return 1\n}\n` +
-      `provider_secret_get() { [ -n "$AZURE_NPM_SECRET" ] && printf "%s" "$AZURE_NPM_SECRET"; }\n` +
-      `provider_bootstrap_configure_npmrc "$AZURE_NPMRC"\n`,
-  );
-}
-
-// setup_azure_npm SECRET "section:key=value"...
-function setupAzureNpm(secret: string, ...cfgLines: string[]): void {
-  const home = join(TMP, "home");
-  mkdirSync(home, { recursive: true });
-  writeFileSync(join(TMP, "cfg"), cfgLines.map((l) => `${l}\n`).join(""));
-  process.env.AZURE_NPMRC = join(home, ".npmrc");
-  process.env.AZURE_NPM_CFG_FILE = join(TMP, "cfg");
-  process.env.AZURE_NPM_SECRET = secret;
-}
-
-// b64 of a token (npmrc stores base64 passwords).
-function b64(s: string): string {
-  return spawnSync("bash", ["-c", `printf %s '${s}' | base64 -w0`], { encoding: "utf8" }).stdout?.trim() ?? "";
-}
-
 describe("provider bootstrap hooks", () => {
   // ── provider_bootstrap_call: the one dispatch point ─────────────────────
 
@@ -134,7 +104,7 @@ describe("provider bootstrap hooks", () => {
       const r = sh(
         `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
           `PROVIDER_NAME=${p}\nprovider_load bootstrap\n` +
-          `for h in provider_bootstrap_validate_token provider_bootstrap_configure_nuget provider_bootstrap_configure_npmrc; do\n` +
+          `for h in provider_bootstrap_validate_token provider_bootstrap_git_auth_header; do\n` +
           `  declare -F "$h" >/dev/null || { echo "${p} is missing $h"; exit 1; }\ndone\n`,
       );
       expect(r.status, r.out).toBe(0);
@@ -256,170 +226,28 @@ describe("provider bootstrap hooks", () => {
 
   // ── Azure nuget feed ─────────────────────────────────────────────────────
 
-  it("azure package-feed hooks register nothing and say so without a configured feed", () => {
-    const r = sh(
-      `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
-        `PROVIDER_NAME=azure\nprovider_load bootstrap\n` +
-        `config_read_value() { echo ""; }\n` +
-        `add_nuget_source_if_not_exists() { echo "UNEXPECTED nuget add: $*"; }\n` +
-        `provider_bootstrap_configure_nuget\n` +
-        `provider_bootstrap_configure_npmrc "$HOME/.npmrc"\n`,
-    );
-    expect(r.status).toBe(0);
-    expect(r.out).not.toContain("UNEXPECTED");
-    expect(r.out).toContain("Skipping");
-  });
-
-  it("azure configure_nuget registers the configured Azure Artifacts feed with the provider token", () => {
-    const r = sh(
-      `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
-        `PROVIDER_NAME=azure\nprovider_load bootstrap\n` +
-        `config_read_value() { [ "$2" = feed_url ] && echo "https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json"; }\n` +
-        `provider_secret_get() { echo "tok-123"; }\n` +
-        `add_nuget_source_if_not_exists() { echo "ADD: $1|$2|$3|$4"; }\n` +
-        `provider_bootstrap_configure_nuget\n`,
-    );
-    expect(r.status).toBe(0);
-    expect(r.out).toContain("ADD: azure|https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json|");
-    expect(r.out).toContain("|tok-123");
-  });
-
-  it("azure configure_nuget skips without registering when the token is unavailable", () => {
-    const r = sh(
-      `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
-        `PROVIDER_NAME=azure\nprovider_load bootstrap\n` +
-        `config_read_value() { [ "$2" = feed_url ] && echo "https://pkgs.dev.azure.com/o/_packaging/f/nuget/v3/index.json"; }\n` +
-        `provider_secret_get() { return 1; }\n` +
-        `add_nuget_source_if_not_exists() { echo "UNEXPECTED nuget add: $*"; }\n` +
-        `provider_bootstrap_configure_nuget\n`,
-    );
-    expect(r.status).toBe(0);
-    expect(r.out).not.toContain("UNEXPECTED");
-    expect(r.out).toContain("Skipping");
-  });
-
-  it("azure configure_nuget never sends the Azure token to a non-Azure feed_url", () => {
-    const r = sh(
-      `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
-        `PROVIDER_NAME=azure\nprovider_load bootstrap\n` +
-        `config_read_value() { [ "$2" = feed_url ] && echo "https://nuget.pkg.github.com/some-org/index.json"; }\n` +
-        `provider_secret_get() { echo "tok-123"; }\n` +
-        `add_nuget_source_if_not_exists() { echo "UNEXPECTED nuget add: $*"; }\n` +
-        `provider_bootstrap_configure_nuget\n`,
-    );
-    expect(r.status).toBe(0);
-    expect(r.out).not.toContain("UNEXPECTED");
-    expect(r.out).toContain("not an Azure Artifacts URL");
-  });
-
-  // ── Azure npm hook ───────────────────────────────────────────────────────
-
-  it("azure configure_npmrc writes the credential triple for both prefixes (scope set)", () => {
-    setupAzureNpm("tok-123", "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/", "npm:scope=@acme");
-    const r = azureNpmHookRun();
-    expect(r.status).toBe(0);
-    const npmrc = process.env.AZURE_NPMRC ?? "";
-    const p1 = "//pkgs.dev.azure.com/o/_packaging/f/npm/registry/";
-    const p2 = "//pkgs.dev.azure.com/o/_packaging/f/npm/";
-    for (const p of [p1, p2]) {
-      expect(spawnSync("grep", ["-q", `^${p}:username=`, npmrc]).status).toBe(0);
-      expect(spawnSync("grep", ["-q", `^${p}:_password=${b64("tok-123")}$`, npmrc]).status).toBe(0);
-      expect(spawnSync("grep", ["-q", `^${p}:email=`, npmrc]).status).toBe(0);
+  it("neither provider ships a bash feed hook: the setup steps own NuGet and npm registration", () => {
+    for (const p of ["github", "azure"]) {
+      const r = sh(
+        `source "$DEVENV_TOOLS/lib/providers/provider-core.bash"\n` +
+          `PROVIDER_NAME=${p}\nprovider_load bootstrap\n` +
+          `declare -F provider_bootstrap_configure_nuget provider_bootstrap_configure_npmrc provider_bootstrap_apt_packages\n`,
+      );
+      expect(r.status, p).not.toBe(0);
+      expect(r.out, p).toBe("");
     }
-    expect(spawnSync("grep", ["-q", "^@acme:registry=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/$", npmrc]).status).toBe(0);
-  });
-
-  it("azure configure_npmrc skips with a message when [npm] feed_url is unset", () => {
-    setupAzureNpm("tok-123", "npm:feed_url=");
-    const r = azureNpmHookRun();
-    expect(r.status).toBe(0);
-    expect(r.out).toContain("Skipping");
-    expect(existsSync(process.env.AZURE_NPMRC ?? "")).toBe(false);
-  });
-
-  it("azure configure_npmrc is idempotent: a second run converges to one entry set", () => {
-    setupAzureNpm("tok-123", "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/", "npm:scope=@acme");
-    expect(azureNpmHookRun().status).toBe(0);
-    expect(azureNpmHookRun().status).toBe(0);
-    const npmrc = process.env.AZURE_NPMRC ?? "";
-    expect(spawnSync("bash", ["-c", `grep -c "^//pkgs.dev.azure.com/o/_packaging/f/npm/registry/:_password=" '${npmrc}'`], { encoding: "utf8" }).stdout?.trim()).toBe("1");
-    expect(spawnSync("bash", ["-c", `grep -c "^//pkgs.dev.azure.com/o/_packaging/f/npm/:_password=" '${npmrc}'`], { encoding: "utf8" }).stdout?.trim()).toBe("1");
-    expect(spawnSync("bash", ["-c", `grep -c "^@acme:registry=" '${npmrc}'`], { encoding: "utf8" }).stdout?.trim()).toBe("1");
-  });
-
-  it("azure configure_npmrc rotation: a new token replaces the stored password", () => {
-    setupAzureNpm("old-token", "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/");
-    expect(azureNpmHookRun().status).toBe(0);
-    process.env.AZURE_NPM_SECRET = "fresh-token";
-    const r = azureNpmHookRun();
-    expect(r.status).toBe(0);
-    const npmrc = process.env.AZURE_NPMRC ?? "";
-    expect(spawnSync("grep", ["-q", `_password=${b64("fresh-token")}$`, npmrc]).status).toBe(0);
-    expect(spawnSync("grep", ["-q", b64("old-token"), npmrc]).status).not.toBe(0);
-  });
-
-  it("azure configure_npmrc preserves unrelated lines", () => {
-    setupAzureNpm("tok-123", "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/");
-    const npmrc = process.env.AZURE_NPMRC ?? "";
-    writeFileSync(npmrc, "registry=https://registry.npmjs.org/\n//other.registry/:_authToken=keepme\ninit-author-name=Someone\n");
-    azureNpmHookRun();
-    expect(spawnSync("grep", ["-q", "^registry=https://registry.npmjs.org/$", npmrc]).status).toBe(0);
-    expect(spawnSync("grep", ["-q", "^//other.registry/:_authToken=keepme$", npmrc]).status).toBe(0);
-    expect(spawnSync("grep", ["-q", "^init-author-name=Someone$", npmrc]).status).toBe(0);
-  });
-
-  it("azure configure_npmrc leaves the file 0600 even when it was wider before", () => {
-    setupAzureNpm("tok-123", "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/");
-    const npmrc = process.env.AZURE_NPMRC ?? "";
-    writeFileSync(npmrc, "init-author-name=Someone\n");
-    chmodSync(npmrc, 0o644);
-    azureNpmHookRun();
-    expect(spawnSync("stat", ["-c", "%a", npmrc], { encoding: "utf8" }).stdout?.trim()).toBe("600");
-  });
-
-  it("azure configure_npmrc never prints the PAT", () => {
-    setupAzureNpm("super-secret-pat-value", "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/");
-    const r = azureNpmHookRun();
-    expect(r.out).not.toContain("super-secret-pat-value");
-  });
-
-  it("azure configure_npmrc omits the scope mapping when [npm] scope is empty", () => {
-    setupAzureNpm("tok-123", "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/", "npm:scope=");
-    const r = azureNpmHookRun();
-    expect(r.status).toBe(0);
-    const npmrc = process.env.AZURE_NPMRC ?? "";
-    expect(spawnSync("grep", ["-q", "^//pkgs.dev.azure.com/o/_packaging/f/npm/registry/:_password=", npmrc]).status).toBe(0);
-    expect(spawnSync("grep", ["-q", ":registry=", npmrc]).status).not.toBe(0);
-  });
-
-  it("azure configure_npmrc skips a non-Azure feed_url and never reads the token", () => {
-    setupAzureNpm("", "npm:feed_url=https://registry.npmjs.org/");
-    const r = azureNpmHookRun();
-    expect(r.status).toBe(0);
-    expect(r.out).toContain("not an Azure Artifacts URL");
-    expect(existsSync(process.env.AZURE_NPMRC ?? "")).toBe(false);
-  });
-
-  it("azure configure_npmrc skips when no credential is available", () => {
-    setupAzureNpm("", "npm:feed_url=https://pkgs.dev.azure.com/o/_packaging/f/npm/registry/");
-    const r = azureNpmHookRun();
-    expect(r.status).toBe(0);
-    expect(r.out).toContain("Skipping");
-    expect(existsSync(process.env.AZURE_NPMRC ?? "")).toBe(false);
   });
 
   // ── Rotation wiring: key-update re-runs the feed wiring hooks ───────────
 
   it("azure key-update re-runs the feed wiring hooks after a successful import", () => {
-    // The rotation entry point is TS now (azure/key-update.ts); it drives the
-    // SAME bash wiring hooks through provider_bootstrap_call. Interception:
-    // a PATH-visible `node` is not overridable here — instead stub the hook
-    // seam by pointing DEVENV_TOOLS at a shadow tree whose provider-core
-    // logs the bootstrap calls. Simpler: a shadow bootstrap module would
-    // need the whole core; assert on the REAL hook seam with a scratch HOME
-    // (the hooks then run against scratch npmrc/nuget state — the log is
-    // the wiring side effects themselves).
-    const wiringLog = join(TMP, "keyupdate-wiring.log");
+    // The rotation entry point (azure/key-update.ts) re-runs the npm and NuGet
+    // step modules against a scratch HOME: the wiring side effects are the log.
+    // The nuget step shells out to dotnet; a stub keeps it off the real sources.
+    writeFileSync(join(TMP, "bin", "dotnet"), "#!/usr/bin/env bash\nexit 0\n");
+    chmodSync(join(TMP, "bin", "dotnet"), 0o755);
+    mkdirSync(join(TMP, "devenv-root"), { recursive: true });
+    writeFileSync(join(TMP, "devenv-root", "devenv.config"), "[provider]\nname=azure\n");
     const r = spawnSync(
       "node",
       [join(TOOLS, "lib/providers/azure/key-update.ts")],
@@ -431,19 +259,15 @@ describe("provider bootstrap hooks", () => {
           GIT_CONFIG_GLOBAL: join(TMP, "gitconfig"),
           HOME: TMP,
           DEVENV_ROOT: join(TMP, "devenv-root"),
-          // Intercept the two wiring hooks: the bootstrap module source
-          // happens inside provider_load; shadow it via a wrapper dir that
-          // prep-ends a logging provider_bootstrap_call.
+          DEVENV_TOOLBOX_ROOT: join(TMP, "toolbox"),
           PATH: `${join(TMP, "bin")}:${process.env.PATH ?? ""}`,
         }),
       },
     );
-    expect(r.status).toBe(0);
-    // The rotation completed and re-ran the wiring hooks: the side effects
-    // are observable through the hook contract (configure_npmrc writes
-    // ~/.npmrc when a feed URL is configured; absent config = clean skip).
+    expect(r.status, `${r.stdout}${r.stderr}`).toBe(0);
+    // The rotation completed and re-ran the feed wiring steps (an absent feed
+    // URL is a clean skip).
     expect(r.stdout ?? r.stderr ?? "").toContain("Refreshing package feed credentials");
     expect(existsSync(join(TMP, "azure.pat"))).toBe(true);
-    expect(wiringLog).toBe(wiringLog); // the log var exists for parity with the bash-era shape
   });
 });

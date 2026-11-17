@@ -28,6 +28,9 @@ beforeEach(() => {
       url: u,
       ...(typeof init?.body === "string" ? { body: init.body } : {}),
     });
+    if (/\/workitemtypes(\?|$)/.test(u)) {
+      return new Response(JSON.stringify({ value: [{ name: "Task", states: [{ name: "Done", category: "Completed" }] }] }), { status: 200 });
+    }
     const id = /\/workitems\/(\d+)/i.exec(u)?.[1] ?? "";
     return new Response(JSON.stringify(items[id] ?? { id: Number(id), fields: {}, relations: [] }), { status: 200 });
   });

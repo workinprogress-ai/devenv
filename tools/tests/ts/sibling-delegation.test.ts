@@ -152,7 +152,7 @@ describe("sibling delegation without generated stubs", () => {
     // A failing sibling stops the tool right after the delegation.
     const r = run("_key-update-do", [token], { env: { SIBLING_EXIT_DEVENV_ADD_ENV_VARS: "7" } });
     expect(r.status).toBe(7);
-    expect(calls()).toEqual([{ tool: "devenv-add-env-vars", argv: [`DO_TOKEN=${token}`], cwd: root }]);
+    expect(calls()).toEqual([{ tool: "devenv-add-env-vars", argv: [`DIGITALOCEAN_API_TOKEN=${token}`], cwd: root }]);
   });
 
   it("key-update-tailscale hands the key to devenv-add-env-vars", () => {

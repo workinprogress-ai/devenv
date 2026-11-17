@@ -109,21 +109,19 @@ describe("key-update-do", () => {
     expect(r.status).not.toBe(0);
     expect(r.out).toContain("No token provided");
     expect(readCalls()).not.toContain("sudo ");
-    expect(existsSync(join(devenvRoot, ".setup", "do_token.txt"))).toBe(false);
+    expect(existsSync(join(devenvRoot, ".setup", "digitalocean_token.txt"))).toBe(false);
   });
 
   it("argument path stores token with 600 and persists via the updater", () => {
     const r = runTool(DO_TOOL, ["d0token1234567890abcdef1234567890"], "");
     expect(r.status).toBe(0);
     expect(r.out).toContain("Success");
-    const tokenFile = join(devenvRoot, ".setup", "do_token.txt");
+    const tokenFile = join(devenvRoot, ".setup", "digitalocean_token.txt");
     expect(statSync(tokenFile).mode & 0o777).toBe(0o600);
     expect(readFileSync(tokenFile, "utf8")).toContain("d0token1234567890abcdef1234567890");
     // The updater ran against the sandbox root and persisted the value.
-    const envFile = join(devenvRoot, ".runtime", "env-vars.sh");
-    if (existsSync(envFile)) {
-      expect(readFileSync(envFile, "utf8")).toContain("export DO_TOKEN=d0token1234567890abcdef1234567890");
-    }
+    const envFile = join(devenvRoot, ".runtime", "env-vars.user.sh");
+    expect(readFileSync(envFile, "utf8")).toContain("export DIGITALOCEAN_API_TOKEN=d0token1234567890abcdef1234567890");
   });
 
   it("--help exits 0 without prompting", () => {
@@ -159,10 +157,8 @@ describe("key-update-tailscale", () => {
     expect(r.status).toBe(0);
     expect(r.out).toContain("Success");
     expect(readCalls()).toContain("sudo tailscale up --authkey=tskey-abc123def456");
-    const envFile = join(devenvRoot, ".runtime", "env-vars.sh");
-    if (existsSync(envFile)) {
-      expect(readFileSync(envFile, "utf8")).toContain("export TS_AUTHKEY=tskey-abc123def456");
-    }
+    const envFile = join(devenvRoot, ".runtime", "env-vars.user.sh");
+    expect(readFileSync(envFile, "utf8")).toContain("export TS_AUTHKEY=tskey-abc123def456");
   });
 
   it("a positional key is used without prompting, even if stdin never answers", () => {

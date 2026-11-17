@@ -44,6 +44,9 @@ const KUBECTL_STUB = [
   '            [[ -n "${STUB_KUBECTL_DEPLOYS:-}" ]] && printf \'%s\\n\' ${STUB_KUBECTL_DEPLOYS}',
   "        fi",
   "        exit 0 ;;",
+  '    "rollout restart")',
+  '        [[ "${STUB_KUBECTL_ROLLOUT_FAIL:-0}" == "1" ]] && exit 1',
+  "        exit 0 ;;",
   '    "delete pod")',
   '        shift 2; for a in "$@"; do [[ "$a" != -* ]] && { [[ -n "${STUB_KUBECTL_DELETED:-}" ]] && echo "$a" >> "$STUB_KUBECTL_DELETED"; break; }; done',
   "        exit 0 ;;",
@@ -64,6 +67,9 @@ const KUBECTL_STUB = [
   '            [[ "$n" == "$ns" ]] && exit 0',
   "        done",
   "        exit 1 ;;",
+  '    "config current-context")',
+  '        echo "${STUB_KUBECTL_CONTEXT:-}"',
+  "        exit 0 ;;",
   '    "config view")',
   '        echo "${STUB_KUBECTL_DEFAULT_NS:-}"',
   "        exit 0 ;;",
@@ -81,7 +87,20 @@ beforeEach(() => {
   const bin = join(TMP, "stub-bin");
   mkdirSync(bin, { recursive: true });
   writeFileSync(join(bin, "kubectl"), KUBECTL_STUB);
-  spawnSync("chmod", ["+x", join(bin, "kubectl")]);
+  writeFileSync(
+    join(bin, "telepresence"),
+    [
+      "#!/usr/bin/env bash",
+      'echo "telepresence $*" >> "${STUB_CALL_LOG:?}"',
+      'case "$1" in',
+      '    status) echo \'{"user_daemon":{"status":"Connected"}}\' ;;',
+      '    replace) exit 1 ;;',
+      "esac",
+      "exit 0",
+      "",
+    ].join("\n"),
+  );
+  spawnSync("chmod", ["+x", join(bin, "kubectl"), join(bin, "telepresence")]);
   writeFileSync(join(TMP, "stub-calls.log"), "");
   // The helper's sandboxed config.
   const root = join(TMP, "devenv-root");
@@ -92,7 +111,11 @@ beforeEach(() => {
   );
 });
 
-const { NAMESPACE: _ns, DEVENV_REPO: _dr, ...procEnv } = process.env;
+const { NAMESPACE: _ns, KUBE_NAMESPACE: _kns, DEVENV_REPO: _dr, ...procEnv } = process.env;
+
+function callLog(): string {
+  return readFileSync(join(TMP, "stub-calls.log"), "utf8");
+}
 
 function env(extra: Record<string, string> = {}): Record<string, string> {
   return {
@@ -242,18 +265,58 @@ describe("scripts/kube-guards", () => {
     expect(scaledLines()).toEqual(["api"]);
   });
 
-  it("kube-pod-scale: NAMESPACE env var still supported (backward compat)", () => {
-    const r = runTool("kube-pod-scale", ["api", "3"], { STUB_KUBECTL_DEPLOYS: "api", YES: "1", NAMESPACE: "web" });
+  it("kube-pod-scale: KUBE_NAMESPACE env var selects the namespace", () => {
+    const r = runTool("kube-pod-scale", ["api", "3"], { STUB_KUBECTL_DEPLOYS: "api", YES: "1", KUBE_NAMESPACE: "web" });
     expect(r.status).toBe(0);
-    expect(scaledLines()).toEqual(["api"]);
+    expect(callLog()).toContain("kubectl scale deployment api --replicas=3 -n web");
   });
 
-  it("kube-pod-restart: -n flag form passes the guard with YES=1", () => {
+  it("kube-pod-scale: a generic NAMESPACE env var is ignored", () => {
+    const r = runTool("kube-pod-scale", ["api", "3"], { STUB_KUBECTL_DEPLOYS: "api", YES: "1", NAMESPACE: "web" });
+    expect(r.status).toBe(0);
+    expect(callLog()).toContain("kubectl scale deployment api --replicas=3 -n default");
+  });
+
+  it("kube-pod-restart: restarts through a rollout restart, never scaling to zero", () => {
     const r = runTool("kube-pod-restart", ["api", "-n", "web"], { STUB_KUBECTL_DEPLOYS: "api", YES: "1" });
-    // The stub cannot satisfy get_deployment_info's single-item JSON shape,
-    // so restart reports it cannot determine replicas (exit 1) — the guard
-    // itself (match + confirm) passed, which is what this test pins.
+    expect(r.status).toBe(0);
+    expect(callLog()).toContain("kubectl rollout restart deployment api -n web");
+    expect(callLog()).not.toContain("kubectl scale");
+    expect(scaledLines()).toEqual([]);
+  });
+
+  it("kube-pod-restart: a failed rollout restart reports its status", () => {
+    const r = runTool("kube-pod-restart", ["api"], { STUB_KUBECTL_DEPLOYS: "api", YES: "1", STUB_KUBECTL_ROLLOUT_FAIL: "1" });
     expect(r.status).toBe(1);
-    expect(r.out).toContain("Could not determine the current number of replicas");
+  });
+
+  it.each([
+    ["kube-pod-delete", ["api"], { STUB_KUBECTL_PODS: "api-1" }],
+    ["kube-pod-scale", ["api", "3"], { STUB_KUBECTL_DEPLOYS: "api" }],
+    ["kube-pod-restart", ["api"], { STUB_KUBECTL_DEPLOYS: "api" }],
+  ] as Array<[string, string[], Record<string, string>]>)("%s: the refusal names the current kube context", (tool, args, extra) => {
+    const r = runTool(tool, args, { ...extra, STUB_KUBECTL_CONTEXT: "ctx-prod" });
+    expect(r.status).toBe(2);
+    expect(r.out).toContain("ctx-prod");
+  });
+
+  it("kube-pod-delete: the confirmation prompt names the current kube context", () => {
+    const res = runOnTty("n", "kube-pod-delete", ["api"], { STUB_KUBECTL_PODS: "api-1", STUB_KUBECTL_CONTEXT: "ctx-prod" });
+    // The pseudo-terminal is narrow, so the prompt wraps: compare with the
+    // control sequences and everything but letters, digits and dashes removed.
+    const flat = res.out.replace(/\u001b\[[0-9;?]*[A-Za-z]/g, "").replace(/[^A-Za-z0-9-]/g, "");
+    expect(flat).toContain("contextctx-prod");
+  });
+
+  it.each(["kube-pod-exec", "kube-pod-console"])("%s: refuses several pod matches and execs nothing", (tool) => {
+    const r = runTool(tool, ["api", "ls"], { STUB_KUBECTL_PODS: "api-1\napi-2" });
+    expect(r.status).toBe(3);
+    expect(callLog()).not.toContain("kubectl exec");
+  });
+
+  it("kube-intercept: a failed intercept exits non-zero", () => {
+    const r = runTool("kube-intercept", ["api=8080"], { STUB_KUBECTL_PODS: "api-1" });
+    expect(r.status).toBe(1);
+    expect(callLog()).toContain("telepresence replace api-1");
   });
 });

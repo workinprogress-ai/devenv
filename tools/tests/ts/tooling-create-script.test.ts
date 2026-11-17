@@ -4,7 +4,7 @@
 // (syntax + --help + -v) without any manual fixing.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -88,4 +88,35 @@ describe("tooling-create-script generation", () => {
     expect(r.status).not.toBe(0);
     rmSync(dir, { recursive: true, force: true });
   });
+
+  it("generating directly into tools/ yields a './lib' import that resolves and runs", () => {
+    const toolsDir = join(ROOT, "tools");
+    const name = `zz-gen-probe-${process.pid}`;
+    const outFile = join(toolsDir, `${name}.ts`);
+    try {
+      const gen = runNode([GENERATOR, "-d", toolsDir, name]);
+      expect(gen.status, gen.out).toBe(0);
+      const content = readFileSync(outFile, "utf8");
+      expect(content).toContain('from "./lib/core/cli.ts"');
+      const help = runNode([outFile, "--help"]);
+      expect(help.status, help.out).toBe(0);
+      expect(help.out).toContain("-h, --help");
+    } finally {
+      rmSync(outFile, { force: true });
+    }
+  });
+
+  it.each(["bad name", "-leading-dash", "semi;colon", 'quo"te', "../escape"])(
+    "rejects the invalid script name %j",
+    (name) => {
+      const dir = mkdtempSync(join(tmpdir(), "tcs-name-"));
+      try {
+        const r = runNode([GENERATOR, "-d", dir, "--", name]);
+        expect(r.status).toBe(2);
+        expect(existsSync(join(dir, `${name}.ts`))).toBe(false);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
 });

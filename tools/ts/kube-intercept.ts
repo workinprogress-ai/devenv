@@ -199,15 +199,15 @@ done`,
   watchdog = child;
 }
 
-function cleanup(): void {
+function cleanup(exitCode = 0): never {
   console.error("\nStopping all intercepts...");
   if (watchdog !== undefined) watchdog.kill("SIGTERM");
   spawnSync("telepresence", ["quit", "--stop-daemons"], { stdio: "ignore" });
-  process.exit(0);
+  process.exit(exitCode);
 }
 
-process.on("SIGINT", cleanup);
-process.on("SIGTERM", cleanup);
+process.on("SIGINT", () => cleanup());
+process.on("SIGTERM", () => cleanup());
 
 // Ensure traffic-manager exists (install when missing).
 const tm = spawnKubectl(["get", "deployment", "traffic-manager", "-n", "ambassador", "--no-headers"]);
@@ -227,9 +227,7 @@ for (const it of intercepts) {
   const r = spawnSync("telepresence", ["replace", it.pod, ...it.portArgs], { stdio: "inherit" });
   if (r.status !== 0) {
     console.error(`telepresence replace failed for pod ${it.pod}`);
-    cleanup();
-    // A failed intercept must not report success (cleanup alone exited 0).
-    process.exit(EXIT_GENERAL_ERROR);
+    cleanup(EXIT_GENERAL_ERROR);
   }
 }
 

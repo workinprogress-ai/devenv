@@ -121,7 +121,7 @@ issue-artifact-upsert                                        # interactive picke
 - Body must contain exact line: `doc_id: <doc_id>`
 - `--issue` is optional when body metadata includes `issue_number: <N>`
 - If both are provided, `--issue` and body `issue_number` must match
-- Matching is exact and limited to first 256 characters
+- Matching is exact and limited to the `DEVENV_ARTIFACT_V1` header block
 - Exit `3` means duplicate `doc_id` conflict on the issue
 
 ### Generate Artifact `doc_id`
@@ -322,6 +322,8 @@ Types are a native field (not labels), configured in `tools/config/issues-config
 - `Feature` — Deliverable (native type)
 - `Task` — Work toward someone else's change (native type)
 - `Bug` — Defect (native type)
+
+`--type` is case-insensitive in every issue tool and accepts aliases that map onto a configured type (`story` → `Feature`, `chore` → `Task`, `defect` → `Bug`).
 
 ### Priority Labels
 

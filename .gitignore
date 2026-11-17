@@ -46,8 +46,6 @@ dotnet-install.*
 !/tools/internal/
 !/tools/lib/
 !/tools/other/
-!/tools/scripts/
-!/tools/special/
 !/tools/templates
 !/tools/tests/
 !/tools/ts/
@@ -56,10 +54,6 @@ dotnet-install.*
 .prompts/
 .local-artifacts/
 .local-artifacts/*
-# TAP output from bats --reporter tap runs at the repo root (test residue,
-# never a source artifact)
-report.tap
-
 # Ignore garbage files that MacOS and other systems might produce
 .DS_Store
 Thumbs.db

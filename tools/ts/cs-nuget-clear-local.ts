@@ -10,6 +10,8 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { packageIdFromNupkgName } from "../lib/domain/cs/csproj.ts";
 
 assertNodeFloor();
 
@@ -34,7 +36,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   }
 } catch (err) {
   console.error(errorMessage(err));
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 
 const devenvRoot = process.env.DEVENV_ROOT ?? selfRoot(import.meta.url);
@@ -45,19 +47,14 @@ if (!existsSync(localFeedDir)) {
   process.exit(1);
 }
 
-// Package names: *.nupkg basenames with the version suffix stripped
-// (name.version.revision.patch.nupkg → name), lowercased, unique.
+// Package names: *.nupkg basenames with the version (including any
+// prerelease or build suffix) stripped, lowercased, unique.
 const packages = new Set<string>();
 for (const e of readdirSync(localFeedDir, { withFileTypes: true })) {
   if (e.isFile() && e.name.endsWith(".nupkg")) {
-    let m = /^(.+)\.\d+\.\d+\.\d+\.nupkg$/.exec(e.name);
-    if (m === null) {
-      // Fallback (bash parity): strip a trailing 2-part or prerelease
-      // version when the strict 3-part form does not match.
-      const base = e.name.replace(/\.nupkg$/, "");
-      m = [e.name, base.replace(/\.\d+(\.\d+)*$/, "")] as unknown as RegExpExecArray;
-    }
-    if (m !== null && m[1] !== undefined) packages.add(m[1].toLowerCase());
+    const id = packageIdFromNupkgName(e.name);
+    if (id === null) console.error(`WARNING: cannot read a package id from ${e.name}; its cache entry is not cleared`);
+    else packages.add(id.toLowerCase());
   }
 }
 

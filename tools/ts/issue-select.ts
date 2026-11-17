@@ -19,7 +19,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { normalizeIssueType } from "../lib/domain/issues/types.ts";
+import { issueTypeNames, resolveIssueType } from "../lib/domain/issues/types.ts";
 import { issuesList, issuesView } from "../lib/providers/facade/issues.ts";
 import { select, multiSelect, isInteractive } from "../lib/ui/prompts.ts";
 
@@ -86,11 +86,15 @@ async function main(argv: string[]): Promise<number> {
     if (cli.common.help) showUsage();
     const values = cli.values as Record<string, string | boolean | undefined>;
     state = (values["state"] as string | undefined) ?? "open";
+    if (state !== "open" && state !== "closed" && state !== "all") {
+      logError(`Invalid state: ${state} (must be open, closed, or all)`);
+      return EXIT_MISUSE;
+    }
     type = (values["type"] as string | undefined) ?? "";
     if (type !== "") {
-      const normalized = normalizeIssueType(type);
+      const normalized = resolveIssueType(type);
       if (normalized === null) {
-        logError(`Invalid issue type: ${type} (allowed: Bug, Feature, Task, Epic)`);
+        logError(`Invalid issue type: ${type} (allowed: ${issueTypeNames().join(", ")})`);
         return EXIT_MISUSE;
       }
       type = normalized;
@@ -99,10 +103,14 @@ async function main(argv: string[]): Promise<number> {
     label = (values["label"] as string | undefined) ?? "";
     multi = Boolean(values["multi"]);
     format = (values["format"] as string | undefined) ?? "number";
+    if (format !== "number" && format !== "url" && format !== "json") {
+      logError(`Invalid format: ${format} (must be number, url, or json)`);
+      return EXIT_MISUSE;
+    }
     devenv = cli.common.devenv;
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 

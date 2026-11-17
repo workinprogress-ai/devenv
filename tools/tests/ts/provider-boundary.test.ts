@@ -9,6 +9,11 @@
 // The same rule covers domain code (tools/lib/domain/**): domain modules
 // reach providers only through the facade.
 //
+// The raw GitHub transport (`ghApi`, `ghApiSync`, `ghApiPaginate`) is a
+// provider implementation detail even when re-exported through provider-core:
+// it carries no provider guard, so a tool or domain module using it breaks on
+// every other provider. Tools and domain code may not name it at all.
+//
 // Same-family rule (facade files): a facade/<family>.ts may import only its
 // own family's provider modules (the union of that family's per-provider
 // manifest entries in provider-loader.ts). facade/issues.ts may not reach
@@ -47,6 +52,25 @@ function walk(dir: string, out: string[] = []): string[] {
 // The same-family rule's source of truth is the loader's manifest.
 import { familyManifestModules } from "../../lib/providers/facade/provider-loader.ts";
 
+/** Lines of `src` that name the raw gh transport (an import, a member access
+ * on a namespace import, a call, a re-export), comments excluded. */
+function rawTransportLines(src: string): string[] {
+  return src
+    .split("\n")
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .filter((line) => /\bghApi(?:Sync|Paginate)?\b/.test(line));
+}
+
+function rawTransportViolations(dir: string): string[] {
+  const out: string[] = [];
+  for (const file of walk(dir)) {
+    for (const line of rawTransportLines(readFileSync(file, "utf8"))) {
+      out.push(`${relative(repoRoot, file)}: ${line.trim()}`);
+    }
+  }
+  return out;
+}
+
 // Ratchet allowlist: files whose families migrate in later plan phases
 // (provider facade Phases 2-3). Each entry names the phase that REMOVES it;
 // the list shrinks monotonically to empty. An entry here is a debt marker,
@@ -68,6 +92,23 @@ const domainRatchetAllowlist: Array<{ file: string; removedWhen: string }> = [
 ];
 
 describe("provider boundary contract", () => {
+  it("no tools/ts or tools/lib/domain file names the raw gh transport", () => {
+    const violations = [
+      ...rawTransportViolations(join(toolsDir, "ts")),
+      ...rawTransportViolations(join(toolsDir, "lib", "domain")),
+    ];
+    expect(violations, `raw gh transport outside the providers (use a facade verb):\n${violations.join("\n")}`).toEqual([]);
+  });
+
+  it("the raw-transport scan catches imports, namespace access and re-exports, and skips comments", () => {
+    const named = 'import { ghApi } from "../providers/provider-core.ts";';
+    const multi = 'import {\n  checkTargetRepo,\n  ghApiSync,\n} from "../lib/providers/provider-core.ts";';
+    const ns = "const r = core.ghApiPaginate(args);";
+    const reexport = 'export { ghApi } from "./x.ts";';
+    for (const src of [named, multi, ns, reexport]) expect(rawTransportLines(src), src).not.toEqual([]);
+    expect(rawTransportLines("// ghApi is the raw transport\n * ghApiSync too\nconst ok = ghApiLike;")).toEqual([]);
+  });
+
   it("no tools/lib/domain file imports a provider module except the domain ratchet allowlist", () => {
     const violations: string[] = [];
     if (domainRatchetAllowlist.length > DOMAIN_RATCHET_CAP) {

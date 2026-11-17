@@ -3,8 +3,8 @@
 // link the system editor. Port of provision.bash create_tool_symlinks.
 //
 // The stub sync itself stays in .devcontainer/entry-stubs-sync.sh (it is the
-// one non-scripts/ script with a public entry point; its bats-derived vitest
-// suite pins its contract). This step invokes it, then maintains
+// one shell script with a public entry point; its vitest suite pins its
+// contract). This step invokes it, then maintains
 // /bin/editor → tools/editor as before.
 //
 // Idempotent: the sync script is a verified no-op on a synchronized tree;

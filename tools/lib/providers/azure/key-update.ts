@@ -8,8 +8,7 @@
 // credential-helper wiring the bash impl performs. After rotation the
 // package-feed wiring hooks re-run (a rotated PAT invalidates ~/.npmrc and
 // the nuget source credentials); failures report but do not undo the
-// rotation. The TS port drives the SAME bash seam functions for the wiring
-// hooks — they are bootstrap-chain members (allowlist), not verb twins.
+// rotation.
 
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -19,6 +18,7 @@ import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../../core/exit-codes.ts";
 import { logWarn } from "../../core/logging.ts";
 import { toolCli } from "../../core/cli.ts";
 import { selfRoot } from "../../core/self-root.ts";
+import { azureSetupGit } from "./auth.ts";
 
 assertNodeFloor();
 
@@ -116,13 +116,9 @@ if (envPat !== "" && envPat !== newToken) {
 }
 
 // Git credential helper wiring (the auth impl's second half).
-const toolsRoot = join(selfRoot(import.meta.url), "tools");
-const helper = spawnSync(
-  "bash",
-  ["-c", 'source "$1/lib/providers/provider-core.bash" && export PROVIDER_NAME=azure && provider_load auth && provider_auth_setup_git', "x", toolsRoot],
-  { stdio: ["ignore", "inherit", "inherit"], encoding: "utf8" },
-);
-if (helper.status !== 0) {
+try {
+  azureSetupGit();
+} catch {
   console.error("    ⚠ git credential helper wiring failed — git https to Azure DevOps may fail until re-run.");
 }
 
@@ -131,24 +127,22 @@ if (helper.status !== 0) {
 //    rotation (the credential store is already updated).
 let wiringFailed = false;
 console.log("    - Refreshing package feed credentials...");
-const npmrc = join(process.env.HOME ?? "", ".npmrc");
+// Step modules run exactly as the setup orchestrator runs them.
+const toolsRoot = join(selfRoot(import.meta.url), "tools");
+function runSetupStep(module: string): boolean {
+  const r = spawnSync(process.execPath, [join(toolsRoot, "ts", "setup-steps", module)], {
+    stdio: ["ignore", "inherit", "inherit"],
+    env: { ...process.env, DEVENV_TOOLBOX_ROOT: process.env.DEVENV_TOOLBOX_ROOT || selfRoot(import.meta.url) },
+  });
+  return r.status === 0;
+}
 if (process.env.HOME !== undefined && process.env.HOME !== "") {
-  const npm = spawnSync(
-    "bash",
-    ["-c", 'source "$1/lib/providers/provider-core.bash" && export PROVIDER_NAME=azure && provider_load bootstrap && provider_bootstrap_call configure_npmrc "$2" npmrc', "x", toolsRoot, npmrc],
-    { stdio: ["ignore", "inherit", "inherit"], encoding: "utf8" },
-  );
-  if (npm.status !== 0) {
+  if (!runSetupStep("npmrc.ts")) {
     console.error("    ⚠ npm feed re-wiring failed — run bootstrap or configure_user_npmrc to retry.");
     wiringFailed = true;
   }
 }
-const nuget = spawnSync(
-  "bash",
-  ["-c", 'source "$1/lib/providers/provider-core.bash" && export PROVIDER_NAME=azure && provider_load bootstrap && provider_bootstrap_call configure_nuget', "x", toolsRoot],
-  { stdio: ["ignore", "inherit", "inherit"], encoding: "utf8" },
-);
-if (nuget.status !== 0) {
+if (!runSetupStep("nuget-sources.ts")) {
   console.error("    ⚠ NuGet feed re-wiring failed — run bootstrap or configure_nuget_sources to retry.");
   wiringFailed = true;
 }

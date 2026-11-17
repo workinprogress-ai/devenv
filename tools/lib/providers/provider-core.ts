@@ -44,9 +44,8 @@ export function providerConfigPath(): string {
     : join(TOOLS_ROOT, "..", "devenv.config");
 }
 
-/** Providers with a TS implementation. Azure's domain verbs shipped in TS
- * (providers/azure/*.ts); its setup/credential scripts stay bash (bootstrap
- * chain rule). */
+/** The shipped providers. The container bootstrap chain still sources a small
+ * bash layer for each (see README.md, "Bash bootstrap surface"). */
 export const TS_PROVIDERS = ["github", "azure"] as const;
 export type ProviderName = (typeof TS_PROVIDERS)[number];
 
@@ -100,14 +99,13 @@ export function providerDetect(force = false): ProviderName {
 export function providerRepoTarget(spec?: string): string {
   if (spec !== undefined && spec !== "") return spec;
   if (process.env.DEVENV_REPO) return process.env.DEVENV_REPO;
-  // Provider-internal env leg (the bash `_provider_repo_env_extra` hook):
-  // GH's own variable, full owner/repo forms only — a basename is invalid
-  // for -R and reads as absent.
+  // Provider-internal env leg: GH's own variable, full owner/repo forms only —
+  // a basename is invalid for -R and reads as absent.
   const ghRepo = process.env.GH_REPO ?? "";
   if (ghRepo.includes("/")) return ghRepo;
-  // Cwd leg (the `_provider_repo_cwd_spec` hook): configured org identity +
-  // the git working tree's basename; both legs must resolve. A cwd without a
-  // git root reads as unresolved, never as a crash.
+  // Cwd leg: configured org identity + the git working tree's basename; both
+  // legs must resolve. A cwd without a git root reads as unresolved, never as
+  // a crash.
   const org = providerOrgGet();
   if (org === "") return "";
   let root = "";
@@ -156,7 +154,7 @@ function originSpec(): string {
 
 /** Require the github provider (the seam functions only github implements
  * today). A non-github checkout gets a named error instead of silently
- * running the github transport against the wrong host (the F10 class).
+ * running the github transport against the wrong host.
  * The typed dispatch facade replaces this guard when it lands. */
 export function requireGithubProvider(action: string): void {
   if (providerDetect() !== "github") {

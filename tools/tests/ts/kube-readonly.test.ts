@@ -115,7 +115,7 @@ beforeEach(() => {
   );
 });
 
-const { NAMESPACE: _ns, DEVENV_REPO: _dr, ...procEnv } = process.env;
+const { NAMESPACE: _ns, KUBE_NAMESPACE: _kns, DEVENV_REPO: _dr, ...procEnv } = process.env;
 
 function env(extra: Record<string, string> = {}): Record<string, string> {
   return {
@@ -175,15 +175,15 @@ describe("scripts/kube-readonly", () => {
     expect(stubCallsContain("kubectl logs web-1")).toBe(false);
   });
 
-  it("kube-pod-exec: executes the command on the first-match pod", () => {
-    const r = runKube("kube-pod-exec", ["web", "--", "ls", "-la"], { STUB_KUBECTL_PODS: "web-1\nweb-2" });
+  it("kube-pod-exec: executes the command on the single matching pod", () => {
+    const r = runKube("kube-pod-exec", ["web", "--", "ls", "-la"], { STUB_KUBECTL_PODS: "web-1" });
     expect(r.status).toBe(0);
     expect(r.out).toContain("Executing command for pod: web-1");
     expect(stubCallsContain("kubectl exec web-1")).toBe(true);
   });
 
-  it("kube-pod-console: defaults to /bin/bash on the first-match pod", () => {
-    const r = runKube("kube-pod-console", ["web"], { STUB_KUBECTL_PODS: "web-1\nweb-2" });
+  it("kube-pod-console: defaults to /bin/bash on the single matching pod", () => {
+    const r = runKube("kube-pod-console", ["web"], { STUB_KUBECTL_PODS: "web-1" });
     expect(r.status).toBe(0);
     expect(r.out).toContain("Executing command on console for pod: web-1");
     expect(stubCallsContain("kubectl exec -it web-1")).toBe(true);

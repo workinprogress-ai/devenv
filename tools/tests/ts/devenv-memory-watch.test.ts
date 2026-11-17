@@ -4,7 +4,7 @@
 import { toolScript } from "./harness/index.ts";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -91,6 +91,24 @@ describe("scripts/devenv-memory-watch", () => {
     const awk = spawnSync("awk", ["-F", "\t", '$1 == "S" { count++ } END { print count + 0 }', join(stateDir, "samples.tsv")], { encoding: "utf8" });
     expect(awk.status).toBe(0);
     expect(Number.parseInt((awk.stdout ?? "0").trim(), 10)).toBe(1);
+  });
+
+  it("picks the latest sample numerically (sample 10 is later than sample 9)", () => {
+    const state = join(TMP, "state");
+    mkdirSync(state, { recursive: true });
+    const sig = "zz-fixture-proc | zz-fixture-proc";
+    writeFileSync(join(state, "samples.tsv"), "S\t9\t1000\t1\tmax\nS\t10\t1060\t1\tmax\n");
+    writeFileSync(join(state, "processes.tsv"), `P\t9\t100\t${sig}\nP\t10\t500\t${sig}\n`);
+    const r = watch(["--once", "--state-dir", state, "--max-processes", "1", "--top", "100000", "--interval-minutes", "1"]);
+    expect(r.status, r.out).toBe(0);
+    const row = readFileSync(join(state, "current-culprits.tsv"), "utf8")
+      .split("\n")
+      .find((l) => l.endsWith(`\t${sig}`));
+    expect(row).toBeDefined();
+    const cols = (row as string).split("\t");
+    // columns: rank label current delta peak samples first_sample last_sample ...
+    expect(cols[2]).toBe("500 KB");
+    expect(cols[7]).toBe("10");
   });
 });
 

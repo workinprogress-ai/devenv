@@ -76,6 +76,26 @@ function shadowGitPush(): void {
   spawnSync("chmod", ["+x", join(BIN, "git")]);
 }
 
+// git shadow that logs every invocation to GIT_LOG and fails every push.
+function shadowGitPushFails(): string {
+  const realGit = String(spawnSync("bash", ["-c", "command -v git"]).stdout ?? "git").trim();
+  const log = join(TMP, "git.log");
+  writeFileSync(
+    join(BIN, "git"),
+    [
+      "#!/usr/bin/env bash",
+      `echo "$*" >> "${log}"`,
+      'if [[ "$*" =~ "push" ]]; then',
+      "    exit 1",
+      "fi",
+      `exec "${realGit}" "$@"`,
+      "",
+    ].join("\n"),
+  );
+  spawnSync("chmod", ["+x", join(BIN, "git")]);
+  return log;
+}
+
 function removeShadowGit(): void {
   rmSync(join(BIN, "git"), { force: true });
 }
@@ -228,6 +248,143 @@ describe("scripts/cs-references-update-wizard", () => {
     expect(r.status).toBe(0);
     expect(r.out).toContain("DRY RUN");
     removeShadowGit();
+  });
+
+  // ── Protected branch names ─────────────────────────────────────────────────
+
+  it.each(["master", "main", "develop", "release/1.0", "hotfix/urgent"])("refuses the protected update branch name '%s'", (name) => {
+    const r = wizard()(["--branch", name, REPO_DIR]);
+    expect(r.status).toBe(2);
+    expect(r.out).toContain("Refusing protected branch name");
+    expect((git(["branch"]).stdout ?? "")).not.toContain("release/1.0");
+  });
+
+  it("refuses an invalid branch name", () => {
+    const r = wizard()(["--branch", "bad..name", REPO_DIR]);
+    expect(r.status).toBe(2);
+  });
+
+  // ── Push and staging hazards ───────────────────────────────────────────────
+
+  it("never force-pushes: a failed push exits 20 after a single plain push", () => {
+    writeFake(
+      "cs-references-update",
+      '#!/usr/bin/env bash\nrepo_dir="${1:-$PWD}"\nsed -i \'s/Version="1\\.0\\.0"/Version="1.1.0"/\' "$repo_dir/src/MyLib.csproj"\nexit 0\n',
+    );
+    const log = shadowGitPushFails();
+    const r = wizard()([REPO_DIR]);
+    expect(r.status).toBe(20);
+    const pushes = readFileSync(log, "utf8").split("\n").filter((l) => l.includes("push"));
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0]).not.toContain("--force");
+    expect(r.out).toContain("Kept local branch 'auto-update-references'");
+    // The update commit survives on the local branch, ahead of master.
+    expect((git(["branch", "--list", "auto-update-references"]).stdout ?? "")).toContain("auto-update-references");
+    const ahead = (git(["rev-list", "--count", "master..auto-update-references"]).stdout ?? "").trim();
+    expect(ahead).toBe("1");
+    const files = (git(["show", "--name-only", "--format=", "auto-update-references"]).stdout ?? "");
+    expect(files).toContain("src/MyLib.csproj");
+    expect(readFileSync(log, "utf8")).not.toMatch(/branch -D/);
+    removeShadowGit();
+  });
+
+  it("stages explicit tracked paths only: untracked residue stays out of the commit", () => {
+    writeFake(
+      "cs-references-update",
+      '#!/usr/bin/env bash\nrepo_dir="${1:-$PWD}"\nsed -i \'s/Version="1\\.0\\.0"/Version="1.1.0"/\' "$repo_dir/src/MyLib.csproj"\necho residue > "$repo_dir/residue.txt"\nexit 0\n',
+    );
+    // The update branch is deleted after the merge, so the merge mock records
+    // what the update commit carried.
+    writeFake("pr-merge", '#!/usr/bin/env bash\ngit show --name-only --format= HEAD > "${CAPTURE_FILE:?}"\nexit 0\n');
+    shadowGitPush();
+    const captured = join(TMP, "commit.files");
+    const r = wizard()([REPO_DIR], { CAPTURE_FILE: captured });
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("residue.txt");
+    const files = readFileSync(captured, "utf8");
+    expect(files).toContain("src/MyLib.csproj");
+    expect(files).not.toContain("residue.txt");
+    removeShadowGit();
+  });
+
+  it("stages tracked paths with spaces and non-ASCII characters, including deletions", () => {
+    mkdirSync(join(REPO_DIR, "docs"), { recursive: true });
+    writeFileSync(join(REPO_DIR, "docs", "Résumé notes.txt"), "one\n");
+    writeFileSync(join(REPO_DIR, "docs", "with space.txt"), "gone\n");
+    git(["add", "."]);
+    git(["commit", "-q", "-m", "chore: add docs"]);
+    git(["update-ref", "refs/remotes/origin/master", "HEAD"]);
+    writeFake(
+      "cs-references-update",
+      [
+        "#!/usr/bin/env bash",
+        'repo_dir="${1:-$PWD}"',
+        "sed -i 's/Version=\"1\\.0\\.0\"/Version=\"1.1.0\"/' \"$repo_dir/src/MyLib.csproj\"",
+        'echo two >> "$repo_dir/docs/Résumé notes.txt"',
+        'rm "$repo_dir/docs/with space.txt"',
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    writeFake("pr-merge", '#!/usr/bin/env bash\ngit -c core.quotePath=false show --name-only --format= HEAD > "${CAPTURE_FILE:?}"\nexit 0\n');
+    shadowGitPush();
+    const captured = join(TMP, "commit.files");
+    const r = wizard()([REPO_DIR], { CAPTURE_FILE: captured });
+    expect(r.status).toBe(0);
+    const files = readFileSync(captured, "utf8").split("\n");
+    expect(files).toContain("docs/Résumé notes.txt");
+    expect(files).toContain("docs/with space.txt");
+    expect(files).toContain("src/MyLib.csproj");
+    removeShadowGit();
+  });
+
+  // ── Leftover update branch ─────────────────────────────────────────────────
+
+  function commitOnLeftoverBranch(): void {
+    git(["checkout", "-q", "-b", "auto-update-references"]);
+    writeFileSync(join(REPO_DIR, "operator-work.txt"), "unpushed\n");
+    git(["add", "."]);
+    git(["commit", "-q", "-m", "chore: operator work"]);
+    git(["checkout", "-q", "master"]);
+  }
+
+  it("refuses to delete a leftover local update branch that holds unpushed commits", () => {
+    commitOnLeftoverBranch();
+    const r = wizard()([REPO_DIR]);
+    expect(r.status).toBe(20);
+    expect(r.out).toContain("not on its remote counterpart");
+    expect(r.out).toContain("refusing to delete the leftover local branch");
+    expect(git(["log", "--format=%s", "auto-update-references"]).stdout).toContain("chore: operator work");
+  });
+
+  it("deletes and recreates a leftover update branch that holds nothing beyond the default branch", () => {
+    git(["branch", "auto-update-references"]);
+    const r = wizard()([REPO_DIR]);
+    // The no-op mock update leaves nothing to commit, which also removes the branch.
+    expect(r.status).toBe(10);
+    expect(r.out).not.toContain("refusing");
+    expect(git(["branch"]).stdout).not.toContain("auto-update-references");
+  });
+
+  it("deletes a leftover update branch whose commits are all on its remote counterpart", () => {
+    commitOnLeftoverBranch();
+    git(["update-ref", "refs/remotes/origin/auto-update-references", "refs/heads/auto-update-references"]);
+    const r = wizard()([REPO_DIR]);
+    expect(r.status).toBe(10);
+    expect(r.out).not.toContain("refusing");
+  });
+
+  it("keeps the branch and the working-tree fixes when the commit keeps failing and nobody confirms the discard", () => {
+    git(["checkout", "-q", "-b", "auto-update-references"]);
+    writeFileSync(join(REPO_DIR, "src", "MyLib.csproj"), CSPROJ.replace("1.0.0", "1.1.0") + "\n");
+    const hook = join(REPO_DIR, ".git", "hooks", "pre-commit");
+    writeFileSync(hook, "#!/usr/bin/env bash\nexit 1\n");
+    spawnSync("chmod", ["+x", hook]);
+    const r = wizard()(["--continue", REPO_DIR]);
+    expect(r.status).toBe(30);
+    expect(r.out).toContain("untouched");
+    expect(git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.trim()).toBe("auto-update-references");
+    expect(readFileSync(join(REPO_DIR, "src", "MyLib.csproj"), "utf8")).toContain("1.1.0");
   });
 
   // ── Framework / language flags ─────────────────────────────────────────────

@@ -84,7 +84,8 @@ describe("repo-commit --fix", () => {
     const backup = git("branch", "--list", "backup/pre-fixup-*").trim();
     expect(backup).not.toBe("");
     expect(r.out).toContain(backup);
-    expect(r.out).toContain("git reset --hard");
+    expect(r.out).toContain("git reset --soft");
+    expect(r.out).not.toContain("reset --hard");
   });
 
   it("refuses nothing-staged before any mutation", () => {
@@ -173,6 +174,21 @@ describe("repo-commit --fix", () => {
     // Stack intact: base and third still present, in order.
     const subjects = git("log", "--format=%s", "-5");
     expect(subjects).toContain("feat: third");
+  });
+
+  it("conflict recovery advice keeps the staged fix: soft reset, never hard", () => {
+    seedCommit("feat: base", "conflict2.txt", "base\n");
+    const second = seedCommit("feat: second", "conflict2.txt", "line-from-second\n");
+    seedCommit("feat: third", "conflict2.txt", "line-from-third\n");
+    const oldHead = git("rev-parse", "HEAD").trim();
+    stageFile("conflict2.txt", "staged-for-fixup\n");
+    const r = runTool(["--fix", second]);
+    expect(r.status).not.toBe(0);
+    expect(r.out).not.toContain("reset --hard");
+    expect(r.out).toContain(`git reset --soft ${oldHead}`);
+    // Following the printed advice leaves the fix staged, not discarded.
+    git("reset", "--soft", oldHead);
+    expect(git("diff", "--cached", "--", "conflict2.txt")).toContain("staged-for-fixup");
   });
 
   it("dry-run: resolves and prints, touches nothing", () => {

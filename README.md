@@ -10,7 +10,7 @@ A comprehensive development environment setup with dev containers, tooling, and 
 - **Developer Utilities**: Script templates, linting, versioning, and code quality tools
 - **Database Tools**: MongoDB, SQL Server, and SMB server utilities
 - **.NET Development**: NuGet package management and local debugging support
-- **Comprehensive Testing**: BATS test framework with extensive coverage
+- **Comprehensive Testing**: vitest suite (`tools/tests/ts/`) with extensive coverage
 - **Documentation**: Detailed guides for tooling standards, workflow, and best practices
 
 ## Prerequisites

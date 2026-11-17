@@ -1,6 +1,6 @@
 // Port of tools/tests/lib/test_provider_core.bats (30 tests) — one vitest
 // `it` per source `@test`. Contract tests for provider-core.bash: detection,
-// dispatch guard, auth seam, capability flags, and the error contract.
+// the module loader, the auth seam, identity accessors, and the error contract.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -51,7 +51,6 @@ const ENV = (extra: Record<string, string> = {}): Record<string, string> => ({
   STUB_CALL_LOG: CALL_LOG,
   _PROVIDER_CORE_LOADED: "",
   PROVIDER_NAME: "",
-  PROVIDER_CAPABILITIES: "",
   PATH: `${join(TMP, "stub-bin")}:${process.env.PATH ?? ""}`,
   ...extra,
 });
@@ -126,16 +125,6 @@ describe("provider core", () => {
     const cfg = writeConfig("# comment", "", "[provider]", "# name comment", "  name = github  ", "[other]", "name=wrong");
     const r = coreRun(`provider_detect '${cfg}'\necho "$PROVIDER_NAME"`);
     expect(r.out.trim()).toBe("github");
-  });
-
-  it("module_dir: returns provider module path after detection", () => {
-    const r = coreRun(`provider_detect '${join(TMP, "absent.config")}'\nprovider_module_dir`);
-    expect(r.out.trim()).toBe(join(TOOLS, "lib", "providers", "github"));
-  });
-
-  it("module_dir: fails before detection has run", () => {
-    const r = coreRun("provider_module_dir");
-    expect(r.status).not.toBe(0);
   });
 
   // ── Credential lifecycle seam ────────────────────────────────────────────
@@ -217,23 +206,6 @@ describe("provider core", () => {
     r = coreRun("provider_user_get", accessorEnv());
     expect(r.status).toBe(0);
     expect(r.out.trim()).toBe("seed-user");
-  });
-
-  // ── Capabilities ─────────────────────────────────────────────────────────
-
-  it("capability: declare validates against the canonical list", () => {
-    const r = coreRun("provider_declare_capability not-a-capability");
-    expect(r.status).not.toBe(0);
-    expect(r.out).toContain("canonical");
-  });
-
-  it("capability: canonical declares are idempotent and queryable", () => {
-    const r = coreRun(
-      "provider_declare_capability pipelines\nprovider_declare_capability pipelines\nprovider_has_capability pipelines && echo HAS || echo NO-HAS\nprovider_has_capability releases && echo HAS-REL || echo NO-REL",
-    );
-    expect(r.out).toContain("HAS");
-    expect(r.out).toContain("NO-REL");
-    expect(r.out).not.toContain("HAS-REL\n");
   });
 
   // ── provider_load misconfiguration (F051) ────────────────────────────────

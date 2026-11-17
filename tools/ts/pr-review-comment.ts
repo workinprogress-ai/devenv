@@ -71,6 +71,7 @@ async function main(argv: string[]): Promise<number> {
   let devenv = false;
   try {
     const cli = toolCli({
+      rejectEmptyValues: true,
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv,
@@ -94,13 +95,13 @@ async function main(argv: string[]): Promise<number> {
     if (cli.positionals.length > 0) prNumber = cli.positionals[0] ?? "";
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   if (prNumber === "" || !/^[0-9]+$/.test(prNumber)) {
     logError("PR number is required and must be numeric");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
   if (filePath === "") {

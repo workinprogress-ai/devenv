@@ -160,6 +160,47 @@ describe("domain/cs dependency-graph", () => {
     expect(tree.every((r) => r.repo !== "alpha")).toBe(true);
   });
 
+  it("build: reads every PackageReference spelling and central package versions", async () => {
+    const g = await loadGraph();
+    mkdirSync(join(cacheDir, "repo-alpha", "src"), { recursive: true });
+    mkdirSync(join(cacheDir, "repo-beta", "src"), { recursive: true });
+    writeFileSync(join(cacheDir, "repo-alpha", "src", "WIP.Alpha.csproj"), "<Project />");
+    writeFileSync(join(cacheDir, "repo-alpha", "src", "WIP.Gamma.csproj"), "<Project />");
+    writeFileSync(join(cacheDir, "repo-alpha", "src", "WIP.Delta.csproj"), "<Project />");
+    writeFileSync(
+      join(cacheDir, "repo-beta", "Directory.Packages.props"),
+      '<Project><ItemGroup><PackageVersion Include="WIP.Delta" Version="4.0.0" /></ItemGroup></Project>',
+    );
+    writeFileSync(
+      join(cacheDir, "repo-beta", "src", "WIP.Beta.csproj"),
+      `<Project Sdk="Microsoft.NET.Sdk">
+        <PropertyGroup><TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks></PropertyGroup>
+        <ItemGroup>
+          <PackageReference Version="1.0.0" Include="WIP.Alpha" />
+          <PackageReference Include="WIP.Gamma"><Version>2.0.0</Version></PackageReference>
+          <PackageReference Include="WIP.Delta" />
+          <!-- <PackageReference Include="WIP.Beta" Version="9.9.9" /> -->
+        </ItemGroup>
+      </Project>`,
+    );
+    touch(join(cacheDir, ".cache_timestamp"));
+    g.buildDependencyIndex();
+    const tree = g.getReverseDependencyTree("repo-alpha");
+    const byPkg = Object.fromEntries(tree.map((r) => [r.packageRef, r.version]));
+    expect(byPkg).toEqual({ "WIP.Alpha": "1.0.0", "WIP.Gamma": "2.0.0", "WIP.Delta": "4.0.0" });
+  });
+
+  it("build: a /src/ segment in the cache path does not make test projects count as src", async () => {
+    const g = await loadGraph();
+    const nested = join(cacheDir, "src", "cache");
+    mkdirSync(join(nested, "repo-alpha", "tests"), { recursive: true });
+    writeFileSync(join(nested, "repo-alpha", "tests", "WIP.Alpha.Tests.csproj"), "<Project />");
+    touch(join(nested, ".cache_timestamp"));
+    process.env.REPO_CACHE_DIR = nested;
+    g.buildDependencyIndex();
+    expect(g.listRepoPackages("repo-alpha")).toEqual([]);
+  });
+
   it("reverse tree: unknown repo is a named error", async () => {
     const g = await loadGraph();
     buildTree();
@@ -244,6 +285,58 @@ describe("refreshRepoCache argv shape", () => {
       else process.env.DEVENV_ROOT = savedRoot;
       if (savedRepo === undefined) delete process.env.DEVENV_REPO;
       else process.env.DEVENV_REPO = savedRepo;
+      rmSync(stubDir, { recursive: true, force: true });
+      rmSync(workDir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// refreshRepoCache never discards work in an existing cache clone.
+// ---------------------------------------------------------------------------
+
+describe("refreshRepoCache on an existing clone", () => {
+  it("leaves a clone with uncommitted changes untouched and reports the partial failure", async () => {
+    const { spawnSync } = await import("node:child_process");
+    const { readFileSync } = await import("node:fs");
+    const stubDir = mkdtempSync(join(tmpdir(), "rc-stub-"));
+    const workDir = mkdtempSync(join(tmpdir(), "rc-root-"));
+    const gitEnv = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
+    const git = (cwd: string, ...args: string[]): void => {
+      expect(spawnSync("git", args, { cwd, env: gitEnv }).status).toBe(0);
+    };
+    // A local "remote" and a clone of it inside the cache.
+    const remote = join(workDir, "remote");
+    mkdirSync(remote);
+    git(remote, "init", "-q", "-b", "main");
+    writeFileSync(join(remote, "a.txt"), "one\n");
+    git(remote, "add", ".");
+    git(remote, "commit", "-q", "-m", "init");
+    const clone = join(cacheDir, "repo-one");
+    git(workDir, "clone", "-q", remote, clone);
+    writeFileSync(join(clone, "a.txt"), "local edit\n");
+    writeFileSync(join(clone, "untracked.txt"), "keep me\n");
+    writeFileSync(
+      join(stubDir, "gh"),
+      ["#!/usr/bin/env bash", 'if [ "$1 $2" = "auth status" ]; then exit 0; fi', 'case "$*" in', '  *"repo list"*) echo "repo-one";;', "esac", "exit 0", ""].join("\n"),
+      { mode: 0o755 },
+    );
+    writeFileSync(join(workDir, "devenv.config"), "[organization]\norg=test-org\n");
+    const r = spawnSync("node", ["-e", `
+      const m = await import(${JSON.stringify(join(fileURLToPath(new URL(".", import.meta.url)), "../../lib/domain/cs/dependency-graph.ts"))});
+      process.exitCode = await m.refreshRepoCache();
+    `], {
+      encoding: "utf8",
+      cwd: workDir,
+      env: { ...process.env, DEVENV_ROOT: workDir, DEVENV_REPO: "test-org/repo-one", REPO_CACHE_DIR: cacheDir, PATH: `${stubDir}:${process.env.PATH ?? ""}` },
+      timeout: 30000,
+    });
+    try {
+      // The only repo failed: total failure exit code.
+      expect(r.status).toBe(1);
+      expect(readFileSync(join(clone, "a.txt"), "utf8")).toBe("local edit\n");
+      expect(readFileSync(join(clone, "untracked.txt"), "utf8")).toBe("keep me\n");
+    } finally {
       rmSync(stubDir, { recursive: true, force: true });
       rmSync(workDir, { recursive: true, force: true });
     }

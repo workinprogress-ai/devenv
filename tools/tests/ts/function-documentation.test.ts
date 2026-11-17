@@ -12,11 +12,6 @@ function sh(script: string): { status: number; out: string } {
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-function grepCount(args: string[]): number {
-  const r = spawnSync("grep", args, { encoding: "utf8" });
-  return Number.parseInt(r.stdout ?? "0", 10) || 0;
-}
-
 // The devcontainer.json as plain JSON (full-line // comments dropped).
 
 // Port of tools/tests/devenv/test_function_documentation.bats — one vitest `it` per source `@test`.
@@ -47,9 +42,5 @@ describe("function documentation", () => {
       `grep -B 8 'export function providerOrgGet' '${ROOT}/tools/lib/providers/provider-core.ts' | grep -q 'Empty'`,
     );
     expect(r.status).toBe(0);
-  });
-
-  it("error handling functions document exit codes", () => {
-    expect(grepCount(["-c", "exit code\\|Exit code\\|EXIT_", join(ROOT, "tools/lib/error-handling.bash")])).toBeGreaterThan(3);
   });
 });

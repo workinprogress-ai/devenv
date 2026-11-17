@@ -34,13 +34,12 @@ afterAll(() => {
   if (TMP && !process.env["KEEP_ESTUB_DEBUG"]) rmSync(TMP, { recursive: true, force: true });
 });
 
-// Mock checkout: .devcontainer/ (sync script) + tools/{scripts,ts,lib}. The
+// Mock checkout: .devcontainer/ (sync script) + tools/{ts,lib}. The
 // fixture copies self-root + error-handling libs (the sync script's resolver
 // deps). Returns the mock's sync-script path.
 function makeMockCheckout(): { root: string; syncScript: string } {
   const root = tmpPath(`mock-${Math.random().toString(36).slice(2)}`);
   mkdirSync(join(root, ".devcontainer"), { recursive: true });
-  mkdirSync(join(root, "tools", "scripts"), { recursive: true });
   mkdirSync(join(root, "tools", "ts"), { recursive: true });
   mkdirSync(join(root, "tools", "lib"), { recursive: true });
   spawnSync("cp", [SYNC_SOURCE, join(root, ".devcontainer")]);
@@ -55,13 +54,13 @@ function makeTsScript(root: string, name: string): void {
 
 function makeScript(root: string, name: string): void {
   writeFileSync(
-    join(root, "tools", "scripts", name),
+    join(root, "tools", "ts", name),
     `#!/bin/bash\nsource "$(cd "$(dirname "\${BASH_SOURCE[0]}")/../lib" && pwd)/self-root.bash"\necho "ran-${name.replace(/\.sh$/, "")}"\n`,
   );
 }
 
-function makeStub(root: string, name: string, file: string): void {
-  writeFileSync(join(root, "tools", name), `#!/bin/bash\nexec bash "$(dirname "$0")/scripts/${file}" "$@"\n`);
+function makeStub(root: string, name: string, file: string, layer = "ts", runner = "bash"): void {
+  writeFileSync(join(root, "tools", name), `#!/bin/bash\nexec ${runner} "$(dirname "$0")/${layer}/${file}" "$@"\n`);
   chmodSync(join(root, "tools", name), 0o755);
 }
 
@@ -96,32 +95,32 @@ describe("entry-stubs-sync (bats port)", () => {
     expect(existsSync(SYNC_SOURCE)).toBe(true);
   });
 
-  it("creates a stub for every tools/scripts/ script", () => {
+  it("creates a stub for every tools/ts/ script", () => {
     const { root, syncScript } = makeMockCheckout();
     makeScript(root, "alpha.sh");
     makeScript(root, "beta.sh");
     expect(sync(syncScript).status).toBe(0);
     expect(existsSync(join(root, "tools", "alpha"))).toBe(true);
     expect(existsSync(join(root, "tools", "beta"))).toBe(true);
-    expect(readFileSync(join(root, "tools", "alpha"), "utf8")).toContain("scripts/alpha.sh");
-    expect(readFileSync(join(root, "tools", "beta"), "utf8")).toContain("scripts/beta.sh");
+    expect(readFileSync(join(root, "tools", "alpha"), "utf8")).toContain("ts/alpha.sh");
+    expect(readFileSync(join(root, "tools", "beta"), "utf8")).toContain("ts/beta.sh");
   });
 
   it("converts a stale symlink into a stub", () => {
     const { root, syncScript } = makeMockCheckout();
     makeScript(root, "alpha.sh");
-    symlinkSync(join(root, "tools", "scripts", "alpha.sh"), join(root, "tools", "alpha"));
+    symlinkSync(join(root, "tools", "ts", "alpha.sh"), join(root, "tools", "alpha"));
     expect(sync(syncScript).status).toBe(0);
     expect(lstatSync(join(root, "tools", "alpha")).isSymbolicLink()).toBe(false);
-    expect(readFileSync(join(root, "tools", "alpha"), "utf8")).toContain("scripts/alpha.sh");
+    expect(readFileSync(join(root, "tools", "alpha"), "utf8")).toContain("ts/alpha.sh");
   });
 
-  it("converts a drifted real-file copy into a stub (scripts/ is canonical)", () => {
+  it("converts a drifted real-file copy into a stub (the winning source is canonical)", () => {
     const { root, syncScript } = makeMockCheckout();
     makeScript(root, "alpha.sh");
     writeFileSync(join(root, "tools", "alpha"), "#!/bin/bash\n# drifted stale content\n");
     expect(sync(syncScript).status).toBe(0);
-    expect(readFileSync(join(root, "tools", "alpha"), "utf8")).toContain("scripts/alpha.sh");
+    expect(readFileSync(join(root, "tools", "alpha"), "utf8")).toContain("ts/alpha.sh");
     expect(readFileSync(join(root, "tools", "alpha"), "utf8")).not.toContain("drifted stale content");
   });
 
@@ -136,7 +135,7 @@ describe("entry-stubs-sync (bats port)", () => {
     expect(md5(join(root, "tools", "alpha"))).toBe(first);
   });
 
-  it("stubs execute the real scripts/ file (BASH_SOURCE is the scripts path)", () => {
+  it("stubs execute the real source file (BASH_SOURCE is the source path)", () => {
     const { root, syncScript } = makeMockCheckout();
     makeScript(root, "alpha.sh");
     expect(sync(syncScript).status).toBe(0);
@@ -155,10 +154,10 @@ describe("entry-stubs-sync (bats port)", () => {
 
   it("handles git-* scripts (no .sh suffix) by full name", () => {
     const { root, syncScript } = makeMockCheckout();
-    writeFileSync(join(root, "tools", "scripts", "git-wip"), "#!/bin/bash\necho git-tool-ran\n");
+    writeFileSync(join(root, "tools", "ts", "git-wip"), "#!/bin/bash\necho git-tool-ran\n");
     expect(sync(syncScript).status).toBe(0);
     expect(existsSync(join(root, "tools", "git-wip"))).toBe(true);
-    expect(readFileSync(join(root, "tools", "git-wip"), "utf8")).toContain("scripts/git-wip");
+    expect(readFileSync(join(root, "tools", "git-wip"), "utf8")).toContain("ts/git-wip");
   });
 
   it("underscore-prefixed scripts get no depth-1 entry (internal by contract)", () => {
@@ -183,8 +182,8 @@ describe("entry-stubs-sync (bats port)", () => {
 
   it("stale node stubs (deleted .ts source) are purged too", () => {
     const { root, syncScript } = makeMockCheckout();
-    writeFileSync(join(root, "tools", "scripts", "alpha.sh"), "#!/bin/bash\necho ran-sh\n");
-    writeFileSync(join(root, "tools", "gone"), '#!/bin/bash\nexec node "$(dirname "$0")/scripts/gone.ts" "$@"\n');
+    writeFileSync(join(root, "tools", "ts", "alpha.sh"), "#!/bin/bash\necho ran-sh\n");
+    writeFileSync(join(root, "tools", "gone"), '#!/bin/bash\nexec node "$(dirname "$0")/ts/gone.ts" "$@"\n');
     chmodSync(join(root, "tools", "gone"), 0o755);
     expect(sync(syncScript).status).toBe(0);
     expect(existsSync(join(root, "tools", "gone"))).toBe(false);
@@ -234,7 +233,7 @@ describe("entry-stubs-sync (bats port)", () => {
       if (!/^[a-z]/.test(f)) continue;
       const full = join(ROOT, "tools", f);
       if (!existsSync(full) || !statSync(full).isFile()) continue;
-      const target = (readFileSync(full, "utf8").match(/scripts\/[a-zA-Z0-9._-]*\.sh/) ?? [])[0];
+      const target = (readFileSync(full, "utf8").match(/(?:ts|fork|custom)\/[a-zA-Z0-9._-]*\.(?:sh|ts)/) ?? [])[0];
       if (!target) continue;
       if (!existsSync(join(ROOT, "tools", target))) {
         broken.push(`${f} -> ${target}`);
@@ -254,14 +253,14 @@ describe("entry-stubs-sync (bats port)", () => {
 
   it("a stub for an extensionless script that still exists is kept", () => {
     const { root, syncScript } = makeMockCheckout();
-    writeFileSync(join(root, "tools", "scripts", "git-live"), "#!/bin/bash\necho git-live\n");
-    chmodSync(join(root, "tools", "scripts", "git-live"), 0o755);
+    writeFileSync(join(root, "tools", "ts", "git-live"), "#!/bin/bash\necho git-live\n");
+    chmodSync(join(root, "tools", "ts", "git-live"), 0o755);
     makeStub(root, "git-live", "git-live");
     expect(sync(syncScript).status).toBe(0);
     expect(existsSync(join(root, "tools", "git-live"))).toBe(true);
   });
 
-  // ── override layers: custom > fork > scripts (ts between fork and scripts) ─
+  // ── override layers: custom > fork > ts ─
 
   it("a tools/fork/ script gets a depth-1 stub that runs it", () => {
     const { root, syncScript } = makeMockCheckout();
@@ -284,14 +283,6 @@ describe("entry-stubs-sync (bats port)", () => {
     expect(sync(syncScript).status).toBe(0);
     expect(readFileSync(join(root, "tools", "ts-tool"), "utf8")).toMatch(/exec node .*ts\/ts-tool\.ts/);
     expect(runStub(root, "ts-tool").out).toBe("ran-ts-ts-tool");
-  });
-
-  it("precedence: ts beats scripts for the same name (extensioned source wins the stub)", () => {
-    const { root, syncScript } = makeMockCheckout();
-    makeScript(root, "shared.sh");
-    makeTsScript(root, "shared");
-    sync(syncScript);
-    expect(readFileSync(join(root, "tools", "shared"), "utf8")).toMatch(/exec node .*ts\/shared\.ts/);
   });
 
   it("precedence: fork beats ts for the same name", () => {
@@ -322,7 +313,7 @@ describe("entry-stubs-sync (bats port)", () => {
     expect(readFileSync(join(root, "tools", "shared"), "utf8")).toContain("custom/shared.sh");
     rmSync(join(root, "tools", "custom", "shared.sh"));
     expect(sync(syncScript).status).toBe(0);
-    expect(readFileSync(join(root, "tools", "shared"), "utf8")).toContain("scripts/shared.sh");
+    expect(readFileSync(join(root, "tools", "shared"), "utf8")).toContain("ts/shared.sh");
   });
 
   it("removing a pure custom tool purges its stub", () => {
@@ -355,7 +346,7 @@ describe("entry-stubs-sync (bats port)", () => {
 
   it("a fork-layer git-* tool overrides the provided one", () => {
     const { root, syncScript } = makeMockCheckout();
-    writeFileSync(join(root, "tools", "scripts", "git-thing"), "#!/bin/bash\necho provided\n");
+    writeFileSync(join(root, "tools", "ts", "git-thing"), "#!/bin/bash\necho provided\n");
     mkdirSync(join(root, "tools", "fork"), { recursive: true });
     writeFileSync(join(root, "tools", "fork", "git-thing"), "#!/bin/bash\necho forked\n");
     sync(syncScript);
@@ -373,6 +364,39 @@ describe("entry-stubs-sync (bats port)", () => {
     expect(r.out).toContain("removed=0");
   });
 
+
+  it("a leftover stub into the retired tools/scripts/ directory is purged (target gone)", () => {
+    const { root, syncScript } = makeMockCheckout();
+    makeScript(root, "alpha.sh");
+    makeStub(root, "legacy-tool", "legacy-tool.sh", "scripts");
+    makeStub(root, "legacy-node", "legacy-node.ts", "scripts", "node");
+    makeStub(root, "git-legacy", "git-legacy", "scripts");
+    const r = sync(syncScript);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("removed=3");
+    for (const n of ["legacy-tool", "legacy-node", "git-legacy"]) {
+      expect(existsSync(join(root, "tools", n))).toBe(false);
+    }
+    expect(existsSync(join(root, "tools", "alpha"))).toBe(true);
+  });
+
+  it("a leftover stub into tools/scripts/ is purged even if that file still exists on disk", () => {
+    const { root, syncScript } = makeMockCheckout();
+    mkdirSync(join(root, "tools", "scripts"), { recursive: true });
+    writeFileSync(join(root, "tools", "scripts", "old.sh"), "#!/bin/bash\necho old\n");
+    makeStub(root, "old", "old.sh", "scripts");
+    expect(sync(syncScript).status).toBe(0);
+    expect(existsSync(join(root, "tools", "old"))).toBe(false);
+  });
+
+  it("a leftover tools/scripts/ stub for a tool that now lives in ts/ is converted, not removed", () => {
+    const { root, syncScript } = makeMockCheckout();
+    makeTsScript(root, "moved");
+    makeStub(root, "moved", "moved.sh", "scripts");
+    const r = sync(syncScript);
+    expect(r.out).toContain("converted=1");
+    expect(readFileSync(join(root, "tools", "moved"), "utf8")).toContain('exec node "$(dirname "$0")/ts/moved.ts"');
+  });
 
   // ── safety/edge cases (the bats file's harder half) ──────────────────────
 
@@ -437,19 +461,19 @@ describe("entry-stubs-sync (bats port)", () => {
     writeFileSync(join(root, "tools", "tool"), "#!/bin/bash\necho an old copy\n");
     chmodSync(join(root, "tools", "tool"), 0o755);
     sync(syncScript);
-    expect(readFileSync(join(root, "tools", "tool"), "utf8")).toContain("scripts/tool.sh");
+    expect(readFileSync(join(root, "tools", "tool"), "utf8")).toContain("ts/tool.sh");
   });
 
   it("a hardlinked entry is replaced, and the source script it shares an inode with is untouched", () => {
     const { root, syncScript } = makeMockCheckout();
     makeScript(root, "alpha.sh");
-    const before = readFileSync(join(root, "tools", "scripts", "alpha.sh"), "utf8");
-    spawnSync("ln", [join(root, "tools", "scripts", "alpha.sh"), join(root, "tools", "alpha")]);
+    const before = readFileSync(join(root, "tools", "ts", "alpha.sh"), "utf8");
+    spawnSync("ln", [join(root, "tools", "ts", "alpha.sh"), join(root, "tools", "alpha")]);
     expect(sync(syncScript).status).toBe(0);
-    expect(readFileSync(join(root, "tools", "scripts", "alpha.sh"), "utf8")).toBe(before);
-    expect(readFileSync(join(root, "tools", "alpha"), "utf8")).toContain("scripts/alpha.sh");
+    expect(readFileSync(join(root, "tools", "ts", "alpha.sh"), "utf8")).toBe(before);
+    expect(readFileSync(join(root, "tools", "alpha"), "utf8")).toContain("ts/alpha.sh");
     expect(spawnSync("stat", ["-c", "%i", join(root, "tools", "alpha")], { encoding: "utf8" }).stdout.trim())
-      .not.toBe(spawnSync("stat", ["-c", "%i", join(root, "tools", "scripts", "alpha.sh")], { encoding: "utf8" }).stdout.trim());
+      .not.toBe(spawnSync("stat", ["-c", "%i", join(root, "tools", "ts", "alpha.sh")], { encoding: "utf8" }).stdout.trim());
   });
 
   it("a hardlinked runner entry leaves the runner script untouched", () => {
@@ -521,7 +545,7 @@ describe("entry-stubs-sync (bats port)", () => {
 
   it("a custom .ts overrides a provided .sh (mixed-extension chain: node wins)", () => {
     const { root, syncScript } = makeMockCheckout();
-    writeFileSync(join(root, "tools", "scripts", "duo.sh"), "#!/bin/bash\necho ran-sh\n");
+    writeFileSync(join(root, "tools", "ts", "duo.sh"), "#!/bin/bash\necho ran-sh\n");
     mkdirSync(join(root, "tools", "custom"), { recursive: true });
     writeFileSync(join(root, "tools", "custom", "duo.ts"), '#!/usr/bin/env node\nconsole.log("ran-custom-ts");\n');
     expect(sync(syncScript).status).toBe(0);
@@ -545,11 +569,11 @@ describe("entry-stubs-sync (bats port)", () => {
 
   it("a runner-language change converts the existing stub in place", () => {
     const { root, syncScript } = makeMockCheckout();
-    writeFileSync(join(root, "tools", "scripts", "conv.sh"), "#!/bin/bash\necho old-sh\n");
+    writeFileSync(join(root, "tools", "ts", "conv.sh"), "#!/bin/bash\necho old-sh\n");
     sync(syncScript);
     expect(readFileSync(join(root, "tools", "conv"), "utf8")).toContain("exec bash");
     // the tool migrates to TS: .sh source removed, .ts source arrives
-    rmSync(join(root, "tools", "scripts", "conv.sh"));
+    rmSync(join(root, "tools", "ts", "conv.sh"));
     writeFileSync(join(root, "tools", "ts", "conv.ts"), '#!/usr/bin/env node\nconsole.log("new-ts");\n');
     expect(sync(syncScript).status).toBe(0);
     expect(readFileSync(join(root, "tools", "conv"), "utf8")).toContain('exec node "$(dirname "$0")/ts/conv.ts"');

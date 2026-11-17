@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs, requireOptionValue } from "../../lib/core/args.ts";
+import { toolCli } from "../../lib/core/cli.ts";
 
 const MODULE = new URL("../../lib/core/args.ts", import.meta.url).pathname;
 
@@ -30,7 +31,7 @@ function runInChild(code: string, env: NodeJS.ProcessEnv = {}): { status: number
 describe("requireOptionValue (in-process)", () => {
   it("passes real values through", () => {
     expect(requireOptionValue("--base", "main")).toBe("main");
-    // free text starting with dashes (after --) is a value, not a flag
+    // free text with a space after dashes is a value, not a flag
     expect(requireOptionValue("--note", "-x")).toBe("-x");
   });
 
@@ -51,6 +52,24 @@ describe("requireOptionValue (in-process)", () => {
     } finally {
       process.exit = orig;
     }
+  });
+});
+
+describe("dash-led option values under strict toolCli parsing", () => {
+  const opts = { body: { type: "string" as const } };
+
+  it("refuses a separated dash-led value as ambiguous; --opt=value is the route", () => {
+    expect(() => toolCli({ name: "t", version: "1", argv: ["--body", "-- a note"], options: opts })).toThrow(/ambiguous/);
+    expect(() => toolCli({ name: "t", version: "1", argv: ["--body", "- [ ] item"], options: opts })).toThrow(/ambiguous/);
+    const ok = toolCli({ name: "t", version: "1", argv: ["--body=- [ ] item"], options: opts });
+    expect(ok.values["body"]).toBe("- [ ] item");
+    expect(requireOptionValue("--body", ok.values["body"] as string)).toBe("- [ ] item");
+  });
+
+  it("a lone --word given with '=' reaches the swallowed-flag guard and is refused", () => {
+    const lone = toolCli({ name: "t", version: "1", argv: ["--body=--force"], options: opts });
+    expect(lone.values["body"]).toBe("--force");
+    expect(runInChild(`requireOptionValue("--body", "--force");`).status).toBe(2);
   });
 });
 
@@ -78,6 +97,13 @@ describe("exit contracts (child processes)", () => {
     const r = runInChild(`invalidArgs("bad usage");`);
     expect(r.status).toBe(2);
     expect(r.out).toContain("Use --help");
+  });
+
+  it("invalidArgs keeps stdout empty: the hint goes to stderr", () => {
+    const r = spawnSync(process.execPath, ["--input-type=module", "-e", `import { invalidArgs } from ${JSON.stringify(MODULE)}; invalidArgs("bad");`], { encoding: "utf8" });
+    expect(r.status).toBe(2);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toContain("Use --help");
   });
 
   it("requireOptionValue exits 2 on missing and swallowed-flag values", () => {

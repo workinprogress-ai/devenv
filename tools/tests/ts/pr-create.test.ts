@@ -454,6 +454,21 @@ describe("pr-create (behavioral port)", () => {
     expect(readFileSync(GH_CALL_LOG, "utf8")).not.toContain("gh create");
   });
 
+  it("refuses a detached HEAD instead of scanning an empty range", () => {
+    git(["checkout", "-q", "--detach"]);
+    const r = prCreate(["feat: something", "--no-issue", "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("detached HEAD");
+    expect(readFileSync(GH_CALL_LOG, "utf8")).not.toContain("pr create");
+  });
+
+  it("refuses --branch HEAD", () => {
+    const r = prCreate(["feat: something", "--no-issue", "--branch", "HEAD", "--repo-dir", REPO_DIR]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("detached HEAD");
+    expect(readFileSync(GH_CALL_LOG, "utf8")).not.toContain("pr create");
+  });
+
   it("scans origin/<branch> when it exists: a clean local rewrite does not hide a pushed WIP", () => {
     atFixture(); // feature/partial carries a WIP tip
     git(["push", "-q", "origin", "feature/partial:feature/partial"]);

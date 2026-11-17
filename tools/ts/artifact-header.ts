@@ -1,16 +1,16 @@
 // artifact-header — parse, verify, and stamp DEVENV_ARTIFACT_V1 headers.
-// Port of artifact-header.sh over lib/domain/artifacts.ts's byte-faithful
+// Port of artifact-header.sh over lib/domain/artifacts.ts's
 // parseHeaderJson. Modes: default (print header JSON), --field, --stamp,
 // --set KEY=VALUE (repeatable; inserts missing keys before the closing -->).
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { invalidArgs } from "../lib/core/args.ts";
-import { parseHeaderJson } from "../lib/domain/artifacts.ts";
+import { parseHeaderJson, HEADER_KEY_PATTERN } from "../lib/domain/artifacts.ts";
 
 assertNodeFloor();
 
@@ -68,7 +68,7 @@ try {
   sets.push(...((cli.values["set"] as string[] | undefined) ?? []));
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
@@ -80,7 +80,7 @@ try {
   body = readFileSync(file, "utf8");
 } catch (err) {
   logError(`Failed to read ${file}: ${errorMessage(err)}`);
-  process.exit(4);
+  process.exit(EXIT_API_FAILURE);
 }
 
 const header = parseHeaderJson(body);
@@ -110,6 +110,7 @@ if (stamp || sets.length > 0) {
   }
   if (stamp) rewrite.set("updated_at_utc", now);
 
+  const headerKeyLine = new RegExp(`^[ \\t]*${HEADER_KEY_PATTERN}[ \\t]*:`);
   const lines = body.split("\n");
   const out: string[] = [];
   let inBlock = false;
@@ -128,9 +129,9 @@ if (stamp || sets.length > 0) {
       inBlock = false;
       continue;
     }
-    if (inBlock && /^[ \t]*[A-Za-z_]+[ \t]*:/.test(line)) {
+    if (inBlock && headerKeyLine.test(line)) {
       const indent = line.match(/^[ \t]*/)?.[0] ?? "";
-      const key = line.trim().replace(/:.*/, "");
+      const key = line.trim().replace(/:.*/, "").trimEnd();
       if (rewrite.has(key)) {
         seen.add(key);
         out.push(`${indent}${key}: ${rewrite.get(key)}`);
@@ -148,6 +149,6 @@ if (stamp || sets.length > 0) {
 const after = parseHeaderJson(readFileSync(file, "utf8"));
 if (after === null || Object.keys(after).length === 0) {
   logError("Header lost after rewrite — this is a bug");
-  process.exit(4);
+  process.exit(EXIT_API_FAILURE);
 }
 console.log(JSON.stringify({ found: true, header: after }));

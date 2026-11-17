@@ -24,7 +24,7 @@ function canonical(p: string): string {
 /**
  * Derive the devenv checkout root (the directory containing tools/) from a
  * file path inside that checkout. Works for files under tools/, tools/lib/,
- * tools/scripts/, tools/tests/, and .devcontainer/. Falls back to a bounded
+ * tools/tests/, and .devcontainer/. Falls back to a bounded
  * upward walk looking for a directory containing tools/.
  */
 export function selfRoot(fromPath: string): string {

@@ -47,6 +47,7 @@ beforeEach(() => {
       "    exit 101",
       "fi",
       'if [ "${1:-}" = "outdated" ]; then',
+      '    if [ "${MOCK_OUTDATED_FAILS:-0}" = "1" ]; then exit 1; fi',
       "    exit 0",
       "fi",
       "exit 0",
@@ -64,9 +65,13 @@ afterEach(() => {
 
 const { DEVENV_REPO: _dr, ...procEnv } = process.env;
 
-function runUpdate(args: string[], extraEnv: Record<string, string> = {}): { status: number; out: string } {
+function runUpdate(
+  args: string[],
+  extraEnv: Record<string, string> = {},
+  cwd: string = REPO_DIR,
+): { status: number; out: string } {
   const r = spawnSync("node", [SCRIPT_UNDER_TEST, ...args], {
-    cwd: REPO_DIR,
+    cwd,
     encoding: "utf8",
     env: {
       ...procEnv,
@@ -154,12 +159,35 @@ describe("scripts/cs-references-update", () => {
     expect(mockLogHas("^restore")).toBe(true);
   });
 
-  it("--framework: multi-target lists collapse to the new TFM", () => {
-    sedInPlace(join(REPO_DIR, "src", "MyLib.csproj"), "<TargetFramework>net8.0</TargetFramework>", "<TargetFrameworks>net8.0;net9.0</TargetFrameworks>");
+  it("--framework: multi-target lists keep non-modern entries and the list element", () => {
+    sedInPlace(
+      join(REPO_DIR, "src", "MyLib.csproj"),
+      "<TargetFramework>net8.0</TargetFramework>",
+      "<TargetFrameworks>netstandard2.0;net8.0;net9.0</TargetFrameworks>",
+    );
     const r = runUpdate([REPO_DIR, "--framework", "net10.0"]);
     expect(r.status).toBe(0);
-    expect(csproj()).toContain("<TargetFramework>net10.0</TargetFramework>");
+    expect(csproj()).toContain("<TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>");
     expect(csproj()).not.toContain("net8.0");
+  });
+
+  it("--framework: a commented-out TargetFramework is left alone", () => {
+    sedInPlace(
+      join(REPO_DIR, "src", "MyLib.csproj"),
+      "<TargetFramework>net8.0</TargetFramework>",
+      "<TargetFramework>net8.0</TargetFramework>\n    <!-- <TargetFramework>net6.0</TargetFramework> -->",
+    );
+    const r = runUpdate([REPO_DIR, "--framework", "net10.0"]);
+    expect(r.status).toBe(0);
+    expect(csproj()).toContain("<!-- <TargetFramework>net6.0</TargetFramework> -->");
+  });
+
+  it("--framework: a relative target directory resolves against the invocation directory", () => {
+    const r = runUpdate(["test-repo", "--framework", "net10.0"], {}, TMP);
+    expect(r.status).toBe(0);
+    expect(csproj()).toContain("<TargetFramework>net10.0</TargetFramework>");
+    // The projects are handed to dotnet by absolute path, never double-prefixed.
+    expect(mockLogHas(`outdated ${join(REPO_DIR, "src", "MyLib.csproj")} `)).toBe(true);
   });
 
   it("--framework: obj/ and bin/ files are never touched", () => {
@@ -188,6 +216,16 @@ describe("scripts/cs-references-update", () => {
     expect(r.status).toBe(10);
     expect(csproj()).toContain("<TargetFramework>net10.0</TargetFramework>");
     expect(mockLogHas("outdated")).toBe(false);
+  });
+
+  // ── Failures ─────────────────────────────────────────────────────────────
+
+  it("a failing 'dotnet outdated' exits 11 and skips the boilerplate chain", () => {
+    const { chainLog } = setupChainFixture();
+    const r = runUpdate([REPO_DIR], { MOCK_OUTDATED_FAILS: "1", CHAIN_LOG: chainLog });
+    expect(r.status).toBe(11);
+    expect(r.out).toContain("'dotnet outdated' failed");
+    expect(readFileSync(chainLog, "utf8")).toBe("");
   });
 
   // ── LangVersion semantics ────────────────────────────────────────────────
@@ -295,6 +333,14 @@ describe("scripts/cs-references-update", () => {
     // dotnet-outdated mock upgrades nothing → tree stays clean, chain still fires
     const r = runUpdate([REPO_DIR], { CHAIN_LOG: chainLog });
     expect(r.status).toBe(0);
+    expect(readFileSync(chainLog, "utf8")).toContain("ARGS: --no-refresh --force");
+  });
+
+  it("chain: this run's own rewrites do not count as dirt that was there before", () => {
+    const { chainLog } = setupChainFixture();
+    const r = runUpdate([REPO_DIR, "--framework", "net10.0"], { CHAIN_LOG: chainLog });
+    expect(r.status).toBe(0);
+    expect(csproj()).toContain("net10.0");
     expect(readFileSync(chainLog, "utf8")).toContain("ARGS: --no-refresh --force");
   });
 

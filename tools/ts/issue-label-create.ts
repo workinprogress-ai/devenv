@@ -8,13 +8,14 @@
 //
 // Contract: when the label exists the tool skips (exit 0) unless --update,
 // in which case color/description are updated. --dry-run previews without
-// writing. The seed path reads labels-config.yml through yq (same engine
-// the bash tool used).
+// writing. The seed path reads labels-config.yml (override: LABELS_CONFIG) and
+// validates every entry before the first label is written.
 
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+
+import { load, JSON_SCHEMA } from "js-yaml";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
@@ -55,6 +56,29 @@ Examples:
   process.exit(0);
 }
 
+interface SeedLabel {
+  name: string;
+  color: string;
+  description: string;
+}
+
+/** Validate every seed entry; the first problem is returned as the error text. */
+function parseSeedLabels(entries: unknown[]): SeedLabel[] | string {
+  const out: SeedLabel[] = [];
+  for (const [i, raw] of entries.entries()) {
+    const e = raw as { name?: unknown; color?: unknown; description?: unknown } | null;
+    if (e === null || typeof e !== "object" || typeof e.name !== "string" || e.name.trim() === "") {
+      return `Seed label #${i + 1} needs a 'name'`;
+    }
+    const color = e.color === undefined || e.color === null ? "" : String(e.color);
+    if (color !== "" && !/^[0-9a-fA-F]{6}$/.test(color)) {
+      return `Invalid color: ${color} for label '${e.name}' (must be 6-digit hex, no '#')`;
+    }
+    out.push({ name: e.name.trim(), color, description: typeof e.description === "string" ? e.description : "" });
+  }
+  return out;
+}
+
 async function main(argv: string[]): Promise<number> {
   let labelName = "";
   let color = "";
@@ -65,6 +89,7 @@ async function main(argv: string[]): Promise<number> {
   let devenv = false;
   try {
     const cli = toolCli({
+      rejectEmptyValues: true,
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv,
@@ -88,13 +113,13 @@ async function main(argv: string[]): Promise<number> {
         labelName = p;
       } else {
         logError(`Unknown option: ${p}`);
-        console.log("Use --help for usage information");
+        console.error("Use --help for usage information");
         return EXIT_MISUSE;
       }
     }
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
@@ -107,26 +132,56 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
+  let seedLabels: SeedLabel[] = [];
+  let seedConfig = "";
+  if (seed) {
+    // The seed config lives in THIS checkout's tools/ (self-root contract),
+    // unless LABELS_CONFIG points elsewhere.
+    const override = process.env["LABELS_CONFIG"];
+    seedConfig = override !== undefined && override !== ""
+      ? override
+      : join(resolveToolsRoot(fileURLToPath(import.meta.url)), "config", "labels-config.yml");
+    if (!existsSync(seedConfig)) {
+      logError(`Seed config not found: ${seedConfig}`);
+      return EXIT_API_FAILURE;
+    }
+    let doc: unknown;
+    try {
+      doc = load(readFileSync(seedConfig, "utf8"), { schema: JSON_SCHEMA });
+    } catch (err) {
+      logError(`Failed to read seed config: ${seedConfig} (${errorMessage(err).split("\n")[0]})`);
+      return EXIT_API_FAILURE;
+    }
+    const entries = (doc as { labels?: unknown } | null)?.labels;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      logError(`No labels defined in ${seedConfig}`);
+      return EXIT_GENERAL_ERROR;
+    }
+    const parsed = parseSeedLabels(entries);
+    if (typeof parsed === "string") {
+      logError(parsed);
+      return EXIT_MISUSE;
+    }
+    seedLabels = parsed;
+  }
+
   checkTargetRepo(devenv);
 
   const repo = requireRepoTarget(providerRepoTarget(""), "issue-label-create", "issues");
 
-  async function ensureOneLabel(name: string, labelColor: string, labelDescription: string): Promise<number> {
-    let listed: string;
+  /** Existing label names, lower-cased (label names are case-insensitive). */
+  async function listExisting(): Promise<Set<string> | null> {
     try {
-      listed = await issuesLabelList(repo, { limit: 200, json: "name" });
+      const listed = await issuesLabelList(repo, { limit: 200, json: "name" });
+      return new Set((JSON.parse(listed) as Array<{ name?: unknown }>).map((l) => String(l.name).toLowerCase()));
     } catch (err) {
       logError(`Failed to list labels: ${errorMessage(err)}`);
-      return EXIT_API_FAILURE;
+      return null;
     }
-    let names: string[] = [];
-    try {
-      names = (JSON.parse(listed) as Array<{ name?: unknown }>).map((l) => String(l.name));
-    } catch {
-      logError("Failed to parse label list");
-      return EXIT_API_FAILURE;
-    }
-    if (names.includes(name)) {
+  }
+
+  async function ensureOneLabel(name: string, labelColor: string, labelDescription: string, existing: Set<string>): Promise<number> {
+    if (existing.has(name.toLowerCase())) {
       if (update) {
         if (dryRun) {
           logInfo(`[DRY RUN] Would update label: ${name} (color: ${labelColor || "unchanged"}, description: ${labelDescription || "unchanged"})`);
@@ -156,6 +211,7 @@ async function main(argv: string[]): Promise<number> {
         ...(labelColor !== "" ? { color: labelColor } : {}),
         ...(labelDescription !== "" ? { description: labelDescription } : {}),
       });
+      existing.add(name.toLowerCase());
       logInfo(`Created label: ${name}`);
       return 0;
     } catch (err) {
@@ -164,41 +220,24 @@ async function main(argv: string[]): Promise<number> {
     }
   }
 
+  const existing = await listExisting();
+  if (existing === null) return EXIT_API_FAILURE;
+
   if (seed) {
-    // The seed config lives in THIS checkout's tools/ (self-root contract)
-    // — the old cwd ternary (cond ? cwd : cwd) bound it to wherever the
-    // tool happened to run.
-    const config = join(resolveToolsRoot(fileURLToPath(import.meta.url)), "config", "labels-config.yml");
-    if (!existsSync(config)) {
-      logError(`Seed config not found: ${config}`);
-      return EXIT_API_FAILURE;
+    logInfo(`Seeding ${seedLabels.length} labels from ${basename(seedConfig)}`);
+    let failures = 0;
+    for (const l of seedLabels) {
+      if ((await ensureOneLabel(l.name, l.color, l.description, existing)) !== 0) failures++;
     }
-    // yq stays the seed engine (same YAML dialect the bash tool parsed).
-    let count: string;
-    try {
-      count = execFileSync("yq", [".labels | length", config], { encoding: "utf8" }).trim();
-    } catch {
-      logError(`Failed to read seed config: ${config}`);
-      return EXIT_API_FAILURE;
-    }
-    if (count === "0" || count === "" || count === "null") {
-      logError(`No labels defined in ${config}`);
+    if (failures > 0) {
+      logError(`Seed finished with ${failures} failure${failures === 1 ? "" : "s"}`);
       return EXIT_GENERAL_ERROR;
-    }
-    logInfo(`Seeding ${count} labels from ${basename(config)}`);
-    const n = Number.parseInt(count, 10);
-    for (let i = 0; i < n; i++) {
-      const name = execFileSync("yq", [`.labels[${i}].name`, config], { encoding: "utf8" }).trim();
-      const c = execFileSync("yq", [`.labels[${i}].color // ""`, config], { encoding: "utf8" }).trim();
-      const d = execFileSync("yq", [`.labels[${i}].description // ""`, config], { encoding: "utf8" }).trim();
-      const rc = await ensureOneLabel(name, c, d);
-      if (rc !== 0) return EXIT_GENERAL_ERROR;
     }
     logInfo("Seed complete");
     return 0;
   }
 
-  return ensureOneLabel(labelName, color, description);
+  return ensureOneLabel(labelName, color, description, existing);
 }
 
 main(process.argv.slice(2)).then(

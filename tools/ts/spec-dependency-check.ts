@@ -19,9 +19,12 @@ Validate Specifications-*.md documents (pass multiple files for cross-doc
 edge checking — cross-file edges are informational, not violations).
 
 Checks:
-    unknown      A Depends on: references a SPEC-ID not defined in any input
+    unknown      A Dependencies:/Depends on: line references a SPEC-ID not
+                 defined in any input (None and cross-doc file suffixes are fine)
+    duplicate    A SPEC-ID heading defined more than once across the inputs
     cycle        Dependency cycles (including transitive)
     group-order  A specification item depends on one in a LATER priority group
+                 (groups compare numerically: P2 < P10)
     links        A [SPEC-NNN](#anchor) link whose anchor does not match any
                  heading in the document
 
@@ -58,12 +61,39 @@ try {
   }
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 if (files.length === 0) invalidArgs("At least one Specifications file is required");
 
 // Pass 1: per-file extraction (id, group, deps).
+// A dependency list is comma separated; markdown links reduce to their label,
+// a parenthesised cross-doc file suffix is dropped, and None means no edge.
+function parseDeps(text: string): string[] {
+  return text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/[*_`]/g, "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter((x) => x !== "" && !/^(none|n\/a|-|—)\.?$/i.test(x));
+}
+
+// Natural order: digit runs compare as numbers, so P2 < P10.
+function compareGroups(a: string, b: string): number {
+  const ta = a.match(/\d+|\D+/g) ?? [];
+  const tb = b.match(/\d+|\D+/g) ?? [];
+  for (let i = 0; i < Math.min(ta.length, tb.length); i++) {
+    const x = ta[i] as string, y = tb[i] as string;
+    if (/^\d/.test(x) && /^\d/.test(y)) {
+      const diff = Number(x) - Number(y);
+      if (diff !== 0) return diff;
+    } else if (x !== y) {
+      return x < y ? -1 : 1;
+    }
+  }
+  return ta.length - tb.length;
+}
 const specs: Spec[] = [];
 for (const f of files) {
   const lines = readFileSync(f, "utf8").split("\n");
@@ -77,13 +107,13 @@ for (const f of files) {
       continue;
     }
     if (!cur) continue;
-    const d = raw.match(/^[ \t]*\*?_*Dependencies:\**[ \t]*(.*)$/);
+    const d = raw.match(/^[ \t]*[*_]*(?:Dependencies|Depends on):[*_]*[ \t]*(.*)$/i);
     if (d) {
-      cur.deps = (d[1] ?? "").replace(/\s+/g, "").replace(/,$/, "").split(",").filter((x) => x !== "");
+      cur.deps = parseDeps(d[1] ?? "");
       continue;
     }
-    const g = raw.match(/^[ \t]*\*?_*Group:\**[ \t]*(.*)$/);
-    if (g) cur.group = g[1] ?? "";
+    const g = raw.match(/^[ \t]*[*_]*Group:[*_]*[ \t]*(.*)$/i);
+    if (g) cur.group = (g[1] ?? "").trim();
   }
   specs.push(...inOrder);
 }
@@ -101,6 +131,13 @@ const edges = specs.flatMap((s) => s.deps.map((d) => ({ from: s.id, to: d })));
 
 const errors: { type: string; detail: string }[] = [];
 
+// Duplicate ids across all inputs.
+const definedIn = new Map<string, string>();
+for (const s of specs) {
+  const first = definedIn.get(s.id);
+  if (first === undefined) definedIn.set(s.id, s.file);
+  else errors.push({ type: "duplicate", detail: `${s.id} is defined more than once (${first}, ${s.file})` });
+}
 // Unknown references.
 for (const e of edges) {
   if (!index.has(e.to)) {
@@ -108,12 +145,12 @@ for (const e of edges) {
   }
 }
 
-// Group-order violations (same-file edges only; string compare like jq `>`).
+// Group-order violations (same-file edges only; numeric-aware compare).
 for (const s of specs) {
   if (s.group === "") continue;
   for (const d of s.deps) {
     const dep = index.get(d);
-    if (dep && dep.file === s.file && dep.group !== "" && dep.group > s.group) {
+    if (dep && dep.file === s.file && dep.group !== "" && compareGroups(dep.group, s.group) > 0) {
       errors.push({ type: "group-order", detail: `${s.id} (group ${s.group}) depends on ${d} in a later group (${dep.group})` });
     }
   }

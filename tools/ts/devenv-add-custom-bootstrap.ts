@@ -11,6 +11,7 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
@@ -40,12 +41,12 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   commands = cli.positionals;
 } catch (err) {
   logError(errorMessage(err));
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 
 if (commands.length === 0) {
   logError('Usage: devenv-add-custom-bootstrap "command1" "command2" ...');
-  process.exit(2);
+  process.exit(EXIT_MISUSE);
 }
 
 mkdirSync(bootstrapDir, { recursive: true });

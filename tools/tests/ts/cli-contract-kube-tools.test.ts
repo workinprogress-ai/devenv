@@ -14,7 +14,7 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 let TMP = "";
 
-const { NAMESPACE: _ns, DEVENV_REPO: _dr, ...procEnv } = process.env;
+const { NAMESPACE: _ns, KUBE_NAMESPACE: _kns, DEVENV_REPO: _dr, ...procEnv } = process.env;
 
 function kubectlCalls(): string[] {
   try {

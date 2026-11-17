@@ -116,6 +116,16 @@ describe("git-wip argument contract", () => {
     expect(r.status).toBe(EXIT_MISUSE);
   });
 
+  it("--file with an empty value, or an empty message, is misuse (exit 2) before any mutation", () => {
+    writeFileSync(join(REPO, "new.txt"), "x\n");
+    for (const args of [["--file", ""], ["--file="], [""], []]) {
+      const r = run("git-wip", ["--allow-non-tty", ...args]);
+      expect(r.status, `git-wip ${JSON.stringify(args)}`).toBe(EXIT_MISUSE);
+    }
+    expect(git(["log", "-1", "--format=%s"]).trim()).toBe("initial");
+    expect(git(["status", "--porcelain"])).toContain("?? new.txt");
+  });
+
   it("--file naming a missing file is misuse (exit 2) before any mutation", () => {
     writeFileSync(join(REPO, "new.txt"), "x\n");
     const r = run("git-wip", ["--allow-non-tty", "--file", join(TMP, "nope.txt")]);

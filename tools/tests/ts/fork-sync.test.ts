@@ -685,8 +685,8 @@ describe("fork-sync", () => {
     git(fx().ghClone, ["commit", "-qm", "feat: touch setup (fork-replaced)"]);
     mkdirSync(join(fx().ghClone, "tools/lib/providers"), { recursive: true });
     commitIn(fx().ghClone, "tools/lib/providers/readme.md", "provider change", "feat: touch providers (fork-stable)");
-    mkdirSync(join(fx().ghClone, "tools/scripts"), { recursive: true });
-    commitIn(fx().ghClone, "tools/scripts/fork-sync.sh.tmp", "script change", "feat: touch a script (upstream-stable)");
+    mkdirSync(join(fx().ghClone, "tools/ts"), { recursive: true });
+    commitIn(fx().ghClone, "tools/ts/fork-sync.ts.tmp", "script change", "feat: touch a script (upstream-stable)");
     git(fx().ghClone, ["push", "-q", "origin", "master"]);
     git(fx().workingClone, ["fetch", "-q", "upstream"]);
     const r = runScript(["--dry-run", "--replay"]);
@@ -694,20 +694,20 @@ describe("fork-sync", () => {
     expect(r.out).toContain("Surface forecast");
     expect(r.out).toMatch(/fork-replaced path\(s\)[^]*\n[^]*setup/);
     expect(r.out).toMatch(/fork-stable path\(s\)[^]*\n[^]*tools\/lib\/providers\/readme.md/);
-    expect(r.out).toMatch(/upstream-stable path\(s\)[^]*\n[^]*tools\/scripts\/fork-sync.sh.tmp/);
+    expect(r.out).toMatch(/upstream-stable path\(s\)[^]*\n[^]*tools\/ts\/fork-sync.ts.tmp/);
   });
 
   it("--drift reports fork-local edits on upstream-stable paths", () => {
     setupSyncFixture();
     git(fx().workingClone, ["fetch", "-q", "upstream"]);
-    mkdirSync(join(fx().workingClone, "tools/scripts"), { recursive: true });
-    commitIn(fx().workingClone, "tools/scripts/fork-sync.sh", "local tweak", "feat: local tweak on an upstream-stable path");
+    mkdirSync(join(fx().workingClone, "tools/ts"), { recursive: true });
+    commitIn(fx().workingClone, "tools/ts/fork-sync.ts", "local tweak", "feat: local tweak on an upstream-stable path");
     mkdirSync(join(fx().workingClone, "tools/lib/providers"), { recursive: true });
     commitIn(fx().workingClone, "tools/lib/providers/README.md", "provider tweak", "feat: fork-stable provider tweak");
     const r = runScript(["--drift"]);
     expect(r.status).toBe(0);
     expect(r.out).toContain("Drift inventory");
-    expect(r.out).toContain("tools/scripts/fork-sync.sh");
+    expect(r.out).toContain("tools/ts/fork-sync.ts");
     expect(r.out).not.toContain("tools/lib/providers/README.md");
     expect(r.out).toContain("1 upstream-stable path(s)");
   });

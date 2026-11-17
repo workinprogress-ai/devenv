@@ -29,11 +29,11 @@ describe("identity docs", () => {
     expect(hits).toEqual([]);
   });
 
-  it("policy docs and contract comment list no GH_ORG leg in the org chain", () => {
+  it("policy docs and the identity accessor list no GH_ORG leg in the org chain", () => {
     const hits = grepLines([
       "-n", "GH_ORG",
       join(ROOT, "tools/lib/policy/README.md"),
-      join(ROOT, "tools/lib/policy/identity-policy.bash"),
+      join(ROOT, "tools/lib/providers/provider-core.ts"),
     ]).split("\n").filter((l) => l !== "" && !/ignored|not read|no longer/i.test(l));
     expect(hits).toEqual([]);
   });
@@ -64,7 +64,7 @@ describe("identity docs", () => {
 
   it("no functional file hard-codes the upstream organization's name (attribution headers and LICENSE aside)", () => {
     const r = sh(
-      `cd '${ROOT}' && grep -rniI 'workinprogress' tools/lib tools/scripts tools/config tools/templates .devcontainer .vscode copilot docs README.md package.json 2>/dev/null ` +
+      `cd '${ROOT}' && grep -rniI 'workinprogress' tools/lib tools/config tools/templates .devcontainer .vscode copilot docs README.md package.json 2>/dev/null ` +
       `| grep -viE '# Author:|"author"|work-in-progress|work in progress|workinprogress-ai/devenv.git"' ` +
       `| grep -v 'tools/cache' | grep -v 'copilot/engineering/' | grep -v 'copilot/knowledge/' | grep -v 'github.com/workinprogress-ai/docs\\.'`,
     );

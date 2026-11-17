@@ -210,7 +210,7 @@ function buildCulpritRows(samples: SampleRow[], procs: ProcRow[]): CulpritRow[] 
     for (const [sampleId, total] of ordered) {
       hits++;
       if (firstSample === "") { firstSample = sampleId; firstRss = total; }
-      if (sampleId > lastSample || lastSample === "") { lastSample = sampleId; lastRss = total; }
+      if (lastSample === "" || Number(sampleId) > Number(lastSample)) { lastSample = sampleId; lastRss = total; }
       if (total > peak) peak = total;
     }
     rows.push({

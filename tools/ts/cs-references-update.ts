@@ -7,20 +7,29 @@
 // sync when present.
 //
 // Exit codes: 0 success · 2 invalid arguments / unknown TFM mapping ·
-// 3 target directory missing · 10 restore gate failed after a rewrite.
+// 3 target directory missing · 10 restore gate failed after a rewrite ·
+// 11 'dotnet outdated' failed for at least one project.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { relative } from "node:path";
+import { resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_CONFLICT, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import {
+  addLangVersionAfterTargetFramework,
+  hasLangVersion,
+  removeLangVersionLines,
+  rewriteTargetFrameworks,
+  setLangVersion,
+} from "../lib/domain/cs/csproj.ts";
 
 assertNodeFloor();
 
 const EXIT_OK = 0;
 const EXIT_RESTORE_FAILED = 10;
+const EXIT_OUTDATED_FAILED = 11;
 
 // TFM major -> default C# language version for that TFM. When --framework is
 // passed without a language flag, existing <LangVersion> tags are rewritten
@@ -40,11 +49,13 @@ For every .csproj under REPO_DIR (default: current directory), runs
 
 Options:
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
-    --framework TFM         Rewrite <TargetFramework> (and every entry of
-                            <TargetFrameworks> lists) to TFM (e.g. net10.0)
-                            before updating packages. Framework-first: the
-                            rewrite and a 'dotnet restore' gate run before
-                            'dotnet outdated'.
+    --framework TFM         Retarget every modern net<N>.0 entry of
+                            <TargetFramework>/<TargetFrameworks> to TFM (e.g.
+                            net10.0) before updating packages. Other entries
+                            such as netstandard2.0 stay, so multi-targeting is
+                            preserved. Framework-first: the rewrite and a
+                            'dotnet restore' gate run before 'dotnet
+                            outdated'.
     --lang-version VER      Set <LangVersion> to VER (e.g. 14.0) in every
                             csproj, updating existing tags and adding the tag
                             where absent. Conflicts with --lang-default.
@@ -66,7 +77,8 @@ Exits:
          mapping with LangVersion tags present)
     3    target directory not found
     10   'dotnet restore' failed after a rewrite (invalid TFM or packages
-         without assets for the new target)`);
+         without assets for the new target)
+    11   'dotnet outdated' failed for at least one project`);
   process.exit(EXIT_OK);
 }
 
@@ -93,11 +105,10 @@ function findCsprojFiles(dir: string): string[] {
   return found.sort();
 }
 
-function dirHasLangVersionTags(dir: string, csprojs: string[]): boolean {
-  // "tags exist in the tree" — checked over the same csproj set the rewrite
-  // would touch.
-  void dir;
-  return csprojs.some((p) => readFileSync(p, "utf8").includes("<LangVersion>"));
+// "Tags exist in the tree" — checked over the same csproj set the rewrite
+// would touch.
+function anyLangVersionTags(csprojs: string[]): boolean {
+  return csprojs.some((p) => hasLangVersion(readFileSync(p, "utf8")));
 }
 
 // ── Argument parsing ─────────────────────────────────────────────────────
@@ -138,7 +149,9 @@ if (positionalCount > 1) {
   process.exit(EXIT_MISUSE);
 }
 
-targetDir = targetDir === "" ? process.cwd() : targetDir;
+// Resolved once, up front: every later path (csproj list, child cwd) is
+// absolute, so a relative argument is never applied twice.
+targetDir = resolve(targetDir === "" ? "." : targetDir);
 
 // ── Value validation ─────────────────────────────────────────────────────
 
@@ -156,7 +169,7 @@ if (langDefault && langVersion !== "") {
 }
 if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
   console.error(`ERROR: Directory not found: ${targetDir}`);
-  process.exit(3);
+  process.exit(EXIT_CONFLICT);
 }
 
 const csprojs = findCsprojFiles(targetDir);
@@ -174,7 +187,7 @@ if (langVersion !== "") {
   langMode = "remove";
 } else if (framework !== "") {
   if (TFM_DEFAULT_LANG[framework] === undefined) {
-    if (dirHasLangVersionTags(targetDir, csprojs)) {
+    if (anyLangVersionTags(csprojs)) {
       console.error(
         `ERROR: TFM '${framework}' has no mapped default C# language version, but <LangVersion> tags exist in the tree. ` +
           `Supported TFMs: ${Object.keys(TFM_DEFAULT_LANG).join(" ")}. Pass --lang-version or --lang-default explicitly.`,
@@ -187,16 +200,29 @@ if (langVersion !== "") {
   }
 }
 
+// ── Tree state before any change ─────────────────────────────────────────
+//
+// The boilerplate chain must only fire when THIS script changed something —
+// not when the tree was already dirty with unrelated in-flight work. The
+// snapshot therefore precedes the TFM/LangVersion rewrites below.
+
+const treeStatusBefore = spawnSync("git", ["status", "--porcelain"], { encoding: "utf8", cwd: targetDir });
+const treeWasDirtyBefore = (treeStatusBefore.stdout ?? "").trim() !== "";
+
 // ── TFM / LangVersion rewrite ────────────────────────────────────────────
 
 let rewroteAnything = false;
 
+// Retarget modern net<N>.0 entries (with an optional platform suffix) and
+// leave everything else (netstandard, .NET Framework, property references)
+// where it is.
+function retarget(entry: string): string {
+  return /^net\d+\.\d+(-.+)?$/.test(entry) ? entry.replace(/^net\d+\.\d+/, framework) : entry;
+}
+
 function rewriteTfm(csproj: string): void {
   const content = readFileSync(csproj, "utf8");
-  const updated = content.replace(
-    /<TargetFrameworks?>([^<]*)<\/TargetFrameworks?>/g,
-    `<TargetFramework>${framework}</TargetFramework>`,
-  );
+  const updated = rewriteTargetFrameworks(content, retarget);
   if (updated !== content) {
     writeFileSync(csproj, updated);
     rewroteAnything = true;
@@ -208,20 +234,14 @@ function rewriteLang(csproj: string): void {
   const content = readFileSync(csproj, "utf8");
   let updated: string;
   if (langMode === "remove") {
-    // Drop whole-line <LangVersion> tags only (bash sed /d parity).
-    updated = content
-      .split("\n")
-      .filter((l) => !/^[ \t]*<LangVersion>[^<]*<\/LangVersion>[ \t]*$/.test(l))
-      .join("\n");
+    // Whole-line <LangVersion> elements only.
+    updated = removeLangVersionLines(content);
   } else {
-    updated = content.replace(/<LangVersion>[^<]*<\/LangVersion>/g, `<LangVersion>${langVersion}</LangVersion>`);
+    updated = setLangVersion(content, langVersion);
     // Explicit mode only: add the tag after <TargetFramework…> when absent,
     // preserving the element's indentation.
-    if (!updated.includes("<LangVersion>") && langMode === "explicit") {
-      updated = updated.replace(
-        /^([ \t]*)(<TargetFrameworks?>[^<]*<\/TargetFrameworks?>)/m,
-        `$1$2\n$1<LangVersion>${langVersion}</LangVersion>`,
-      );
+    if (!hasLangVersion(updated) && langMode === "explicit") {
+      updated = addLangVersionAfterTargetFramework(updated, langVersion);
     }
   }
   if (updated !== content) {
@@ -235,8 +255,6 @@ function rewriteLang(csproj: string): void {
 if (framework !== "" || langMode !== "none") {
   console.log("Rewriting target framework / language version declarations...");
   for (const csproj of csprojs) {
-    const rel = relative(targetDir, csproj);
-    void rel;
     if (framework !== "") rewriteTfm(csproj);
     if (langMode !== "none") rewriteLang(csproj);
   }
@@ -257,17 +275,13 @@ if (rewroteAnything) {
 
 // ── Package updates ──────────────────────────────────────────────────────
 
-// Tree state before updating: the boilerplate chain must only fire when THIS
-// script changed something — not when the tree was already dirty with
-// unrelated in-flight work.
-const treeStatusBefore = spawnSync("git", ["status", "--porcelain"], { encoding: "utf8", cwd: targetDir });
-const treeWasDirtyBefore = (treeStatusBefore.stdout ?? "").trim() !== "";
-
-const updatesLines: string[] = [];
+const failedProjects: string[] = [];
 for (const csproj of csprojs) {
-  updatesLines.push(`<<<PROJECT ${csproj}>>>`);
   const r = spawnSync("dotnet", ["outdated", csproj, "--upgrade"], { stdio: "inherit", cwd: targetDir });
-  void r;
+  if (r.status !== 0) {
+    console.error(`ERROR: 'dotnet outdated' failed for ${csproj}`);
+    failedProjects.push(csproj);
+  }
 }
 
 // Collect the same output for the summary by re-running the classifier over
@@ -293,6 +307,11 @@ if (process.env.CS_REF_SUMMARY !== "0") {
   console.log("");
   console.log(`${BOLD}Blast radius — project-level updates:${RESET}`);
   console.log(`  ${BOLD}${csprojs.length} project(s) processed${RESET}`);
+}
+
+if (failedProjects.length > 0) {
+  console.error(`ERROR: 'dotnet outdated' failed for ${failedProjects.length} project(s); the boilerplate sync was not run.`);
+  process.exit(EXIT_OUTDATED_FAILED);
 }
 
 // ── Boilerplate sync chain ───────────────────────────────────────────────

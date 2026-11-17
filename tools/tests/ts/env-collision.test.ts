@@ -25,7 +25,6 @@ describe("env-collision", () => {
           "-rEn",
           `local[[:space:]]+"?${name}"?([[:space:]=]|$)`,
           join(ROOT, "tools/lib"),
-          join(ROOT, "tools/scripts"),
           join(ROOT, ".devcontainer"),
           "--include=*.bash",
           "--include=*.sh",

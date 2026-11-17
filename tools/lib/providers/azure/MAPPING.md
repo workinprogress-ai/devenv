@@ -1,15 +1,16 @@
 # Azure DevOps mapping — how GitHub shapes translate
 
 > Status: working model, validated against live API behavior on 2026-09-27
-> (Tier-1/Tier-2 smoke, org `OMS-FORT` / project `Devenv-fork-test`); the
-> setup script ran live (area paths created, idempotency verified) on
-> 2026-09-28. Companion docs: [Forking.md](../../../../docs/Forking.md)
+> (Tier-1/Tier-2 smoke, org `OMS-FORT` / project `Devenv-fork-test`).
+> Companion docs: [Forking.md](../../../../docs/Forking.md)
 > (fork mechanics)
+>
+> The `provider_*` names used here are contract keys (vocabulary terms), not bash functions.
 >
 > This is the azure provider's durable mapping document: it lives with the
 > code it describes, versions with it, and is the reference for the
-> provider implementation (`tools/lib/providers/azure/`), the one-time
-> setup script (`azure-setup.sh`), and full-parity planning.
+> provider implementation (`tools/lib/providers/azure/`) and full-parity
+> planning.
 > Live API facts recorded here (merge three-step, preview api-versions)
 > are empirically verified, not aspirational. Rows marked **as-built**
 > were reconciled against the shipped code at plan close (2026-09-30).
@@ -19,7 +20,7 @@
 Facts the implementation depends on; recorded here so planning sessions
 don't re-derive them:
 
-- **Git transport credentials**: `provider_auth_setup_git` registers a
+- **Git transport credentials**: `azureSetupGit` (`azure/auth.ts`) registers a
   host-scoped git credential helper for `https://dev.azure.com` and the
   configured organization's `<org>.visualstudio.com` host
   (both scoped entries use
@@ -127,7 +128,7 @@ count: `view` reads it from the comments resource, `list` from the
 | GitHub shape | Azure shape | Constraint / note |
 |---|---|---|
 | Issue | Work item, on a board-backed type | Born as the Azure type mapped for its devenv type (see [Work item types](#work-item-types)) |
-| Open/closed | Every state but Closed/Done/Removed is open | `Resolved` is open; `close` moves to the item's own Completed-category state, `reopen` to its first Proposed (else InProgress) state, both read from the type |
+| Open/closed | A state is closed when its category is Completed or Removed (read from the project's work item types) | `Resolved` is open; `close` moves the item to its type's Completed-category state, `reopen` to its first Proposed (else InProgress) state, both read from the type |
 | Close reason | — | Azure has no close reason; `--reason` is accepted and dropped |
 | Labels | `System.Tags` (`a; b`, trimmed on read) | No colors/descriptions — flat strings only; `edit` reads the current tags and writes the surviving set; label list reads the tags endpoint, else the project's work items |
 | Issue types (Bug/Feature/Task/Epic) | Work-item types | Richer than GH types; a type change is a `System.WorkItemType` replace through `provider_issues_set_type`, never through `edit` |
@@ -146,14 +147,15 @@ count: `view` reads it from the comments resource, `list` from the
 ### Area-path convention (as-built: provisioning only)
 
 GitHub issues live inside a repo; Azure work items live inside a project.
-To preserve "list the issues of repo X", the setup script creates **one
-area path per repo** (`<project>\<repo-name>`). However, the shipped
+To preserve "list the issues of repo X", a project could carry **one
+area path per repo** (`<project>\<repo-name>`). However, nothing in the
+provider creates them, and the shipped
 issue verbs do **not** tag or filter by `[System.AreaPath]`: `create`
 assigns no area path (work items land in the project root area) and
 `list`/`view` scope by `[System.TeamProject] = @project` — issue lists
 are **project-wide**, not per-repo. Per-repo issue scoping via area
-paths is a documented, unimplemented convention: the setup script
-prepares the paths, a future change may adopt them.
+paths is a documented, unimplemented convention: a future change may adopt
+it.
 
 Constraint (if adopted): repo names must be valid area-path node names
 (no `/`, no leading/trailing spaces). Violation → work items land in the
@@ -188,8 +190,8 @@ surface:
 ### Board status vocabulary (single source)
 
 The board vocabulary is defined once here and consumed by three
-surfaces: the `provider_projects_*` verbs, the board workflow docs, and
-the setup script's column provisioning.
+surfaces: the `projects` provider verbs, the board workflow docs, and the
+board columns an admin configures in the Azure project.
 
 - **Status storage**: a work item's status is its board column, stored in the
   Kanban column field `WEF_<guid>_Kanban.Column` (the guid is the board's, so
@@ -228,7 +230,7 @@ Boards reads/updates: `projects_list` → boards list; `field_set` (Status) →
 Kanban column write; `field_list` → the boards' column names; `item_add` → no-op-success (work items are born on the
 board); `item_id_for_issue` → work-item id (identity). Constraint: the
 fork standardizes **one board per work-item type** with the board
-workflow's column vocabulary (the setup script provisions them).
+workflow's column vocabulary, configured in the Azure project by an admin.
 
 ## Pull requests ↔ Pull requests
 
@@ -295,10 +297,10 @@ default-branch ref resolution, cancel, rerun, download with `-n`/`-D`).
 |---|---|---|
 | Org ruleset | Repo branch policy **configuration set** | Azure policies are repo-scoped, not org-scoped |
 | Ruleset conditions (target branches) | Policy `matchKind`/`pattern` on ref | — |
-| Require PR / reviews / status checks | Minimum reviewers, build validation policies | Policy ids differ per repo — the setup script names a default set |
+| Require PR / reviews / status checks | Minimum reviewers, build validation policies | Policy ids differ per repo — the policy tools name a default set |
 
 Constraint: there is no org-level ruleset API surface; parity means the
-**setup script + repo-create flow apply the standard policy set per repo**.
+**the repo-create flow and the policy tools apply the standard policy set per repo**.
 the repository-type and policy-export consumers map onto policy-configuration
 reads/writes per repo.
 
@@ -345,25 +347,26 @@ to implement — but the constraint must be documented for fork users:
 - Ordering cues ("#100 is newer than #99 in this repo") hold within a
   project but not across repos.
 
-## The setup script (as-built, azure-setup.sh)
+## Project provisioning (manual)
 
-One-time, idempotent, points at the configured Azure project and applies
-this document: one area path per repo found in the project; board columns
-forced to the `[workflows] status_workflow` vocabulary and count even when
-previously customized. Incoming/outgoing column identities and mappings are
-retained; existing middle columns are reused in order, extras removed, and new
-middle columns inherit a supported in-progress mapping without inventing states.
-An already-converged board is not rewritten. The script emits the
-fork's `[provider]` config block. `--dry-run` prints the plan;
-`AZURE_SETUP=1` gates execution (manual-only). Constraint discovered
-live: creating NEW work-item states is a process-template change the
-script deliberately does not attempt. Several columns may share one process state:
-each column is still a distinct status, because a work item's status is its
-Kanban column field and `System.State` follows the board's column-to-state
-mapping. The script also sets the default team's `bugsBehavior` to
-`asRequirements`, so a Bug sits on the Stories board and carries a column.
-If no existing in-progress mapping supports added columns, setup reports the
-unsupported board rather than guessing a work-item state.
+No script provisions the Azure project. An admin prepares it once, by hand,
+so that it matches this document:
+
+- Board columns on each board (Stories, Features, Epics) carry the
+  `[workflows] status_workflow` vocabulary and count. Several columns may
+  share one process state: each column is still a distinct status, because a
+  work item's status is its Kanban column field and `System.State` follows the
+  board's column-to-state mapping. Added columns need an in-progress mapping
+  that supports them; creating NEW work-item states is a process-template
+  change.
+- The default team's `bugsBehavior` is `asRequirements`, so a Bug sits on the
+  Stories board and carries a column.
+- Optionally, one area path per repo (see the area-path convention above).
+
+What the provider does automate on the host side is credential handling: the
+`setup.bash` and `bootstrap.bash` hooks validate and store the PAT and detect
+the organization, and `azureSetupGit` (`azure/auth.ts`) wires the git
+credential helper (see Transport facts).
 
 ## Change discipline
 

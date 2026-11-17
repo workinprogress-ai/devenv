@@ -103,7 +103,7 @@ try {
   assumeYes = cli.values["yes"] === true;
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
@@ -124,8 +124,15 @@ if (!/^(patch|minor|major)$/.test(changeType)) {
 const repos: string[] = [];
 if (positionals.length > 1) {
   repos.push(...positionals.slice(1));
-} else {
-  const stdinData = readFileSync(0, "utf8");
+} else if (process.stdin.isTTY !== true) {
+  let stdinData = "";
+  try {
+    stdinData = readFileSync(0, "utf8");
+  } catch (err) {
+    // A non-blocking or closed stdin is an empty list, not a crash.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "EAGAIN" && code !== "EOF") throw err;
+  }
   for (const rawLine of stdinData.split("\n")) {
     const line = rawLine.replace(/#.*$/, "").trim();
     if (line !== "") repos.push(line);
@@ -136,6 +143,14 @@ if (repos.length === 0) {
   logError("No repositories provided");
   usage();
   process.exit(EXIT_MISUSE);
+}
+
+// A name is a single path segment under repos/ and never reads as a flag.
+for (const repo of repos) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(repo) || repo.includes("..")) {
+    logError(`Invalid repository name: '${repo}' (letters, digits, '.', '_' and '-'; no leading dash, no '..')`);
+    process.exit(EXIT_MISUSE);
+  }
 }
 
 const devenvRoot = process.env.DEVENV_ROOT ?? "";

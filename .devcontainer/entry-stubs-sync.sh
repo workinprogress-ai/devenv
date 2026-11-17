@@ -1,34 +1,34 @@
 #!/bin/bash
 # entry-stubs-sync.sh — single idempotent owner of the tools/ depth-1 entries.
 #
-# Contract: every script in tools/scripts/, tools/ts/, tools/fork/ and
-# tools/custom/ gets a depth-1 stub in tools/, and every depth-1 entry backed by
-# one of them is a stub.
+# Contract: every script in tools/ts/, tools/fork/ and tools/custom/ gets a
+# depth-1 stub in tools/, and every depth-1 entry backed by one of them is a stub.
 #
-# Override model: the four directories are four layers of one tool set.
-#   tools/scripts/  the provided bash-era tools (unmigrated .sh stay here)
+# Override model: the three directories are three layers of one tool set.
 #   tools/ts/       the provided TypeScript tool bodies
 #   tools/fork/     a fork's own or overriding tools (committed in the fork)
 #   tools/custom/   a user's own or overriding tools (gitignored, machine-local)
 # A file with the same name in a higher layer replaces the lower one:
-# custom over fork over ts over scripts.
+# custom over fork over ts.
 #
 # Exceptions:
 #   - Underscore-prefixed scripts (_*.sh) are internal: NO depth-1 entry is
 #     created for them, so they cannot be overridden through this mechanism;
-#     callers reference tools/scripts/<name>.sh directly. Stale stubs for them
+#     callers reference the source under tools/ directly. Stale stubs for them
 #     are removed.
 #   - tools/tests/run-devenv-tests.sh also gets a depth-1 entry (the one
-#     non-scripts/ script with a public entry point).
+#     script outside the layers with a public entry point).
 # Anything else at depth-1 is not ours and is left untouched.
 #
-# Stub template (one line of dispatch, then exec; <dir> is scripts, ts, fork or
-# custom):
+# Stub template (one line of dispatch, then exec; <dir> is ts, fork or custom):
 #   #!/bin/bash
 #   exec bash "$(dirname "$0")/<dir>/<file>" "$@"
 #   exec node "$(dirname "$0")/<dir>/<file>" "$@"
 #
 # Idempotent: a re-run on a synchronized tree changes nothing (verified no-op).
+# A leftover stub that points into the retired tools/scripts/ directory (from a
+# checkout upgraded from an older version) is removed.
+#
 # Handles: missing entries (created), stale symlinks (converted), drifted
 # real-file copies of a script, recognised by their shebang (converted: the
 # winning source is canonical). A document or data file that merely shares a
@@ -72,12 +72,12 @@ EOF
 # same-named one below it.
 declare -A winner=()
 declare -A runner_of=()
-for layer in scripts ts fork custom; do
+for layer in ts fork custom; do
     for script in "$tools_dir/$layer"/*.sh "$tools_dir/$layer"/*.ts "$tools_dir/$layer"/git-*; do
         [ -f "$script" ] || continue
         base=$(basename "$script")
         # Internal tooling: underscore-prefixed scripts never get depth-1
-        # entries — callers reference tools/scripts/<name>.sh directly.
+        # entries — callers reference the source under tools/ directly.
         case "$base" in
             _*) continue ;;
         esac
@@ -153,8 +153,9 @@ for name in "${!winner[@]}"; do
 done
 
 # Purge stale stubs: any depth-1 file whose content is an exact stub template
-# pointing at a scripts/, fork/ or custom/ target that no longer exists (renamed
-# or deleted script, removed override) is removed. This covers the extensionless
+# pointing at a ts/, fork/ or custom/ target that no longer exists (renamed
+# or deleted script, removed override), or at the retired scripts/ directory,
+# is removed. This covers the extensionless
 # git-* tools as well as the .sh ones, and the underscore-prefixed entries made
 # under an earlier contract. Non-stub files are foreign and left alone.
 for entry in "$tools_dir"/*; do
@@ -177,13 +178,13 @@ for entry in "$tools_dir"/*; do
     grep -qE '^exec (bash|node) "\$\(dirname "\$0"\)/(scripts|ts|fork|custom)/[^"]+" "\$@"$' "$entry" 2>/dev/null || continue
     target_rel=$(grep -oE '(scripts|ts|fork|custom)/[^"]+' "$entry" | head -n 1)
     [ -n "$target_rel" ] || continue
-    if [ ! -f "$tools_dir/$target_rel" ] || [[ "$(basename "$target_rel")" == _* ]]; then
+    if [[ "$target_rel" == scripts/* ]] || [ ! -f "$tools_dir/$target_rel" ] || [[ "$(basename "$target_rel")" == _* ]]; then
         rm -f "$entry"
         removed=$((removed + 1))
     fi
 done
 
-# Public entry point for the test runner (the one non-scripts/ script).
+# Public entry point for the test runner (the one script outside the layers).
 runner_src="$toolbox_root/tools/tests/run-devenv-tests.sh"
 runner_entry="$tools_dir/run-devenv-tests"
 if [ -f "$runner_src" ]; then

@@ -51,7 +51,7 @@ try {
   skipRefresh = cli.values["no-refresh"] === true;
 } catch (err) {
   logError(err instanceof Error ? err.message : String(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 

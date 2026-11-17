@@ -10,6 +10,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
@@ -82,8 +83,8 @@ try {
   repoRoot = cli.positionals[0] ?? defaultRoot;
 } catch (err) {
   console.error(`SK-FAIL ${errorMessage(err)}`);
-  console.log("Use --help for usage information");
-  process.exit(2);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 // Accept either a repo root (…/copilot/skills beneath it) or a skills dir.
@@ -157,7 +158,7 @@ for (const dir of skillDirs()) {
   }
 
   if (descLine) {
-    const dlen = descLine.length;
+    const dlen = frontmatterDescription(skillPath).length;
     if (dlen > FAIL_LIMIT) err(`SK003 ${dir}/SKILL.md: description ${dlen} chars (limit ${FAIL_LIMIT})`);
     else if (dlen > WARN_LIMIT) warn(`SK003 ${dir}/SKILL.md: description ${dlen} chars (warn at ${WARN_LIMIT})`);
   }
@@ -218,10 +219,21 @@ function quotePhrases(text: string): string[] {
 }
 
 function frontmatterDescription(file: string): string {
-  const fm = frontmatterOf(file);
-  const line = fm.split("\n").find((l) => l.startsWith("description:"));
-  if (!line) return "";
-  let v = line.slice("description:".length).trim();
+  const fmLines = frontmatterOf(file).split("\n");
+  const at = fmLines.findIndex((l) => l.startsWith("description:"));
+  if (at === -1) return "";
+  let v = (fmLines[at] as string).slice("description:".length).trim();
+  // Block scalar (> folded, | literal, with optional chomping/indent marks):
+  // the value is the following indented lines.
+  if (/^[>|][+-]?\d*$/.test(v)) {
+    const body: string[] = [];
+    for (let i = at + 1; i < fmLines.length; i++) {
+      const l = fmLines[i] as string;
+      if (l !== "" && !/^\s/.test(l)) break;
+      body.push(l.trim());
+    }
+    return body.join(v.startsWith(">") ? " " : "\n").trim();
+  }
   // Single-quoted YAML value: strip the wrapping quotes and unescape '' -> '.
   if (v.startsWith("'") && v.endsWith("'") && v.length >= 2) {
     v = v.slice(1, -1).replace(/''/g, "'");
@@ -395,17 +407,24 @@ for (const ref of refFiles) {
 }
 
 // --- SK006: retired names -------------------------------------------------------
-function gitTrackedGrep(pattern: string): boolean {
+function gitTrackedGrep(pattern: string): boolean | "error" {
   const r = spawnSync(
     "git",
     ["-C", repoRoot, "grep", "-lE", pattern, "--", ":!*.lock", ":!.local-artifacts", ":!tools/tests", ":!tools/ts/lint-skills.ts"],
     { encoding: "utf8" },
   );
+  // git grep exits 1 for "no match"; anything else is a failure to check.
+  if (r.status !== 0 && r.status !== 1) return "error";
   return r.status === 0 && (r.stdout ?? "").trim() !== "";
 }
 if (existsSync(join(repoRoot, ".git"))) {
   for (const name of RETIRED_NAMES) {
-    if (gitTrackedGrep(`\\b${name}\\b`)) err(`SK006 retired name reintroduced: ${name}`);
+    const found = gitTrackedGrep(`\\b${name}\\b`);
+    if (found === "error") {
+      err("SK006 git grep failed; retired names could not be checked");
+      break;
+    }
+    if (found) err(`SK006 retired name reintroduced: ${name}`);
   }
 }
 
@@ -422,6 +441,7 @@ if (existsSync(join(repoRoot, ".git"))) {
     { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
   );
   const deletedPaths = new Set((del.stdout ?? "").split("\n").filter((l) => l !== ""));
+  if (del.status !== 0) err("SK007 git log failed; stale path references could not be checked");
 
   for (const f of mdFiles([skillsDir, join(repoRoot, "docs")].filter((d) => existsSync(d)))) {
     const content = readFileSync(f, "utf8");
@@ -438,6 +458,4 @@ if (existsSync(join(repoRoot, ".git"))) {
 // --- summary --------------------------------------------------------------------
 console.log(`lint-skills: ${failures} failure(s), ${warnings} warning(s)`);
 const strict = process.env["SK_LINT_STRICT"] === "1";
-if (failures === 0 && !strict) process.exit(0);
-if (failures > 0) process.exit(1);
-process.exit(0);
+process.exit(failures > 0 || (strict && warnings > 0) ? 1 : 0);

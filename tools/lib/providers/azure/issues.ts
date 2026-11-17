@@ -79,10 +79,37 @@ function strField(item: AzureWorkItem, key: string): string {
   return typeof v === "string" ? v : "";
 }
 
-/** The seam state projection: CLOSED for Closed/Removed/Done, else OPEN. */
-function seamState(item: AzureWorkItem): "OPEN" | "CLOSED" {
-  const s = strField(item, "System.State");
-  return s === "Closed" || s === "Removed" || s === "Done" ? "CLOSED" : "OPEN";
+/** State categories whose states count as closed: the one source for the
+ * close target, the seam state projection and the WIQL state filters. */
+const CLOSED_CATEGORIES = ["Completed", "Removed"];
+
+/** The seam state projection: CLOSED for a state in a closed category (see
+ * closedStateNames), else OPEN. */
+function seamState(item: AzureWorkItem, closed: ReadonlySet<string>): "OPEN" | "CLOSED" {
+  return closed.has(strField(item, "System.State")) ? "CLOSED" : "OPEN";
+}
+
+/** The names of every state, across the project's work item types, whose
+ * category is closed. Process templates name their final states differently
+ * (Closed, Done, Resolved, custom names), so the category is the truth. */
+async function closedStateNames(): Promise<Set<string>> {
+  const { base } = witBase();
+  const r = await azureHttp<{ value?: Array<{ states?: Array<{ name?: string; category?: string }> }> }>(
+    "GET",
+    `${base}/workitemtypes`,
+  );
+  const closed = new Set<string>();
+  for (const type of r.value ?? []) {
+    for (const s of type.states ?? []) {
+      if (s.name !== undefined && CLOSED_CATEGORIES.some((c) => c.toLowerCase() === (s.category ?? "").toLowerCase())) {
+        closed.add(s.name);
+      }
+    }
+  }
+  if (closed.size === 0) {
+    throw new ProviderError(`the project's work item types list no state in category ${CLOSED_CATEGORIES.join(" or ")}`);
+  }
+  return closed;
 }
 
 function seamTags(item: AzureWorkItem): Array<{ name: string }> {
@@ -111,9 +138,9 @@ function decodeLongText(item: AzureWorkItem, field: string): string {
 
 /** The body for a work item whose devenv type maps to CONFIGURED_FIELD:
  * read the configured field first; when empty, fall back to the other
- * candidate (System.Description) so pre-config items stay wrapper-readable
- * (e.g. #101791's body lives in Description while its Bug form shows
- * ReproSteps). */
+ * candidate (System.Description) so items written before the field was
+ * configured stay readable (a Bug whose body lives in Description while its
+ * form shows ReproSteps). */
 function decodeConfiguredBody(
   item: AzureWorkItem,
   configuredField: string,
@@ -156,7 +183,7 @@ function seamTypeFor(item: AzureWorkItem): string {
   return builtinInverse[wit] ?? wit;
 }
 
-function mapItem(item: AzureWorkItem, comments?: Array<{ id: string; url: string; body: string; created_at: string; updated_at: string }>): Record<string, unknown> {
+function mapItem(item: AzureWorkItem, closed: ReadonlySet<string>, comments?: Array<{ id: string; url: string; body: string; created_at: string; updated_at: string }>): Record<string, unknown> {
   const number = item.id ?? 0;
   const devenvType = seamTypeFor(item);
   return {
@@ -164,7 +191,7 @@ function mapItem(item: AzureWorkItem, comments?: Array<{ id: string; url: string
     type: devenvType,
     parent: seamParent(item),
     title: strField(item, "System.Title"),
-    state: seamState(item),
+    state: seamState(item, closed),
     body: decodeConfiguredBody(item, bodyFieldFor(devenvType)),
     labels: seamTags(item),
     assignees: seamAssignees(item),
@@ -334,7 +361,7 @@ async function workItemsBatch(base: string, ids: number[]): Promise<AzureWorkIte
 }
 
 /** Project batch details to seam records with decoded bodies. */
-function mapBatch(items: AzureWorkItem[]): Array<Record<string, unknown>> {
+function mapBatch(items: AzureWorkItem[], closed: ReadonlySet<string>): Array<Record<string, unknown>> {
   const web = webItemsBase();
   return items.map((item) => {
     const devenvType = seamTypeFor(item);
@@ -346,7 +373,7 @@ function mapBatch(items: AzureWorkItem[]): Array<Record<string, unknown>> {
       type: devenvType,
       parent: seamParent(item),
       title: strField(item, "System.Title"),
-      state: seamState(item),
+      state: seamState(item, closed),
       labels: seamTags(item),
       body: decodeConfiguredBody(item, bodyField),
       markdown: (item.multilineFieldsFormat?.[bodyField] ?? "") === "markdown",
@@ -379,27 +406,24 @@ export async function issuesList(
   if (!["open", "closed", "all"].includes(state)) {
     throw new ProviderError(`--state must be open, closed or all, got '${state}'`);
   }
+  if (opts.limit !== undefined && (!Number.isInteger(opts.limit) || opts.limit < 1)) {
+    throw new ProviderError(`--limit must be a positive integer, got '${opts.limit}'`);
+  }
   let type = "";
   if (opts.type !== undefined && opts.type !== "") type = await workItemTypeFor(opts.type);
-  const stateFilter =
-    state === "open"
-      ? "AND [System.State] NOT IN ('Closed','Removed','Done')"
-      : state === "closed"
-        ? "AND [System.State] IN ('Closed','Removed','Done')"
-        : "";
+  const closed = await closedStateNames();
   // WIQL single quotes are doubled per the WIQL escape rule: a label
   // containing a quote cannot break out of the literal.
   const wiqlStr = (v: string) => v.replaceAll("'", "''");
-  let query =
-    "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project " +
-    stateFilter;
+  const closedList = [...closed].map((n) => `'${wiqlStr(n)}'`).join(",");
+  const clauses = ["[System.TeamProject] = @project"];
+  if (state === "open") clauses.push(`[System.State] NOT IN (${closedList})`);
+  if (state === "closed") clauses.push(`[System.State] IN (${closedList})`);
   if (opts.label !== undefined && opts.label !== "") {
-    query += `AND [System.Tags] CONTAINS '${wiqlStr(opts.label)}'`;
+    clauses.push(`[System.Tags] CONTAINS '${wiqlStr(opts.label)}'`);
   }
-  if (type !== "") {
-    query += `AND [System.WorkItemType] = '${wiqlStr(type)}'`;
-  }
-  query += " ORDER BY [System.Id] DESC";
+  if (type !== "") clauses.push(`[System.WorkItemType] = '${wiqlStr(type)}'`);
+  const query = `SELECT [System.Id] FROM WorkItems WHERE ${clauses.join(" AND ")} ORDER BY [System.Id] DESC`;
 
   const { base } = witBase();
   const idsResponse = await azureHttp<{ workItems?: Array<{ id: number }> }>(
@@ -417,7 +441,7 @@ export async function issuesList(
     return empty;
   }
   const details = await workItemsBatch(base, ids);
-  const mapped = mapBatch(details);
+  const mapped = mapBatch(details, closed);
   if (opts.json !== undefined || opts.jq !== undefined) {
     return renderListFlags(mapped, opts);
   }
@@ -470,7 +494,8 @@ function renderListFlags(
 /** View a single issue as the full mapped record. comments carries the
  * comment COUNT (the seam's number form — github --json comments returns a
  * count): a work item with comments must not project an empty/missing value
- * there (downstream identity reads the field to decide "no discussion"). */
+ * there (downstream identity reads the field to decide "no discussion"), so
+ * a failed count read fails the view rather than reading as zero. */
 export async function issuesView(
   repo: string,
   number: number,
@@ -484,8 +509,8 @@ export async function issuesView(
     "GET",
     `${base}/workitems/${number}?$expand=relations`,
   );
-  const record = mapItem(raw);
-  let commentCount = 0;
+  const record = mapItem(raw, await closedStateNames());
+  let commentCount: number;
   try {
     const page = await azureHttp<{ comments?: unknown[] }>(
       "GET",
@@ -493,8 +518,8 @@ export async function issuesView(
     );
     const total = (page as { totalCount?: unknown }).totalCount;
     commentCount = typeof total === "number" ? total : (page.comments ?? []).length;
-  } catch {
-    // comment-count read is best-effort metadata; never fail the view on it
+  } catch (err) {
+    throw new ProviderError(`could not read the comments of work item ${number}: ${errorMessage(err)}`);
   }
   record["comments"] = commentCount;
   return record;
@@ -569,11 +594,12 @@ interface PatchOp {
   value?: unknown;
 }
 
-/** Write verification (15.22b): read back rev + System.ChangedDate after a
- * PATCH and confirm the server reflects the write (rev advanced past
- * PRIOR_REV when known, ChangedDate advanced). A successful mutation exit
- * must imply persistence, not just an accepted request — the accepted-
- * request-but-not-displayed class (#101791) surfaces as a named warning. */
+/** Write verification: read back rev + System.ChangedDate after a PATCH and
+ * confirm the server reflects the write (rev advanced past PRIOR_REV when
+ * known, ChangedDate advanced). A successful mutation exit must imply
+ * persistence, not just an accepted request. ChangedDate is compared as an
+ * instant: its fraction digits vary in length, so a string comparison
+ * misorders `…:45Z` and `…:45.5Z`. */
 async function verifyWriteReflected(
   number: number,
   prior: { rev?: number | undefined; changedDate?: string | undefined } = {},
@@ -586,7 +612,7 @@ async function verifyWriteReflected(
   const rev = typeof r.fields?.["System.Rev"] === "number" ? (r.fields["System.Rev"] as number) : 0;
   const changedDate = strField(r, "System.ChangedDate");
   const revOk = prior.rev === undefined ? rev > 0 : rev > prior.rev;
-  const dateOk = prior.changedDate === undefined || prior.changedDate === "" ? changedDate !== "" : changedDate > prior.changedDate;
+  const dateOk = prior.changedDate === undefined || prior.changedDate === "" ? changedDate !== "" : Date.parse(changedDate) > Date.parse(prior.changedDate);
   if (!revOk || !dateOk) {
     throw new ProviderError(
       `write to work item ${number} not reflected after PATCH ` +
@@ -698,7 +724,7 @@ export interface IssuesCloseOptions {
 }
 
 /** Close a work item: state moves to the type's first Completed-category
- * state. */
+ * state (a closed category, so the item then reads CLOSED). */
 export async function issuesClose(
   repo: string,
   number: number,
@@ -707,7 +733,7 @@ export async function issuesClose(
   void repo;
   void opts.reason;
   const type = await workItemType(number);
-  const state = await stateByCategory(type, ["Completed", "Resolved", "Done"]);
+  const state = await stateByCategory(type, [CLOSED_CATEGORIES[0] as string]);
   await patchState(number, state);
   // After the state change: a failed change leaves no orphan comment, and a
   // retry does not duplicate one. A whitespace-only comment is no comment.
@@ -737,9 +763,9 @@ export interface IssuesEditOptions {
   addLabel?: string;
   removeLabel?: string;
   /** The devenv issue type. It selects the body field the given body is
-   * written to; the work item's own type is never changed by an edit, so a
-   * type without a body is refused. Absent, the item's current type picks
-   * the field. */
+   * written to; this verb never changes the work item's own type (the facade
+   * does that first), so a type without a body is refused. Absent, the item's
+   * current type picks the field. */
   type?: string;
 }
 
@@ -1155,8 +1181,22 @@ function azureWitBase(): { base: string; org: string; project: string } {
   return witBase();
 }
 
+/** Whether ISSUE holds a blocked-by link to BLOCKER; null when the read fails. */
+async function dependencyHeld(issue: number, blocker: number): Promise<boolean | null> {
+  try {
+    const { base } = azureWitBase();
+    const item = await azureHttp<AzureWorkItem>("GET", `${base}/workitems/${issue}?$expand=relations`);
+    const suffix = `/_apis/wit/workItems/${blocker}`;
+    return (item.relations ?? []).some((r) => r.rel === DEPENDENCY_FORWARD && (r.url ?? "").endsWith(suffix));
+  } catch {
+    return null;
+  }
+}
+
 /** Record ISSUE as blocked by BLOCKER (Dependency-Forward relation).
- * Idempotent: an existing identical link is a no-op success. */
+ * Idempotent: an existing identical link is a no-op success, including one
+ * that appeared between the read and the write (a refused add is judged done
+ * only when the item really holds the link). */
 export async function issueDependencyLink(
   repo: string,
   issue: number,
@@ -1173,23 +1213,34 @@ export async function issueDependencyLink(
     (r) => r.rel === DEPENDENCY_FORWARD && (r.url ?? "").endsWith(suffix),
   );
   if (exists) return; // idempotent add
-  await azureHttp("PATCH", `${base}/workitems/${issue}`, {
-    body: JSON.stringify([
-      {
-        op: "add",
-        path: "/relations/-",
-        value: {
-          rel: DEPENDENCY_FORWARD,
-          url: dependencyUrl(org, project, blocker),
+  try {
+    // An append does not depend on the relation index, so it needs no revision
+    // guard; patchRevGuarded still gives it the shared failure mapping.
+    await patchRevGuarded(
+      `${base}/workitems/${issue}`,
+      [
+        {
+          op: "add",
+          path: "/relations/-",
+          value: {
+            rel: DEPENDENCY_FORWARD,
+            url: dependencyUrl(org, project, blocker),
+          },
         },
-      },
-    ]),
-    contentType: "application/json-patch+json",
-  });
+      ],
+      false,
+      issue,
+    );
+  } catch (err) {
+    if ((await dependencyHeld(issue, blocker)) === true) return;
+    throw err;
+  }
 }
 
 /** Remove ISSUE's blocked-by link to BLOCKER. Removing an absent link is a
- * no-op success. */
+ * no-op success. The removal addresses the relation by index, so it is
+ * conditional on the revision the index was read at; a refused removal is
+ * judged done only when the link is really gone. */
 export async function issueDependencyUnlink(
   repo: string,
   issue: number,
@@ -1206,10 +1257,18 @@ export async function issueDependencyUnlink(
     (r) => r.rel === DEPENDENCY_FORWARD && (r.url ?? "").endsWith(suffix),
   );
   if (index === -1) return; // absent = no-op
-  await azureHttp("PATCH", `${base}/workitems/${issue}`, {
-    body: JSON.stringify([...revGuard(item), { op: "remove", path: `/relations/${index}` }]),
-    contentType: "application/json-patch+json",
-  });
+  const guard = revGuard(item);
+  try {
+    await patchRevGuarded(
+      `${base}/workitems/${issue}`,
+      [...guard, { op: "remove", path: `/relations/${index}` }],
+      guard.length > 0,
+      issue,
+    );
+  } catch (err) {
+    if ((await dependencyHeld(issue, blocker)) === false) return;
+    throw err;
+  }
 }
 
 // keep the strict-option helpers referenced (github module parity).

@@ -6,10 +6,10 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 //
-// Contract: the body's DEVENV_ARTIFACT_V1 header (first 256 chars) carries
+// Contract: the body's DEVENV_ARTIFACT_V1 header block carries
 // `doc_id: <id>`; the tool stamps updated_at_utc, resolves the issue number
 // (--issue > header issue_number > doc_id issue-<N>), enforces consistency,
-// then updates the single comment whose first-256 window carries the same
+// then updates the single comment whose header block carries the same
 // doc_id — or creates one when none matches. >1 match is a conflict (exit 3).
 // Interactive .local-artifacts picking is a TTY-only flow (D1); the non-TTY
 // path requires an explicit source or piped stdin.
@@ -19,13 +19,14 @@ import { basename, join } from "node:path";
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
 
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE, EXIT_CONFLICT } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { select } from "../lib/ui/prompts.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { providerRepoTarget, requireRepoTarget, isDevenvRepoGated } from "../lib/providers/provider-core.ts";
-import { issuesComments, issuesCommentAdd, issuesCommentEdit } from "../lib/providers/facade/issues.ts";
+import { issuesCommentAdd, issuesCommentEdit } from "../lib/providers/facade/issues.ts";
+import { fetchIssueComments, findDocId, headerField, type CommentRecord } from "../lib/domain/artifacts.ts";
 
 assertNodeFloor();
 
@@ -64,8 +65,8 @@ Behavior:
        block (unless --no-stamp; no-op when the block has no such line)
     3) Resolve issue number from --issue, "issue_number: <N>" in the body header,
        or a doc_id containing issue-<N>
-    4) Extract doc_id from "doc_id: <ID>" line in first 256 characters
-    5) Search all issue comments for matching doc_id in first 256 characters
+    4) Extract doc_id from the "doc_id: <ID>" line of the header block
+    5) Search all issue comments for a matching doc_id in their header block
     6) 1 match   -> update comment
     7) 0 matches -> create new comment
     8) >1 match  -> conflict (exit 3)
@@ -136,12 +137,6 @@ function parseCliArgs(argv: string[]): Parsed {
   }
 }
 
-function headerField(body: string, key: string): string {
-  const re = new RegExp(`^[ \\t]*${key}:[ \\t]*(.*)$`, "m");
-  const m = body.slice(0, 256).match(re);
-  return m?.[1]?.trim() ?? "";
-}
-
 /** The bash awk stamping engine: rewrite updated_at_utc inside the
  * DEVENV_ARTIFACT_V1 block; insert before `-->` when the block lacks the
  * line. Byte-faithful to the awk (indent preserved, one insert at most). */
@@ -180,24 +175,12 @@ export function inferIssueNumberFromDocId(docId: string): string | null {
   return null;
 }
 
-interface CommentRecord {
-  id?: unknown;
-  body?: unknown;
-  url?: unknown;
-}
-
-/** The upsert match rule: a comment whose first-256 window carries a
- * `doc_id:` line equal (whitespace-trimmed) to the target. */
+/** The upsert match rule: a comment whose header carries the target doc_id. */
 export function findMatches(comments: CommentRecord[], docId: string): Array<{ id: unknown; url: unknown }> {
   const matches: Array<{ id: unknown; url: unknown }> = [];
   for (const c of comments) {
     const body = typeof c.body === "string" ? c.body : "";
-    const prefix = body.slice(0, 256).split("\n");
-    const hit = prefix.some((line) => {
-      const m = line.match(/^[ \t]*doc_id:[ \t]*(.*)$/);
-      return m !== null && (m[1]?.replace(/[ \t]+$/, "") ?? "") === docId;
-    });
-    if (hit) matches.push({ id: c.id, url: c.url });
+    if (findDocId(body) === docId) matches.push({ id: c.id, url: c.url });
   }
   return matches;
 }
@@ -222,7 +205,7 @@ async function interactivePickArtifact(all: boolean): Promise<string | null> {
     .filter((f) => all || !f.startsWith("tmp"))
     .filter((f) => {
       const body = readFileSync(join(artifactsDir, f), "utf8");
-      const docId = headerField(body, "doc_id");
+      const docId = findDocId(body);
       if (docId === "") return false;
       const issue = headerField(body, "issue_number");
       if (issue !== "" && issue !== "none" && !/^[0-9]+$/.test(issue)) return false;
@@ -268,7 +251,7 @@ async function main(argv: string[]): Promise<number> {
       const stdin = readFileSync(0, "utf8");
       if (stdin.trim() === "") {
         logError("Refusing empty stdin body");
-        console.log("Use --help for usage information");
+        console.error("Use --help for usage information");
         return EXIT_MISUSE;
       }
       body = stdin;
@@ -331,7 +314,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_MISUSE;
   }
 
-  const docId = headerField(body, "doc_id");
+  const docId = findDocId(body);
   const inferred = docId !== "" ? inferIssueNumberFromDocId(docId) : null;
 
   let issueNumber = args.issue;
@@ -350,14 +333,14 @@ async function main(argv: string[]): Promise<number> {
   if (issueNumber === "") {
     if (docId === "") {
       const origin = args.bodyFile !== "" ? args.bodyFile : "body";
-      logError(`${origin} is not an upsertable artifact: no DEVENV_ARTIFACT_V1 header (no doc_id line within the first 256 characters) and no resolvable issue number`);
+      logError(`${origin} is not an upsertable artifact: no DEVENV_ARTIFACT_V1 header (no doc_id line inside the header block) and no resolvable issue number`);
       return EXIT_MISUSE;
     }
     logError("issue_number is required via --issue, body metadata line 'issue_number: <N>', or a doc_id containing issue-<N>");
     return EXIT_MISUSE;
   }
   if (docId === "") {
-    logError("Comment body must include 'doc_id: <value>' in first 256 characters");
+    logError("Comment body must include 'doc_id: <value>' inside its DEVENV_ARTIFACT_V1 header block");
     return EXIT_MISUSE;
   }
   if (docId.includes("\n")) {
@@ -367,19 +350,12 @@ async function main(argv: string[]): Promise<number> {
 
   const issueNum = Number.parseInt(issueNumber, 10);
 
-  let raw: string;
-  try {
-    raw = await issuesComments(repo, issueNum);
-  } catch (err) {
-    logError(`Failed to fetch comments for issue #${issueNumber}: ${errorMessage(err)}`);
-    return 4;
-  }
   let comments: CommentRecord[];
   try {
-    comments = JSON.parse(raw) as CommentRecord[];
-  } catch {
-    logError("Failed to parse issue comments");
-    return 4;
+    comments = await fetchIssueComments(repo, issueNum);
+  } catch (err) {
+    logError(errorMessage(err));
+    return EXIT_API_FAILURE;
   }
 
   const matches = findMatches(comments, docId);
@@ -417,7 +393,7 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     } catch (err) {
       logError(`Failed to update comment: ${errorMessage(err)}`);
-      return 4;
+      return EXIT_API_FAILURE;
     }
   }
 
@@ -439,7 +415,7 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   } catch (err) {
     logError(`Failed to create issue comment on issue #${issueNumber}: ${errorMessage(err)}`);
-    return 4;
+    return EXIT_API_FAILURE;
   }
 }
 
@@ -447,6 +423,6 @@ main(process.argv.slice(2)).then(
   (code) => process.exit(code),
   (err: unknown) => {
     logError(errorMessage(err));
-    process.exit(4);
+    process.exit(EXIT_API_FAILURE);
   },
 );

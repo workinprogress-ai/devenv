@@ -85,7 +85,7 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
   - Migration guidelines
   - Good vs bad examples
 
-- **[Tooling Standards — Logging & error handling](./Tooling-Standards.md#logging--error-handling)**
+- **[Tooling Standards — Logging & error handling](./Tooling-Standards.md#logging-and-error-handling)**
   - Logging levels (DEBUG, INFO, WARN, ERROR, FATAL)
   - Log function usage
   - Output formatting
@@ -146,7 +146,7 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
 → See repository-specific documentation
 
 **...set up logging in my script**
-→ [Tooling Standards — Logging & error handling](./Tooling-Standards.md#logging--error-handling)
+→ [Tooling Standards — Logging & error handling](./Tooling-Standards.md#logging-and-error-handling)
 
 **...name bash functions correctly**
 → [Function Naming Conventions](./Function-Naming-Conventions.md)

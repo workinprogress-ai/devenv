@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { toolScript } from "./harness/index.ts";
+import { drivePty } from "./harness/pty.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -26,6 +27,8 @@ beforeEach(() => {
     "#!/usr/bin/env bash",
     `echo "${name} $*" >> "\${STUB_CALL_LOG:?}"`,
     logVar ? `[[ -n "\${${logVar}:-}" ]] && echo "${name} $*" >> "$${logVar}"` : "",
+    // Record the config file's content too: that is where the URI now lives.
+    logVar ? `for a in "$@"; do [[ "$a" == --config=* ]] && cat "\${a#--config=}" >> "$${logVar}"; done` : "",
     `if [[ "\${${failVar}:-0}" == "1" ]]; then`,
     `    echo "stub-${name}: simulated failure" >&2`,
     "    exit 1",
@@ -71,6 +74,17 @@ function runRestore(args: string[], extra: Record<string, string> = {}): { statu
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
+function ptyEnv(): Record<string, string> {
+  return {
+    DEVENV_TOOLS: TOOLS,
+    DEVENV_ROOT: join(TMP, "devenv-root"),
+    DEVENV_ROOT_SET: "1",
+    STUB_CALL_LOG: join(TMP, "stub-calls.log"),
+    STUB_MONGORESTORE_LOG: RESTORE_LOG,
+    PATH: `${join(TMP, "stub-bin")}:${procEnv.PATH ?? ""}`,
+  };
+}
+
 function logHas(pattern: string): boolean {
   return spawnSync("grep", ["-qF", "--", pattern, RESTORE_LOG]).status === 0;
 }
@@ -86,41 +100,78 @@ describe("scripts/mongo-restore-server", () => {
     expect(logEmpty()).toBe(true);
   });
 
-  it("mongo-restore: --yes performs the restore with --drop", () => {
+  it("mongo-restore: --yes without a named target is refused", () => {
     const r = runRestore(["mongodb://user:pass@localhost:27017", join(TMP, "backups"), "--yes"]);
-    expect(r.status).toBe(0);
-    expect(logHas("--drop")).toBe(true);
-    expect(logHas("--uri=mongodb://user:pass@localhost:27017")).toBe(true);
+    expect(r.status).toBe(2);
+    expect(r.out).toContain("--confirm-target");
+    expect(logEmpty()).toBe(true);
   });
 
-  it("mongo-restore: YES=1 env var is accepted as consent", () => {
-    const r = runRestore(["mongodb://localhost:27017", join(TMP, "backups")], { YES: "1" });
+  it("mongo-restore: --yes with a mismatched target is refused", () => {
+    const r = runRestore(["mongodb://user:pass@localhost:27017", join(TMP, "backups"), "--yes", "--confirm-target", "otherhost:27017"]);
+    expect(r.status).toBe(2);
+    expect(logEmpty()).toBe(true);
+  });
+
+  it("mongo-restore: --yes with the exact target performs the restore with --drop", () => {
+    const r = runRestore(["mongodb://user:pass@localhost:27017/appdb?authSource=admin", join(TMP, "backups"), "--yes", "--confirm-target", "localhost:27017/appdb"]);
     expect(r.status).toBe(0);
     expect(logHas("--drop")).toBe(true);
+    expect(logHas('uri: "mongodb://user:pass@localhost:27017/appdb?authSource=admin"')).toBe(true);
+  });
+
+  it("mongo-restore: YES=1 env var is not consent", () => {
+    const r = runRestore(["mongodb://localhost:27017", join(TMP, "backups")], { YES: "1" });
+    expect(r.status).toBe(2);
+    expect(logEmpty()).toBe(true);
   });
 
   it("mongo-restore: picks the latest backup directory", () => {
-    const r = runRestore(["mongodb://localhost:27017", join(TMP, "backups"), "--yes"], { YES: "1" });
+    const r = runRestore(["mongodb://localhost:27017", join(TMP, "backups"), "--yes", "--confirm-target", "localhost:27017"]);
     expect(r.status).toBe(0);
     expect(readFileSync(RESTORE_LOG, "utf8")).toContain("backup-20260910");
   });
 
   it("mongo-restore: displays redacted credentials, restores with real ones", () => {
-    const r = runRestore(["mongodb://user:secret@localhost:27017", join(TMP, "backups"), "--yes"], { YES: "1" });
+    const r = runRestore(["mongodb://user:secret@localhost:27017", join(TMP, "backups"), "--yes", "--confirm-target", "localhost:27017"]);
     expect(r.status).toBe(0);
     expect(r.out).toContain("***@localhost:27017");
     expect(r.out).not.toContain("secret");
-    expect(logHas("--uri=mongodb://user:secret@localhost:27017")).toBe(true);
+    expect(logHas('uri: "mongodb://user:secret@localhost:27017"')).toBe(true);
+    // The credentials never reach the command line.
+    const argvLines = readFileSync(RESTORE_LOG, "utf8").split("\n").filter((l) => l.startsWith("mongorestore "));
+    expect(argvLines.join("\n")).not.toContain("secret");
   });
 
+  it("mongo-restore: retyping a wrong target at the terminal aborts without restoring", async () => {
+    const r = await drivePty("node", [toolScript("mongo-restore-server"), "mongodb://user:pass@localhost:27017", join(TMP, "backups")], {
+      keys: ["W", "wronghost:27017"],
+      tailHoldMs: 1000,
+      env: ptyEnv(),
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("Aborted");
+    expect(logEmpty()).toBe(true);
+  }, 120_000);
+
+  it("mongo-restore: retyping the exact target at the terminal performs the restore", async () => {
+    const r = await drivePty("node", [toolScript("mongo-restore-server"), "mongodb://user:pass@localhost:27017", join(TMP, "backups")], {
+      keys: ["W", "localhost:27017"],
+      tailHoldMs: 1000,
+      env: ptyEnv(),
+    });
+    expect(r.status).toBe(0);
+    expect(logHas("--drop")).toBe(true);
+  }, 120_000);
+
   it("mongo-restore: failure path is reachable and reports non-zero", () => {
-    const r = runRestore(["mongodb://localhost:27017", join(TMP, "backups"), "--yes"], { STUB_MONGORESTORE_FAIL: "1" });
+    const r = runRestore(["mongodb://localhost:27017", join(TMP, "backups"), "--yes", "--confirm-target", "localhost:27017"], { STUB_MONGORESTORE_FAIL: "1" });
     expect(r.status).not.toBe(0);
     expect(r.out).toContain("Restore failed");
   });
 
   it("mongo-restore: missing backup directory fails with 4", () => {
-    const r = runRestore(["mongodb://localhost:27017", join(TMP, "nope"), "--yes"]);
+    const r = runRestore(["mongodb://localhost:27017", join(TMP, "nope"), "--yes", "--confirm-target", "localhost:27017"]);
     expect(r.status).toBe(4);
   });
 

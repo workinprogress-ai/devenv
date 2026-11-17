@@ -3,18 +3,22 @@
 // --all audit, --ac / --todo-report finders, --marker REGEX custom scan,
 // --require, --no-exclude, --include-copilot.
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
+import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { invalidArgs } from "../lib/core/args.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
 
-const EXCLUDE_DIRS = new Set(["cache", "node_modules", ".git", "repos"]);
+// Vendored/VCS directories are noise at any depth; cache/ and repos/ are
+// workspace-level clones, so they are excluded only where the scan root holds
+// them (a nested src/cache is real source).
+const EXCLUDE_ANYWHERE = new Set(["node_modules", ".git"]);
+const EXCLUDE_AT_ROOT = new Set(["cache", "repos", "tools/cache"]);
 
 function usage(): never {
   console.log(`Usage: devenv-marker-check [PATH...] [OPTIONS]
@@ -56,16 +60,20 @@ Exit Codes:
 
 // Walk a path, honoring the exclusion set unless --no-exclude. copilot/ is
 // excluded in gate/audit modes unless --include-copilot (the bash grep
-// --exclude-dir contract).
-function walk(root: string, noExclude: boolean, skipCopilot: boolean, out: string[]): void {
-  const st = statSync(root, { throwIfNoEntry: false });
-  if (!st) return;
+// --exclude-dir contract). Symlinks below the scan root are never followed;
+// the root itself is what the caller named.
+function walk(root: string, noExclude: boolean, skipCopilot: boolean, out: string[], rel = ""): void {
+  const st = rel === "" ? statSync(root, { throwIfNoEntry: false }) : lstatSync(root, { throwIfNoEntry: false });
+  if (!st || st.isSymbolicLink()) return;
   if (st.isFile()) { out.push(root); return; }
-  const base = root.split("/").pop() ?? "";
-  if (!noExclude && EXCLUDE_DIRS.has(base)) return;
-  if (!noExclude && skipCopilot && base === "copilot") return;
+  if (!st.isDirectory()) return;
+  if (rel !== "" && !noExclude) {
+    const base = rel.split("/").pop() ?? "";
+    if (EXCLUDE_ANYWHERE.has(base) || EXCLUDE_AT_ROOT.has(rel)) return;
+    if (skipCopilot && rel === "copilot") return;
+  }
   for (const entry of readdirSync(root)) {
-    walk(join(root, entry), noExclude, skipCopilot, out);
+    walk(join(root, entry), noExclude, skipCopilot, out, rel === "" ? entry : `${rel}/${entry}`);
   }
 }
 
@@ -105,8 +113,8 @@ try {
   paths.push(...cli.positionals);
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
-  process.exit(2);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
 }
 
 if (paths.length === 0) paths.push(".");
@@ -142,7 +150,12 @@ for (const p of paths) {
   walk(p, noExclude, skipCopilot, files);
 }
 
-const re = new RegExp(regex);
+let re: RegExp;
+try {
+  re = new RegExp(regex);
+} catch (err) {
+  invalidArgs(`--marker is not a valid regular expression: ${errorMessage(err)}`);
+}
 type Hit = { file: string; line: number; text: string };
 const hits: Hit[] = [];
 for (const f of files) {

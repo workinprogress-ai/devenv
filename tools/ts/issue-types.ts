@@ -10,8 +10,8 @@
 // vocabulary (tools/config/issues-config.yml: Bug, Feature, Task, Epic).
 
 import { basename } from "node:path";
-import { existsSync, readFileSync } from "node:fs";
 
+import { configGetRaw } from "../lib/core/config.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
@@ -51,10 +51,8 @@ Examples:
 function resolveOrg(): string {
   const root = process.env["DEVENV_ROOT"] ?? selfRoot(import.meta.url);
   const cfg = `${root}/devenv.config`;
-  if (existsSync(cfg)) {
-    const m = readFileSync(cfg, "utf8").match(/^\s*org\s*=\s*(\S+)/m);
-    if (m?.[1]) return m[1];
-  }
+  const configured = configGetRaw(cfg, "organization", "org");
+  if (configured !== undefined && configured !== "") return configured;
   const repo = requireRepoTarget(providerRepoTarget(""), "issue-types", "issues");
   if (repo !== "") return repo.split("/")[0] ?? "";
   logError("Cannot resolve organization — configure [organization] org in devenv.config or set DEVENV_REPO");

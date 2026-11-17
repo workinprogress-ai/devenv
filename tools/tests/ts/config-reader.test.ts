@@ -108,53 +108,6 @@ describe("config reader", () => {
     expect(r.out.trim()).toBe("");
   });
 
-  it("config-reader: config_read_array parses comma-separated values", () => {
-    createTestConfig();
-    const r = sh(`source ${CR} && config_init ${CFG} && config_read_array workflows issue_types`);
-    expect(r.status).toBe(0);
-    expect(r.out).toMatch(/story/);
-    expect(r.out).toMatch(/bug/);
-    expect(r.out).toMatch(/enhancement/);
-  });
-
-  it("config-reader: config_read_array trims whitespace from elements", () => {
-    writeFileSync(CFG, "[test]\nitems=one, two , three  , four\n");
-    const r = sh(`source ${CR} && config_init ${CFG} && config_read_array test items`);
-    expect(r.status).toBe(0);
-    expect(r.out).toMatch(/^one/m);
-    expect(r.out).toMatch(/two/m);
-    expect(r.out).toMatch(/three/m);
-    expect(r.out).toMatch(/four$/m);
-  });
-
-  it("config-reader: config_read_array fails when key missing", () => {
-    createTestConfig();
-    const r = sh(`source ${CR} && config_init ${CFG} && config_read_array workflows missing_key`);
-    expect(r.status).not.toBe(0);
-  });
-
-  it("config-reader: config_validate_required succeeds when keys exist", () => {
-    createTestConfig();
-    const r = sh(`source ${CR} && config_init ${CFG} && config_validate_required organization name org email_domain`);
-    expect(r.status).toBe(0);
-  });
-
-  it("config-reader: config_validate_required fails when key missing", () => {
-    createTestConfig();
-    const r = sh(`source ${CR} && config_init ${CFG} && config_validate_required organization name missing_key`);
-    expect(r.status).not.toBe(0);
-    expect(r.out).toMatch(/Required configuration missing/);
-  });
-
-  it("config-reader: config_validate_required reports all missing keys", () => {
-    createTestConfig();
-    const r = sh(`source ${CR} && config_init ${CFG} && config_validate_required organization missing1 missing2 missing3 2>&1`);
-    expect(r.status).not.toBe(0);
-    expect(r.out).toMatch(/missing1/);
-    expect(r.out).toMatch(/missing2/);
-    expect(r.out).toMatch(/missing3/);
-  });
-
   it("config-reader: template variables are expanded in values", () => {
     createTestConfig();
     // Expansion is accessor-fed: load the provider core and scope identity to
@@ -166,40 +119,6 @@ describe("config reader", () => {
     );
     expect(r.status).toBe(0);
     expect(r.out).toContain("https://nuget.pkg.github.com/test-org/index.json");
-  });
-
-  it("config-reader: config_list_section returns all keys in section", () => {
-    createTestConfig();
-    const r = sh(`source ${CR} && config_init ${CFG} && config_list_section organization`);
-    expect(r.status).toBe(0);
-    expect(r.out).toMatch(/name/);
-    expect(r.out).toMatch(/org/);
-    expect(r.out).toMatch(/email_domain/);
-  });
-
-  it("config-reader: config_dump outputs all key=value pairs in section", () => {
-    createTestConfig();
-    const r = sh(`source ${CR} && config_init ${CFG} && config_dump organization`);
-    expect(r.status).toBe(0);
-    expect(r.out).toContain("name=Test Organization");
-    expect(r.out).toContain("org=test-org");
-    expect(r.out).toContain("email_domain=test.example.com");
-  });
-
-  it("config-reader: config_get_status_workflow fails when status_workflow missing", () => {
-    writeFileSync(CFG, "[workflows]\n");
-    const r = sh(`source ${CR} && config_init ${CFG} && config_get_status_workflow`);
-    expect(r.status).not.toBe(0);
-    expect(r.out).toMatch(/not configured/);
-  });
-
-  it("config-reader: config_get_status_workflow succeeds and returns workflow", () => {
-    createTestConfig();
-    const r = sh(`source ${CR} && config_init ${CFG} && config_get_status_workflow`);
-    expect(r.status).toBe(0);
-    expect(r.out).toMatch(/TBD/);
-    expect(r.out).toMatch(/Ready/);
-    expect(r.out).toMatch(/Done/);
   });
 
   it("config-reader: handles comments correctly", () => {
@@ -307,12 +226,33 @@ describe("config reader", () => {
     expect(r.out.trim()).toBe("\${PROVIDER_ORG}");
   });
 
+  it("config-reader: identity values with & / and backslash expand literally", () => {
+    const identities: Array<[string, string]> = [
+      ["a&b", "bob&x"],
+      ["a/b", "bob/x"],
+      ["a\\b", "bob\\x"],
+      ["&&", "\\&"],
+      ["a&${PROVIDER_USER}b", "u&${PROVIDER_ORG}"],
+    ];
+    for (const [org, user] of identities) {
+      writeFileSync(join(TMP, "devenv.config"), `[organization]\nname=t\norg=${org}\nuser=${user}\n`);
+      writeFileSync(join(TMP, "amp.config"), "[t]\nv=https://x/${PROVIDER_ORG}/${PROVIDER_USER}/z\n");
+      const r = sh(
+        `export DEVENV_TOOLS='${TOOLS}' DEVENV_ROOT='${TMP}' DEVENV_ROOT_SET=1\n` +
+          `source '${TOOLS}/lib/providers/provider-core.bash'\nsource ${CR}\n` +
+          `config_init '${join(TMP, "amp.config")}'\nconfig_read_value t v`,
+      );
+      expect(r.status).toBe(0);
+      expect(r.out.trim()).toBe(`https://x/${org}/${user}/z`);
+    }
+  });
+
   // ── Literal matching ─────────────────────────────────────────────────────
 
   it("raw read: [provider-x] section never satisfies a [provider] read", () => {
     const cfg = join(TMP, "anchor.config");
     writeFileSync(cfg, "[provider-tokens]\nname=malicious\n\n[provider]\nname=github\n");
-    const r = sh(`source ${CR}\nconfig_init '${cfg}'\nconfig_read_value_raw provider name`);
+    const r = sh(`source ${CR}\nconfig_get_raw '${cfg}' provider name`);
     expect(r.status).toBe(0);
     expect(r.out.trim()).toBe("github");
   });
@@ -341,17 +281,9 @@ describe("config reader", () => {
     expect(r.out.trim()).toBe("right");
   });
 
-  it("listing and dumping a dotted section ignores its lookalike sections", () => {
-    writeFileSync(CFG, "[a.b]\nmine=1\n[aXb]\ntheirs=2\n");
-    let r = readCfg("config_list_section a.b");
-    expect(r.out.trim()).toBe("mine");
-    r = readCfg("config_dump a.b");
-    expect(r.out.trim()).toBe("mine=1");
-  });
-
   it("the raw reader returns the value (not the whole line) for a key with regex characters", () => {
     writeFileSync(CFG, "[s]\na+b=value\n");
-    const r = readCfg("config_read_value_raw s 'a+b'");
+    const r = readCfg(`config_get_raw '${CFG}' s 'a+b'`);
     expect(r.out.trim()).toBe("value");
   });
 
@@ -399,16 +331,6 @@ describe("config reader", () => {
     }
   });
 
-  it("config_read_value and config_read_value_raw agree on every variant", () => {
-    for (const v of PROVIDER_VARIANTS) {
-      writeVariant(v);
-      const r = sh(
-        `source '${CR}'; config_init '${CFG}'; echo "$(config_read_value provider name 2>/dev/null)|$(config_read_value_raw provider name)"`,
-      );
-      expect(r.out.trim(), `variant: ${JSON.stringify(v)}`).toBe("azure|azure");
-    }
-  });
-
   it("provider_detect agrees on every variant", () => {
     for (const v of PROVIDER_VARIANTS) {
       writeVariant(v);
@@ -424,9 +346,10 @@ describe("config reader", () => {
 
   it("the provider identity accessor agrees on every variant", () => {
     for (const v of PROVIDER_VARIANTS) {
-      writeVariant(v);
+      // The identity accessors read DEVENV_ROOT/devenv.config.
+      writeFileSync(join(TMP, "devenv.config"), v);
       const r = sh(
-        `export DEVENV_TOOLS='${TOOLS}' PROVIDER_IDENTITY_CONFIG='${CFG}'\n` +
+        `export DEVENV_TOOLS='${TOOLS}' DEVENV_ROOT='${TMP}'\n` +
           `source '${TOOLS}/lib/error-handling.bash'\n` +
           `source '${TOOLS}/lib/providers/provider-core.bash'\n` +
           `_provider_identity_raw_read provider name`,

@@ -128,9 +128,8 @@ describe("setup (bootstrap handoff contract)", () => {
 });
 
 // The TS→bash seam, exercised against a fixture toolbox: the tool must give
-// the bridge functions the bootstrap-owned globals (prelude) and must run
-// one invocation's steps in a single bash session (cross-step shell state:
-// credentials seeds HUMAN_NAME/USER_EMAIL; git-config consumes them). The
+// the bridge functions the bootstrap-owned globals (prelude); steps read the
+// .setup seeds themselves since each runs as its own process. The
 // fake HOME keeps every write inside the fixture.
 describe("setup seam (fixture toolbox)", () => {
   const tempRoots: string[] = [];
@@ -170,7 +169,7 @@ describe("setup seam (fixture toolbox)", () => {
     for (const dir of tempRoots) rmSync(dir, { recursive: true, force: true });
   });
 
-  it("credentials + git-config share one session: the fixture identity reaches the fixture gitconfig", () => {
+  it("credentials + git-config: the fixture identity reaches the fixture gitconfig", () => {
     const { root, home } = makeToolbox();
     const r = runInToolbox(["credentials", "git-config", "--json"], root, home);
     expect(r.status).toBe(0);
@@ -180,6 +179,20 @@ describe("setup seam (fixture toolbox)", () => {
       execFileSync("git", ["config", "--file", gitconfig, "--get", key], { encoding: "utf8" }).trim();
     expect(execGit("user.name")).toBe("Fixture Name");
     expect(execGit("user.email")).toBe("fixture@example.com");
+  }, 60_000);
+
+  it("credentials + env-vars: the generated file carries the seed identity and token, not empty values", () => {
+    const { root, home } = makeToolbox();
+    writeFileSync(join(root, ".setup", "digitalocean_token.txt"), "do-fixture-token\n");
+    const r = runInToolbox(["credentials", "env-vars", "--json"], root, home);
+    expect(r.status).toBe(0);
+    const sourced = (name: string) =>
+      execFileSync("bash", ["-c", `source '${join(root, ".runtime", "env-vars.sh")}'; printf '%s' "$${name}"`], {
+        encoding: "utf8",
+        env: { PATH: process.env["PATH"] ?? "", HOME: home },
+      });
+    expect(sourced("USER_EMAIL")).toBe("fixture@example.com");
+    expect(sourced("DIGITALOCEAN_API_TOKEN")).toBe("do-fixture-token");
   }, 60_000);
 
   it("--json keeps step noise off stdout: the full stdout parses as pure JSON", () => {

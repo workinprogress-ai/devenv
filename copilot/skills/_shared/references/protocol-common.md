@@ -31,8 +31,8 @@ unrelated repos (colliding issue numbers across same-org repos).
 `cd` into a repo root positions the terminal for file work; it is not a
 targeting mechanism. The devenv-repo safety gate rejects devenv-repo
 mutations without a repo target.
-Resolution lives in `provider_repo_target`; wrapper code never re-implements
-the chain.
+Resolution lives in `providerRepoTarget` (`tools/lib/providers/provider-core.ts`);
+wrapper code never re-implements the chain.
 
 **Examples in this reference elide the prefix for brevity** (`issue-get 42`,
 `issue-artifact-upsert --issue 7 …`) — before running any such command,
@@ -55,7 +55,7 @@ Accessors read RAW config values (no template expansion) so config-reader's
 without recursion. All scripts and non-provider libs MUST use these
 accessors (directly or via `policy_org`, which delegates) — direct
 `GH_ORG`/`GH_USER`/`GH_REPO`/`GITHUB_ORG` reads outside the provider layer
-fail the residue gate in `test_provider_routing_lock.bats`.
+fail the residue gate in `tools/tests/ts/provider-routing-lock.test.ts`.
 
 No devenv env var overrides identity — org and user resolve through the
 accessor chain (config → seed) only; bootstrap never produces GH_* exports.
@@ -354,7 +354,7 @@ issue-comment-update 123456789 --body-file updated-artifact.md
 
 ### issue-artifact-upsert
 
-Create or update an issue-comment artifact. Automatically extracts `doc_id` from the artifact body header (first 256 characters) and **stamps `updated_at_utc` to the current UTC time** inside the `DEVENV_ARTIFACT_V1` block before publishing.
+Create or update an issue-comment artifact. Automatically extracts `doc_id` from the artifact body's `DEVENV_ARTIFACT_V1` header block and **stamps `updated_at_utc` to the current UTC time** inside the `DEVENV_ARTIFACT_V1` block before publishing.
 
 ```
 issue-artifact-upsert [--issue N] (--body TEXT | --body-file FILE | piped stdin | interactive) [--all] [--repo OWNER/REPO] [--dry-run] [--no-stamp]
@@ -367,7 +367,7 @@ Key flags:
 - `--no-stamp` — publish byte-exact without rewriting `updated_at_utc`
 - `--all` — interactive list includes `tmp*.md` (ephemeral files are excluded by default)
 
-The artifact file/body must include `doc_id: <value>` line in the first 256 characters.
+The artifact file/body must include `doc_id: <value>` line inside the `DEVENV_ARTIFACT_V1` header block.
 
 Examples:
 

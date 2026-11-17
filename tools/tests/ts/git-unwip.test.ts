@@ -5,7 +5,7 @@
 // protected-branch guard.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toolScript } from "./harness/index.ts";
@@ -52,8 +52,8 @@ afterEach(() => {
   spawnSync("rm", ["-rf", TMP]);
 });
 
-function unwip(): { status: number; out: string } {
-  const r = spawnSync("node", [toolScript("git-unwip")], { cwd: TEST_REPO, encoding: "utf8", env: GIT_ENV() });
+function unwip(env: Record<string, string> = {}): { status: number; out: string } {
+  const r = spawnSync("node", [toolScript("git-unwip")], { cwd: TEST_REPO, encoding: "utf8", env: { ...GIT_ENV(), ...env } });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
@@ -102,6 +102,21 @@ describe("scripts/git-unwip", () => {
     const r = unwip();
     expect(r.status).toBe(1);
     expect(r.out).toContain("protected branch");
+  });
+
+  it("unwip: a failed local reset after a successful force-push says the remote was already rewound", () => {
+    git(["commit", "-q", "--allow-empty", "-m", "fix: real work"]);
+    git(["commit", "-q", "--allow-empty", "-m", "WIP: snapshot"]);
+    git(["push", "-q", "-u", "origin", "feature/x"]);
+    const real = spawnSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).stdout.trim();
+    const bin = join(TMP, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "git"), `#!/bin/sh\ncase "$*" in *"reset --soft"*) echo boom >&2; exit 1;; esac\nexec ${real} "$@"\n`);
+    chmodSync(join(bin, "git"), 0o755);
+    const r = unwip({ PATH: `${bin}:${process.env.PATH ?? ""}` });
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("already rewound");
+    expect((spawnSync("git", ["-C", REMOTE_REPO, "log", "-1", "--format=%s", "feature/x"], { encoding: "utf8" }).stdout ?? "").trim()).toBe("fix: real work");
   });
 
   it("unwip: skips force-push when remote tip is not a WIP commit", () => {

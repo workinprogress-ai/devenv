@@ -515,7 +515,7 @@ Key rules:
 - Comment body must include exact metadata line: `doc_id: <doc_id>`
 - Issue is resolved from `--issue` when provided, otherwise from `issue_number: <N>` metadata in the body header
 - If both `--issue` and body `issue_number` are present, they must match
-- Matching is line-exact and only within first 256 characters of existing comment bodies
+- Matching is line-exact and reads only the `DEVENV_ARTIFACT_V1` header block of existing comment bodies
 - If multiple comments match the same `doc_id`, the tool exits with a conflict and returns matching IDs
 
 **`issue-artifact-doc-id`** - Generate canonical `doc_id` values for artifact comments

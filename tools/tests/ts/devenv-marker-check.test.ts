@@ -4,7 +4,7 @@
 // --marker REGEX custom sweeps.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -260,5 +260,38 @@ describe("scripts/devenv-marker-check", () => {
   it("--marker: the default gate (no --marker) still scans FIXME markers only", () => {
     write("a.cs", "int x; // DEVENV[bug-hunt] bare form");
     expect(run([WORK_DIR]).status).toBe(0);
+  });
+
+  it("--marker: an invalid regex exits 2 with a stderr hint, not a crash", () => {
+    write("a.cs", "int x;");
+    const r = spawnSync("node", [SCRIPT, "--marker", "(", WORK_DIR], { encoding: "utf8" });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("--marker");
+    expect(r.stderr).not.toContain("SyntaxError");
+  });
+
+  // Exclusions are relative to the scan root: a nested source directory that
+  // merely shares a noise-class name is real code and must be scanned.
+  it("a nested src/cache or src/repos directory is still scanned", () => {
+    write("src/cache/a.cs", "// FIXME:DEVENV[p1]: nested cache");
+    write("src/repos/b.cs", "// FIXME:DEVENV[p1]: nested repos");
+    const r = run([WORK_DIR]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("src/cache/a.cs");
+    expect(r.out).toContain("src/repos/b.cs");
+  });
+
+  it("a nested node_modules directory stays excluded", () => {
+    write("pkg/node_modules/x/a.cs", "// FIXME:DEVENV[p1]: vendored");
+    expect(run([WORK_DIR]).status).toBe(0);
+  });
+
+  it("symlinked directories are not followed (no double reporting)", () => {
+    write("real/a.cs", "// FIXME:DEVENV[p1]: once");
+    symlinkSync(join(WORK_DIR, "real"), join(WORK_DIR, "alias"));
+    const r = run([WORK_DIR]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("real/a.cs");
+    expect(r.out).not.toContain("alias/a.cs");
   });
 });

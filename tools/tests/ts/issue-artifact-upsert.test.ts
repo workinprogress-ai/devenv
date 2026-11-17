@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as artifacts from "../../lib/domain/artifacts.ts";
 import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
 const TOOL = "issue-artifact-upsert";
@@ -145,6 +146,39 @@ describe("issue-artifact-upsert", () => {
     expect(out.matches).toEqual([1, 2]);
   });
 
+  it("a CRLF stored comment still matches: update, never a duplicate create", () => {
+    const stored = artifactBody("dv1:crlf").replaceAll("\n", "\r\n");
+    writeFileSync(responses, `issues/42/comments\t${JSON.stringify([{ id: 5, body: stored, url: "https://x/5" }])}\n`);
+    const r = runTool(["--issue", "42", "--body", artifactBody("dv1:crlf")]);
+    expect(r.status).toBe(0);
+    expect((JSON.parse(r.stdout) as Record<string, unknown>)["action"]).toBe("updated");
+    expect(ghCalls().some((c) => c.includes("-X POST"))).toBe(false);
+  });
+
+  it("a CRLF body matches an LF stored comment", () => {
+    writeFileSync(responses, `issues/42/comments\t${JSON.stringify([{ id: 6, body: artifactBody("dv1:crlf2"), url: "https://x/6" }])}\n`);
+    const r = runTool(["--issue", "42", "--body", artifactBody("dv1:crlf2").replaceAll("\n", "\r\n")]);
+    expect(r.status).toBe(0);
+    expect((JSON.parse(r.stdout) as Record<string, unknown>)["action"]).toBe("updated");
+  });
+
+  it("an indented doc_id line in a stored comment matches", () => {
+    const stored = artifactBody("dv1:indent").replace("doc_id:", "  doc_id:");
+    writeFileSync(responses, `issues/42/comments\t${JSON.stringify([{ id: 8, body: stored, url: "https://x/8" }])}\n`);
+    const r = runTool(["--issue", "42", "--body", artifactBody("dv1:indent")]);
+    expect((JSON.parse(r.stdout) as Record<string, unknown>)["action"]).toBe("updated");
+  });
+
+  it("a stored comment whose header has a blank line, a note line and hyphen/digit keys is updated, not duplicated", () => {
+    const stored = artifactBody("dv1:tolerant", { issue: 42 })
+      .replace("<!-- DEVENV_ARTIFACT_V1\n", "<!-- DEVENV_ARTIFACT_V1\n\n# note\nx-y: 1\nv2: 1\n");
+    writeFileSync(responses, `issues/42/comments\t${JSON.stringify([{ id: 9, body: stored, url: "https://x/9" }])}\n`);
+    const r = runTool(["--issue", "42", "--body", artifactBody("dv1:tolerant", { issue: 42 })]);
+    expect(r.status).toBe(0);
+    expect((JSON.parse(r.stdout) as Record<string, unknown>)["action"]).toBe("updated");
+    expect(ghCalls().some((c) => c.includes("-X POST"))).toBe(false);
+  });
+
   it("issue number resolves from the body header when --issue is absent", () => {
     writeFileSync(responses, "issues/56/comments\t[]\n");
     const r = runTool(["--body", artifactBody("dv1:x", { issue: 56 })]);
@@ -162,6 +196,24 @@ describe("issue-artifact-upsert", () => {
     expect(out["issue_number"]).toBe(91);
   });
 
+  it("duplicate issue_number lines resolve to the first in the tool and in the upsertable check", () => {
+    writeFileSync(responses, "issues/56/comments\t[]\n");
+    const body = artifactBody("dv1:x", { issue: 56 }).replace("artifact_type: plan", "issue_number: 99\nartifact_type: plan");
+    expect(artifacts.bodyUpsertable(body)).toEqual({ ok: true });
+    const r = runTool(["--body", body]);
+    expect(r.status).toBe(0);
+    expect((JSON.parse(r.stdout) as Record<string, unknown>)["issue_number"]).toBe(56);
+  });
+
+  it("a spaced `issue_number : N` key resolves the same in the tool and in the upsertable check", () => {
+    writeFileSync(responses, "issues/5/comments\t[]\n");
+    const body = artifactBody("dv1:x", { issue: 5 }).replace("issue_number: 5", "issue_number : 5");
+    expect(artifacts.bodyUpsertable(body)).toEqual({ ok: true });
+    const r = runTool(["--body", body]);
+    expect(r.status).toBe(0);
+    expect((JSON.parse(r.stdout) as Record<string, unknown>)["issue_number"]).toBe(5);
+  });
+
   it("a --issue/header mismatch is refused (exit 2)", () => {
     const r = runTool(["--issue", "42", "--body", artifactBody("dv1:x", { issue: 56 })]);
     expect(r.status).toBe(2);
@@ -174,7 +226,7 @@ describe("issue-artifact-upsert", () => {
     expect(r.output).toContain("does not match doc_id");
   });
 
-  it("a body with no doc_id is refused (doc_id required in first 256 chars)", () => {
+  it("a body with no doc_id is refused (doc_id required in the header block)", () => {
     const r = runTool(["--issue", "42", "--body", "just some text"]);
     expect(r.status).toBe(2);
     expect(r.output).toContain("Comment body must include 'doc_id: <value>'");

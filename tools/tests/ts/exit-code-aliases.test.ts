@@ -72,8 +72,8 @@ describe("scripts/exit-code-aliases", () => {
   });
 
   it("no script, library or template defines or uses the retired exit-code aliases", () => {
-    // tools/scripts was retired by 16.1 (bash minimum) — the sweep covers the
-    // layers that remain; the contract (no retired alias anywhere) is unchanged.
+    // The sweep covers every layer that holds shell code; the contract is that
+    // no retired alias appears anywhere.
     const r = spawnSync(
       "grep",
       [
@@ -88,15 +88,6 @@ describe("scripts/exit-code-aliases", () => {
     );
     // grep exits 1 when it finds nothing: that is the passing outcome.
     expect(r.status).toBe(1);
-  });
-
-  it("every exit-code name has its own value (no two names share one)", () => {
-    const r = spawnSync(
-      "bash",
-      ["-c", `source '${join(TOOLS, "lib", "error-handling.bash")}'; env | grep '^EXIT_' | sort -t= -k2 | awk -F= '{print $2}' | uniq -d`],
-      { encoding: "utf8" },
-    );
-    expect((r.stdout ?? "").trim()).toBe("");
   });
 
   it("issue-label-create does not redefine the library's ensure_label", () => {

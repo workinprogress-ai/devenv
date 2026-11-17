@@ -6,7 +6,7 @@ import { existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { logError, logInfo, logSuccess } from "../lib/core/logging.ts";
-import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
@@ -60,7 +60,7 @@ if (probe.error || (probe.status !== 0 && probe.status !== null)) {
 
 if (!existsSync(tfDir)) {
   logError(`Directory not found: ${tfDir}`);
-  process.exit(4);
+  process.exit(EXIT_API_FAILURE);
 }
 
 const env = { ...process.env };

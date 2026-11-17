@@ -29,7 +29,7 @@ fi
 # A staged change to the lint or type configuration (or the dependency
 # manifest) can break the type and lint gates without touching tools/; the full
 # block below covers a commit that also stages tools/ or .devcontainer/.
-if git diff --cached --name-only | grep -qE '^(eslint\.config\.js|tsconfig\.json|package\.json)$' \
+if git diff --cached --name-only | grep -qE '^(eslint\.config\.js|tsconfig\.json|package\.json|vitest\.config\.ts)$|^\.github/' \
    && ! git diff --cached --name-only | grep -qE '^(tools/|\.devcontainer/)'; then
     echo "Lint or type configuration changed - running typecheck and ESLint..."
     if ! (cd "$DEVENV_ROOT" && npx --no-install tsc --noEmit); then

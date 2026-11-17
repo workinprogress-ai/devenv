@@ -70,7 +70,7 @@ try {
   planFile = typeof cli.values.plan === "string" ? cli.values.plan : "";
 } catch (err) {
   logError(errorMessage(err));
-  usage();
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 

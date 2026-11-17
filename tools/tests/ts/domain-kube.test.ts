@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -83,9 +83,11 @@ afterEach(() => {
 
 describe("domain/kube", () => {
   it("spawnKubectl passes argv through and reports status", () => {
+    const log = join(stubDir, "log");
+    installKubectlStub({ logPath: log });
     const r = spawnKubectl(["version", "--client"]);
     expect(r.status).toBe(0);
-    void r;
+    expect(readFileSync(log, "utf8")).toContain("kubectl version --client");
   });
 
   it("listNamespaces parses the JSON items", () => {
@@ -154,16 +156,20 @@ describe("domain/kube", () => {
     if (r.kind === "no-match") expect(r.available).toEqual(["prod"]);
   });
 
-  it("resolveNamespace: NAMESPACE env is the fallback candidate", () => {
+  it("resolveNamespace: KUBE_NAMESPACE env is the fallback candidate; a bare NAMESPACE is ignored", () => {
     installKubectlStub({ namespaces: ["staging"], logPath: join(stubDir, "log") });
-    const prev = process.env.NAMESPACE;
-    process.env.NAMESPACE = "stag";
+    const prev = process.env.KUBE_NAMESPACE;
+    const prevBare = process.env.NAMESPACE;
+    process.env.KUBE_NAMESPACE = "stag";
+    process.env.NAMESPACE = "bogus";
     try {
       const r = resolveNamespace("");
       expect(r).toEqual({ kind: "resolved", ns: "staging" });
     } finally {
-      if (prev === undefined) delete process.env.NAMESPACE;
-      else process.env.NAMESPACE = prev;
+      if (prev === undefined) delete process.env.KUBE_NAMESPACE;
+      else process.env.KUBE_NAMESPACE = prev;
+      if (prevBare === undefined) delete process.env.NAMESPACE;
+      else process.env.NAMESPACE = prevBare;
     }
   });
 

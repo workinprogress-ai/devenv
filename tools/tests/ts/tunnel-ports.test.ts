@@ -91,7 +91,10 @@ describe("scripts/tunnel-ports", () => {
     expect(r.out).toContain("Opening tunnel: Local port 8080 to db.internal through user@host");
     expect(r.out).toContain("Tunnels closed.");
     expect(sshLogHas("ARG:-L")).toBe(true);
-    expect(sshLogHas("ARG:8080:db.internal:8080")).toBe(true);
+    expect(sshLogHas("ARG:127.0.0.1:8080:db.internal:8080")).toBe(true);
+    // Host keys are verified: first contact is recorded, a changed key refused.
+    expect(sshLogHas("ARG:StrictHostKeyChecking=accept-new")).toBe(true);
+    expect(spawnSync("grep", ["-q", "-e", "StrictHostKeyChecking=no$", "-e", "UserKnownHostsFile", SSH_LOG]).status).not.toBe(0);
     expect(sshLogHas("ARG:22")).toBe(true);
     expect(sshLogHas("ARG:user@host")).toBe(true);
     expect(sshLogHas("ARG:-i")).toBe(false);

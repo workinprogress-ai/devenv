@@ -14,7 +14,9 @@ function usage(status: number = EXIT_MISUSE): never {
   // Requested help is stdout / exit 0; a misuse hint is stderr / exit 2.
   (status === 0 ? console.log : console.error)(`Usage: tunnel-ports [-p <ssh port>] [-i <path to ssh key>] <user@target> <port1:destination1> [<port2:destination2> ...]
 
-Open SSH local port-forwards and hold until a keypress, then close them all.
+Open SSH local port-forwards (bound to 127.0.0.1) and hold until a keypress,
+then close them all. Host keys are verified: an unknown host is recorded on
+first contact and a changed key is refused.
 
 Options:
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
@@ -86,14 +88,16 @@ for (const t of tunnels) {
   console.log(`Opening tunnel: Local port ${port} to ${destination} through ${target}`);
   const args = [
     "-NTC",
-    "-o", "StrictHostKeyChecking=no",
-    "-o", "UserKnownHostsFile=/dev/null",
-    "-L", `${port}:${destination}:${port}`,
+    // Unknown hosts are recorded on first contact; a changed host key is refused.
+    "-o", "StrictHostKeyChecking=accept-new",
+    "-L", `127.0.0.1:${port}:${destination}:${port}`,
     "-p", sshPort,
     target as string,
   ];
   if (sshCert !== "") args.splice(0, 0, "-i", sshCert);
-  children.push(spawn("ssh", args, { stdio: "ignore", detached: false }));
+  const child = spawn("ssh", args, { stdio: "ignore", detached: false });
+  child.on("error", (err) => console.error(`Tunnel to ${destination} failed: ${errorMessage(err)}`));
+  children.push(child);
 }
 
 console.log("Tunnels open...");

@@ -7,9 +7,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const REPO = join(import.meta.dirname, "../../..");
-// tools/scripts no longer exists (the bash->TS port removed it); absent dirs
-// are skipped so this list survives the port without a special case.
-const SRC_DIRS = ["tools/ts", "tools/scripts", "tools/lib", "tools/internal"].filter((d) => existsSync(join(REPO, d)));
+const SRC_DIRS = ["tools/ts", "tools/lib", "tools/internal"].filter((d) => existsSync(join(REPO, d)));
 
 // gh/az invocation shapes: a spawn/exec family call whose first argument is
 // the CLI name. String-template and variable first args are not matched (they

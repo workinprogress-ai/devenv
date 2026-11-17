@@ -2,9 +2,8 @@
 # Run the full devenv test suite: the vitest lane under tools/tests/ts/ —
 # one command is the whole gate; `pnpm test` aliases this script.
 #
-# The bats lane retired with the Phase-11 port (fork×3 + the isolation
-# canary joined vitest; the manual-only live/ bats suite is NOT collected
-# here — see tools/tests/README.md for its explicit invocation).
+# The manual-only live/ suite is NOT collected here — see
+# tools/tests/README.md for its explicit invocation.
 
 set -euo pipefail
 
@@ -12,7 +11,7 @@ set -euo pipefail
 # inlined from the retired self-root.bash: self-location wins; an exported
 # DEVENV_TOOLS is honored only when it realpath-matches this checkout — a
 # foreign checkout's export never redirects the runner onto the wrong tree).
-# Export for child bats processes, which read it from the environment;
+# Export for child processes, which read it from the environment;
 # without export, a CI-like invocation leaves them unset.
 devenv_resolve_tools_root() {
     local script_dir tools_root exported_real self_real
@@ -87,8 +86,7 @@ echo "Running Devenv test suite..."
 echo "======================================"
 
 # ── vitest lane ────────────────────────────────────────────────────────────
-# The TS corpus under tests/ts/ is the whole gate (the bats corpus retired
-# with the Phase-11 port). node_modules is required; the bootstrap and CI
+# The TS corpus under tests/ts/ is the whole gate. node_modules is required; the bootstrap and CI
 # both install before invoking this script.
 # Worker cap: an unbounded pool pthread-exhausts this container — pass
 # --sequential through as a single worker, otherwise cap at
