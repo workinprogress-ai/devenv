@@ -1,24 +1,29 @@
 #!/usr/bin/env node
 // pipelines-run.ts - Trigger a GitHub Actions workflow_dispatch event
 // Version: 1.0.0
-// Description: After queuing, polls briefly to print the run URL.
-//              'gh workflow run' does not return a run ID directly — the URL
-//              is retrieved by polling 'gh run list' after a short delay; it
-//              may occasionally miss a run if the system is busy (known gh CLI
-//              limitation).
+// Description: After queuing, prints the queued run's URL. 'gh workflow run'
+//              does not return a run ID, so the run is found in the run list:
+//              it must be absent from a snapshot taken before the trigger, be
+//              created at or after the trigger time, and match the workflow
+//              and event. More than one match, or none within the bound, is
+//              reported instead of guessed.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
-import { spawnSync } from "node:child_process";
+import { basename } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { ensureProviderAuth, } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth, providerDetect } from "../lib/providers/provider-core.ts";
 import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
-import { pipelinesWorkflowRun, pipelinesRunList, pipelinesRunView } from "../lib/providers/facade/pipelines.ts";
+import { pipelinesWorkflowRun, pipelinesRunList, pipelinesRunView, pipelinesWorkflowList } from "../lib/providers/facade/pipelines.ts";
+import { findQueuedRun } from "../lib/domain/pipelines/queued-run.ts";
 
 assertNodeFloor();
+
+const RUN_LIST_LIMIT = 30;
+const RUN_LIST_FIELDS = "id,workflowName,event,createdAt,url";
 
 let workflow = "";
 let repo = "";
@@ -28,8 +33,8 @@ const inputs: string[] = [];
 function usage(): never {
   console.log(`Usage: pipelines-run WORKFLOW --repo OWNER/REPO [OPTIONS]
 
-Trigger a GitHub Actions workflow_dispatch event. After queuing, polls briefly
-to print the run URL.
+Trigger a GitHub Actions workflow_dispatch event. After queuing, finds the
+queued run and prints its URL.
 
 Arguments:
     WORKFLOW                    Workflow file name (e.g. ci.yml) or display name
@@ -101,6 +106,20 @@ for (const input of inputs) {
   triggerFlags.push("-f", input);
 }
 
+// Snapshot the repository's recent runs before triggering: a run id already
+// in it can never be the one this invocation queues.
+const isGithub = providerDetect() === "github";
+const snapshotIds = new Set<string>();
+try {
+  const before = JSON.parse(await pipelinesRunList(repo, { limit: RUN_LIST_LIMIT, json: RUN_LIST_FIELDS })) as unknown;
+  if (Array.isArray(before)) {
+    for (const run of before as Array<{ id?: unknown }>) snapshotIds.add(String(run.id));
+  }
+} catch {
+  // An unreadable snapshot leaves the trigger-time check to do the work.
+}
+
+const triggerTime = Date.now();
 const queued = await pipelinesWorkflowRun(repo, workflow, triggerFlags);
 if (queued.status !== 0) {
   logError(`Failed to trigger workflow: ${workflow}`);
@@ -109,11 +128,11 @@ if (queued.status !== 0) {
 
 logInfo("Workflow queued. Fetching run URL...");
 
-// gh workflow run does not return a run ID or URL: poll for the latest run
-// after a short delay. A provider that does hand back the queued run's id (a
-// bare positive integer on stdout) is asked for that run's URL instead, so the
-// URL is never another run's.
+// A provider that hands back the queued run's id (a bare positive integer on
+// stdout) is asked for that run's URL directly. Otherwise the queued run is
+// found in the run list by snapshot and trigger time.
 let runUrl = "";
+let ambiguousCount = 0;
 const queuedId = queued.stdout.trim();
 if (/^[1-9][0-9]*$/.test(queuedId)) {
   try {
@@ -121,24 +140,48 @@ if (/^[1-9][0-9]*$/.test(queuedId)) {
   } catch {
     runUrl = "";
   }
-}
-if (runUrl === "") {
-  spawnSleep(2);
-  try {
-    const raw = await pipelinesRunList(repo, { json: "url", jq: ".[0].url // empty" });
-    runUrl = raw.trim();
-  } catch {
-    runUrl = "";
-  }
+} else {
+  const found = await findQueuedRun(
+    {
+      listRuns: () => pipelinesRunList(repo, { limit: RUN_LIST_LIMIT, json: RUN_LIST_FIELDS }),
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      now: () => Date.now(),
+    },
+    {
+      triggerTime,
+      snapshotIds,
+      workflowName: isGithub ? await resolveWorkflowName() : undefined,
+      requireDispatchEvent: isGithub,
+    },
+  );
+  if (found.kind === "found") runUrl = found.url;
+  else if (found.kind === "ambiguous") ambiguousCount = found.count;
 }
 
 if (runUrl !== "" && runUrl !== "null") {
   logInfo(`Run URL: ${runUrl}`);
+} else if (ambiguousCount > 0) {
+  logWarn(`Run queued, but ${ambiguousCount} new runs appeared and none can be attributed to this trigger.`);
+  logWarn(`Check: pipelines-status --repo ${repo} --workflow ${workflow}`);
 } else {
   logWarn("Run queued but URL not yet available.");
   logWarn(`Check: pipelines-status --repo ${repo} --workflow ${workflow}`);
 }
 
-function spawnSleep(seconds: number): void {
-  spawnSync("sleep", [String(seconds)], { stdio: "ignore" });
+// Resolves the WORKFLOW argument (display name, file name or id) to the
+// workflow's display name, which is what a run record carries. Undefined when
+// it cannot be resolved: the lookup then proceeds without workflow narrowing.
+async function resolveWorkflowName(): Promise<string | undefined> {
+  try {
+    const list = JSON.parse(await pipelinesWorkflowList(repo, ["--json", "id,name,path,state"])) as unknown;
+    if (!Array.isArray(list)) return undefined;
+    for (const entry of list as Array<{ id?: unknown; name?: unknown; path?: unknown }>) {
+      if (typeof entry.name !== "string") continue;
+      const file = typeof entry.path === "string" ? basename(entry.path) : "";
+      if (entry.name === workflow || file === workflow || String(entry.id) === workflow) return entry.name;
+    }
+  } catch {
+    // Fall through: no workflow narrowing.
+  }
+  return undefined;
 }
