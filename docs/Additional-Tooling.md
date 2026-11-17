@@ -2102,6 +2102,27 @@ cs-nuget-publish-local [target-directory] [version] [configuration]
 - Clears cache after publishing
 - Uses temporary directory for build artifacts
 
+### `ci-build-local`
+
+Builds a repository's container image into the local Docker cache, mirroring
+how CI builds it. Generic over any Dockerfile-bearing repo (not .NET-coupled).
+
+```bash
+ci-build-local [target-directory] [version]
+```
+
+**Arguments:**
+
+- `target-directory`: Directory containing a Dockerfile (default: current directory)
+- `version`: Image version tag (default: calculated from git; `0.0.0-dev` when no tags)
+
+**Features:**
+
+- Tags the image `<repo-name>:<version>` and `<repo-name>:local`
+- Passes GitHub Packages NuGet credentials as a BuildKit secret (`NUGET_TOKEN` env var, or `gh auth token` fallback)
+- Version resolves from the target repo's tags, not the invoking directory
+- Never pushes — local cache only
+
 ### `cs-open-coverage`
 
 Open coverage reports in a browser (auto-detects chromium or firefox).
@@ -3288,6 +3309,7 @@ The following convenience aliases are available in the dev container:
 
 - `dependencies-up` / `dependencies-down` - Start/stop dependencies
 - `server-run-sql` / `server-run-smb` - Start development servers
+- `ci-build-local` - Build a repo's container image into local Docker cache
 
 **Database:**
 
