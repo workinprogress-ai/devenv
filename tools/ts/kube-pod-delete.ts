@@ -12,6 +12,7 @@ import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { confirm } from "../lib/ui/prompts.ts";
 import {
   KUBE_CONFIRM_DECLINED_STATUS,
+  currentContext,
   listPods,
   resolveNamespace,
   resolveSingleMatch, spawnKubectlInherit } from "../lib/domain/kube/kube.ts";
@@ -84,12 +85,13 @@ if (match.kind === "ambiguous") {
 }
 const pod = match.name;
 
+const kubeContext = currentContext();
 const confirmed = process.env.YES === "1" || process.env.FORCE_YES === "1"
   ? true
-  : await confirm({ message: `Delete pod '${pod}' in namespace ${ns}?`, fallback: false });
+  : await confirm({ message: `Delete pod '${pod}' in namespace ${ns} (context ${kubeContext})?`, fallback: false });
 if (!confirmed) {
   if (process.stdin.isTTY !== true) {
-    console.error(`Refusing to proceed without confirmation (set YES=1 to skip the prompt): Delete pod '${pod}' in namespace ${ns}`);
+    console.error(`Refusing to proceed without confirmation (set YES=1 to skip the prompt): Delete pod '${pod}' in namespace ${ns} (context ${kubeContext})`);
     process.exit(EXIT_MISUSE);
   }
   console.log("Aborted.");

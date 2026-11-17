@@ -341,7 +341,7 @@ export function isNestedDevenvClone(dir: string): boolean {
 
 // ---------------------------------------------------------------------------
 // runner variants: the three spawn shapes the tools' local git() helpers
-// used, unified (the audit's F006 — one spawn discipline built on
+// used, unified (one spawn discipline built on
 // core/spawn.ts). Callers map 1:1 from their retired local wrappers:
 //   gitCapture — {status, out(stdout+stderr)}  (git-wip, git-unwip shape)
 //   gitInherit — {ok, out(stdout)}             (pr-merge streaming shape)

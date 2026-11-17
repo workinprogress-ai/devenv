@@ -155,6 +155,13 @@ describe("scripts/cs-dependencies-update-wizard", () => {
     expect(r.out).toContain("Skipping generation 0");
   });
 
+  it("--global --dry-run --no-refresh never refreshes the cache between generations", () => {
+    setupTwoGenCache();
+    const r = runWizard(["--global", "--dry-run", "--no-refresh"]);
+    expect(r.status).toBe(0);
+    expect(r.out).not.toContain("Refreshing repository cache");
+  });
+
   it("--global --dry-run prints completion footer", () => {
     setupMinimalCache();
     const r = runWizard(["--global", "--dry-run", "--no-refresh"]);

@@ -82,7 +82,7 @@ try {
   full = cli.values["full"] === true;
 } catch (err) {
   logError(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 
@@ -125,8 +125,9 @@ if (pattern !== "") {
 } else {
   if (!existsSync(file)) invalidArgs(`File not found: ${file}`);
   const content = readFileSync(file, "utf8");
-  const esc = prefix.replaceAll("+", "\\+");
-  const re = new RegExp(`${esc}(\\d+)`, "g");
+  // Literal prefix, anchored at an identifier boundary so MAC-12 is not AC-12.
+  const esc = prefix.replace(/[.*+?^${}()|[\]\\\/-]/g, "\\$&");
+  const re = new RegExp(`(?<![A-Za-z0-9_])${esc}(\\d+)`, "g");
   const seen = new Set<string>();
   let m: RegExpExecArray | null;
   while ((m = re.exec(content)) !== null) {

@@ -7,6 +7,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toolScript } from "./harness/index.ts";
+import { EXIT_MISUSE } from "../../lib/core/exit-codes.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -75,5 +76,58 @@ describe("scripts/markdown-plan-complete", () => {
     expect(r.status).toBe(0);
     expect(readFileSync(join(WORK_DIR, "Plan-issue-9-001.md"), "utf8")).toContain("[x] **1.1");
     expect(readFileSync(join(ART_DIR, "Plan-issue-9-001.md"), "utf8")).toContain("[ ] **1.1");
+  });
+
+  it("task tool refuses to guess when several plans match", () => {
+    const second = join(ART_DIR, "Plan-issue-9-002.md");
+    writeFileSync(second, "## Phase 1 — A\n\n- [ ] **1.1 [S] second plan task**\n");
+    const r = runTask(["1.1"]);
+    expect(r.status).toBe(EXIT_MISUSE);
+    expect(r.out).toContain("Plan-issue-9-001.md");
+    expect(r.out).toContain("Plan-issue-9-002.md");
+    expect(readFileSync(join(ART_DIR, "Plan-issue-9-001.md"), "utf8")).toContain("[ ] **1.1");
+    expect(readFileSync(second, "utf8")).toContain("[ ] **1.1");
+  });
+
+  it("ac tool refuses to guess when several plans match", () => {
+    writeFileSync(join(ART_DIR, "Plan-issue-9-002.md"), "- [ ] **AC-1** other\n");
+    const r = runAc(["AC-1"]);
+    expect(r.status).toBe(EXIT_MISUSE);
+    expect(readFileSync(join(ART_DIR, "Plan-issue-9-002.md"), "utf8")).toContain("[ ] **AC-1**");
+  });
+
+  it("an explicit file still works when several plans exist", () => {
+    writeFileSync(join(ART_DIR, "Plan-issue-9-002.md"), "## Phase 1 — A\n\n- [ ] **1.1 [S] second**\n");
+    const r = runTask(["1.1", join(ART_DIR, "Plan-issue-9-002.md")]);
+    expect(r.status).toBe(0);
+    expect(readFileSync(join(ART_DIR, "Plan-issue-9-002.md"), "utf8")).toContain("[x] **1.1");
+  });
+
+  it("ticks by the checkbox position, not a [x] or [ ] inside the task text", () => {
+    const f = join(WORK_DIR, "text.md");
+    writeFileSync(f, "## Phase 1 — A\n\n- [ ] **1.1 [S] fix [x] handling**\n- [x] **1.2 [S] reopen [ ] case**\n");
+    expect(runTask(["1.1", f]).status).toBe(0);
+    expect(runTask(["--uncomplete", "1.2", f]).status).toBe(0);
+    expect(readFileSync(f, "utf8")).toBe("## Phase 1 — A\n\n- [x] **1.1 [S] fix [x] handling**\n- [ ] **1.2 [S] reopen [ ] case**\n");
+  });
+
+  it("ticks an unbolded task that plan-parse counts", () => {
+    const f = join(WORK_DIR, "plain.md");
+    writeFileSync(f, "## Phase 1 — A\n\n- [ ] 1.3 unsized open task\n");
+    expect(runTask(["1.3", f]).status).toBe(0);
+    expect(readFileSync(f, "utf8")).toContain("- [x] 1.3 unsized open task");
+  });
+
+  it("ac tool does not tick AC-1 on an AC-1.2 line", () => {
+    const f = join(WORK_DIR, "ac.md");
+    writeFileSync(f, "- [ ] **AC-1.2** sub\n- [ ] **AC-1** parent\n");
+    expect(runAc(["AC-1", f]).status).toBe(0);
+    expect(readFileSync(f, "utf8")).toBe("- [ ] **AC-1.2** sub\n- [x] **AC-1** parent\n");
+  });
+
+  it("task --help carries no DEVENV marker", () => {
+    const r = runTask(["--help"]);
+    expect(r.status).toBe(0);
+    expect(r.out).not.toContain("DEVENV");
   });
 });

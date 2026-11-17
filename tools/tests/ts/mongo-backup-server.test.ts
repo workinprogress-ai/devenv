@@ -5,7 +5,7 @@
 // mongodump failure surfaces non-zero.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { readdirSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,6 +29,8 @@ beforeEach(() => {
     "#!/usr/bin/env bash",
     `echo "${name} $*" >> "\${STUB_CALL_LOG:?}"`,
     `[[ -n "\${${logVar}:-}" ]] && echo "${name} $*" >> "$${logVar}"`,
+    // Record the config file's content too: that is where the URI now lives.
+    `[[ -n "\${${logVar}:-}" ]] && for a in "$@"; do [[ "$a" == --config=* ]] && cat "\${a#--config=}" >> "$${logVar}"; done`,
     `if [[ "\${${failVar}:-0}" == "1" ]]; then`,
     `    echo "stub-${name}: simulated failure" >&2`,
     "    exit 1",
@@ -91,6 +93,26 @@ describe("scripts/mongo-backup-server", () => {
     expect(countInLog("--db admin")).toBe(0);
     expect(countInLog("--db local")).toBe(0);
     expect(r.out).toContain("Backup completed");
+  });
+
+  it("backup: the URI goes through a config file, not the command line", () => {
+    const r = runBackup("mongodb://user:secret@localhost:27017", { STUB_MONGOSH_DATABASES: "appdb" });
+    expect(r.status).toBe(0);
+    const log = readFileSync(DUMP_LOG, "utf8");
+    expect(log).toContain('uri: "mongodb://user:secret@localhost:27017"');
+    expect(log.split("\n").filter((l) => l.startsWith("mongodump ")).join("\n")).not.toContain("secret");
+  });
+
+  it("backup: a database name containing a dot is legal", () => {
+    const r = runBackup("mongodb://localhost:27017", { STUB_MONGOSH_DATABASES: "app.v2" });
+    expect(r.status).toBe(0);
+    expect(countInLog("--db app.v2")).toBe(1);
+  });
+
+  it("backup: a failed listing leaves no timestamp directory", () => {
+    const r = runBackup("mongodb://localhost:27017", { STUB_MONGOSH_FAIL: "1" });
+    expect(r.status).toBe(4);
+    expect(readdirSync(join(TMP, "backups"))).toEqual([]);
   });
 
   it("backup: garbage database name aborts before any mongodump", () => {

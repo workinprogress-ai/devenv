@@ -13,7 +13,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { ghApiSync } from "../providers/provider-core.ts";
+import { prsView } from "../providers/facade/prs.ts";
 import { resolveToolsRoot } from "../core/self-root.ts";
 import { fileURLToPath } from "node:url";
 
@@ -146,18 +146,23 @@ export function signalPrEvents(
 }
 
 /**
- * Fetch a PR body through the provider CLI and signal. Quiet failure
+ * Fetch a PR body through the provider facade and signal. Quiet failure
  * (no PR / no permissions): returns an empty result.
  */
-export function signalPrEventsForPr(
+export async function signalPrEventsForPr(
   point: PrLifecyclePoint,
   prNumber: string,
   repoSpec = "",
-): SignalResult {
-  const args = repoSpec ? ["--repo", repoSpec] : [];
-  const r = spawnSyncCli("pr", ["view", ...args, prNumber, "--json", "body", "--jq", ".body"]);
-  if (r === null || r.trim() === "") return { fired: [], warnings: [] };
-  return signalPrEvents(point, r);
+): Promise<SignalResult> {
+  let body = "";
+  try {
+    const view = await prsView(repoSpec === "" ? undefined : repoSpec, Number.parseInt(prNumber, 10), { json: "body" });
+    body = (JSON.parse(view.stdout) as { body?: string }).body ?? "";
+  } catch {
+    return { fired: [], warnings: [] };
+  }
+  if (body.trim() === "") return { fired: [], warnings: [] };
+  return signalPrEvents(point, body);
 }
 
 // ---------------------------------------------------------------------------
@@ -167,13 +172,4 @@ export function signalPrEventsForPr(
 function spawnSignal(script: string, issue: string): boolean {
   const r = spawnSync("bash", [script, issue], { stdio: "ignore" });
   return r.status === 0;
-}
-
-/**
- * One seam for every provider CLI call in this module: tests assert the argv
- * through this function's contract, and the provider facade sits behind it.
- */
-export function spawnSyncCli(subcommand: string, args: string[]): string | null {
-  const r = ghApiSync([subcommand, ...args], { tolerateFailure: true });
-  return r.status === 0 ? r.stdout : null;
 }

@@ -73,8 +73,12 @@ provider_setup_check_token_format() {
 provider_setup_detect_org() {
     local url
     url="$(git remote get-url origin 2>/dev/null)" || return 0
-    if [[ "$url" =~ github\.com[:/]([^/]+)/ ]]; then
-        echo "${BASH_REMATCH[1]}"
+    # The host must open the authority: after an optional scheme and an optional
+    # "user@" that contains no "/" or "@". A host that merely ends in github.com,
+    # or an "@github.com/" inside a path segment, does not name an organization.
+    local re='^([A-Za-z][A-Za-z0-9+.-]*://)?([^/@]*@)?github\.com[:/]([^/]+)/'
+    if [[ "$url" =~ $re ]]; then
+        echo "${BASH_REMATCH[3]}"
     fi
 }
 

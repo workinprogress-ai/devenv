@@ -76,7 +76,7 @@ Publish the artifact to the issue:
 issue-artifact-upsert --issue <N> --body-file <path-to-file>
 ```
 
-Tool automatically extracts `doc_id` from the file header (first 256 characters). For multi-artifact issue workflows, the `doc_id` in the file header must remain stable for the same artifact so future updates target the same comment.
+Tool automatically extracts `doc_id` from the `DEVENV_ARTIFACT_V1` header block. For multi-artifact issue workflows, the `doc_id` in the file header must remain stable for the same artifact so future updates target the same comment.
 
 ## Documenting discoveries and follow-up work
 

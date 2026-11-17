@@ -7,7 +7,7 @@
 // repository-scoped REST (`repos/{repo}/rulesets`).
 
 import { providerDeclareCapability, providerRequireCapability } from "../provider-core.ts";
-import { ghApi, ghApiSync } from "./transport.ts";
+import { ghApi, ghApiSync, type GhResult } from "./transport.ts";
 
 // Capability declarations (bash org.bash's declarations, carried over).
 providerDeclareCapability("rulesets");
@@ -67,4 +67,35 @@ export function orgReleasesList(repo: string, flags: string[]): string {
   const r = ghApiSync(["release", "list", "-R", repo, ...flags], { tolerateFailure: true });
   if (r.status !== 0) throw new Error(`orgReleasesList failed for '${repo}': ${r.stderr.trim()}`);
   return r.stdout;
+}
+
+/** The REST scope of a package query: one repository's packages, else the
+ * owner's. */
+function packagesScope(owner: string, repo: string | undefined): string {
+  return repo !== undefined && repo !== "" ? `/repos/${owner}/${repo}` : `/users/${owner}`;
+}
+
+/** Query GitHub Packages (REST); `paginate` follows every page and slurps
+ * them into one JSON array of pages. The result is gh's own, failure
+ * included: callers classify an empty answer and an error-shaped one
+ * differently. */
+export async function orgPackagesQuery(owner: string, opts: { type?: string; repo?: string; paginate?: boolean } = {}): Promise<GhResult> {
+  const args = ["api", `${packagesScope(owner, opts.repo)}/packages`, "--method", "GET"];
+  if (opts.paginate === true) args.push("--paginate", "--slurp");
+  if (opts.type !== undefined && opts.type !== "") args.push("-f", `package_type=${opts.type}`);
+  return ghApi(args, { tolerateFailure: true });
+}
+
+/** Query the versions of one GitHub package (REST); `paginate` follows every
+ * page and slurps them into one JSON array of pages. The result is gh's own,
+ * failure included. */
+export async function orgPackageVersionsQuery(
+  owner: string,
+  type: string,
+  name: string,
+  opts: { repo?: string; paginate?: boolean } = {},
+): Promise<GhResult> {
+  const args = ["api", `${packagesScope(owner, opts.repo)}/packages/${type}/${name}/versions`];
+  if (opts.paginate === true) args.push("--paginate", "--slurp");
+  return ghApi(args, { tolerateFailure: true });
 }

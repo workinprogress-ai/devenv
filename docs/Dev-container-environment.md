@@ -169,7 +169,7 @@ The script will:
 
 **Managing environment variables:**
 
-You can use the `devenv-add-env-vars` script to add or update environment variables in `env-vars.sh`:
+You can use the `devenv-add-env-vars` script to add or update environment variables. They are stored in `.runtime/env-vars.user.sh`, which the generated `env-vars.sh` sources last, so they survive updates:
 
 ```bash
 devenv-add-env-vars "MY_VAR=value" "ANOTHER_VAR=value2"
@@ -292,7 +292,7 @@ Other credentials are stored in the `.setup` folder on your host machine:
 
 * **Provider username** (`.setup/provider_user.txt`): Your username on the git host (GitHub today). Not exported as an environment variable — tools resolve identity through the provider accessors (config-first).
 * **Provider organization** (`.setup/provider_org.txt`): The organization on the git host that owns your repositories. Not exported — resolved through the provider org accessor (config `[organization] org` first, then the `.setup/provider_org.txt` seed).
-* **Digital Ocean API Token** (`.setup/digitalocean_token.txt`): Used for infrastructure operations via Digital Ocean. Automatically loaded as `DO_API_TOKEN` en
+* **Digital Ocean API Token** (`.setup/digitalocean_token.txt`): Used for infrastructure operations via Digital Ocean. Automatically loaded as `DIGITALOCEAN_API_TOKEN` en
 vironment variable.
 * **SSH Key** (`.setup/ssh_key_path.txt`): Path to your SSH private key for secure repository access.
 

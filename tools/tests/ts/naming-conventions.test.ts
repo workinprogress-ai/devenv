@@ -32,8 +32,8 @@ describe("naming conventions", () => {
 
   it("Documentation includes good and bad examples", () => {
     const doc = readFileSync(join(ROOT, "docs/Function-Naming-Conventions.md"), "utf8");
-    expect(doc).toContain("Good Names");
-    expect(doc).toContain("Bad Names");
+    expect(doc).toMatch(/good names/i);
+    expect(doc).toMatch(/bad names/i);
   });
 
   it("lib functions follow snake_case convention", () => {

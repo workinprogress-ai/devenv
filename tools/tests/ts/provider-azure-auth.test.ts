@@ -1,6 +1,6 @@
 // Port of tools/tests/lib/test_provider_azure_auth.bats (14 tests): Azure
 // git-transport credentials — the credential helper and the
-// provider_auth_setup_git seam wiring. All git-config writes happen under
+// git credential-helper wiring. All git-config writes happen under
 // GIT_CONFIG_GLOBAL pointed at a temp file — never the executor's real global
 // config. No network: the helper is exercised via `git credential fill` with a
 // piped protocol query.
@@ -9,7 +9,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -95,9 +95,39 @@ describe("azure credential helper", () => {
   });
 });
 
-describe("provider_auth_setup_git wiring", () => {
+// The git credential-helper wiring exists twice: the bash impl the container
+// bootstrap's token import runs, and the TypeScript azureSetupGit that
+// key-update-azure runs. Both must leave git configured the same way.
+const AUTH_TS = pathToFileURL(join(TOOLS, "lib/providers/azure/auth.ts")).href;
+
+/** Wire the helper with the given implementation `times` times, then run AFTER
+ * (bash) against the same environment. */
+function wire(impl: "bash" | "ts", after = "", times = 1): { status: number; out: string } {
+  if (impl === "bash") {
+    return bash(`${SETUP}${"provider_auth_setup_git_impl\n".repeat(times)}${after}`);
+  }
+  let out = "";
+  let status = 0;
+  for (let i = 0; i < times; i++) {
+    const r = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", `const m = await import(${JSON.stringify(AUTH_TS)}); m.azureSetupGit();`],
+      { encoding: "utf8", env: ENV() },
+    );
+    out += (r.stdout ?? "") + (r.stderr ?? "");
+    status = r.status ?? 1;
+  }
+  if (after !== "") {
+    const r = bash(after);
+    out += r.out;
+    status = r.status;
+  }
+  return { status, out };
+}
+
+describe.each(["bash", "ts"] as const)("git credential helper wiring (%s)", (impl) => {
   it("registers canonical and organization-scoped helpers", () => {
-    const r = bash(`${SETUP}provider_auth_setup_git`);
+    const r = wire(impl);
     expect(r.status).toBe(0);
     const cfg = readFileSync(GIT_CONFIG, "utf8");
     // git writes URL-scoped helpers as a [credential "URL"] section.
@@ -107,7 +137,7 @@ describe("provider_auth_setup_git wiring", () => {
   });
 
   it("git credential fill yields the PAT for dev.azure.com and not github.com", () => {
-    const fill = bash(`${SETUP}provider_auth_setup_git\nprintf 'protocol=https\\nhost=dev.azure.com\\n\\n' | git credential fill`);
+    const fill = wire(impl, "printf 'protocol=https\\nhost=dev.azure.com\\n\\n' | git credential fill");
     expect(fill.status).toBe(0);
     expect(fill.out).toContain(`password=${PAT}`);
     // github.com query must not resolve through the azure helper.
@@ -121,19 +151,17 @@ describe("provider_auth_setup_git wiring", () => {
   });
 
   it("visualstudio.com host credential query returns the synthetic PAT", () => {
-    const r = bash(
-      `${SETUP}provider_auth_setup_git\nprintf 'protocol=https\\nhost=test-org.visualstudio.com\\n\\n' | git credential fill`,
-    );
+    const r = wire(impl, "printf 'protocol=https\\nhost=test-org.visualstudio.com\\n\\n' | git credential fill");
     expect(r.status).toBe(0);
     expect(r.out).toContain("username=oauth");
     expect(r.out).toContain(`password=${PAT}`);
   });
 
   it("unrelated visualstudio.com hosts never receive Azure credentials", () => {
-    const r = bash(
-      `${SETUP}provider_auth_setup_git\n` +
+    const r = wire(
+      impl,
       `printf 'protocol=https\\nhost=other-org.visualstudio.com\\n\\n' | git credential fill\n` +
-      `printf 'protocol=https\\nhost=test-org.visualstudio.com.example.com\\n\\n' | git credential fill`,
+        `printf 'protocol=https\\nhost=test-org.visualstudio.com.example.com\\n\\n' | git credential fill`,
     );
     expect(r.out).not.toContain("username=oauth");
     expect(r.out).not.toContain("azure-pat-token");
@@ -146,16 +174,14 @@ describe("provider_auth_setup_git wiring", () => {
       cfgPath,
       "[provider]\nname=azure\nazure_org=MiXeD-OrG\nazure_project=test-proj\n[organization]\nname=t\norg=my-org\n",
     );
-    const r = bash(
-      `${SETUP}provider_auth_setup_git\ngit config --get-urlmatch credential.helper https://mixed-org.visualstudio.com/`,
-    );
+    const r = wire(impl, "git config --get-urlmatch credential.helper https://mixed-org.visualstudio.com/");
     expect(r.status).toBe(0);
     expect(r.out).toContain("azure/credential-helper.sh get");
   });
 
   it("repeated registration preserves unrelated configuration", () => {
     gitCfg("--global credential.https://example.com.username unrelated-user");
-    const r = bash(`${SETUP}provider_auth_setup_git\nprovider_auth_setup_git`);
+    const r = wire(impl, "", 2);
     expect(r.status).toBe(0);
     expect(gitCfg("--get-all credential.https://dev.azure.com.helper").out.split("\n").filter(Boolean).length).toBe(1);
     expect(gitCfg("--get-all credential.https://test-org.visualstudio.com.helper").out.split("\n").filter(Boolean).length).toBe(1);
@@ -168,7 +194,7 @@ describe("provider_auth_setup_git wiring", () => {
       cfgPath,
       "[provider]\nname=azure\nazure_project=test-proj\n[organization]\nname=t\norg=my-org\n",
     );
-    const r = bash(`${SETUP}provider_auth_setup_git`);
+    const r = wire(impl);
     expect(r.status).toBe(0);
     expect(r.out).toContain("visualstudio.com host");
     expect(gitCfg("--get credential.https://dev.azure.com.helper").status).toBe(0);
@@ -181,7 +207,7 @@ describe("provider_auth_setup_git wiring", () => {
       cfgPath,
       "[provider]\nname=azure\nazure_org=test*\nazure_project=test-proj\n[organization]\nname=t\norg=my-org\n",
     );
-    const r = bash(`${SETUP}provider_auth_setup_git`);
+    const r = wire(impl);
     expect(r.status).toBe(0);
     expect(r.out).toContain("invalid organization identity");
     expect(gitCfg("--get credential.https://dev.azure.com.helper").status).toBe(0);
@@ -194,7 +220,7 @@ describe("provider_auth_setup_git wiring", () => {
       cfgPath,
       "[provider]\nname=azure\nazure_org=test-org\nazure_project=test-proj\n[organization]\nname=t\norg=display-org\n",
     );
-    const r = bash(`${SETUP}provider_auth_setup_git`);
+    const r = wire(impl);
     expect(r.status).toBe(0);
     expect(gitCfg("--get credential.https://test-org.visualstudio.com.helper").status).toBe(0);
     expect(gitCfg("--get credential.https://display-org.visualstudio.com.helper").status).not.toBe(0);

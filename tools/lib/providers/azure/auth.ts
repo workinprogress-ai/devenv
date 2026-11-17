@@ -5,14 +5,19 @@
 // with the provider (the 0600 PAT file + AZURE_PAT env leg, written only by
 // key-update-azure); this module reads it for API calls and reports status —
 // it never writes, moves, or displays the token. The git credential-helper
-// wiring and the npmrc wiring remain in setup.bash (bootstrap chain rule).
+// wiring lives here (azureSetupGit); the container bootstrap's own import
+// still wires it through auth.bash.
 //
 // The actual token read lives in http.ts (azurePatGet) so the transport owns
 // its credential path; this module is the status/reporting surface.
 
-import { existsSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { ProviderError } from "../provider-core.ts";
+import { spawnSync } from "node:child_process";
+import { accessSync, chmodSync, constants, existsSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { configGetRaw } from "../../core/config.ts";
+import { logWarn } from "../../core/logging.ts";
+import { ProviderError, providerConfigPath } from "../provider-core.ts";
 import { azurePatGet } from "./http.ts";
 
 export { azurePatGet } from "./http.ts";
@@ -64,4 +69,47 @@ export function requireAzureCredential(): string {
     );
   }
   return pat;
+}
+
+/** Register the PAT-backed git credential helper (credential-helper.sh) for
+ * dev.azure.com and for the `<azure_org>.visualstudio.com` host of the
+ * configured organization, in the user's global git config (auth.bash
+ * provider_auth_setup_git_impl parity). Host-scoped, idempotent: re-running
+ * rewrites the same config lines. A missing or malformed `[provider]
+ * azure_org` skips only the visualstudio.com host, with a warning. Throws a
+ * ProviderError when git refuses a registration. */
+export function azureSetupGit(): void {
+  const helper = join(dirname(fileURLToPath(import.meta.url)), "credential-helper.sh");
+  try {
+    accessSync(helper, constants.X_OK);
+  } catch {
+    try {
+      chmodSync(helper, 0o755);
+    } catch {
+      // the helper is invoked as an argument of its own path; a read-only checkout still works
+    }
+  }
+  const register = (host: string, what: string): void => {
+    const r = spawnSync("git", ["config", "--global", `credential.https://${host}.helper`, `${helper} get`], {
+      stdio: "ignore",
+    });
+    if (r.status !== 0) throw new ProviderError(`failed registering the ${what} in git config`);
+  };
+  register("dev.azure.com", "azure credential helper");
+
+  // The Azure organization ([provider] azure_org) is the one the API and the git
+  // remotes use, so the visualstudio.com host derives from it, not from the
+  // generic [organization] org.
+  const configPath = providerConfigPath();
+  const configured = existsSync(configPath) ? (configGetRaw(configPath, "provider", "azure_org") ?? "") : "";
+  if (configured === "") {
+    logWarn("organization identity unavailable; skipping visualstudio.com host credential helper");
+    return;
+  }
+  const org = configured.toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(org)) {
+    logWarn("invalid organization identity; skipping visualstudio.com host credential helper");
+    return;
+  }
+  register(`${org}.visualstudio.com`, "visualstudio.com host credential helper");
 }

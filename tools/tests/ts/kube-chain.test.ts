@@ -51,7 +51,7 @@ beforeEach(() => {
   );
 });
 
-const { NAMESPACE: _ns, DEVENV_REPO: _dr, ...procEnv } = process.env;
+const { NAMESPACE: _ns, KUBE_NAMESPACE: _kns, DEVENV_REPO: _dr, ...procEnv } = process.env;
 
 function kubeEnv(): Record<string, string> {
   return {

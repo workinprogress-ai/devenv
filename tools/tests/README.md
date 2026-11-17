@@ -3,17 +3,16 @@
 One lane, one gate:
 
 - **vitest** — `tools/tests/ts/**/*.test.ts`, run by `pnpm test` (or
-  `pnpm test:ts`). The bats corpus retired with the Phase-11 port: the
-  fork×3 suites and the isolation canary run as vitest suites driving the
-  same pty machinery (`script -qec`) from the shared harness
+  `pnpm test:ts`). Suites that need a terminal (the fork suites, the
+  isolation canary) drive a pty (`script -qec`) from the shared harness
   (`tools/tests/ts/harness/`), and the parallel stub system lives in
   `stubCli` (call-log convention included).
 
-The one stay-bats suite is the manual-only live lane (below): it hits real
-provider APIs and never runs in the gate — kept in bats behind an explicit
-runner invocation (the recorded Phase-11 lane decision).
+The one suite outside that lane is the manual-only live lane (below), written
+for the `bats` runner: it hits real provider APIs and never runs in the gate,
+only through an explicit invocation.
 
-### Shared vitest harness (`tools/tests/ts/harness/`)
+## Shared vitest harness (`tools/tests/ts/harness/`)
 
 Black-box suites spawn tools and assert on status/output; the spawn/stub/
 tmp boilerplate is shared, not per-suite:
@@ -59,13 +58,18 @@ test file and makes the guarantee structural:
   needs another provider or root sets its own value.
 - `HOME` is an empty directory with a fixed git identity, and every devenv
   tools directory (the generated stubs) is removed from `PATH`.
-- A canary fails the test that reaches a backend: shim `gh`, `az`, `curl`,
-  `wget` and `ssh` executables sit first on `PATH` (a suite's own stub
+- A canary fails the test that reaches a backend: a shim executable for every
+  entry of `CANARY_COMMANDS` (`harness/canary.ts`: provider and network
+  clients, package managers, remote-copy tools, host-affecting commands) sits
+  first on `PATH` (a suite's own stub
   directory shadows them), a fetch guard rejects every non-loopback request in
   the worker and in every spawned node process, and a check after every test
-  and after every file turns a recorded hit into a failure. What it does not
-  cover: `git` is not shimmed (suites need it and use local file remotes), and
-  a direct `node:http`/`https`/`net` client would bypass the fetch guard, which
+  and after every file turns a recorded hit into a failure. `git` is not
+  shimmed (suites need it and use local file remotes); instead the worker sets
+  `GIT_ALLOW_PROTOCOL=file` and the fixture `.gitconfig` allows only the file
+  transport, so a clone, fetch, push or ls-remote over https or ssh fails. What
+  it does not cover: a direct `node:http`/`https`/`net` client would bypass the
+  fetch guard, which
   is why `network-egress-guard.test.ts` forbids one in regular tool code. A
   suite that builds a minimal env for a child process spreads `canaryEnv()`
   into it so the shims and the preload still apply; a suite that builds its
@@ -195,30 +199,27 @@ harness for spawn/stub/tmp boilerplate; one `it` per pinned behavior.
 
 ## Test Coverage Areas
 
-### Bootstrap & Container
+Every suite is a `*.test.ts` file directly under `tools/tests/ts/`, named for
+the tool or library it covers. The main groupings:
 
-- `bootstrap-functions.test.ts` - Bootstrap script functions and error handling (ported from `test_bootstrap_functions.bats`)
-- `test_container_start.bats` - Container startup locking and coordination
-- `test_install_extras.bats` - Install-extras script validation
-- `test_background_updates.bats` - Background update checker
-
-### Hygiene & Standards
-
-- `test_outdated_comments.bats` - Checks for TODO/FIXME and commented-out code
-- `test_function_documentation.bats` - Function documentation standards
-- `test_logging_documentation.bats` - Logging framework documentation validation
-- `test_magic_numbers.bats` - Validates readonly constants instead of magic numbers
-- `test_pre_commit_hooks.bats` - Pre-commit hook validation
-
-### Issue & Project Management
-
-- `test_issue_grooming_wizard.bats` - Issue grooming wizard validation
-- `test_issue_management.bats` - Issue create/list/update/close/select scripts
-- `test_project_management.bats` - Project add-issue and update-issue scripts
-
-### Service Configuration
-
-- `test_services_config.bats` - Service configuration repository management
+- **Tools, one suite per wrapper family** — `issue-*.test.ts`, `pr-*.test.ts`,
+  `git-*.test.ts`, `repo-*.test.ts`, `kube-*.test.ts`, `mongo-*.test.ts`,
+  `fork-*.test.ts`, `commit-*.test.ts` and the `cli-contract-*.test.ts`
+  sweeps that pin option parsing and exit codes across tools.
+- **Provider layer** — `provider-*.test.ts`, `azure.test.ts`,
+  `github-*.test.ts`, `facade-loader.test.ts`: the facade, capability gates,
+  transport, auth, the routing lock and the bash/TypeScript agreement matrix.
+- **Core libraries** — `core-*.test.ts`, `config-reader.test.ts`,
+  `error-handling.test.ts`, `lib-core.test.ts`, `domain-*.test.ts`.
+- **Bootstrap and container** — `bootstrap-functions.test.ts`,
+  `container-start.test.ts`, `background-updates.test.ts`,
+  `entry-stubs-sync.test.ts`, `devcontainer-json.test.ts`,
+  `unwip-install-extras.test.ts`.
+- **Hygiene and standards** — `outdated-comments.test.ts`,
+  `function-documentation.test.ts`, `logging-documentation.test.ts`,
+  `magic-numbers.test.ts`, `naming-conventions.test.ts`,
+  `pre-commit-hooks.test.ts`, `identity-docs.test.ts`,
+  `lint-documentation.test.ts`, `lint-skills.test.ts`.
 
 ## Best Practices
 
@@ -239,11 +240,10 @@ Tests run automatically in GitHub Actions on:
 
 ## Debugging Failed Tests
 
-1. Run with verbose output: `bats -t tests/test_file.bats`
-2. Run with debug mode: `DEBUG=1 bats tests/test_file.bats`
-3. Check test temp directory (not cleaned up on failure for inspection)
-4. Add `echo` statements in tests for debugging
-5. Run single test: Use `bats tests/test_file.bats -f "test name pattern"`
+1. Run with verbose output: `pnpm exec vitest run tools/tests/ts/<file>.test.ts --reporter=verbose`
+2. Run a single test by name: `pnpm exec vitest run tools/tests/ts/<file>.test.ts -t "test name pattern"`
+3. Check the test's scratch directory (not cleaned up on failure, when the suite keeps it) for inspection
+4. Add `console.log` statements in the test for debugging
 
 ## Adding New Tests
 
@@ -253,12 +253,9 @@ When adding new scripts or functions:
 2. Test happy path (normal successful execution)
 3. Test error conditions
 4. Test edge cases
-5. Verify script syntax with `bash -n`
-6. Run `./tests/run-tests.sh` to ensure no regressions
+5. Run `./tools/tests/run-devenv-tests.sh` to ensure no regressions
 
 ## See Also
 
-- [BATS Documentation](https://bats-core.readthedocs.io/)
-- [Contributing Guide](../docs/Contributing.md)
-- [Coding Standards](../docs/Coding-standards.md)
-- [Function Naming Conventions](../docs/Function-Naming-Conventions.md)
+- [Vitest Documentation](https://vitest.dev/)
+- [Function Naming Conventions](../../docs/Function-Naming-Conventions.md)

@@ -72,19 +72,19 @@ async function main(argv: string[]): Promise<number> {
         issueNumber = p;
       } else {
         logError(`Unexpected argument: ${p}`);
-        console.log("Use --help for usage information");
+        console.error("Use --help for usage information");
         return EXIT_MISUSE;
       }
     }
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   if (issueNumber === "") {
     logError("Issue number is required");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 

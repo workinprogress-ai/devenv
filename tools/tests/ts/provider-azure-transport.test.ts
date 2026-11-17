@@ -147,21 +147,26 @@ describe("azure failure wording", () => {
 
 describe("key-update-azure", () => {
   /** A fixture checkout (a copy of tools/lib) under a directory whose name
-   * holds a single quote, with a recording stand-in for provider-core.bash. */
+   * holds a single quote, with recording stand-ins for the setup step modules. */
   function fixtureCheckout(): { script: string; log: string; checkout: string } {
     const checkout = join(root, "it's a checkout");
     mkdirSync(join(checkout, "tools"), { recursive: true });
     cpSync(LIB, join(checkout, "tools", "lib"), { recursive: true });
     const log = join(root, "bash.log");
-    writeFileSync(
-      join(checkout, "tools", "lib", "providers", "provider-core.bash"),
-      [
-        "provider_load() { :; }",
-        `provider_auth_setup_git() { echo "setup_git" >> '${log}'; }`,
-        `provider_bootstrap_call() { echo "bootstrap $*" >> '${log}'; }`,
-        "",
-      ].join("\n"),
-    );
+    // Recording stand-ins for the TS npmrc and nuget-sources step modules.
+    mkdirSync(join(checkout, "tools", "ts", "setup-steps"), { recursive: true });
+    for (const step of ["npmrc", "nuget"]) {
+      const module = step === "npmrc" ? "npmrc.ts" : "nuget-sources.ts";
+      writeFileSync(
+        join(checkout, "tools", "ts", "setup-steps", module),
+        [
+          `import { appendFileSync } from "node:fs";`,
+          `appendFileSync(${JSON.stringify(log)}, "${step}-step root=" + process.env.DEVENV_TOOLBOX_ROOT + "\\n");`,
+          `process.exit(process.env.${step.toUpperCase()}_STEP_FAIL === "1" ? 1 : 0);`,
+          "",
+        ].join("\n"),
+      );
+    }
     return { script: join(checkout, "tools", "lib", "providers", "azure", "key-update.ts"), log, checkout };
   }
 
@@ -188,13 +193,27 @@ describe("key-update-azure", () => {
     };
   }
 
-  it("runs the wiring with a tools root holding a quote (passed as a parameter, not interpolated)", () => {
+  it("runs the wiring with a tools root holding a quote (passed as a path, not interpolated)", () => {
     const r = rotate({});
     expect(r.output).not.toContain("syntax error");
     expect(r.status).toBe(0);
-    expect(r.log).toContain("setup_git");
-    expect(r.log).toMatch(/bootstrap configure_npmrc .*\.npmrc npmrc/);
-    expect(r.log).toContain("bootstrap configure_nuget");
+    expect(readFileSync(join(root, "home", ".gitconfig"), "utf8")).toContain("credential-helper.sh get");
+    expect(r.log).toContain("npmrc-step root=" + join(root, "it's a checkout"));
+    expect(r.log).toContain("nuget-step root=" + join(root, "it's a checkout"));
+  });
+
+  it("a failing npm step warns and exits non-zero without undoing the rotation", () => {
+    const r = rotate({ NPMRC_STEP_FAIL: "1" });
+    expect(r.output).toContain("npm feed re-wiring failed");
+    expect(r.status).toBe(1);
+    expect(existsSync(join(root, "home", ".keys", "azure-devops-pat"))).toBe(true);
+  });
+
+  it("a failing nuget step warns and exits non-zero without undoing the rotation", () => {
+    const r = rotate({ NUGET_STEP_FAIL: "1" });
+    expect(r.output).toContain("NuGet feed re-wiring failed");
+    expect(r.status).toBe(1);
+    expect(existsSync(join(root, "home", ".keys", "azure-devops-pat"))).toBe(true);
   });
 
   it("warns when a stale AZURE_PAT in the environment differs from the new token", () => {

@@ -55,7 +55,7 @@ function writeGhStub(): void {
       'if [ "$1" = "auth" ]; then exit 0; fi',
       'case "$1 $2" in',
       '  "pr list") echo "7" ;;',
-      '  "pr merge") exit 0 ;;',
+      '  "pr merge") [ -n "${MERGE_FAIL:-}" ] && { echo "merge-refused-detail" >&2; exit 1; }; exit 0 ;;',
       '  "pr view")',
       '    [ -n "${VIEW_FAIL:-}" ] && { echo "boom" >&2; exit 1; }',
       '    if [[ " $* " == *" body "* ]] && [[ " $* " != *"title"* ]]; then',
@@ -129,6 +129,15 @@ describe("pr-merge gates", () => {
     const r = prMerge(["--no-issue-id"]);
     expect(r.status).toBe(0);
     expect(ghLog()).toContain("gh pr merge 7");
+  });
+
+  it("shows the provider's reason when the merge itself fails", () => {
+    commit("feat: clean");
+    pushBranch("feature/x");
+    const r = prMerge(["--no-issue-id"], { MERGE_FAIL: "1" });
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("Failed to merge PR #7");
+    expect(r.out).toContain("merge-refused-detail");
   });
 
   it("blocks when the pushed range carries a WIP commit", () => {

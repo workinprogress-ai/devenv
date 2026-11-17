@@ -11,8 +11,12 @@ const SCRIPT = join(__dirname, "../../ts/lint-skills.ts");
 let workDir: string;
 let tree: string;
 
-function runLint(): { status: number; out: string } {
-  const r = spawnSync("node", [SCRIPT, workDir], { encoding: "utf8", timeout: 60_000 });
+function runLint(env: Record<string, string> = {}): { status: number; out: string } {
+  const r = spawnSync("node", [SCRIPT, workDir], {
+    encoding: "utf8",
+    timeout: 60_000,
+    env: { ...process.env, ...env },
+  });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
@@ -275,6 +279,37 @@ describe("lint-skills", () => {
     const r = runLint();
     expect(r.status).toBe(0);
     expect(r.out).not.toContain("SK007");
+  });
+
+  it("SK003: a folded (description: >) description is measured by its full text", () => {
+    const line = "z".repeat(90);
+    const body = Array.from({ length: 25 }, () => `  ${line}`).join("\n");
+    write("devenv-alpha/SKILL.md", `---\nname: devenv-alpha\ndescription: >\n${body}\nuser-invocable: true\n---\n`);
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK003");
+  });
+
+  it("SK003: a short folded description passes", () => {
+    write("devenv-alpha/SKILL.md", "---\nname: devenv-alpha\ndescription: >\n  short text\n  more\nuser-invocable: true\n---\n");
+    const r = runLint();
+    expect(r.status).toBe(0);
+    expect(r.out).not.toContain("SK003");
+  });
+
+  it("strict mode: a warning alone fails; default mode tolerates it", () => {
+    write("devenv-alpha/SKILL.md", "---\nname: devenv-alpha\ndescription: x\n---\n# A\n");
+    expect(runLint().status).toBe(0);
+    const strict = runLint({ SK_LINT_STRICT: "1" });
+    expect(strict.status).toBe(1);
+    expect(strict.out).toContain("SK-WARN");
+  });
+
+  it("SK006: a git failure in a tree with .git is an error, not 'not found'", () => {
+    mkdirSync(join(workDir, ".git"));
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK006");
   });
 });
 

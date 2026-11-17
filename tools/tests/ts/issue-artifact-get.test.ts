@@ -104,6 +104,24 @@ describe("issue-artifact-get", () => {
     expect(header["issue_number"]).toBe("42");
   });
 
+  it("duplicate header keys: the first value wins", () => {
+    const body = "<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:dupkey\nartifact_type: plan\nartifact_type: research\n-->\n\ntext";
+    setResponses(`[${JSON.stringify({ id: 7, body, user: { login: "o" }, url: "https://x/7", issue_url: "https://github.com/org/repo/issues/42" })}]`);
+    const r = runTool(["--issue", "42", "--doc-id", "dv1:dupkey"]);
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout) as Record<string, unknown>;
+    expect(out["artifact_type"]).toBe("plan");
+    expect((out["header"] as Record<string, string>)["artifact_type"]).toBe("plan");
+  });
+
+  it("a prose artifact_type line outside the header block does not override the header", () => {
+    const body = "<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:prosekey\nartifact_type: plan\n-->\n\nartifact_type: research\n";
+    setResponses(`[${JSON.stringify({ id: 8, body, user: { login: "o" }, url: "https://x/8", issue_url: "https://github.com/org/repo/issues/42" })}]`);
+    const r = runTool(["--issue", "42", "--doc-id", "dv1:prosekey"]);
+    expect(r.status).toBe(0);
+    expect((JSON.parse(r.stdout) as Record<string, unknown>)["artifact_type"]).toBe("plan");
+  });
+
   it("--full swaps bodyPreview for the full body", () => {
     setResponses(`[${comment(111, "dv1:k", "full-body-text")}]`);
     const r = runTool(["--issue", "42", "--doc-id", "dv1:k", "--full"]);
@@ -167,5 +185,16 @@ describe("issue-artifact-get", () => {
   it("an unknown flag exits 2", () => {
     const r = runTool(["--bogus"]);
     expect(r.status).toBe(2);
+  });
+
+  it("a CRLF comment body resolves by doc_id with clean header values", () => {
+    const c = JSON.parse(comment(9, "dv1:crlf")) as { body: string };
+    c.body = c.body.replaceAll("\n", "\r\n");
+    setResponses(JSON.stringify([c]));
+    const r = runTool(["--issue", "42", "--doc-id", "dv1:crlf"]);
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout) as { doc_id: string; header: Record<string, string> };
+    expect(out.doc_id).toBe("dv1:crlf");
+    expect(out.header["artifact_type"]).toBe("plan");
   });
 });

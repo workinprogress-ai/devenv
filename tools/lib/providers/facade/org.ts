@@ -13,6 +13,7 @@
 // The module never exits; failures throw ProviderError and callers decide.
 
 import { ProviderError } from "../provider-core.ts";
+import type { GhResult } from "../github/transport.ts";
 import { loadProviderModules } from "./provider-loader.ts";
 import type * as ghTypes from "../github/org.ts";
 import type * as azTypes from "../azure/org.ts";
@@ -109,4 +110,37 @@ export async function orgReleasesList(repo: string, flags: string[] = []): Promi
     return m.az!.orgReleasesList(repo);
   }
   return m.gh!.orgReleasesList(repo, flags);
+}
+
+/** Query GitHub Packages for an owner (or one of its repositories); the
+ * result is gh's own, failure included. GitHub-native: Azure Artifacts feeds
+ * are a different surface. */
+export async function orgPackagesQuery(
+  owner: string,
+  opts: { type?: string; repo?: string; paginate?: boolean } = {},
+): Promise<GhResult> {
+  const m = await load();
+  if (m.provider === "azure") {
+    return azureUnsupported("org_packages_query");
+  }
+  return m.gh!.orgPackagesQuery(owner, opts);
+}
+
+/** Query the versions of one GitHub package (GitHub-native, as above). */
+export async function orgPackageVersionsQuery(
+  owner: string,
+  type: string,
+  name: string,
+  opts: { repo?: string; paginate?: boolean } = {},
+): Promise<GhResult> {
+  const m = await load();
+  if (m.provider === "azure") {
+    return azureUnsupported("org_package_versions_query");
+  }
+  return m.gh!.orgPackageVersionsQuery(owner, type, name, opts);
+}
+
+/** The error for a verb azure has no equivalent of. */
+function azureUnsupported(verb: string): never {
+  throw new ProviderError(`${verb} is not supported on provider 'azure'`);
 }

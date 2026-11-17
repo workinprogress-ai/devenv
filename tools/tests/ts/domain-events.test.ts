@@ -94,11 +94,10 @@ describe("write side (PR signals)", () => {
     }
   });
 
-  it("signalPrEventsForPr requests the PR body with the correct gh argv", async () => {
-    // Pins the gh invocation shape (the F1 class): the module must call
-    // `gh pr view … --json body --jq .body`. Verified through a PATH stub
-    // with an argv log — the real gh is never contacted (no network
-    // coupling) and the module's own argv construction is what executes.
+  it("signalPrEventsForPr requests the PR body through the provider facade", async () => {
+    // Verified through a PATH stub with an argv log: the real gh is never
+    // contacted, and the module's own call path is what executes. The body
+    // links no issue, so no signal script runs.
     
     const stubDir = mkdtempSync(join(tmpdir(), "ev-argv-"));
     writeFileSync(
@@ -107,7 +106,7 @@ describe("write side (PR signals)", () => {
         "#!/usr/bin/env bash",
         'printf \'%s\\n\' "gh $*" >> "__LOG__"',
         'if [ "$1 $2" = "auth status" ]; then exit 0; fi',
-        'if [ "$1 $2" = "pr view" ]; then echo "PR BODY"; exit 0; fi',
+        'if [ "$1 $2" = "pr view" ]; then echo \'{"body":"no linked issues"}\'; exit 0; fi',
         "exit 0",
         "",
       ].join("\n").replaceAll("__LOG__", join(stubDir, "calls.log")),
@@ -116,10 +115,11 @@ describe("write side (PR signals)", () => {
     const savedPath = process.env.PATH;
     try {
       process.env.PATH = `${stubDir}:${savedPath ?? ""}`;
-      const { ghApiSync } = await import("../../lib/providers/provider-core.ts");
-      ghApiSync(["pr", "view", "1", "--json", "body", "--jq", ".body"], { tolerateFailure: true });
+      const { signalPrEventsForPr } = await import("../../lib/domain/events.ts");
+      const r = await signalPrEventsForPr("created", "1", "org/repo");
+      expect(r.fired).toEqual([]);
       const log = join(stubDir, "calls.log");
-      expect(readFileSync(log, "utf8")).toContain("gh pr view 1 --json body --jq .body");
+      expect(readFileSync(log, "utf8")).toContain("gh pr view 1 --json body -R org/repo");
     } finally {
       process.env.PATH = savedPath;
       rmSync(stubDir, { recursive: true, force: true });

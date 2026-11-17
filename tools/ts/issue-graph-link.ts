@@ -87,13 +87,13 @@ async function main(argv: string[]): Promise<number> {
     refs = cli.positionals;
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   if (refs.length !== 2) {
     logError("Parent and child references are required: issue-graph-link PARENT CHILD [--unlink]");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
   const parent = parseRef(refs[0] ?? "");

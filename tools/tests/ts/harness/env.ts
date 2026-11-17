@@ -77,6 +77,10 @@ const GIT_CONFIG = [
   "\tgpgsign = false",
   "[advice]",
   "\tdetachedHead = false",
+  "[protocol]",
+  "\tallow = never",
+  "[protocol \"file\"]",
+  "\tallow = always",
   "",
 ].join("\n");
 
@@ -117,6 +121,8 @@ export function applyHermeticEnv(): void {
   process.env["DEVENV_ROOT"] = join(dir, "root");
   process.env["GIT_CONFIG_NOSYSTEM"] = "1";
   process.env["GIT_TERMINAL_PROMPT"] = "0";
+  // Only the local file transport: a clone, fetch, push or ls-remote over https or ssh fails.
+  process.env["GIT_ALLOW_PROTOCOL"] = "file";
 
   // The canary: shims first on PATH, and a fetch guard preloaded into every node process.
   process.env["DEVENV_TEST_CANARY_LOG"] = canaryLogPath(dir);

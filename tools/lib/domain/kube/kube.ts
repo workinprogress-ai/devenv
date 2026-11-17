@@ -118,7 +118,7 @@ export function partialMatches(candidate: string, names: string[]): string[] {
   return names.filter((n) => n.toLowerCase().includes(c));
 }
 
-/** Resolve a namespace: explicit arg → NAMESPACE env → exact match →
+/** Resolve a namespace: explicit arg → KUBE_NAMESPACE env → exact match →
  * partial-match (unique auto-selects) → [caller handles ambiguity/picker]
  * → current-context default. The interactive legs live in the calling
  * tools (ui flows); this returns either a resolved name or a structured
@@ -130,7 +130,7 @@ export type NamespaceResolution =
   | { kind: "no-match"; candidate: string; available: string[] };
 
 export function resolveNamespace(argNs: string): NamespaceResolution {
-  const candidate = argNs || process.env.NAMESPACE || "";
+  const candidate = argNs || process.env.KUBE_NAMESPACE || "";
   if (candidate !== "" && namespaceExists(candidate)) {
     return { kind: "resolved", ns: candidate };
   }
@@ -152,6 +152,13 @@ export function resolveNamespace(argNs: string): NamespaceResolution {
   // Nothing given: the caller decides interactive-vs-default; expose the
   // context default for the non-interactive leg here.
   return { kind: "resolved", ns: currentNamespaceDefault() };
+}
+
+/** The kubectl current-context name, or "unknown" when it cannot be read —
+ * shown in confirmation prompts so the target cluster is never implicit. */
+export function currentContext(): string {
+  const { stdout, status } = spawnKubectl(["config", "current-context"]);
+  return status === 0 && stdout.trim() !== "" ? stdout.trim() : "unknown";
 }
 
 /** The kubectl current-context default namespace (or "default"), with the

@@ -63,7 +63,7 @@ Interactive-first kubectl wrappers; every selector auto-picks a single match and
 
 - `repo-bump-version <patch|minor|major> [repos…]` — forces an empty commit per named repo to trigger semantic-release version bumps.
 - `repo-calc-version` — prints the repo's next calculated version.
-- `run-devenv-tests [--jobs N] [--sequential]` — the workspace test suite runner (bats + vitest lanes); default parallelism `nproc` capped at 8.
+- `run-devenv-tests [--jobs N] [--sequential]` — the workspace test suite runner (the vitest lane); default parallelism `nproc` capped at 8.
 
 ### Network
 

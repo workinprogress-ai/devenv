@@ -11,6 +11,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { requireCommandOrExit } from "../lib/core/commands.ts";
+import { writeMongoUriConfig } from "../lib/core/mongo-uri-config.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 
 assertNodeFloor();
@@ -44,7 +45,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   backupDir = cli.positionals[1] as string;
 } catch (err) {
   console.error(errorMessage(err));
-  console.log("Use --help for usage information");
+  console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
 requireCommandOrExit("mongodump", undefined, EXIT_GENERAL_ERROR);
@@ -61,7 +62,6 @@ const timestamp =
   `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
   `_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 const outputDir = join(backupDir, timestamp);
-mkdirSync(outputDir, { recursive: true });
 
 console.log("Listing non-built-in databases from the MongoDB cluster...");
 
@@ -103,7 +103,7 @@ for (const line of readFileSync(listFile, "utf8").split("\n")) {
     console.log(`Skipping built-in database: ${name}`);
     continue;
   }
-  if (!/^[A-Za-z0-9_-]+$/.test(name)) {
+  if (!/^[A-Za-z0-9_.-]+$/.test(name)) {
     rmSync(listDir, { recursive: true, force: true });
     console.error(`Error: mongosh returned an invalid database name: '${name}' — aborting backup.`);
     process.exit(EXIT_API_FAILURE);
@@ -119,17 +119,26 @@ if (databases.length === 0) {
 
 console.log(`Found databases: ${databases.join(" ")}`);
 
+// Created only once there is something to dump, so a failed listing leaves no
+// empty timestamp directory behind.
+mkdirSync(outputDir, { recursive: true });
+
 // Back up each database individually; a failed dump aborts the backup (the
 // completed dumps stay on disk, the failure is reported non-zero).
+// mongodump reads the URI from a private config file so the credentials never
+// appear on its command line.
+const uriConfig = writeMongoUriConfig(connectionString);
 for (const db of databases) {
   console.log(`Backing up database: ${db}`);
-  const r = spawnSync("mongodump", [`--uri=${connectionString}`, "--db", db, "--out", outputDir], {
+  const r = spawnSync("mongodump", [`--config=${uriConfig.path}`, "--db", db, "--out", outputDir], {
     stdio: "inherit",
   });
   if (r.status !== 0) {
+    uriConfig.cleanup();
     console.error(`Error: Backup failed for database: ${db}`);
     process.exit(EXIT_GENERAL_ERROR);
   }
 }
 
+uriConfig.cleanup();
 console.log(`Backup completed! Your backup is stored in: ${outputDir}`);

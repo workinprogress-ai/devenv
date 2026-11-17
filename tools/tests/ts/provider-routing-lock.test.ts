@@ -38,7 +38,7 @@ const TRANSPORT_PATTERNS = [
 
 // Scan targets: wrappers + non-provider libs + bootstrap. The provider
 // modules (tools/lib/providers/**) are where gh calls belong and are excluded.
-const LOCK_TARGETS = ["tools/scripts", "tools/lib", ".devcontainer"];
+const LOCK_TARGETS = ["tools/lib", ".devcontainer"];
 
 // Residue patterns: executable reads of the branded identity vars.
 const RESIDUE_PATTERNS = [

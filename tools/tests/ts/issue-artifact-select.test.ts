@@ -164,4 +164,25 @@ describe("issue-artifact-select", () => {
   it("an unknown flag exits 2", () => {
     expect(runTool(["--bogus"]).status).toBe(2);
   });
+
+  it("--artifact-type implementation-plan selects a plan artifact (canonical type)", () => {
+    writeFileSync(responses, `issues/42/comments\t[${artifactComment({ id: 12, docId: "dv1:p", artifactType: "plan" })}]\n`);
+    const r = runTool(["--issue", "42", "--artifact-type", "implementation-plan", "--format", "comment-id"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe("12");
+  });
+
+  it("a CRLF comment body is still an artifact with a clean doc_id", () => {
+    const c = JSON.parse(artifactComment({ id: 13, docId: "dv1:crlf" })) as { body: string };
+    c.body = c.body.replaceAll("\n", "\r\n");
+    writeFileSync(responses, `issues/42/comments\t${JSON.stringify([c])}\n`);
+    const r = runTool(["--issue", "42", "--doc-id", "dv1:crlf", "--format", "doc-id"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe("dv1:crlf");
+  });
+
+  it("a crash while enumerating exits with the API-failure code, not the ambiguity code", () => {
+    writeFileSync(responses, "issues/42/comments\t[null]\n");
+    expect(runTool(["--issue", "42"]).status).toBe(4);
+  });
 });

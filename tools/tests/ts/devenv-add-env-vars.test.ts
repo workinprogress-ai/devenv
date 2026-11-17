@@ -2,7 +2,7 @@
 // Values must survive being sourced back, exactly: %q quoting keeps spaces,
 // quotes, command substitution, globs and newlines literal; a plain token
 // stays readable and unquoted. The tool writes to
-// $DEVENV_ROOT/.runtime/env-vars.sh, so every test points DEVENV_ROOT at a
+// $DEVENV_ROOT/.runtime/env-vars.user.sh, so every test points DEVENV_ROOT at a
 // throwaway directory; the real file is never touched.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
@@ -31,8 +31,7 @@ function sourcedValue(name: string): string {
 beforeEach(() => {
   root = join(tmpdir(), `envvars-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(join(root, ".runtime"), { recursive: true });
-  envFile = join(root, ".runtime", "env-vars.sh");
-  writeFileSync(envFile, "#!/bin/bash\n# generated\n");
+  envFile = join(root, ".runtime", "env-vars.user.sh");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -87,6 +86,18 @@ describe("devenv-add-env-vars", () => {
     expect(runTool("MY_VAR=second value").status).toBe(0);
     expect(readFileSync(envFile, "utf8").match(/^export MY_VAR=/gm)?.length).toBe(1);
     expect(sourcedValue("MY_VAR")).toBe("second value");
+  });
+
+  it("never touches the generated env-vars.sh", () => {
+    const generated = join(root, ".runtime", "env-vars.sh");
+    writeFileSync(generated, "#!/bin/bash\n# generated\n");
+    expect(runTool("MY_VAR=1").status).toBe(0);
+    expect(readFileSync(generated, "utf8")).toBe("#!/bin/bash\n# generated\n");
+  });
+
+  it("the user file is owner-only", () => {
+    expect(runTool("MY_VAR=1").status).toBe(0);
+    expect(statSync(envFile).mode & 0o777).toBe(0o600);
   });
 
   it("an invalid variable name is still refused", () => {

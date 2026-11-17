@@ -258,6 +258,9 @@ describe("azure list and comment shapes", () => {
   const listHandler = (r: Req): Response | undefined => {
     if (r.url.includes("/wiql")) return json({ workItems: [{ id: 12 }] });
     if (r.url.includes("/workitemsbatch")) return json({ value: [batchItem] });
+    if (/\/workitemtypes(\?|$)/.test(r.url)) {
+      return json({ value: [{ name: "User Story", states: [{ name: "New", category: "Proposed" }, { name: "Closed", category: "Completed" }] }] });
+    }
     return undefined;
   };
 
@@ -376,6 +379,21 @@ describe("ruleset error contract (facade)", () => {
     expect(created.stderr).not.toBe("");
     const updated = await org.orgRulesetUpdate("test-project/repo", "1", payload);
     expect(updated.ok).toBe(false);
+  });
+
+  it("azure facade edit rejects a label containing ';' instead of splitting it into two tags", async () => {
+    const root = mkdtempSync(join(tmpdir(), "pip-fac-"));
+    cleanups.push(root);
+    writeFileSync(join(root, "devenv.config"), "[provider]\nname=azure\nazure_org=test-org\nazure_project=test-project\n");
+    process.env["DEVENV_ROOT"] = root;
+    const { calls } = editableItem({ "System.WorkItemType": "User Story", "System.Tags": "" });
+    vi.resetModules();
+    const facade = await import("../../lib/providers/facade/issues.ts");
+    await expect(facade.issuesEdit("", 9, { addLabel: ["a;b"] })).rejects.toThrow(/contains ';'/);
+    await expect(facade.issuesEdit("", 9, { removeLabel: ["ok", "x;y"] })).rejects.toThrow(/contains ';'/);
+    expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
+    await facade.issuesEdit("", 9, { addLabel: ["a", "b"] });
+    expect(JSON.stringify(calls.filter((c) => c.method === "PATCH")[0]?.body)).toContain("a; b");
   });
 
   it("azure facade edit routes --type without a body to the set-type verb", async () => {

@@ -428,7 +428,7 @@ describe("wrapper suite additions (bats port)", () => {
   });
 });
 
-// ── special/repo-reset-merge-config ─────────────────────────────────────────
+// ── repo-reset-merge-config ─────────────────────────────────────────────────
 
 const SRM = join(TOOLS, "ts", "repo-reset-merge-config.ts");
 

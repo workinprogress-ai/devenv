@@ -21,6 +21,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
+import { issueTypeNames, resolveIssueType } from "../lib/domain/issues/types.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import {
   issuesExists,
@@ -35,14 +36,6 @@ assertNodeFloor();
 
 const SCRIPT_VERSION = "1.0.0";
 const SCRIPT_NAME = basename(process.argv[1] ?? "issue-update.ts");
-
-const CANONICAL_TYPES = ["Bug", "Feature", "Task", "Epic"];
-const TYPE_ALIASES: Record<string, string> = {
-  defect: "Bug", bugfix: "Bug",
-  enhancement: "Feature", feature: "Feature", story: "Feature",
-  task: "Task", chore: "Task",
-  epic: "Epic",
-};
 
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} ISSUE_NUMBER [OPTIONS]
@@ -76,14 +69,6 @@ Examples:
   process.exit(0);
 }
 
-function normalizeIssueType(input: string): string | null {
-  const lowered = input.toLowerCase();
-  for (const t of CANONICAL_TYPES) {
-    if (lowered === t.toLowerCase()) return t;
-  }
-  return TYPE_ALIASES[lowered] ?? null;
-}
-
 async function main(argv: string[]): Promise<number> {
   let issueNumber = "";
   let newTitle = "";
@@ -111,6 +96,7 @@ async function main(argv: string[]): Promise<number> {
 
   try {
     const cli = toolCli({
+      rejectEmptyValues: true,
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv: rest,
@@ -156,13 +142,13 @@ async function main(argv: string[]): Promise<number> {
     newState = ((values["state"] as string | undefined) ?? "");
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   if (issueNumber === "") {
     logError("Issue number is required");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
@@ -171,26 +157,34 @@ async function main(argv: string[]): Promise<number> {
   const repo = requireRepoTarget(providerRepoTarget(""), "issue-update", "issues");
   const num = Number.parseInt(issueNumber, 10);
 
-  // Type validation is parse-level: a wrong type is refused before any
-  // network call, let alone a mutation.
+  // Every option value is validated before the first network call: a wrong
+  // type, state or blocker reference must refuse the whole command.
   let normalizedType: string | null = null;
   if (!removeType && newType !== "") {
-    normalizedType = normalizeIssueType(newType);
-    if (normalizedType === null) {
-      logError(`Invalid issue type: ${newType} (allowed: ${CANONICAL_TYPES.join(", ")})`);
+    try {
+      normalizedType = resolveIssueType(newType);
+      if (normalizedType === null) {
+        logError(`Invalid issue type: ${newType} (allowed: ${issueTypeNames().join(", ")})`);
+        return EXIT_MISUSE;
+      }
+    } catch (err) {
+      logError(errorMessage(err));
+      return EXIT_GENERAL_ERROR;
+    }
+  }
+
+  let stateAction: "close" | "reopen" | null = null;
+  if (newState !== "") {
+    const lower = newState.toLowerCase();
+    if (lower === "closed" || lower === "close") stateAction = "close";
+    else if (lower === "open" || lower === "reopen") stateAction = "reopen";
+    else {
+      logError(`Invalid state: ${newState} (use close|closed or open|reopen)`);
       return EXIT_MISUSE;
     }
   }
 
-  // Verify existence (all update paths mutate).
-  if (!(await issuesExists(repo, num))) {
-    logError(`Issue #${issueNumber} not found`);
-    return EXIT_API_FAILURE;
-  }
-
-  // Blocked-by validation: numbers must parse and the blockers must exist.
-  // Parse errors are misuse; a missing blocker is an API failure — both
-  // refuse BEFORE any mutation.
+  // Blocked-by references must parse; their existence is checked below.
   const parseBlockers = (raw: string[]): number[] | null => {
     const out: number[] = [];
     for (const r of raw) {
@@ -205,6 +199,13 @@ async function main(argv: string[]): Promise<number> {
   const addBlockers = parseBlockers(addBlockedBy);
   const removeBlockers = parseBlockers(removeBlockedBy);
   if (addBlockers === null || removeBlockers === null) return EXIT_MISUSE;
+
+  // Verify existence (all update paths mutate).
+  if (!(await issuesExists(repo, num))) {
+    logError(`Issue #${issueNumber} not found`);
+    return EXIT_API_FAILURE;
+  }
+
   for (const b of [...addBlockers, ...removeBlockers]) {
     if (!(await issuesExists(repo, b))) {
       logError(`Blocked-by target #${b} not found`);
@@ -230,7 +231,7 @@ async function main(argv: string[]): Promise<number> {
     const resolved = resolveBodySource({ file: newBodyFile });
     if (!resolved.ok) {
       logError(resolved.error.message);
-      console.log("Use --help for usage information");
+      console.error("Use --help for usage information");
       return resolved.error.code === "file-not-found" ? EXIT_API_FAILURE : EXIT_MISUSE;
     }
     newBody = resolved.body;
@@ -250,14 +251,14 @@ async function main(argv: string[]): Promise<number> {
       const resolved = resolveBodySource({});
       if (!resolved.ok) {
         logError(resolved.error.message);
-        console.log("Use --help for usage information");
+        console.error("Use --help for usage information");
         return EXIT_MISUSE;
       }
       newBody = resolved.body;
       hasUpdates = true;
     } else {
       logError("No updates specified");
-      console.log("Use --help for usage information");
+      console.error("Use --help for usage information");
       return EXIT_MISUSE;
     }
   }
@@ -306,35 +307,29 @@ async function main(argv: string[]): Promise<number> {
     }
   }
 
-  if (newState !== "") {
-    const lower = newState.toLowerCase();
-    if (["closed", "close"].includes(lower)) {
-      if (dryRun) {
-        logInfo(`[DRY RUN] Would close issue #${issueNumber}`);
-      } else {
-        try {
-          await issuesClose(repo, num);
-          logInfo(`Closed issue #${issueNumber}`);
-        } catch (err) {
-          logError(`Failed to close issue #${issueNumber}: ${errorMessage(err)}`);
-          return 1;
-        }
-      }
-    } else if (["open", "reopen"].includes(lower)) {
-      if (dryRun) {
-        logInfo(`[DRY RUN] Would reopen issue #${issueNumber}`);
-      } else {
-        try {
-          await issuesReopen(repo, num);
-          logInfo(`Reopened issue #${issueNumber}`);
-        } catch (err) {
-          logError(`Failed to reopen issue #${issueNumber}: ${errorMessage(err)}`);
-          return 1;
-        }
-      }
+  if (stateAction === "close") {
+    if (dryRun) {
+      logInfo(`[DRY RUN] Would close issue #${issueNumber}`);
     } else {
-      logError(`Invalid state: ${newState} (use close|closed or open|reopen)`);
-      return EXIT_MISUSE;
+      try {
+        await issuesClose(repo, num);
+        logInfo(`Closed issue #${issueNumber}`);
+      } catch (err) {
+        logError(`Failed to close issue #${issueNumber}: ${errorMessage(err)}`);
+        return 1;
+      }
+    }
+  } else if (stateAction === "reopen") {
+    if (dryRun) {
+      logInfo(`[DRY RUN] Would reopen issue #${issueNumber}`);
+    } else {
+      try {
+        await issuesReopen(repo, num);
+        logInfo(`Reopened issue #${issueNumber}`);
+      } catch (err) {
+        logError(`Failed to reopen issue #${issueNumber}: ${errorMessage(err)}`);
+        return 1;
+      }
     }
   }
 

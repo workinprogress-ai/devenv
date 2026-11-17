@@ -2,10 +2,11 @@
 
 How to write, structure, and test tools in this repo's `tools/` suite. These
 standards are enforced by review and (where noted) by the type gate, eslint,
-`lint-scripts.sh`, and the test suites. New TypeScript tools start from
-`tools/templates/script-template.ts` (via `tooling-create-script <name>`);
-stay-bash tools start from `script-template.sh` — each embodies its half of
-this guide.
+shellcheck (`lint-scripts`), and the test suites. Every new tool is TypeScript
+and starts from `tools/templates/script-template.ts` (via
+`tooling-create-script <name>`), which embodies this guide. The small bash
+that remains is the container bootstrap layer, described under
+[The bash that remains](#the-bash-that-remains).
 
 Related docs: [Function Naming Conventions](Function-Naming-Conventions.md),
 [Additional Tooling](Additional-Tooling.md).
@@ -16,18 +17,22 @@ through `markdownlint-cli2` **and** `markdown-link-check` in the
 
 ## The golden rules
 
-1. **Source `error-handling.bash` first** — it provides logging, exit codes,
-   `die`, strict mode, and the argument helpers. Never define your own
-   `log_error`/`log_warning`.
-2. **Every script runs under strict mode** — either `enable_strict_mode` (from
-   the lib) or an explicit `set -euo pipefail`. A script without it fails
-   silently mid-pipeline.
-3. **Exit with named constants, never bare numbers** — `exit "$EXIT_MISUSE"`,
-   not `exit 2`. `exit 0` for success is the only literal allowed.
-4. **Never read stdin without a TTY guard** — a bare `cat` on an interactive
-   terminal hangs the session. Use the body-source helpers.
+1. **Parse arguments through `toolCli`** (`tools/lib/core/cli.ts`) — it
+   supplies the house flags (`-h`, `-v`, `-V`, `-n`, `--devenv`), strict
+   parsing and the version banner. Never write your own flag loop.
+2. **Log through `tools/lib/core/logging.ts`** (`logInfo`, `logWarn`,
+   `logError`, ...). Never define your own logger or print ad-hoc prefixes.
+3. **Exit with the named constants from `tools/lib/core/exit-codes.ts`**,
+   never bare numbers — `EXIT_MISUSE`, not `2`. `EXIT_SUCCESS` (0) is the
+   only code that may be written as a literal.
+4. **Never read stdin without a TTY guard** — a bare read on an interactive
+   terminal hangs the session. Use `resolveBodySource` (`lib/core/body-source.ts`).
 5. **`--help` must work without auth, network, or positional arguments** —
-   handle global flags before any validation or `ensure_gh_login`.
+   handle it before any validation or provider authentication, and run
+   nothing at module load that needs a host.
+6. **Fail on a rejected promise**: top-level `main()` ends in
+   `.then(code => process.exit(code), err => { logError(...); process.exit(1) })`
+   so an unhandled failure never exits 0 (the template shows the shape).
 
 ## TypeScript standards
 
@@ -35,7 +40,8 @@ All new tooling is TypeScript executed natively by Node type-stripping
 (no build step, no tsx/ts-node). The root `package.json` carries
 `"type": "module"` (ESM everywhere); legacy `.js` configs are ESM
 (`export default`). `.ts` sources use `import` syntax and run via
-`exec node <script>.ts` from the bash stub layer. `tsconfig.json` is strict
+`exec node <script>.ts` from the generated depth-1 stub (a two-line shell
+shim that execs node). `tsconfig.json` is strict
 (`noEmit` — `tsc --noEmit` is the CI type gate; Node strips types without
 checking). Node ≥23.6 is the floor (24.18.0 pinned).
 
@@ -78,11 +84,12 @@ workspace modules.
 | `lib/core/exit-codes.ts` | suite-wide exit-code contract (2 misuse, 3 conflict, 4 API failure) |
 | `lib/core/logging.ts` | log prefixes and levels |
 | `lib/core/spawn.ts` | child-process seam (typed argv, no shell) |
+| `lib/core/commands.ts` | external-command presence checks |
+| `lib/core/body-source.ts` | markdown/text body resolution (flag, file, stdin with TTY guard) |
+| `lib/core/cli.ts` | `toolCli`: house flags, strict parse, usage blocks |
 | `lib/core/node-floor.ts` | Node ≥23.6 guard |
 | `lib/core/config.ts` | devenv.config parsing (raw vs expanding values) |
-| `lib/core/boundary.ts` | input-validation result types (`{ok}`/`{ok:false,error}`) |
 | `lib/core/args.ts` | option/argument parsing and requirement checks |
-| `lib/core/versioning.ts` | version comparison (numeric core, suffixes ignored) |
 | `lib/core/change-id.ts` | Change-Id trailer generation/parsing + O_EXCL locking |
 | `lib/core/editor.ts` | editor selection (PREF_EDITOR → FALLBACK_EDITOR → nano) |
 | `lib/core/git.ts` | git plumbing (state, branches, WIP guards, rewrite detection) + `changedFiles` changed-set enumeration (`-z` porcelain, rename pairs split) |
@@ -90,7 +97,7 @@ workspace modules.
 | `lib/domain/events.ts` | lifecycle event signals (PR + skill events); reads the PR body through the provider facade |
 | `lib/domain/issues/` | issue type/label config model + issue graph |
 | `lib/domain/repos/` | repo-type config model (zod) |
-| `lib/domain/release/` | release/PR version plumbing |
+| `lib/domain/release/` | release/PR version plumbing (`version.ts`) |
 | `lib/domain/kube/` | kubectl listing/state helpers |
 | `lib/domain/cs/` | .NET dependency graph |
 | `lib/domain/markdown.ts` | markdown read/manipulate + body resolution |
@@ -105,65 +112,53 @@ workspace modules.
 New tools use the TS template and this section. Gaps in the catalog are
 filled as modules land; when a module's role changes, update its row here.
 
-## Bash minimum: the doctrine
+## The bash that remains
 
-**TypeScript is the default for anything with logic.** Bash persists only in
-the stay-bash categories below — each exists because bash is genuinely the
-better tool there, not by inertia. Porting preserves the black-box contract
-(argv, exit codes, output wording); behavior changes are separate commits,
-never bundled with a port. Adding a tool to a stay-bash category — or a new
-category — is a deliberate act: name why bash is the better tool there, in
-the table, not just the tool. Anything not listed is TypeScript.
-
-The stay-bash categories (the working tree is authoritative; this table names
-the kinds and the current members):
+**TypeScript is the default for anything with logic.** Bash persists only
+where a file must be bash by its nature or must run before node exists. Porting
+preserves the black-box contract (argv, exit codes, output wording); behavior
+changes are separate commits, never bundled with a port. Anything not listed
+below is TypeScript.
 
 | Kind | Members | Reason |
 |---|---|---|
-| exec glue | `tools/<name>` depth-1 stubs, git-hook shims, `tools/internal/` entry points (`_on_*.sh`, `prepare-commit-msg` hook shim), `tools/run-devenv-tests` wrapper | an entry point must be an executable file; a stub holds no logic — it execs |
-| test harness | `run-devenv-tests` | validates the TS toolchain; cannot depend on what it validates |
+| exec glue | `tools/<name>` depth-1 stubs, git-hook shims (`.husky/`), `tools/internal/` entry points (`_on_*.sh`, the `prepare-commit-msg` and `commit-action-check` shims), the `tools/run-devenv-tests` wrapper | an entry point must be an executable file; a stub holds no logic, it execs |
 | shell runtime artifacts | `git-completion.bash`, `bash_completion_custom`, `bash-prompt.sh`, `zsh-prompt.sh` | files that ARE bash by their nature |
-| host-side setup | the `setup` script | runs before a container — and before node — exists |
-| provider bootstrap-side modules | `tools/lib/providers/*/` bash modules | the provider-port phase's non-goal; the TS facade consumed their logic |
+| host-side setup | the `setup` script | runs before a container, and before node, exists |
+| container bootstrap | `.devcontainer/*.sh` / `*.bash`, and the bootstrap surface under `tools/lib/` (see below) | runs before node is installed |
 
-Tool bodies whose historical bash-ness rested on "must run when the toolchain
-is broken" (`editor`, bootstrap repair, credential rotation, the lint gates,
-tiny CLI shims) moved to TypeScript in the bash-minimum phase: they keep
-their depth-1 stubs (exec glue) and their black-box contracts. A broken node
-is not preserved as a fallback for tool bodies.
+**The bootstrap surface.** The bash under `tools/lib/` is exactly this
+allowlist, and nothing else belongs there:
 
-**Stay-bash category definitions:**
+```text
+config-reader.bash            copilot-knowledge.bash      error-handling.bash
+providers/provider-core.bash
+providers/github/{auth,setup,bootstrap}.bash
+providers/azure/{auth,setup,bootstrap}.bash
+providers/azure/credential-helper.sh
+```
 
-- **Exec glue** — an entry point that must be an executable file: depth-1
-  stubs, git-hook shims (git's contract), and `tools/internal/` machinery
-  invoked as external commands (`_on_*.sh` entry points, the
-  `prepare-commit-msg` hook shim). A shim holds no logic of its own; its
-  logic lives in TypeScript and it execs.
-- **Shell runtime artifacts** — files that ARE bash by their nature:
-  `git-completion.bash`, `bash_completion_custom`, `bash-prompt.sh`,
-  `zsh-prompt.sh`.
-- **Host-side setup** — the `setup` script: it runs before a container (and
-  therefore before node) exists.
-- **Provider bootstrap-side bash modules** — `tools/lib/providers/*/`
-  bootstrap-side modules (the provider-port phase's non-goal; the TS facade
-  consumed their logic).
-- **Toolchain-independent tooling** — tools whose value is being runnable
-  when the TS toolchain itself is broken or unbootstrapped: the test
-  harness, the editor recovery hatch, bootstrap repair, credential
-  rotation, and the lint gates that co-gate the toolchain's own output.
+`error-handling.bash` is reduced to the `log_debug`/`log_info`/`log_warn`/
+`log_error` functions the provider layer calls; `config-reader.bash` reads
+`devenv.config`. No tool sources them. What each file keeps, and which
+bootstrap step sources it, is documented once in the providers README, under
+[Bash bootstrap surface](../tools/lib/providers/README.md#bash-bootstrap-surface);
+do not extend these files with new verbs. Where the bash and TypeScript layers
+must give the same answer (provider detection, identity, the organization a
+remote names), `tools/tests/ts/provider-bash-agreement.test.ts` pins them.
 
-**Doctrine, not a CI gate.** Stay-bash membership is enforced by review, not
-by a build failing on the sight of a `.sh` file. The categories above are the
-complete list; a new member needs a named reason in review, and a ported
-surface keeps its black-box contract. This rule is standing guidance — it
-does not run in CI.
+**Doctrine, not a CI gate.** Membership of the bash categories is enforced by
+review, not by a build failing on the sight of a `.sh` file. A new bash file
+needs a named reason in review: why it must run before node, or why it must be
+a shell file. A broken node is not preserved as a fallback for tool bodies;
+tools keep their depth-1 stubs and their black-box contracts.
 
-**Test format:** suites exercising fzf pickers, real TTY flows (a real
-`script -qec` pty), real git-hook execution, or bats-in-bats machinery stay
-bats; other tool suites are vitest. Stub-based fzf tests are
-vitest-portable (the corpus stubs fzf deliberately) and follow the normal
-port rule — the bats assertions are the oracle until each family's port
-lands, and no net coverage loss is the acceptance bar.
+**Test format:** every suite is vitest under `tools/tests/ts/`. Suites that
+need a real terminal (pickers, interactive prompts) drive a `script -qec` pty
+through `tools/tests/ts/harness/pty.ts`, and suites that exercise real git-hook
+execution do so in a fixture repository. The one manual-only exception is
+`tools/tests/live/` (live provider calls), which is never collected by the
+gate.
 
 **Fixture-only testing for side-effecting tools:** a tool that mutates
 world state (staging, committing, pushing, tracker writes, plan mutations,
@@ -177,61 +172,62 @@ workflow path with review, never through a test.
 **Interprocess locking:** serialize access to shared local files with an
 `O_EXCL` lockfile: atomic create, wait-with-deadline, reclaim a lock older
 than 30s (crashed writer). Kernel locks (`flock`) are unavailable to
-TypeScript — fd numbers do not survive process spawn — so bash `flock`
-patterns translate to lockfile protocols. Reference implementation:
+TypeScript — fd numbers do not survive process spawn — so a lock is a
+lockfile protocol. Reference implementation:
 `lib/core/change-id.ts` (`locked()`). Extract a shared `lib/core/lock.ts`
 when a second consumer appears; do not create it speculatively.
 
-## Script skeleton (required structure)
+## Tool skeleton (required structure)
 
-```bash
-#!/bin/bash
-# my-tool.sh - One-line description
-# Version: 1.0.0
-# Description: Fuller description
-# Requirements: Bash 4.0+, jq, provider CLI (per devenv.config)
+`tooling-create-script <name>` generates this from
+`tools/templates/script-template.ts`; the template is the source of truth.
 
-set -euo pipefail
+```ts
+#!/usr/bin/env node
+// my-tool.ts - One-line description
+// Version: 1.0.0
 
-source "$DEVENV_TOOLS/lib/error-handling.bash"
-# ... other libs as needed (config-reader, provider seam modules —
-# see the Library catalog for the post-Phase-10 allowlist)
+import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { logError, logInfo } from "../lib/core/logging.ts";
+import { assertNodeFloor } from "../lib/core/node-floor.ts";
 
-readonly SCRIPT_VERSION="1.0.0"
-readonly SCRIPT_NAME="$(basename "$0")"
+assertNodeFloor();   // first: an old Node otherwise dies with a raw syntax error
 
-show_usage() {
-    cat << EOF
-Usage: $SCRIPT_NAME [OPTIONS] ARGUMENT
+const SCRIPT_VERSION = "1.0.0";
+const TOOL_NAME = "my-tool";
+
+function showUsage(): never {
+  console.log(`Usage: ${TOOL_NAME} [OPTIONS]
 ...
-Exit Codes:
-    0   Success
-    1   General error
-    2   Invalid arguments (EXIT_MISUSE)
-    4   Not found / API failure
-EOF
-    exit 0
+Options:
+${usageCommonFlags()}
+`);
+  process.exit(0);
 }
 
-main() {
-    # Global flags FIRST — before auth, validation, or anything that can fail.
-    if handle_global_flag "${1:-}"; then
-        exit 0
-    fi
-
-    ensure_provider_auth   # only if the tool talks to the provider (GitHub today: ensure_gh_login inside the module)
-
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -h|--help)    show_usage ;;
-            -v|--version) echo "$SCRIPT_NAME"; exit 0 ;;
-            ...
-        esac
-    done
+async function main(argv: string[]): Promise<number> {
+  try {
+    const cli = toolCli({ name: TOOL_NAME, version: SCRIPT_VERSION, argv });
+    if (cli.common.help) showUsage();   // before auth, validation, anything that can fail
+    // ... tool flags: cli.values["..."]; positionals: cli.positionals
+  } catch (err) {
+    logError(err instanceof Error ? err.message : String(err));
+    console.error("Use --help for usage information");
+    return 2;                           // EXIT_MISUSE
+  }
+  // ... the tool's behavior; authenticate here if it talks to the provider
+  return 0;
 }
 
-main "$@"
+main(process.argv.slice(2)).then(
+  (code) => process.exit(code),
+  (err: unknown) => { logError(err instanceof Error ? err.message : String(err)); process.exit(1); },
+);
 ```
+
+Import paths are relative to the tool's folder; `tooling-create-script`
+rewrites the template's `REL_LIB` prefix for the output directory (`--dir`,
+default `scripts/`) so the imports resolve wherever the file is created.
 
 ## Where a tool lives
 
@@ -243,7 +239,7 @@ generates the bare-name stub in `tools/` from the winning file:
 - `tools/fork/` — a fork's own or overriding tools (committed in the fork).
 - `tools/custom/` — a user's own or overriding tools (gitignored, machine-local).
 
-A same-named file in a higher folder wins: custom over fork over ts over scripts.
+A same-named file in a higher folder wins: custom over fork over ts.
 The sync runs at bootstrap; re-run it after adding or removing an override. See
 [Forking](./Forking.md#adding-and-overriding-tools-toolsfork-and-toolscustom).
 
@@ -252,7 +248,7 @@ tools root** — never a bare name for PATH lookup. The default form is the
 depth-1 stub, `join(toolsDir, "<tool>")`, which honors the override chain
 (a fork's `tools/fork/<tool>` wins, exactly as for users). One exception: the
 repo-get dispatcher family (`git-repo`) invokes its same-layer source,
-`join(toolsDir, "ts", "repo-get.ts")`, preserving the bash-era same-directory
+`join(toolsDir, "ts", "repo-get.ts")`, preserving the same-directory
 dispatch contract. External CLIs (`git`, `node`, `dotnet`, …) keep PATH
 invocation — the rule covers devenv tools only. The
 `sibling-dispatch.test.ts` suite enforces both halves: no devenv tool is
@@ -263,7 +259,7 @@ A fourth folder, `tools/internal/`, is **not** part of that override chain:
 it holds machinery scripts that the devenv or githook machinery invokes —
 scripts a user would generally never run by hand (lifecycle event entry
 points `_on_*.sh`, the `prepare-commit-msg` githook backing script, the
-CI commit-message checker). Internal scripts get no depth-1 stub, are not
+CI commit-message checker, each a thin shim over a TypeScript body). Internal scripts get no depth-1 stub, are not
 on `PATH`, are excluded from the `tools/*` gitignore whitelist via
 `!tools/internal/`, and are not overridden by `tools/fork/` or
 `tools/custom/`. See
@@ -271,41 +267,33 @@ on `PATH`, are excluded from the `tools/*` gitignore whitelist via
 
 ## Library catalog
 
-Source only what you use. All paths are `$DEVENV_TOOLS/lib/`.
+The TypeScript module catalog above is the library catalog: import what you
+use from `tools/lib/`. The two modules every tool reaches for first:
 
-The bash verb layer retired with the provider-port phase (Phase 10 of the
-TS consolidation): `versioning.bash`, `provider-loader.bash`,
-`git-operations.bash`, `issue-operations.bash`, `artifact-operations.bash`,
-and every provider verb twin are gone — their logic lives in the TS facade
-(`tools/lib/providers/`) and `lib/core/`. The bash that remains under
-`tools/lib` is the bootstrap seam allowlist, exactly:
+| Module | Provides |
+|---|---|
+| `lib/core/logging.ts` | `logDebug`, `logInfo`, `logWarn`, `logError`, `logFatal`, `logSuccess`, `setLogLevel`, `errorMessage` |
+| `lib/core/args.ts` | `invalidArgs` (log, hint, exit 2), `requireOptionValue`, `requireString`, `requireEnv`, `requireFile`, `requireDirectory` |
+| `lib/core/body-source.ts` | `resolveBodySource` — the shared resolver for tools that accept markdown/text bodies |
+| `lib/core/commands.ts` | `commandAvailable`, `requireCommand`, `requireCommandOrExit` for external CLIs |
 
-```bash
-config-reader.bash            copilot-knowledge.bash      error-handling.bash
-providers/provider-core.bash
-providers/github/{auth,setup,bootstrap}.bash
-providers/azure/{auth,setup,bootstrap}.bash
-providers/azure/credential-helper.sh
-```
-
-| Library | Provides | When to source |
-|---|---|---|
-| `error-handling.bash` | Logging (`log_debug/info/warn/error/fatal`, `success`), exit-code constants, `die`, `invalid_args`, `require_option_value`, `api_failure`, `handle_global_flag`, `enable_strict_mode`, `require_command`, `safe_remove` | **Always** (seam-chain members only, post-Phase-10). Non-negotiable. |
-| `config-reader.bash` | `config_init` / `config_read_value` / `config_get_raw` over `devenv.config` | Seam chain reading configuration |
-| `lib/core/body-source.ts` (TS) | `resolveBodySource` | Tools that accept markdown/text bodies — the shared resolver (the historical `body-source.bash` is retired) |
+The bash libraries under `tools/lib/` are the bootstrap allowlist described
+under [The bash that remains](#the-bash-that-remains); a tool never sources them.
 
 ## Exit-code contract (suite-wide)
 
 Use the constants from `tools/lib/core/exit-codes.ts`. Never invent numbers.
+The exported names are `EXIT_SUCCESS`, `EXIT_GENERAL_ERROR`, `EXIT_MISUSE`,
+`EXIT_CONFLICT`, `EXIT_API_FAILURE` and `EXIT_AMBIGUITY`.
 
 | Constant | Value | Use for |
 |---|---|---|
-| `EXIT_SUCCESS` | 0 | Success (write `exit 0` literally — fine) |
+| `EXIT_SUCCESS` | 0 | Success (a literal `0` is fine) |
 | `EXIT_GENERAL_ERROR` | 1 | Anything that failed and isn't classified below |
 | `EXIT_MISUSE` | 2 | Invalid arguments, unknown options, missing flag values, bad usage |
 | `EXIT_CONFLICT` | 3 | Duplicate/ambiguous match where exactly one was required |
 | `EXIT_API_FAILURE` | 4 | Provider/API operation failed, or the target was not found |
-| `EXIT_AMBIGUOUS` | 5 | Multiple candidates where one was required |
+| `EXIT_AMBIGUITY` | 5 | Multiple equally valid candidates and no default (a tool-local convention, used by `issue-artifact-select`) |
 
 Rules:
 
@@ -315,7 +303,7 @@ Rules:
   required") are **2**.
 - Validate every argument and option value before the first mutation or
   provider call; a bad value exits 2, never 0 and never 1.
-- Document the codes your script actually uses in the `show_usage` heredoc.
+- Document the codes your tool actually uses in its usage text.
 
 ## Argument parsing: the CLI contract
 
@@ -328,7 +316,8 @@ a `--help` probe for tools with no host-affecting calls):
   and `--devenv` come from the house table; a tool advertises only the house
   flags it honors (`usageCommonFlags({ noDryRun, noDevenv })`).
 - **An unknown flag is misuse**: exit 2, decided before any provider call or
-  mutation, with stdout left empty. New and changed tools print the standard
+  mutation, with stdout left empty (the sweep asserts this for every probed
+  tool). New and changed tools print the standard
   "Use --help for usage information" hint on stderr; the parse-errors test
   (`tools/tests/ts/cli-contract-parse-errors.test.ts`) pins the exact hint for
   `tooling-create-script`, `install-extras` and `issue-types`, and holds the
@@ -344,9 +333,11 @@ a `--help` probe for tools with no host-affecting calls):
   its predecessor used for an unknown option.
 - **`--help` and `--version` exit 0 with output on stdout** and need neither
   network, credentials nor a configured workspace. Nothing — provider
-  authentication, capability checks, config reads — runs at module load before
-  arguments are parsed and help is handled; authenticate on the main path,
-  after parsing.
+  authentication, capability checks, config reads, banners, spawned host
+  commands — runs at module load before
+  arguments are parsed and help is handled (the sweep scans every tool's
+  module-load code for spawns and output before the `toolCli` call);
+  authenticate on the main path, after parsing.
 - **Repeatable flags** are declared `multiple: true`; a flag documented as
   repeatable that keeps only its last value is a defect.
 - **Forwarders** (a tool that passes the rest of its argv to a child command:
@@ -359,7 +350,17 @@ a `--help` probe for tools with no host-affecting calls):
   `-n/--namespace` (`-n NS`, `-nNS`, `--namespace NS`, `--namespace=NS`) after
   the pod word and before the command; the command's own `-n` stays the
   command's.
-- A message or title that begins with `-` needs `--` first (`git-wip -- -n note`).
+- A message or title that begins with `-` is passed as `--opt=-value` (or via
+  `--body-file`): strict parsing refuses a separated dash-led value
+  (`--body "- item"`) as ambiguous with exit 2. Positional message words that
+  begin with `-` need `--` first (`git-wip -- -n note`).
+- **Empty option values are misuse.** A mutating tool refuses `--opt ""`
+  (typically an unset shell variable) with exit 2 before its first mutation:
+  `toolCli({ rejectEmptyValues: true })` for the issue and PR mutators, and
+  `requireString` where a tool reads a string option itself (`git-wip`,
+  `pipelines-status`). The sweep probes `--opt ""` on every tool that sets
+  `rejectEmptyValues`. Tools that have not adopted it yet treat an empty value
+  as the option being absent.
 
 ## JSON output contract
 
@@ -384,12 +385,12 @@ If your tool accepts a markdown/text body:
 
 ## Repo targeting (provider-seamed tools)
 
-Repo targeting resolves through the provider seam via `provider_repo_target`
-(explicit `--repo` → `DEVENV_REPO` → provider-specific repo env, if the active
-provider defines one → configured org + cwd basename). `DEVENV_REPO` is the only repo-targeting environment variable.
-Org identity comes from `provider_org_get` (config `[organization] org` →
-seed); a provider module owns the
-equivalent chain for its backend.
+Repo targeting resolves through the provider layer (explicit `--repo` →
+`DEVENV_REPO` → provider-specific repo env, if the active provider defines one
+→ configured org + cwd basename). `DEVENV_REPO` is the only repo-targeting
+environment variable. Org identity comes from `providerOrgGet` (config
+`[organization] org` → seed); a provider module owns the equivalent chain for
+its backend.
 
 - Use `providerRepoTarget` (`lib/providers/provider-core.ts`) — it resolves
   the target and runs the devenv-repo safety gate; explicit `--repo` wins
@@ -400,101 +401,70 @@ equivalent chain for its backend.
 
 ## Temp files and cleanup
 
-- Use `create_temp_file VARNAME [DIRECTORY]` and `register_cleanup` from
-  `error-handling.bash`. The helper registers an EXIT
-  trap in the caller's shell — do not wrap it in `$( )`.
-- Happy-path `rm` is not cleanup; early exits leak.
+- Create scratch directories with `mkdtemp` (`node:fs`) and remove them in a
+  `finally` block, so an early return or a thrown error still cleans up.
+- Happy-path removal alone is not cleanup; early exits leak.
 
-## Logging & error handling
+## Logging and error handling
 
-All logging comes from `tools/lib/error-handling.bash` — never define your own
-`log_*` functions. The library provides timestamps (ISO 8601), color-coded
-levels, stream discipline (errors/warnings to stderr, info to stdout), and
-`DEBUG`-gated verbose output.
+All logging comes from `tools/lib/core/logging.ts` — never define your own
+logger. Output is `[YYYY-MM-DD HH:MM:SS] LEVEL: message` on stderr, with the
+level right-padded; colors stay off when stderr is not a TTY (`NO_COLOR` is
+honored).
 
-### Setup
+| Function | Level | Use for |
+|----------|-------|---------|
+| `logDebug` | DEBUG | Troubleshooting detail; shown only with `-V/--verbose` (which calls `setLogLevel(LOG_LEVEL_DEBUG)`) |
+| `logInfo` | INFO | Normal operational messages |
+| `logSuccess` | SUCCESS | Completion messages (same threshold as INFO) |
+| `logWarn` | WARN | Recoverable issues |
+| `logError` | ERROR | Handled failures |
+| `logFatal` | FATAL | Unrecoverable errors; logs only — the caller exits |
 
-Source the library first (per the golden rules), then enable strict mode:
-
-```bash
-source "$DEVENV_TOOLS/lib/error-handling.bash"
-
-enable_strict_mode
+```ts
+logDebug(`Found ${count} items to process`);
+logInfo(`Processing repository: ${repoName}`);
+logError("Failed to connect to the provider");
+return EXIT_API_FAILURE;
 ```
 
-### Logging functions
+Conventions:
 
-| Function | Level | Stream | Exits | Use for |
-|----------|-------|--------|-------|---------|
-| `log_debug` | DEBUG | stdout | No | Troubleshooting detail; shown only when `DEBUG=1` |
-| `log_info` | INFO | stdout | No | Normal operational messages |
-| `log_warn` | WARN | stderr | No | Recoverable issues |
-| `log_error` | ERROR | stderr | No | Handled failures |
-| `log_fatal` | FATAL | stderr | **Yes** | Unrecoverable errors — logs, then exits 1 |
+- **Provide context**: `logInfo(`Processing repo: ${repo} (${count} files)`)`,
+  not `logInfo("Processing")`.
+- **One exit decision point**: helpers throw or return a result; `main` turns
+  it into an exit code. `invalidArgs` (`lib/core/args.ts`) is the one helper
+  that logs and exits 2 itself, for usage errors.
+- **Report an error message** with `errorMessage(err)`, not `String(err)`.
 
-```bash
-log_debug "Found ${count} items to process"
-log_info "Processing repository: $repo_name"
-log_warn "Cache directory not found, creating it"
-log_error "Failed to connect to database"
-log_fatal "Cannot proceed without valid credentials"   # exits
-```
+## Interactive tools
 
-Enable debug output for a single run with `DEBUG=1 my-tool` (the depth-1
-runner; the flag reaches the source under `scripts/` or `ts/`).
-
-### Usage conventions
-
-- **Provide context**: `log_info "Processing repo: $repo ($count files)"`, not
-  `log_info "Processing"`.
-- **Log before risky operations** so failures carry the intent:
-  `log_debug "Removing $dir" && rm -rf "$dir"`.
-- **Combine with error handling**:
-  `some_command || log_fatal "some_command failed; cannot continue"`.
-- The strict-mode error trap logs failures automatically via `log_error` —
-  don't duplicate it with a hand-rolled `trap ... ERR` unless extending it.
-
-## Repo resolution and interactive tools
-
-- Interactive pickers: `check_fzf_installed` first, then `fzf_select_single`;
-  degrade with a clear error when fzf is missing.
-- Dry-run flags: accept both `--dry-run` and `-n`.
+- Prompts and pickers go through `tools/lib/ui` (clack). Declare a non-TTY
+  fallback with `isInteractive()` and degrade with a clear error rather than
+  hanging.
+- Dry-run flags: `-n/--dry-run` comes from `toolCli`; a tool whose own flag
+  needs the `-n` short passes `noDryRun`.
 
 ## Testing requirements
 
 TypeScript tools get vitest coverage at `tools/tests/ts/<name>.test.ts`:
 
 - Unit tests for lib modules alongside behavioral tests that spawn the tool
-  and assert on status/output (black-box port pattern — see
-  `family-repos.test.ts`)
-- Exit-code assertions for each error class the tool emits
-- Stub external CLIs on `PATH` (see the provider-stub pattern in
-  `test_helper.bash`) — never call a live provider from a test
+  and assert on status/output (black-box pattern — see `family-repos.test.ts`).
+  Spawn `tools/ts/<name>.ts` through `runTool` or `toolScript` from
+  `tools/tests/ts/harness/`, never through the generated depth-1 stubs, which
+  do not exist in a clean checkout.
+- Exit-code assertions for each error class the tool emits.
+- At least one behavioral `--help` assertion (exit 0, usage on stdout).
+- Stub external CLIs on `PATH` with `stubCli`, `stubGh` and `stubGit`, and
+  never call a live provider from a test: the regular run is hermetic and a
+  canary fails any test that reaches a backend (see
+  [tools/tests/README.md](../tools/tests/README.md)).
+- Tests must pass with `DEVENV_REPO`, `GH_REPO`, `DEVENV_ROOT` and
+  `DEVENV_TOOLS` either set or unset — stub the environment, don't depend on it.
 
-Bash suites stay where they validate stay-bash behavior or drive real
-git/pty machinery (`tools/tests/scripts/`, `tools/tests/lib/`,
-`tools/tests/devenv/`): the stay-bats set is the fixture-heavy suites that
-would need the world rebuilt to port (fork-export's git machinery, the
-provider stub dispatch harnesses). A bats file for a migrated tool is a
-delete candidate once its coverage exists in vitest; a bats file backing a
-stay-bash tool stays.
-
-New tools get a vitest suite at `tools/tests/ts/<tool>.test.ts` (the shape
-above). The bats-per-tool rule below is bash-era guidance: it applied to
-tools whose coverage already lived in bats, pending their vitest port.
-
-- ~~Syntax test (`bash -n`), `--help` test (rc 0, prints "Usage:")~~ — for
-  TS subjects, `tsc` + the lint gates supersede the syntax check; keep one
-  behavioral `--help` assertion in vitest
-- At least one behavioral test per mode, using stub commands on `PATH` for
-  external dependencies (see any `tools/tests/ts/*.test.ts` for the stub
-  pattern)
-- Exit-code assertions for each error class your tool emits
-- Tests must pass with `DEVENV_REPO`, `GH_REPO`, `DEVENV_ROOT`, and
-  `DEVENV_TOOLS` either set or unset — stub the environment, don't depend on it
-
-Run everything: `bash tools/tests/run-devenv-tests.sh` (from a clean
-environment: `env -u DEVENV_REPO -u GH_REPO ...`).
+Run everything: `bash tools/tests/run-devenv-tests.sh` (or `pnpm test`; from a
+clean environment: `env -u DEVENV_REPO -u GH_REPO ...`).
 
 ## Static analysis
 
@@ -516,14 +486,17 @@ kept in lockstep with `NODE_VERSION` in `.devcontainer/tool-versions.bash`).
 
 ## Common mistakes this guide exists to prevent
 
-These were all real bugs found by the 2026-09 tech-debt audit:
-
-- Capturing a helper's stdout when it returns its result via a global
-  (or vice versa) — pick one channel, document it, test it.
-- `--help` broken because argument validation runs before flag handling.
-- Missing-value flag crash: raw `"$2"` under `set -u` instead of
-  `require_option_value`.
-- `cat` on a TTY (interactive hang) instead of a stdin TTY-guard.
-- Bare `exit 1` for not-found/invalid-args, defeating programmatic use.
-- Temp file created in a subshell trap — trap dies with the subshell, file
-  leaks.
+- Capturing a helper's stdout when it returns its result another way — pick
+  one channel, document it, test it.
+- `--help` broken because argument validation or authentication runs before
+  help is handled.
+- A flag documented as repeatable but declared without `multiple: true`, so
+  only the last value is kept.
+- Reading stdin on a TTY (interactive hang) instead of using
+  `resolveBodySource`.
+- A bare exit code of `1` for not-found or invalid arguments, defeating
+  programmatic use.
+- A floating promise: an `async` call that is not awaited, so its failure is
+  lost and the process exits 0.
+- Spawning a devenv tool by bare name instead of an exact path under the tools
+  root.

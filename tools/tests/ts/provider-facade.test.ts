@@ -258,6 +258,7 @@ describe("artifacts domain (byte-faithful header)", () => {
   const savedPathArtifacts = process.env.PATH;
   afterEach(() => {
     process.env.PATH = savedPathArtifacts;
+    delete process.env.FACADE_GH_FAIL;
   });
 
   const header = [
@@ -316,7 +317,7 @@ describe("artifacts domain (byte-faithful header)", () => {
   });
 
   it("queryPackages resolves the org from config, scopes by repo, filters by name", async () => {
-    writeFileSync(responses, "users/fixture-org/packages\t[{\"name\":\"Left Pad\"},{\"name\":\"other\"}]\n");
+    writeFileSync(responses, "users/fixture-org/packages\t[{\"name\":\"Left Pad\"},{\"name\":\"other\"}]\nrepos/fixture-org/some-repo/packages\t[]\n");
     const all = JSON.parse(await artifacts.queryPackages()) as Array<{ name: string }>;
     expect(all.length).toBe(2);
     const filtered = JSON.parse(await artifacts.queryPackages({ name: "left" })) as Array<{ name: string }>;
@@ -330,6 +331,123 @@ describe("artifacts domain (byte-faithful header)", () => {
     writeFileSync(responses, "versions\t[[{\"v\":1},{\"v\":2}],[{\"v\":3}]]\n");
     const out = JSON.parse(await artifacts.packageVersions({ type: "npm", name: "left-pad" })) as unknown[];
     expect(out.length).toBe(3);
+  });
+
+  it("findDocId reads one doc_id rule: CRLF, indentation, trailing blanks, 256-char window", () => {
+    expect(artifacts.findDocId("<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:a\n-->")).toBe("dv1:a");
+    expect(artifacts.findDocId("<!-- DEVENV_ARTIFACT_V1\r\ndoc_id: dv1:a\r\n-->\r\n")).toBe("dv1:a");
+    expect(artifacts.findDocId("<!-- DEVENV_ARTIFACT_V1\n  doc_id:   dv1:a  \n-->")).toBe("dv1:a");
+    expect(artifacts.findDocId("no header")).toBe("");
+    expect(artifacts.findDocId(`${"x".repeat(300)}\ndoc_id: late`)).toBe("");
+  });
+
+  it("header lookups read the whole delimited block, not a fixed-length prefix", () => {
+    const longSource = "src/" + "d/".repeat(300) + "file.md";
+    const longId = "dv1:org/repo:local:plan:issue-77-" + "x".repeat(400);
+    const body = ["<!-- DEVENV_ARTIFACT_V1", `source_file: ${longSource}`, `doc_id: ${longId}`, "artifact_type: plan", "issue_number: 77", "-->", "", "text"].join("\n");
+    expect(artifacts.findDocId(body)).toBe(longId);
+    expect(artifacts.parseHeaderJson(body)?.doc_id).toBe(longId);
+    expect(artifacts.parseHeaderJson(body)?.artifact_type).toBe("plan");
+    expect(artifacts.bodyUpsertable(body)).toEqual({ ok: true });
+    expect(artifacts.bodyUpsertable(body.replace("issue_number: 77", "issue_number: 7x")).ok).toBe(false);
+    const crlf = body.replaceAll("\n", "\r\n");
+    expect(artifacts.findDocId(crlf)).toBe(longId);
+    expect(artifacts.parseHeaderJson(crlf)?.issue_number).toBe("77");
+  });
+
+  it("one lookup rule: first duplicate wins and a spaced key matches, in every reader", () => {
+    const body = "<!-- DEVENV_ARTIFACT_V1\ndoc_id : dv1:first\ndoc_id: dv1:second\nissue_number : 5\nissue_number: 6\n-->";
+    expect(artifacts.findDocId(body)).toBe("dv1:first");
+    expect(artifacts.headerField(body, "issue_number")).toBe("5");
+    expect(artifacts.parseHeaderJson(body)).toMatchObject({ doc_id: "dv1:first", issue_number: "5" });
+    expect(artifacts.bodyUpsertable(body)).toEqual({ ok: true });
+    expect(artifacts.bodyUpsertable(body.replace("issue_number : 5", "issue_number : 5x")).ok).toBe(false);
+  });
+
+  it("an unclosed header block stops at the first non key:value line, so prose is not matched", () => {
+    const unclosed = "<!-- DEVENV_ARTIFACT_V1\nartifact_type: plan\n\nSome prose.\ndoc_id: dv1:prose\nissue_number: 9";
+    expect(artifacts.findDocId(unclosed)).toBe("");
+    expect(artifacts.bodyUpsertable(unclosed).ok).toBe(false);
+    expect(artifacts.findDocId("<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:a\nprose after")).toBe("dv1:a");
+  });
+
+  it("a closed header skips blank, comment and non-key lines instead of ending at them", () => {
+    const blank = "<!-- DEVENV_ARTIFACT_V1\n\ndoc_id: dv1:a\nissue_number: 7\n-->";
+    const note = "<!-- DEVENV_ARTIFACT_V1\n# note\ndoc_id: dv1:a\nissue_number: 7\n-->";
+    for (const body of [blank, note, blank.replaceAll("\n", "\r\n")]) {
+      expect(artifacts.findDocId(body)).toBe("dv1:a");
+      expect(artifacts.headerField(body, "issue_number")).toBe("7");
+      expect(artifacts.parseHeaderJson(body)).toEqual({ doc_id: "dv1:a", issue_number: "7" });
+      expect(artifacts.bodyUpsertable(body)).toEqual({ ok: true });
+    }
+  });
+
+  it("header keys may carry hyphens and digits in every reader", () => {
+    const body = "<!-- DEVENV_ARTIFACT_V1\nx-y: 1\nv2: 1\ndoc_id: dv1:a\nissue_number: 7\n-->";
+    expect(artifacts.findDocId(body)).toBe("dv1:a");
+    expect(artifacts.headerField(body, "x-y")).toBe("1");
+    expect(artifacts.headerField(body, "v2")).toBe("1");
+    expect(artifacts.parseHeaderJson(body)).toEqual({ "x-y": "1", v2: "1", doc_id: "dv1:a", issue_number: "7" });
+    expect(artifacts.bodyUpsertable(body)).toEqual({ ok: true });
+  });
+
+  it("an unclosed header stays bounded when hyphen and digit keys precede the break", () => {
+    const body = "<!-- DEVENV_ARTIFACT_V1\nx-y: 1\nv2: 1\n\ndoc_id: dv1:prose\nissue_number: 9";
+    expect(artifacts.findDocId(body)).toBe("");
+    expect(artifacts.parseHeaderJson(body)).toEqual({ "x-y": "1", v2: "1" });
+  });
+
+  it("a doc_id line outside the delimited block is not a header", () => {
+    expect(artifacts.findDocId("<!-- DEVENV_ARTIFACT_V1\nartifact_type: plan\n-->\ndoc_id: dv1:after")).toBe("");
+    expect(artifacts.bodyUpsertable("doc_id: dv1:a\nissue_number: 1").ok).toBe(false);
+  });
+
+  it("canonicalArtifactType maps implementation-plan to plan", () => {
+    expect(artifacts.canonicalArtifactType("implementation-plan")).toBe("plan");
+    expect(artifacts.canonicalArtifactType("research")).toBe("research");
+  });
+
+  /** gh stub that models real pagination: without --slurp, --paginate emits
+   * concatenated arrays (not one JSON document); a single page holds 30. */
+  function installPagedStub(): void {
+    const page = (from: number, to: number): string =>
+      JSON.stringify(Array.from({ length: to - from + 1 }, (_, i) => ({ name: `p${from + i}`, version: `v${from + i}` })));
+    const script = `#!/usr/bin/env bash
+printf 'gh %s\\n' "$*" >> "${callLog}"
+all="$*"
+if [[ "$all" == *"--paginate"* && "$all" == *"--slurp"* ]]; then
+  printf '[%s,%s]\\n' '${page(1, 30)}' '${page(31, 45)}'
+elif [[ "$all" == *"--paginate"* ]]; then
+  printf '%s\\n%s\\n' '${page(1, 30)}' '${page(31, 45)}'
+else
+  printf '%s\\n' '${page(1, 30)}'
+fi
+`;
+    writeFileSync(join(stubDir, "gh"), script, { mode: 0o755 });
+  }
+
+  it("queryPackages follows every page (more than 30 packages)", async () => {
+    installPagedStub();
+    const all = JSON.parse(await artifacts.queryPackages({ type: "npm" })) as unknown[];
+    expect(all.length).toBe(45);
+  });
+
+  it("packageVersions follows every page (more than 30 versions)", async () => {
+    installPagedStub();
+    const all = JSON.parse(await artifacts.packageVersions({ type: "npm", name: "left-pad" })) as unknown[];
+    expect(all.length).toBe(45);
+  });
+
+  it("listing failures throw instead of reading as an empty list", async () => {
+    process.env.FACADE_GH_FAIL = "1";
+    await expect(artifacts.queryPackages({ type: "npm" })).rejects.toThrow(/packages/i);
+    await expect(artifacts.packageVersions({ type: "npm", name: "x" })).rejects.toThrow(/versions/i);
+  });
+
+  it("an unparseable listing response throws", async () => {
+    writeFileSync(join(stubDir, "gh"), "#!/usr/bin/env bash\necho 'not json'\n", { mode: 0o755 });
+    await expect(artifacts.queryPackages({ type: "npm" })).rejects.toThrow(/parse/i);
+    await expect(artifacts.packageVersions({ type: "npm", name: "x" })).rejects.toThrow(/parse/i);
   });
 
   it("unconfigured org makes owner resolution fail defined", async () => {

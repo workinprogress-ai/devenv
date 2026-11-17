@@ -1,187 +1,161 @@
 # Function Naming Conventions
 
-This document defines the naming standards for bash functions in the Devenv project.
+This document defines the naming standards for functions and modules in the
+Devenv project's TypeScript tooling. The small bash bootstrap layer has its own
+short section at the end.
 
-## Standard: snake_case
+## Standard: camelCase functions, kebab-case files
 
-All bash functions MUST use **snake_case** naming convention for consistency and readability.
+| Thing | Convention | Example |
+|-------|------------|---------|
+| Function, variable, parameter | `camelCase` | `resolveBodySource`, `providerOrgGet` |
+| Type, interface, class | `PascalCase` | `ToolCliOptions`, `SpawnError` |
+| Constant (module-level, fixed value) | `UPPER_SNAKE_CASE` | `EXIT_MISUSE`, `NODE_FLOOR`, `SCRIPT_VERSION` |
+| Module under `tools/lib/` | `kebab-case.ts` | `exit-codes.ts`, `body-source.ts` |
+| Tool under `tools/ts/` | `group-action.ts` | `issue-create.ts`, `markdown-plan-complete-task.ts` |
+| Test | `<subject>.test.ts` under `tools/tests/ts/` | `config-reader.test.ts` |
 
-### Format Rules
+Tool names are the command names, so they stay `kebab-case` and follow the
+existing `group-action` pattern (the group names the family, the action names
+what the tool does). A file whose name starts with `_` is machinery that is
+called by path, not a user-facing command.
 
-1. **Use lowercase letters only**: `my_function`, not `MyFunction` or `myFunction`
-2. **Separate words with underscores**: `add_nuget_source`, not `addnugetsource`
-3. **Use descriptive names**: `add_npm_registry_if_not_exists`, not `add_npm`
-4. **Prefix with verb**: `get_version`, `check_requirements`, `validate_input`
-5. **Use full words**: `get_configuration`, not `get_config` (unless acronym is standard)
+### Format rules
 
-### Common Verb Prefixes
+1. **Start lowercase, capitalize each following word**: `addShortcut`, not
+   `AddShortcut` or `add_shortcut`.
+2. **Use descriptive names**: `buildDependencyIndex`, not `buildIndex`.
+3. **Prefix with a verb** (see the table below): `getReverseDependencyTree`, `checkTargetRepo`,
+   `requireCommand`.
+4. **Use full words**: `getConfiguration`, not `getCfg` (unless the acronym is
+   standard: `url`, `id`, `pr`).
+5. **Treat an acronym as a word**: `parseUrl`, not `parseURL`.
+
+### Common verb prefixes
 
 | Prefix | Purpose | Example |
 |--------|---------|---------|
-| `get_` | Retrieve a value | `get_bash_version()` |
-| `check_` | Verify condition (returns 0/1) | `check_bash_version()` |
-| `validate_` | Check input validity | `validate_positive_integer()` |
-| `require_` | Assert specification item or fail | `require_command()` |
-| `is_` | Boolean check | `is_strict_mode_enabled()` |
-| `has_` | Check for existence | `hasExistingIssue()` (TS, `lib/domain`) |
-| `add_` | Add an item | `add_git_safe_directory()` |
-| `create_` | Create something new | `create_temp_file()` |
-| `remove_` | Remove something | `safe_remove()` |
-| `enable_` | Turn on a feature | `enable_strict_mode()` |
-| `configure_` | Set up configuration | `configure_git_repo()` |
-| `log_` | Logging functions | `log_info()`, `log_error()` |
-| `parse_` | Parse/extract data | `parse_version()` |
-| `compare_` | Compare values | `compare_versions()` |
-| `on_` | Event handlers | `on_error()`, `on_script_error()` |
+| `get` | Retrieve a value | `getReverseDependencyTree()` |
+| `check` | Verify a condition, return a boolean or result | `checkTargetRepo()` |
+| `require` | Assert a precondition or fail | `requireCommand()`, `requireOptionValue()` |
+| `is` | Boolean check | `isInteractive()`, `isIndexStale()` |
+| `has` | Check for existence | `skipListHas()` (family word first, verb last) |
+| `add` | Add an item | `addShortcut()`, `addFolder()` (`lib/domain/desktop-menu.ts`) |
+| `set` | Change a setting or state | `setLogLevel()` |
+| `parse` | Parse or extract data | `parsePlan()` (`lib/domain/plan.ts`) |
+| `resolve` | Work out a value from several sources | `resolveBodySource()` |
+| `build` | Assemble a derived structure | `buildDependencyIndex()` |
+| `log` | Logging functions | `logInfo()`, `logError()` |
 
-### Namespace Prefixes
+### Namespace prefixes
 
-For library functions, use a consistent namespace prefix:
+Where several functions form one family, share a leading word so they sort and
+search together:
 
-- `config_*` - Configuration management (lib/config-reader.bash)
-- `log_*` - Logging functions (lib/error-handling.bash)
+- `provider*` — provider detection, identity and capability gates
+  (`lib/providers/provider-core.ts`): `providerDetect`, `providerOrgGet`,
+  `providerRepoTarget`.
+- Facade verbs lead with the family: `issues*`, `prs*`, `repos*`, `org*`,
+  `pipelines*`, `projects*`, `urls*` (`lib/providers/facade/<family>.ts`):
+  `prsMerge`, `issuesEdit`, `reposList`.
+- `config*` — `devenv.config` access (`lib/core/config.ts`): `configGetRaw`.
+- `log*` — logging (`lib/core/logging.ts`).
 
 ### Examples
 
-#### ✅ Good Names
+#### Good names
 
-```bash
-# Clear action and subject
-get_bash_version() { ... }
-check_environment_requirements() { ... }
-add_npm_registry_if_not_exists() { ... }
-validate_positive_integer() { ... }
-require_script_version() { ... }
-is_strict_mode_enabled() { ... }
-configure_git_global() { ... }
-on_script_error() { ... }
+```ts
+// Clear action and subject
+export function getReverseDependencyTree(rootInput: string): ReverseTreeRow[] { /* ... */ }
+export function requireOptionValue(optionName: string, value: string | undefined): string { /* ... */ }
+export function isInteractive(): boolean { /* ... */ }
+export const EXIT_API_FAILURE = 4;
 ```
 
-#### ❌ Bad Names
+#### Bad names
 
-```bash
-# Inconsistent casing
-getBashVersion() { ... }        # camelCase - use snake_case
-GetBashVersion() { ... }        # PascalCase - use snake_case
+```ts
+// Inconsistent casing
+function get_version() {}         // snake_case - use getVersion
+function GetVersion() {}          // PascalCase is for types
 
-# Unclear purpose
-do_stuff() { ... }              # Too vague
-process() { ... }               # What does it process?
-handle() { ... }                # Handle what?
+// Unclear purpose
+function doStuff() {}             // too vague
+function process() {}             // what does it process?
+function handle() {}              // handle what?
 
-# Abbreviated
-chk_ver() { ... }               # Use check_version
-cfg_git() { ... }               # Use configure_git
-rm_tmp() { ... }                # Use remove_temp
+// Abbreviated
+function chkVer() {}              // use checkVersion
+function cfgGit() {}              // use configureGit
+function rmTmp() {}               // use removeTempDirectory
 ```
 
-### Special Cases
+### Special cases
 
-#### Utility Wrappers
+#### Wrappers around external commands
 
-When wrapping external commands for specific purposes, use descriptive names:
+When wrapping an external command for a specific purpose, name the purpose, and
+spawn through `tools/lib/core/spawn.ts` (`run`, `mustRun`) with a typed argv
+rather than a shell string:
 
-```bash
-# ✅ Good - describes purpose
-invoke_npm_with_filtered_output() { ... }
-run_dotnet_with_retry() { ... }
+```ts
+// Good - describes purpose
+function runDotnetRestoreWithRetry(args: string[]): Promise<SpawnResult> { /* ... */ }
 
-# ❌ Bad - too generic
-call_npm() { ... }    # Rename to invoke_npm_quietly or similar
-run() { ... }         # Too generic
+// Bad - too generic
+function callNpm() {}             // say what the call is for
 ```
 
-#### Short Helper Functions
+#### Short helpers
 
-Even short helpers should be descriptive:
+Even short helpers are descriptive. A short name is acceptable only when it is
+the widely known one for the job (`run` in `core/spawn.ts`, `text` and
+`select` in `ui/prompts.ts`, where the module name supplies the context).
 
-```bash
-# ✅ Good
-use_colors() { ... }
-get_timestamp() { ... }
-die() { ... }          # Acceptable - well-known convention
+#### Export surface
 
-# ❌ Bad
-c() { ... }            # Too cryptic
-ts() { ... }           # Use get_timestamp
-```
+A module exports the functions other modules need and nothing else. Keep
+helpers module-private (unexported); a private helper needs no namespace prefix.
 
-#### Command Aliases
+## Implementation guidelines
 
-Simple aliases for navigation can be short:
+### When creating new functions
 
-```bash
-# ✅ Acceptable for user convenience
-devenv() { cd "$DEVENV"; }
-repos() { cd "$DEVENV_ROOT/repos"; }
-playground() { cd "$DEVENV_ROOT/playground"; }
-```
+1. Choose a clear verb prefix from the table above.
+2. Use full words, not abbreviations.
+3. Describe what the function does, not how.
+4. Keep names under 40 characters when possible.
+5. Put a short doc comment on every exported function stating what it returns
+   and when it throws or exits.
 
-These are user-facing convenience functions, not library functions.
+### When renaming existing functions
 
-## Implementation Guidelines
-
-### When Creating New Functions
-
-1. Choose a clear verb prefix from the table above
-2. Use full words, not abbreviations
-3. Describe what the function does, not how
-4. Keep names under 40 characters when possible
-5. Use underscores to separate logical parts
-
-### When Refactoring Existing Functions
-
-1. Check if the name follows snake_case
-2. Verify the verb prefix matches the function's purpose
-3. Ensure the name is descriptive enough
-4. Update all call sites when renaming
-5. Add tests to verify the refactored function
-
-### Testing Function Names
-
-Function names should be tested in unit tests:
-
-```bash
-@test "lib function names use snake_case" {
-  # Extract function names from library files
-  run bash -c "grep -hE '^[a-z_][a-z0-9_]*\(\)' tools/lib/*.bash | sed 's/().*//' | grep -E '[A-Z]'"
-  [ "$status" -ne 0 ]  # Should find no uppercase letters
-}
-```
-
-## Migration Path
-
-For existing code with non-compliant names:
-
-1. Create new function with correct name
-2. Mark the old function as superseded by a comment naming its replacement
-3. Have old function call new function
-4. Update documentation
-5. Create issue to remove the superseded function
-6. Update all call sites in separate commit
-7. Remove the superseded function
-
-Example:
-
-```bash
-# New standard name
-invoke_npm_quietly() {
-    npm "$@" 2>&1 | grep -v 'NODE_TLS_REJECT_UNAUTHORIZED is set to 0'
-}
-
-# Superseded - remove in v2.0.0
-# Use invoke_npm_quietly() instead
-call_npm() {
-    invoke_npm_quietly "$@"
-}
-```
+1. Check the name follows camelCase.
+2. Verify the verb prefix matches the function's purpose.
+3. Update all call sites in the same commit; the type gate (`tsc --noEmit`)
+   finds any that were missed.
+4. Add or adjust tests for the renamed function.
 
 ## Enforcement
 
-1. **Code Reviews**: Reviewers must check function naming
-2. **Automated Tests**: Run naming convention tests in CI
-3. **Linting**: Use shellcheck and custom linters
-4. **Documentation**: Keep this guide updated
+1. **Type gate**: `tsc --noEmit` (`pnpm typecheck`) catches a call site left on
+   an old name.
+2. **Lint**: `eslint tools` (`pnpm lint:ts`) runs in the pre-commit hook and CI.
+3. **Code review**: reviewers check function and file naming against this guide.
+
+## Bash bootstrap layer
+
+The bash that remains is the container bootstrap surface
+(`tools/lib/config-reader.bash`, `tools/lib/error-handling.bash`,
+`tools/lib/providers/provider-core.bash` and the provider
+`auth`/`setup`/`bootstrap` hooks; see
+[Bash bootstrap surface](../tools/lib/providers/README.md#bash-bootstrap-surface)).
+Its functions use `snake_case` with a namespace prefix that matches the file:
+`config_*` (`config-reader.bash`), `log_*` (`error-handling.bash`),
+`provider_*` (`provider-core.bash` and the provider hook files, for example
+`provider_setup_label`). Do not add new functions there unless the bootstrap
+chain itself needs them.
 
 ## See Also
 

@@ -130,7 +130,7 @@ describe("husky pre-commit type and lint gates", () => {
     }
   }
 
-  it.each(["eslint.config.js", "tsconfig.json", "package.json"])("staging %s runs tsc and eslint", (file) => {
+  it.each(["eslint.config.js", "tsconfig.json", "package.json", "vitest.config.ts", ".github/workflows/test.yml"])("staging %s runs tsc and eslint", (file) => {
     const r = runHookStaging(file);
     expect(r.status).toBe(0);
     expect(r.npxCalls).toEqual(["--no-install tsc --noEmit", "--no-install eslint tools"]);

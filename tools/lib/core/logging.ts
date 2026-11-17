@@ -1,6 +1,6 @@
-// logging.ts — leveled logging (port of error-handling.bash log functions).
+// logging.ts — leveled logging.
 // Output format is preserved verbatim: "[YYYY-MM-DD HH:MM:SS] LEVEL: message"
-// on stderr, level right-padded to 5 chars. Colors mirror the bash palette
+// on stderr, level right-padded to 5 chars. Colors use the ANSI palette
 // and stay off when not a TTY (NO_COLOR honored).
 import { EOL } from "node:os";
 
@@ -39,8 +39,7 @@ export function setLogLevel(level: number): void {
 }
 
 function useColors(): boolean {
-  // Parity with error-handling.bash: only NO_COLOR=1 disables; other values
-  // (e.g. NO_COLOR=0) keep color, matching the bash original's check.
+  // Only NO_COLOR=1 disables color; other values (e.g. NO_COLOR=0) keep it.
   if (process.env["NO_COLOR"] === "1") return false;
   return process.stderr.isTTY === true;
 }

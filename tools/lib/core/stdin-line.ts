@@ -49,12 +49,10 @@ export function readLineStdin(options: ReadLineOptions = {}): string | null {
   const read = options.read ?? readFd0;
   const sleep = options.sleep ?? sleepBlocking;
   const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
-  let buf = Buffer.alloc(0);
+  const bytes: number[] = [];
   const chunk = Buffer.alloc(1);
   let retries = 0;
   while (true) {
-    const idx = buf.indexOf(0x0a);
-    if (idx !== -1) return buf.subarray(0, idx).toString("utf8").trim();
     let n = 0;
     try {
       n = read(chunk);
@@ -70,8 +68,10 @@ export function readLineStdin(options: ReadLineOptions = {}): string | null {
         throw err;
       }
     }
-    if (n <= 0) return buf.length > 0 ? buf.toString("utf8").trim() : null;
+    if (n <= 0) return bytes.length > 0 ? Buffer.from(bytes).toString("utf8").trim() : null;
     retries = 0;
-    buf = Buffer.concat([buf, chunk.subarray(0, n)]);
+    const byte = chunk[0] as number;
+    if (byte === 0x0a) return Buffer.from(bytes).toString("utf8").trim();
+    bytes.push(byte);
   }
 }

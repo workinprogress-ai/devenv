@@ -164,4 +164,28 @@ describe("git-prune-branches (real git fixture)", () => {
     expect(branchExists("feature/abort")).toBe(true);
     git(repo, "branch", "-D", "feature/abort");
   });
+
+  it("only an exact Y or y confirms: 'yes', 'Yolo' and an empty answer delete nothing", () => {
+    makeGoneBranch("feature/exact", ["exact work"]);
+    git(repo, "switch", "master");
+    for (const answer of ["yes\n", "Yolo\n", "\n", ""]) {
+      const r = runTool([], answer);
+      expect(r.status, JSON.stringify(answer)).toBe(0);
+      expect(r.out, JSON.stringify(answer)).toContain("Aborted");
+    }
+    expect(branchExists("feature/exact")).toBe(true);
+    const confirmed = runTool(["--force"], "y\n");
+    expect(confirmed.out).toContain("Deleted (forced): feature/exact");
+  });
+
+  it("reads a long confirm line in bounded time instead of one byte at a time through a quadratic buffer", () => {
+    makeGoneBranch("feature/long", ["long work"]);
+    git(repo, "switch", "master");
+    const started = Date.now();
+    const r = runTool([], `${"y".repeat(100_000)}\n`);
+    expect(r.out).toContain("Aborted");
+    expect(Date.now() - started).toBeLessThan(20_000);
+    expect(branchExists("feature/long")).toBe(true);
+    git(repo, "branch", "-D", "feature/long");
+  });
 });

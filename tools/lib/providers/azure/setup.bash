@@ -72,10 +72,15 @@ provider_setup_check_token_format() {
 provider_setup_detect_org() {
     local url
     url="$(git remote get-url origin 2>/dev/null)" || return 0
-    if [[ "$url" =~ ssh\.dev\.azure\.com:v3/([^/]+)/ ]]; then
-        echo "${BASH_REMATCH[1]}"
-    elif [[ "$url" =~ dev\.azure\.com/([^/]+)/ ]]; then
-        echo "${BASH_REMATCH[1]}"
+    # The host must open the authority: after an optional scheme and an optional
+    # "user@" that contains no "/" or "@". A host that merely ends in dev.azure.com,
+    # or an "@dev.azure.com/" inside a path segment, does not name an organization.
+    local ssh_re='^([A-Za-z][A-Za-z0-9+.-]*://)?([^/@]*@)?ssh\.dev\.azure\.com:v3/([^/]+)/'
+    local https_re='^([A-Za-z][A-Za-z0-9+.-]*://)?([^/@]*@)?dev\.azure\.com/([^/]+)/'
+    if [[ "$url" =~ $ssh_re ]]; then
+        echo "${BASH_REMATCH[3]}"
+    elif [[ "$url" =~ $https_re ]]; then
+        echo "${BASH_REMATCH[3]}"
     fi
 }
 

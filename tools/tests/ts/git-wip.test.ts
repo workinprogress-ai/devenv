@@ -116,7 +116,7 @@ describe("scripts/git-wip", () => {
 
   it("git-wip stages all untracked files", () => {
     writeFileSync(join(TEST_REPO, "new_file.txt"), "untracked\n");
-    const r = wip("");
+    const r = wip("untracked snapshot");
     expect(r.status).toBe(0);
     const show = (git(["show", "--name-only", "HEAD"]).stdout ?? "");
     expect(show).toContain("new_file.txt");

@@ -5,7 +5,7 @@
 // or annotated with the consuming packages.
 
 import { existsSync, readdirSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -94,7 +94,8 @@ if (csprojCount === 0 && !hasSln) {
   process.exit(EXIT_MISUSE);
 }
 
-const repoName = basename(targetDir);
+// basename of the resolved path: "." and "./" name the working directory, not "."
+const repoName = basename(resolve(targetDir));
 
 // Step 1: refresh repo cache (unless --no-refresh).
 if (!skipRefresh) {

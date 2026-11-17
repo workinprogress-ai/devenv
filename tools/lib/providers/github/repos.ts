@@ -143,6 +143,27 @@ export async function reposView(spec: string | undefined, opts: ReposViewOptions
   return (await ghApi(args)).stdout;
 }
 
+/** Whether a repository exists and is reachable: gh's exit status, so a
+ * missing and an inaccessible repository both read false. */
+export async function reposExists(spec: string): Promise<boolean> {
+  const r = await ghApi(["repo", "view", spec, "--json", "name", "-q", ".name"], { tolerateFailure: true });
+  return r.status === 0;
+}
+
+/** Whether the repository allows squash merges (false when gh cannot say). */
+export async function reposSquashMergeAllowed(spec: string): Promise<boolean> {
+  const r = await ghApi(["repo", "view", spec, "--json", "allowSquashMerge", "-q", ".allowSquashMerge"], { tolerateFailure: true });
+  return r.status === 0 && r.stdout.trim() === "true";
+}
+
+/** The `owner/name` of the repository `cwd` belongs to (gh infers it from the
+ * directory), or null when gh cannot resolve one. */
+export async function reposNameWithOwner(cwd: string): Promise<string | null> {
+  const r = await ghApi(["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], { cwd, tolerateFailure: true });
+  const name = r.stdout.trim();
+  return r.status === 0 && name !== "" ? name : null;
+}
+
 // ---------------------------------------------------------------------------
 // Mutations (the verbs this batch's tools consume; the rest port with their
 // consuming batch)

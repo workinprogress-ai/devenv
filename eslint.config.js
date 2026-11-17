@@ -47,6 +47,10 @@ export default tseslint.config(
           "message": "Enums are not supported by Node's strip-only TypeScript execution — use a const object with a union type.",
         },
         {
+          "selector": "CallExpression[callee.object.name='process'][callee.property.name='exit'][arguments.0.type='Literal'][arguments.0.raw=/^[2-9]$/]",
+          "message": "Use the named exit-code constants from tools/lib/core/exit-codes.ts.",
+        },
+        {
           "selector": "TSNamespaceDeclaration",
           "message": "Namespaces are not supported by Node's strip-only TypeScript execution — use modules.",
         },

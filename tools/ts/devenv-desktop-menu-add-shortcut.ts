@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { EXIT_API_FAILURE, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { addShortcut, menuFile } from "../lib/domain/desktop-menu.ts";
 
 assertNodeFloor();
@@ -62,4 +62,9 @@ if (!existsSync(menu)) {
   console.error(`ERROR: Fluxbox menu file not found: ${menu}`);
   process.exit(EXIT_API_FAILURE);
 }
-addShortcut(menu, label as string, cmd as string, folder);
+try {
+  addShortcut(menu, label as string, cmd as string, folder);
+} catch (err) {
+  console.error(`ERROR: ${errorMessage(err)}`);
+  process.exit(EXIT_GENERAL_ERROR);
+}

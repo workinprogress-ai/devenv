@@ -8,12 +8,14 @@
 
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { calculateNextVersion, getLatestVersionTag } from "../lib/domain/release/version.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { packageIdFromNupkgName } from "../lib/domain/cs/csproj.ts";
 
 assertNodeFloor();
 
@@ -78,10 +80,10 @@ function main(): void {
     argv = cli.positionals;
   } catch (err) {
     console.error(errorMessage(err));
-    console.log("Use --help for usage information");
-    process.exit(2);
+    console.error("Use --help for usage information");
+    process.exit(EXIT_MISUSE);
   }
-  const target = argv[0] ?? process.cwd();
+  const target = resolve(argv[0] ?? ".");
   const version = argv[1] ?? calculateNextVersion(getLatestVersionTag());
   const releaseConfig = argv[2] ?? "Debug";
 
@@ -96,7 +98,9 @@ function main(): void {
   console.log(`Publishing version ${version}`);
 
   for (const csproj of csprojFiles) {
-    if (csproj.includes("/test/")) {
+    // Test projects are recognised by a test/tests directory below the target,
+    // never by where the checkout itself lives.
+    if (/(^|\/)tests?\//.test(relative(target, csproj))) {
       console.log(`Skipping ${csproj}`);
       console.log("");
       continue;
@@ -165,15 +169,9 @@ function main(): void {
   // new bits (same rule as cs-nuget-clear-local).
   const packages = new Set<string>();
   for (const f of readdirSync(localFeedDir)) {
-    let m = /^(.+)\.\d+\.\d+\.\d+\.nupkg$/.exec(f);
-    if (m === null) {
-      // Fallback (bash parity): strip a trailing 2-part or prerelease
-      // version (name.1.2 or name.1.2.3-beta) when the strict 3-part form
-      // does not match.
-      const base = f.replace(/\.nupkg$/, "");
-      m = [f, base.replace(/\.\d+(\.\d+)*$/, "")] as unknown as RegExpExecArray;
-    }
-    if (m !== null && m[1] !== undefined) packages.add(m[1].toLowerCase());
+    if (!f.endsWith(".nupkg")) continue;
+    const id = packageIdFromNupkgName(f);
+    if (id !== null) packages.add(id.toLowerCase());
   }
   const home = process.env.HOME ?? "";
   let hadError = false;

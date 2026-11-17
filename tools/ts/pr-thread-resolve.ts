@@ -72,13 +72,13 @@ async function main(argv: string[]): Promise<number> {
     threadId = cli.positionals[0] ?? "";
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   if (threadId === "") {
     logError("THREAD_ID is required");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
@@ -98,8 +98,9 @@ async function main(argv: string[]): Promise<number> {
   let isResolved: string;
   try {
     isResolved = (await prsThreadResolve(providerRepoTarget(""), threadId)).stdout.trim();
-  } catch {
+  } catch (err) {
     logError(`Failed to resolve thread: ${threadId}`);
+    logError(errorMessage(err));
     return EXIT_API_FAILURE;
   }
   if (isResolved === "true") {

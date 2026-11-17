@@ -83,6 +83,14 @@ if (scriptName.includes("/")) {
 
 if (!scriptName.endsWith(".ts")) scriptName = `${scriptName}.ts`;
 
+// The name is substituted into generated source and used as the tool name,
+// so only a conservative identifier-like charset is accepted.
+if (!/^[A-Za-z0-9][A-Za-z0-9_-]*\.ts$/.test(scriptName)) {
+  logError(`Invalid script name: ${scriptName} (use letters, digits, '-' and '_', starting with a letter or digit)`);
+  console.error("Use --help for usage information");
+  process.exit(EXIT_MISUSE);
+}
+
 // This generator's own checkout is the template source — deriving from cwd
 // picks up a different devenv checkout when one is nested above (the
 // workspace-root shadow copy ships its own, possibly stale, templates).
@@ -111,7 +119,10 @@ copyFileSync(templateFile, outputFile);
 // generated imports resolve wherever the tool is created.
 let content = readFileSync(outputFile, "utf8");
 content = content.split("SCRIPT_NAME").join(scriptName.replace(/\.ts$/, ""));
-const libRel = relative(dirname(outputFile), join(toolsRoot, "lib"));
+// A bare relative path ("lib" when generating into tools/) would be read as a
+// package specifier, so same-or-deeper locations need an explicit "./".
+const relToLib = relative(dirname(outputFile), join(toolsRoot, "lib"));
+const libRel = relToLib === "" ? "." : relToLib.startsWith(".") ? relToLib : `./${relToLib}`;
 content = content.split("REL_LIB").join(libRel);
 const today = new Date().toISOString().slice(0, 10);
 content = content.split("YYYY-MM-DD").join(today);

@@ -9,7 +9,7 @@ The essentials live in `devenv.config`; repository-creation standards live in `t
 - ✅ Read [The fork-stable surfaces contract](#the-fork-stable-surfaces-contract) below — it defines what you may change without carrying maintenance burden
 - ✅ Update `devenv.config` for org identity (`org` key), provider name, container name, workflows, and bootstrap defaults
 - ✅ (If you customize the issue workflow) Read [Issue Workflow](./Issue-Workflow.md) first — the `[workflows]` vocabulary carries engine contracts, documented in its Workflow customization section. The contract: config renames the board column names (with `tools/config/skill-events.yml` updated in the same change); redesigning the workflow itself — reordering, adding/removing states, changing phases — is a fork of the skills, and you will need to re-write the skill prose to match.
-- ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types and provider issue-type IDs
+- ✅ (If you use issue creation tooling) Update `tools/config/issues-config.yml` with your organization's issue types
 - ✅ (If you adapt to a non-GitHub provider) Follow [Adapting to Azure DevOps](#adapting-to-azure-devops) — provider modules, protocol reference, and config keys
 - ✅ (If you use repo creation tooling) Update `tools/config/repo-types.yaml` for naming, templates, branch protection, and post-creation scripts
 - ✅ (Optional) Update `copilot/copilot-instructions.md` with organization-specific AI coding guidelines
@@ -26,7 +26,7 @@ The devenv keeps a deliberately small set of fork-owned surfaces. **Everything i
 | # | Surface | Path(s) | What a fork changes here |
 | - | ------- | ------- | ------------------------ |
 | 1 | Data policy (config values) | `devenv.config`, `tools/config/issues-config.yml` | Org identity, provider name, workflow vocabulary, issue types, staleness thresholds, nuget/npm feeds |
-| 2 | Behavior policy (policy overrides) | `tools/lib/policy/*.bash` | Org policy decisions as config-driven knobs (`policy_define` accessors) — see the [policy library README](../tools/lib/policy/README.md) for the full knob catalog |
+| 2 | Behavior policy (policy values) | `devenv.config` `[workflows]` and `[organization]` keys, `tools/config/*.yml` | Org policy decisions as config values the TypeScript tools read directly (delivery boundary token, status fallback, labels, event statuses) — see the [policy library README](../tools/lib/policy/README.md) for where each decision lives |
 | 3 | Provider modules | `tools/lib/providers/*` | Add or replace per-provider domain modules; set `[provider] name`; manage the token-env allowlist — see the [provider abstraction README](../tools/lib/providers/README.md) |
 | 4 | Provider protocol references | `copilot/skills/_shared/references/provider-protocols/<provider>.md` (transport; `github.md` and `azure.md` ship in-tree) and `copilot/skills/_shared/references/protocol-common.md` (provider-neutral wrapper contract — identical for every fork, do not fork-edit) | A fork **authors** its own `<provider>.md` to the fixed three-part structure (credential lifecycle → repo targeting → provider-visible behavior). Agents resolve the filename from `[provider] name` — no file is ever content-swapped |
 | 5 | Shared references a fork may re-skin | `copilot/skills/common/references/*.md` (e.g. `issue-creation.md`) | Provider-coupled phrasing inside shared skill references |
@@ -47,14 +47,14 @@ name=github
                          # as token sources despite the keychain-first policy
 ```
 
-- **name**: Which module set under `tools/lib/providers/<name>/` answers the `provider_<domain>_<verb>` facade calls. Default `github`; forks adapting to another backend change this key (see [Adapting to Azure DevOps](#adapting-to-azure-devops)).
+- **name**: Which module set under `tools/lib/providers/<name>/` answers the facade calls (`prsMerge`, `issuesEdit`, ...). Default `github`; a name that is not shipped is an error, never a silent fallback. Forks adapting to another backend change this key (see [Adapting to Azure DevOps](#adapting-to-azure-devops)).
 - **token_env_allowlist**: Session-scoped token exports are ignored by default — credentials resolve env-if-allowlisted → keychain → error. The allowlist ships empty; add entries only with a documented justification (see the [provider abstraction README](../tools/lib/providers/README.md)).
 
-Dispatch is by naming convention with no registry: adding a provider means adding module files — the core never changes. Domain modules and scripts never read token env vars directly; they call `provider_secret_get`, so the credential backing store swaps in behind the seam. Rotation runs through `key-update-provider` (imports via the provider auth seam into the keychain and wires the git credential helper — no token ever lands in env files or remote URLs).
+Tools never call a provider module directly: they import the TypeScript facade (`tools/lib/providers/facade/<family>.ts`), which loads the active provider's modules from a manifest. Adding a provider means adding module files and manifest rows, as listed in [Adding a provider](../tools/lib/providers/README.md#adding-a-provider). Tools and domain code never read token env vars directly; credentials resolve through the provider's auth module, so the credential backing store swaps in behind the seam. Rotation runs through `key-update-provider` (imports through the provider auth layer into the keychain and wires the git credential helper — no token ever lands in env files or remote URLs). The only bash in the provider layer is the container bootstrap surface (auth, setup and bootstrap hooks); the providers README documents it under [Bash bootstrap surface](../tools/lib/providers/README.md#bash-bootstrap-surface).
 
 ### Capability flags
 
-Providers differ in what they support. GH-only surfaces — rulesets, project boards, native issue types, releases, CI pipelines — are declared capabilities. Modules gate those code paths with `provider_require_capability`, which fails with a defined "provider does not support this" error instead of failing mid-command. A fork's provider module declares the capabilities it honors; scripts degrade or substitute accordingly (labels-based typing instead of native types, for example).
+Providers differ in what they support. GH-only surfaces — rulesets, project boards, native issue types, releases, CI pipelines — are declared capabilities. Tools gate those code paths with `requireFamilyCapability` (which ends in `providerRequireCapability`), and a provider that lacks the capability fails with a defined "provider does not support this" error instead of failing mid-command. A fork's provider module declares the capabilities it honors with `providerDeclareCapability` (the canonical list is `PROVIDER_CAPABILITY_CANONICAL` in `provider-core.ts`); scripts degrade or substitute accordingly (labels-based typing instead of native types, for example).
 
 ## Adapting to Azure DevOps
 
@@ -72,33 +72,32 @@ The ADO path follows the fixed minimal mapping from the provider-agnostic effort
 | Work item types | Native issue types (Bug/Feature/Task/Epic) | **Type map**: ADO work item types via `[issues]`/`issues-config.yml` values |
 | Repo ↔ area | Org-wide area paths | **area-path = repo** (one area path per repository) |
 | Board states | Project Status field | **board columns = `status_workflow`** — the `[workflows]` vocabulary drives column names |
-| Auth | PAT in keychain via credential helper | **PAT auth** — same keychain-first seam, ADO token store behind `provider_auth_import_token` |
+| Auth | PAT in keychain via credential helper | **PAT auth** — same keychain-first seam, the PAT stored by the Azure auth module (`azure/auth.ts`) |
 
 Procedure:
 
 1. **Author the protocol reference** — write `copilot/skills/_shared/references/provider-protocols/<provider>.md` to the fixed three-part structure (credential lifecycle → repo targeting → provider-visible behavior), using `azure.md` as the freshest example and `github.md` for the GitHub entries. The provider-neutral wrapper contract (`protocol-common.md`) already covers invocation conventions, targeting chain, prohibitions, and recipes — cite it, don't duplicate it. Agents resolve the filename from `[provider] name`; skill bodies never change.
-2. **Add provider modules** — create `tools/lib/providers/ado/` with domain modules answering the `provider_<domain>_<verb>` calls (`issues`, `prs`, `repos`, `actions`, …). Start from the GitHub modules as templates; replace the transport, keep the function signatures.
+2. **Add provider modules** — create `tools/lib/providers/ado/` with one TypeScript module per family it supports (`issues`, `prs`, `repos`, `pipelines`, …) implementing the verbs in [CONTRACT.md](../tools/lib/providers/CONTRACT.md). Start from the GitHub or Azure modules as templates; replace the transport, keep the function signatures. Register the modules in `FAMILY_MANIFEST` and the facades as described in [Adding a provider](../tools/lib/providers/README.md#adding-a-provider), and add the thin bash bootstrap hooks that section lists.
 3. **Flip the config key** — set `[provider] name=ado` in `devenv.config`.
 4. **Map the capabilities** — decide which GH-only capabilities your ADO setup substitutes: rulesets → ADO branch policies, project boards → board columns over `status_workflow`, native issue types → ADO work item type map. Gate what you don't support; degrade what you substitute.
-5. **Replace provider-specific config values** — native type IDs in `issues-config.yml` (GitHub `IT_kwDO…` IDs, discovered via the GraphQL recipe in that file's header), the nuget feed URL (`[nuget] feed_url`, `nuget.pkg.github.com/...`), and the npm feed URL (`[npm] feed_url`, an Azure Artifacts npm registry when on the Azure provider; the matching `[npm] scope` routes a package scope to it) are provider-specific values a fork replaces.
+5. **Replace provider-specific config values** — the nuget feed URL (`[nuget] feed_url`, `nuget.pkg.github.com/...`), and the npm feed URL (`[npm] feed_url`, an Azure Artifacts npm registry when on the Azure provider; the matching `[npm] scope` routes a package scope to it) are provider-specific values a fork replaces.
 6. **Rewrite `setup`** — per the contract exception above, credential intake and bootstrap wiring are expected to be fork-replaced for a new provider.
 
 ### Azure DevOps: the as-built REST provider
 
 The Azure provider now ships in-tree — no copying GitHub modules required:
 
-- **Modules**: `tools/lib/providers/azure/` — `http.bash` (REST transport:
+- **Modules**: `tools/lib/providers/azure/` — `http.ts` (REST transport:
   Basic-auth PAT header, `api-version=7.1`, ContinuationToken pagination,
-  429/5xx retry, token redaction), `auth.bash` (PAT file lifecycle), `urls`
-  (URL/spec helpers + the gh list-flags helper), `repos`, `issues`, `prs`,
-  `pipelines`, `projects` (boards), `policies` (branch policies),
-  `releases` (git-tag mapping + Artifacts feeds), `org` (org-level bridge),
-  plus `key-update.ts`, `setup.bash`, `smoke.ts`, and
-  `MAPPING.md` (the durable mapping doc).
+  429/5xx retry, token redaction), `auth.ts` (PAT file lifecycle and status),
+  `urls`, `repos`, `issues`, `prs`, `pipelines`, `projects` (boards),
+  `policies` (branch policies), `org` (org-level bridge), plus `key-update.ts`,
+  `smoke.ts`, and `MAPPING.md` (the durable mapping doc). The bootstrap chain
+  uses `auth.bash`, `setup.bash` and `bootstrap.bash`.
   List/view verbs follow gh's `--json`/`-q` semantics so the shared
   wrappers behave identically under both providers.
-- **No `az` CLI dependency**: the transport is curl + jq (both already hard
-  dependencies). Nothing new to install on any fork.
+- **No `az` CLI dependency**: the transport is Node's `fetch`. Nothing new to
+  install on any fork.
 - **Config keys** (in `devenv.config` under `[provider]`):
   - `name=azure` — activates the provider modules.
   - `azure_org` — the **organization name**: the subdomain in
@@ -118,7 +117,7 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
   azure_project=your-project-name
   ```
 
-- **PAT setup**: run `key-update-azure` (bash function; the script lives at
+- **PAT setup**: run `key-update-azure` (a shell function that runs
   `tools/lib/providers/azure/key-update.ts`). It prompts (hidden input — the
   token never enters chat, shell history, or argv) and stores the PAT as a
   **0600 file** in the devenv config area; a piped stdin token also works.
@@ -134,20 +133,15 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
   ContinuationToken; issue lists are project-scoped (per-repo scoping via
   area paths is a provisioning-only convention — see MAPPING.md); releases
   map to git tags; org rulesets map to per-repo branch policies.
-- **Smoke validation** (manual, opt-in, never in CI):
-  - *Tier 1, read-only*: `AZURE_SMOKE=1 bash tools/lib/providers/azure/azure-smoke-test.sh` —
+- **Smoke validation** (manual, opt-in, never in CI): `tools/lib/providers/azure/smoke.ts`
+  refuses to run without an explicit opt-in and a disposable test project
+  (`AZURE_DEVOPS_ORG`, `AZURE_SMOKE_TEST_PROJECT` and `AZURE_PAT` are read from
+  the invocation environment, never persisted).
+  - *Tier 1, read-only*: `AZURE_SMOKE=1 node tools/lib/providers/azure/smoke.ts` —
     auth, repo list (pagination probe), WIQL, work-item view, PR list.
-  - *Tier 2, destructive*: gated behind `AZURE_SMOKE=write` and a disposable
-    test project — create/comment/close work items, create and rebase-merge a
+  - *Tier 2, destructive*: `AZURE_SMOKE=write` plus `AZURE_SMOKE_CONFIRM=<test
+    project>` — create/comment/close work items, create and rebase-merge a
     PR. Tokens never appear in output (transport redacts).
-- **One-time project setup**: `AZURE_SETUP=1 bash
-  tools/lib/providers/azure/azure-setup.sh [--dry-run]` — configures the
-  Azure project per MAPPING.md: one area path per repo (provisioning the
-  per-repo convention; the shipped verbs list project-wide), board columns
-  from the `[workflows] status_workflow` vocabulary (renamed only when a
-  board still has stock columns and the vocabulary size matches — never
-  guessed), and prints the fork's `[provider]` config block. Idempotent
-  (re-run converges); manual-only, never in CI.
 
 ## Keeping a Soft Fork in Sync and Contributing Back
 
@@ -318,7 +312,7 @@ same name in a higher folder replaces the one below it:
 | `tools/fork/` | the fork, for everyone on it | yes | middle |
 | `tools/ts/` | the provided TypeScript tools (upstream) | yes | lower |
 
-- **Add a tool:** put `my-tool.sh` in `tools/fork/` (for the whole fork) or
+- **Add a tool:** put `my-tool.ts` in `tools/fork/` (for the whole fork) or
   `tools/custom/` (for you only). It gets a `my-tool` stub like any provided tool.
 - **Override a tool:** give your file the same name as the provided one
   (`tools/fork/issue-get.ts` replaces `tools/ts/issue-get.ts`). The stub then runs
@@ -329,9 +323,10 @@ same name in a higher folder replaces the one below it:
 - **Underscore-prefixed scripts cannot be overridden this way.** Scripts such as
   `_on_begin_review.sh` have no stub (they are called by path), so a copy in `tools/fork/`
   or `tools/custom/` is never picked up.
-- A script in `tools/fork/` or `tools/custom/` follows the same conventions as a
-  provided tool ([Tooling Standards](./Tooling-Standards.md)): the self-root header,
-  `--help`, and tests for anything non-trivial.
+- A tool in `tools/fork/` or `tools/custom/` follows the same conventions as a
+  provided tool ([Tooling Standards](./Tooling-Standards.md)): `toolCli` for the
+  house flags, the exit-code constants, a working `--help`, and tests for anything
+  non-trivial. `tooling-create-script --dir tools/fork my-tool` scaffolds one.
 
 Keep an override small. The provided tool keeps receiving upstream changes that your
 copy does not, so prefer a config key or a policy knob (see
@@ -522,7 +517,7 @@ Safe rename/reorder procedure:
 2. Update the matching `status:` values in `tools/config/skill-events.yml`.
 3. If you renamed `Implementing`, `Ready`, or `TBD`, update the boundary lookups in `tools/lib/domain/issues/graph.ts` and the birth rule in `tools/ts/issue-create.ts`.
 4. Migrate live board cards to the new names (project fields hold the old strings — the engine treats foreign values as unreadable).
-5. Run the test suites (`bats tools/tests/lib tools/tests/scripts`) — the workflow suites fail loudly on contract breaks.
+5. Run the test suite (`bash tools/tests/run-devenv-tests.sh`) — the workflow suites fail loudly on contract breaks.
 6. Re-write [Issue Workflow](./Issue-Workflow.md) to reflect the updated status workflow.
 
 Do not duplicate states, and do not interleave the two halves — status derivation (minimum-state rollup) is order-sensitive by design. The semantics each state carries, and what moves a card, are documented in [Issue Workflow](./Issue-Workflow.md); that guide is the model, this section is only the customization contract.
@@ -554,7 +549,7 @@ These three keys wire the whole repo constellation — the machine-managed knowl
 
 ## Repo Creation Standards (repo-create)
 
-> **Provider capability note:** rulesets, templates, merge-button control, Discussions, and most of the toggles below are GitHub-provider capabilities (gated by `provider_require_capability` in the modules). A fork on a provider without them either substitutes (ADO branch policies for rulesets) or leaves them unset — creation degrades with a warning, not a failure.
+> **Provider capability note:** rulesets, templates, merge-button control, Discussions, and most of the toggles below are GitHub-provider capabilities (gated by capability checks in the provider layer). A fork on a provider without them either substitutes (ADO branch policies for rulesets) or leaves them unset — creation degrades with a warning, not a failure.
 
 If you use `tools/repo-create`, configure `tools/config/repo-types.yaml`:
 
@@ -634,11 +629,11 @@ Your ruleset JSON file can use these tokens, which are replaced during applicati
 
 ## Issue Types Configuration (issue-create)
 
-> **Provider capability note:** native issue types are a GitHub-provider capability (`native-issue-types`). A fork without the capability runs the same type vocabulary as labels via the `[issues] types` policy knob — see the [policy library README](../tools/lib/policy/README.md). The `IT_kwDO…` IDs and the GraphQL discovery recipe in `issues-config.yml`'s header are GitHub-specific values.
+> **Provider capability note:** native issue types are a GitHub-provider capability (`native-issue-types`). A fork without the capability runs the same type vocabulary as labels via the `[issues] types` policy knob — see the [policy library README](../tools/lib/policy/README.md).
 
-The `issue-create` tool supports native issue types on providers that declare the capability. Issue types are configured in `tools/config/issues-config.yml`, which is the single source of truth for type names, descriptions, and provider API IDs.
+The `issue-create` tool supports native issue types on providers that declare the capability. Issue types are configured in `tools/config/issues-config.yml`, which is the single source of truth for type names, descriptions, and parent rules (`child_of`). Type names are matched case-insensitively, and the built-in aliases (for example `story` for `Feature`) resolve onto the configured names.
 
-Type names are **load-bearing** for the workflow model: Features and Bugs are deliverables, Tasks are work toward someone else's change (the only type that nests, and the only one born `Ready` under a parent — `issue-create` string-matches `Task` for that birth rule), and Epics group deliverables. Keep these four names, or update the birth rule and the `planning.type_mapping` consumers when renaming. See [Issue Workflow](./Issue-Workflow.md) for the roles.
+Type names are **load-bearing** for the workflow model: Features and Bugs are deliverables, Tasks are work toward someone else's change (the only type that nests, and the only one born `Ready` under a parent — `issue-create` string-matches `Task` for that birth rule), and Epics group deliverables. Keep these four names, or update the birth rule when renaming. See [Issue Workflow](./Issue-Workflow.md) for the roles.
 
 ### Configure Issue Types
 
@@ -648,26 +643,26 @@ Edit `tools/config/issues-config.yml` to define your organization's issue types:
 types:
   - name: Bug
     description: "A bug or defect that needs fixing"
-    id: "IT_kwDOCk-E0c4BWVJJ"
-  
+    child_of: [Epic]
+
   - name: Feature
     description: "A new feature or enhancement"
-    id: "IT_kwDOCk-E0c4BWVJK"
-  
+    child_of: [Epic]
+
   - name: Task
     description: "A task or work item"
-    id: "IT_kwDOCk-E0c4BWVJI"
+    child_of: [Epic, Feature, Bug, Task]
 ```
 
 Each entry needs:
 
 - **name**: The issue type name (displayed in the provider UI and used for validation)
 - **description**: Human-readable description for users selecting a type
-- **id**: Provider organization-level issue type ID (required for setting types via API; GitHub `IT_kwDO…` IDs today)
+- **child_of** *(optional)*: the parent types this type may be placed under; omit for no restriction
 
-### Getting Your Organization's Issue Type IDs (GitHub-native path)
+### Inspecting Your Organization's Issue Types (GitHub-native path)
 
-Get the IDs from your GitHub organization using the workspace wrapper (one-time setup inspection — day-to-day issue operations always go through the `issue-*` tools):
+List the types configured in your GitHub organization using the workspace wrapper (one-time setup inspection — day-to-day issue operations always go through the `issue-*` tools):
 
 ```bash
 issue-types --format json
@@ -687,8 +682,8 @@ To add or modify issue types in GitHub:
 
 After making changes in GitHub:
 
-1. Get the updated IDs using the CLI command above
-2. Update `tools/config/issues-config.yml` with the new types and IDs
+1. List the updated types using the CLI command above
+2. Update `tools/config/issues-config.yml` with the new type names
 
 ### Example: Custom Issue Types
 
@@ -696,40 +691,18 @@ After making changes in GitHub:
 types:
   - name: Bug
     description: "Production bug or critical issue"
-    id: "IT_kwDOXXXXXXXXXXXXX1"
-  
+
   - name: Enhancement
     description: "New feature or improvement"
-    id: "IT_kwDOXXXXXXXXXXXXX2"
-  
+
   - name: Documentation
     description: "Documentation or tutorial"
-    id: "IT_kwDOXXXXXXXXXXXXX3"
-  
+
   - name: Spike
     description: "Research task or investigation"
-    id: "IT_kwDOXXXXXXXXXXXXX4"
 ```
 
-Note: Replace the `id` values with your actual organization's issue type IDs from the provider.
-
-### Planning Type Mapping
-
-The `planning` section in `issues-config.yml` maps concepts from a specifications document to issue types (GitHub native types on the GitHub-native path). This is used when creating issues from a specifications document to determine which issue type to assign for each level of the document hierarchy.
-
-```yaml
-planning:
-  type_mapping:
-    phases: Epic
-    features: Feature
-    tasks: Task
-```
-
-Each key under `type_mapping` corresponds to a concept in a specifications document:
-
-- **phases**: High-level project phases, mapped to an issue type (default: `Epic`). Note the workspace convention: Epic means a long-lived orchestration issue coordinating multiple repos/efforts — for single-repo deliverable phases, map `phases` to `Feature` instead.
-- **features**: Feature-level items, mapped to an issue type (default: `Feature`)
-- **tasks**: Individual work items, mapped to an issue type (default: `Task`)
+Note: the names must match the issue types configured in your provider.
 
 ### Example configuration
 
@@ -828,39 +801,25 @@ status_workflow=TBD,To-Groom,Ready,Implementing,Review,Testing,Merged,Staging,Pr
 
 ## Adding New Tools and Libraries
 
-This section explains the conventions for adding new scripts, bash libraries, and categories of tooling so that all contributions stay consistent and discoverable.
+This section explains the conventions for adding new tools, TypeScript modules, and categories of tooling so that all contributions stay consistent and discoverable. Every new tool is TypeScript; the bash that remains is the container bootstrap layer, which you should not extend (see [The bash that remains](./Tooling-Standards.md#the-bash-that-remains)).
 
-### Adding a new bash library
+### Adding a new library module
 
-Libraries live in `tools/lib/` and are sourced by scripts at runtime via `$DEVENV_TOOLS/lib/<name>.bash`. Follow these conventions:
+Libraries live in `tools/lib/`, organized by role, never by language, and are imported by tools:
 
-For the current shared-library catalog, see [Additional Tooling](./Additional-Tooling.md#shared-bash-libraries).
+For the module catalog and the dependency direction between layers, see [Tooling Standards](./Tooling-Standards.md#typescript-standards).
 
-1. **File name**: `tools/lib/<category>.bash` using lowercase hyphenated names, e.g. `markdown.bash`.
-2. **Guard against double-sourcing** at the top:
-
-   ```bash
-   if [ -n "${_MARKDOWN_LOADED:-}" ]; then return 0; fi
-   _MARKDOWN_LOADED=1
-   ```
-
-   Use `_<NAME_UPPERCASED>_LOADED` as the guard variable name.
-3. **Source dependencies explicitly** using the same guard pattern, loading from `$DEVENV_TOOLS/lib/`:
-
-   ```bash
-   if [ -z "${_ERROR_HANDLING_LOADED:-}" ] && [ -f "${DEVENV_TOOLS}/lib/error-handling.bash" ]; then
-       source "${DEVENV_TOOLS}/lib/error-handling.bash"
-   fi
-   ```
-
-4. **Function naming**: follow `snake_case` with clear verb prefixes (`get_`, `validate_`, `set_`, `find_`, etc.). For library functions, add a namespace prefix that matches the library name, e.g. `validate_plan_task_number`, `set_plan_task_complete`.
-5. **Document every public function** with a Usage/Arguments/Returns block comment.
-6. **Write tests** in `tools/tests/lib/test_<name>.bats`. Libraries are fully tested — every public function should have tests covering success paths, failure paths, and edge cases. Run with `bats tools/tests/lib/test_<name>.bats`.
+1. **Placement**: `lib/core/` for runtime seams (imports nothing internal), `lib/ui/` for interaction, `lib/providers/` for the provider facade, `lib/domain/` for headless logic. A layer imports only from layers to its left.
+2. **File name**: `kebab-case.ts`, e.g. `lib/domain/markdown.ts`.
+3. **Imports**: use relative `.ts` specifiers (`import { logInfo } from "../core/logging.ts"`); there is no build step.
+4. **Function naming**: `camelCase` with a clear verb prefix, per [Function Naming Conventions](./Function-Naming-Conventions.md).
+5. **Document every exported function** with a short doc comment stating what it returns and when it throws or exits.
+6. **Write tests** in `tools/tests/ts/<name>.test.ts`. Every exported function should have tests covering success paths, failure paths, and edge cases. Run one with `pnpm exec vitest run tools/tests/ts/<name>.test.ts`.
 
 ### Adding a new script
 
 Scripts live in `tools/ts/<name>.ts`
-(TypeScript). Depth-1 entries at `tools/<name>` are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/ts/` script. Never hand-edit or hand-create a stub. (the test runner also runs stub generation up front, so CI only needs the checkout + bash — but if your CI invokes bats directly without the runner, add the stub-generation step first.)
+(TypeScript). Depth-1 entries at `tools/<name>` are generated — not hand-made: `.devcontainer/entry-stubs-sync.sh` (run by bootstrap and by the test runner) creates a stub for every `tools/ts/` script. Never hand-edit or hand-create a stub. Tests do not go through the stubs: they spawn `tools/ts/<name>.ts` directly (the harness's `runTool`/`toolScript`), so a clean checkout can run the suite.
 
 Scripts that only the devenv or githook machinery invokes (never run by users) belong in `tools/internal/` instead — they get no stub, are not on `PATH`, and are not part of the custom-over-fork-over-provided override chain. See [Additional Tooling — Internal machinery scripts](./Additional-Tooling.md#internal-machinery-scripts-toolsinternal).
 
@@ -868,32 +827,30 @@ Scripts that only the devenv or githook machinery invokes (never run by users) b
 2. **File location**: `tools/ts/<group>-<action>.ts` (TypeScript), following the existing `group-action` naming pattern (e.g. `markdown-plan-complete-task`).
 3. **Entry point**: none needed by hand — run `.devcontainer/entry-stubs-sync.sh` (or bootstrap) and the `tools/<name>` stub is generated automatically.
 
-4. **Standard structure** (in order):
-   - Shebang + header comment (name, version, description, specifications)
-   - `source "$DEVENV_TOOLS/lib/error-handling.bash"` (seam-chain libs only —
-     see the Tooling-Standards library catalog for the post-Phase-10 allowlist)
-   - `enable_strict_mode`
-   - `SCRIPT_VERSION` and `SCRIPT_NAME` constants
-   - `script_version` call
-   - Additional library sources
-   - Global variables
-   - `show_usage()` function with `--help` support
-   - `parse_args()` function
-   - Helper functions
-   - `main()` function called at the end
-5. **Always implement `--help` and `--version`** using the `show_usage` / `script_version` pattern from the template.
-6. **Tests**: test scripts according to their impact, complexity, and criticality. Script tests go in `tools/tests/scripts/`.
+4. **Standard structure** (in order, as the template lays it out):
+   - Shebang + header comment (name, version, description)
+   - Imports from `lib/core/` (`toolCli`, `logging`, `exit-codes`, `node-floor`)
+   - `assertNodeFloor()` before anything else
+   - `SCRIPT_VERSION` and tool-name constants
+   - `showUsage()` using `usageCommonFlags()` for the house options block
+   - `main(argv)` that parses with `toolCli`, handles `--help` first, validates
+     every argument before the first mutation or provider call, and returns an
+     exit code from `exit-codes.ts`
+   - A top-level `main(...).then(...)` that exits with the returned code and
+     reports a rejected promise as exit 1
+5. **Always implement `--help` and `--version`**: `toolCli` supplies both; the tool renders the usage text.
+6. **Tests**: test tools according to their impact, complexity, and criticality. Tool tests go in `tools/tests/ts/` and spawn the tool through the shared harness.
 
 ### Adding a new tool category
 
 When adding a group of related tools (e.g. `markdown-*`), follow the
-[Tooling Standards](./Tooling-Standards.md#bash-minimum-the-doctrine)
+[Tooling Standards](./Tooling-Standards.md#the-bash-that-remains)
 — new tools are TypeScript. Steps:
 
 1. Create the TS modules at `tools/lib/` (core/domain/providers per the
    dependency-direction rules) following the conventions above.
 2. Create the tool entry at `tools/ts/<category>-<action>.ts` per the TS
-   template.
+   template (`tooling-create-script`).
 3. The depth-1 stub at `tools/<name>` is generated (`entry-stubs-sync`) —
    never hand-made.
 4. Write vitest suites in `tools/tests/ts/`.
@@ -902,20 +859,20 @@ When adding a group of related tools (e.g. `markdown-*`), follow the
 
 ### Third-party dependencies
 
-If a script requires an external tool not already present in the environment:
+If a tool requires an external program not already present in the environment, install it from a TypeScript install step under `tools/ts/setup-steps/` so it survives container rebuilds (`.devcontainer/bootstrap.bash` only hands off to the setup orchestrator, `tools/ts/setup.ts`):
 
-- **OS packages** (`apt`): add to `install_os_packages_round1` or `install_os_packages_round2` in `.devcontainer/bootstrap.bash`.
-- **Node packages** (`npm`/`pnpm`): add to `install_node_packages` in `.devcontainer/bootstrap.bash`.
-- **Python packages** (`pip`): add an `install_python_packages` function (or extend an existing one) in `.devcontainer/bootstrap.bash` and call it from `main`.
-- **dotnet tools**: add alongside the existing `dotnet tool install` calls in `.devcontainer/bootstrap.bash`.
+- **OS packages** (`apt`): add to `STABLE_PACKAGES` in `tools/ts/setup-steps/apt-packages.ts`; packages that only one provider needs go in that file's `PROVIDER_APT_PACKAGES`. Packages from the specialized repositories (terraform, kubectl) are in `apt-packages-extra.ts`.
+- **Node global packages**: add alongside the pinned versions in `tools/ts/setup-steps/node-globals.ts`.
+- **dotnet tools**: add to `tools/ts/setup-steps/dotnet-tools.ts`.
+- **Anything else**: add a step module and register it in `tools/ts/setup.ts`; a fork's own customizations belong in `org-custom-bootstrap.sh` (see [Bootstrap Customization](./Bootstrap-Customization.md)).
 
-Always check for the tool's presence before installing (see the `yq` install pattern for an example of idempotent install logic).
+Always make the step idempotent: check for the tool's presence before installing, as the existing steps do.
 
 ---
 
 ## What stays upstream
 
-The [fork-stable surfaces contract](#the-fork-stable-surfaces-contract) at the top of this guide is the authoritative list of what you may change freely. Everything outside it — test infrastructure, error-handling libraries, git configuration helpers, version comparison logic, core script templates, the bootstrap framework, and the tooling library structure — is upstream-stable: keep it unmodified and upstream improvements keep flowing to your fork with minimal conflict.
+The [fork-stable surfaces contract](#the-fork-stable-surfaces-contract) at the top of this guide is the authoritative list of what you may change freely. Everything outside it — test infrastructure, the `tools/lib/core/` runtime seams, git configuration helpers, the tool template, the bootstrap framework, and the tooling library structure — is upstream-stable: keep it unmodified and upstream improvements keep flowing to your fork with minimal conflict.
 
 When you need a difference the surfaces can't express, add an override point (a policy knob, a config key, a capability gate) and contribute it upstream — a new override point benefits every fork.
 

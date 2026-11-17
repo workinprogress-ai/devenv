@@ -13,12 +13,12 @@
 import { basename } from "node:path";
 
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
-import { logError } from "../lib/core/logging.ts";
+import { logError, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { normalizeIssueType } from "../lib/domain/issues/types.ts";
+import { issueTypeNames, resolveIssueType } from "../lib/domain/issues/types.ts";
 import { issuesList } from "../lib/providers/facade/issues.ts";
 
 assertNodeFloor();
@@ -94,11 +94,15 @@ async function main(argv: string[]): Promise<number> {
     if (cli.common.help) showUsage();
     const values = cli.values as Record<string, string | boolean | undefined>;
     state = (values["state"] as string | undefined) ?? "all";
+    if (state !== "open" && state !== "closed" && state !== "all") {
+      logError(`Invalid state: ${state} (must be open, closed, or all)`);
+      return EXIT_MISUSE;
+    }
     type = (values["type"] as string | undefined) ?? "";
     if (type !== "") {
-      const normalized = normalizeIssueType(type);
+      const normalized = resolveIssueType(type);
       if (normalized === null) {
-        logError(`Invalid issue type: ${type} (allowed: Bug, Feature, Task, Epic)`);
+        logError(`Invalid issue type: ${type} (allowed: ${issueTypeNames().join(", ")})`);
         return EXIT_MISUSE;
       }
       type = normalized;
@@ -111,13 +115,17 @@ async function main(argv: string[]): Promise<number> {
     assignee = (values["assignee"] as string | undefined) ?? "";
     milestone = (values["milestone"] as string | undefined) ?? "";
     format = (values["format"] as string | undefined) ?? "table";
+    if (format !== "table" && format !== "json" && format !== "simple") {
+      logError(`Invalid format: ${format} (must be table, json, or simple)`);
+      return EXIT_MISUSE;
+    }
     limit = Number.parseInt((values["limit"] as string | undefined) ?? "30", 10);
     if (!Number.isFinite(limit) || limit <= 0 || !/^[0-9]+$/.test(String(values["limit"]))) {
       logError(`Invalid --limit: ${values["limit"]} (expected a positive number)`);
       return EXIT_MISUSE;
     }
     fetchLimit = Number.parseInt((values["fetch-limit"] as string | undefined) ?? "200", 10);
-    if (!Number.isFinite(fetchLimit) || fetchLimit <= 0) {
+    if (!Number.isFinite(fetchLimit) || fetchLimit <= 0 || !/^[0-9]+$/.test(String(values["fetch-limit"]))) {
       logError(`Invalid --fetch-limit: ${values["fetch-limit"]} (expected a positive number)`);
       return EXIT_MISUSE;
     }
@@ -125,13 +133,13 @@ async function main(argv: string[]): Promise<number> {
     terms.push(...cli.positionals);
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   if (terms.length === 0) {
     logError("At least one search term is required");
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
@@ -161,6 +169,10 @@ async function main(argv: string[]): Promise<number> {
   } catch {
     logError("Failed to parse issue list");
     return 1;
+  }
+
+  if (issues.length >= fetchLimit) {
+    logWarn(`--fetch-limit ${fetchLimit} reached: older issues were not searched and the results may be incomplete (raise --fetch-limit)`);
   }
 
   const loweredTerms = terms.map((t) => t.toLowerCase());
@@ -195,9 +207,6 @@ async function main(argv: string[]): Promise<number> {
         console.log(`#${h.number}  ${h.matchCount} match${h.matchCount === 1 ? "" : "es"}  ${h.state}  ${h.title}  (${h.matchedTerms.join(", ")})`);
       }
       break;
-    default:
-      logError(`Invalid format: ${format} (must be table, json, or simple)`);
-      return EXIT_MISUSE;
   }
   return 0;
 }

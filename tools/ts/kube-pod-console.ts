@@ -1,22 +1,22 @@
 // kube-pod-console — open an interactive shell on a pod.
-// Port of kube-pod-console.sh: resolve the namespace, first matching pod,
+// Port of kube-pod-console.sh: resolve the namespace, single matching pod,
 // default to /bin/bash when no command is given, then kubectl exec -it.
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { splitAfterPodWord } from "../lib/core/forward-argv.ts";
-import { listPods, resolveNamespace, spawnKubectlInherit } from "../lib/domain/kube/kube.ts";
+import { listPods, resolveNamespace, resolveSingleMatch, spawnKubectlInherit } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
 
 function usage(): never {
   console.log(`Usage: kube-pod-console <pod-name-part> [-n|--namespace NS] [command...]
 
-Open an interactive shell (or the given command) on the first pod whose name
-matches pod-name-part in the resolved namespace. Defaults to /bin/bash.
+Open an interactive shell (or the given command) on the one pod whose name
+matches pod-name-part in the resolved namespace (refuses on several matches). Defaults to /bin/bash.
 
 Options:
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
@@ -68,18 +68,18 @@ if (resolution.kind === "no-match") {
 }
 const ns = resolution.ns;
 
-let pods: string[];
-try {
-  pods = listPods({ namespace: ns, filter: podPart });
-} catch (err) {
-  logError(errorMessage(err));
+// A fragment matching several pods is a wrong-target hazard: refuse.
+const match = resolveSingleMatch((o) => listPods(o), { namespace: ns, filter: podPart });
+if (match.kind === "none") {
+  logError(match.message);
   process.exit(EXIT_GENERAL_ERROR);
 }
-if (pods.length === 0) {
-  console.error(`No matching pod found for pattern: ${podPart}`);
-  process.exit(EXIT_GENERAL_ERROR);
+if (match.kind === "ambiguous") {
+  logError(`Pattern '${podPart}' matches ${match.matches.length} pods — be more specific:`);
+  console.error(match.matches.join("\n"));
+  process.exit(EXIT_CONFLICT);
 }
-const pod = pods[0] as string;
+const pod = match.name;
 
 const cmd = command.length > 0 ? command : ["/bin/bash"];
 console.log(`Executing command on console for pod: ${pod} in namespace: ${ns}`);

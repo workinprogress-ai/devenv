@@ -2,7 +2,8 @@
 // vitest `it` per source `@test`: doc-claims guards and version pins.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { readFileSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -90,17 +91,23 @@ describe("version consistency", () => {
     // Port of the bats behavioral test, now against the TS step module:
     // a failing pnpm is WARNed and the step exits 0 (the ACTION REQUIRED
     // line carries the failure; the chain continues).
-    const r = spawnSync("node", [join(ROOT, "tools/ts/setup-steps/repo-deps.ts")], {
-      encoding: "utf8",
-      env: (() => {
-        const e: Record<string, string> = {};
-        for (const [k, v] of Object.entries(process.env)) if (v !== undefined) e[k] = v;
-        e.DEVENV_TOOLBOX_ROOT = ROOT;
-        // stub pnpm failing on PATH front
-        e.PATH = `/tmp/pnpm-stub-fail:${e.PATH}`;
-        return e;
-      })(),
-    });
-    expect(r.status).toBe(0);
+    const stubDir = mkdtempSync(join(tmpdir(), "pnpm-stub-fail-"));
+    writeFileSync(join(stubDir, "pnpm"), "#!/bin/sh\nexit 1\n");
+    chmodSync(join(stubDir, "pnpm"), 0o755);
+    try {
+      const r = spawnSync("node", [join(ROOT, "tools/ts/setup-steps/repo-deps.ts")], {
+        encoding: "utf8",
+        env: (() => {
+          const e: Record<string, string> = {};
+          for (const [k, v] of Object.entries(process.env)) if (v !== undefined) e[k] = v;
+          e.DEVENV_TOOLBOX_ROOT = ROOT;
+          e.PATH = `${stubDir}:${e.PATH}`;
+          return e;
+        })(),
+      });
+      expect(r.status).toBe(0);
+    } finally {
+      rmSync(stubDir, { recursive: true, force: true });
+    }
   });
 });

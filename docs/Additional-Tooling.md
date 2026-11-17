@@ -2,9 +2,9 @@
 
 This document provides comprehensive documentation for all additional tooling available in the development environment. These tools live in the `tools/ts/` (TypeScript) folder, are surfaced through generated depth-1 `tools/` PATH stubs, and are automatically added to the `PATH` when the development environment is set up.
 
-## Shared Bash Libraries
+## Bootstrap Bash Libraries
 
-Shared bash libraries live in `tools/lib/` and are sourced by scripts at runtime. These libraries are not directly executed from `PATH`, but they provide reusable functions used by bootstrap/startup and tooling scripts.
+The bash under `tools/lib/` is the container bootstrap surface: the minimal layer that must run before node exists. These files are sourced by `.devcontainer/` bootstrap and startup scripts and by the host-side `setup`; tools never source them. The complete allowlist, who sources each file and what each keeps is in the providers README under [Bash bootstrap surface](../tools/lib/providers/README.md#bash-bootstrap-surface); the rules for the layer are in [Tooling Standards](./Tooling-Standards.md#the-bash-that-remains). Reusable tool logic lives in the TypeScript libraries described under [Shared Libraries](#shared-libraries).
 
 ### `copilot-knowledge.bash`
 
@@ -18,6 +18,10 @@ Public functions:
   - Runs a non-blocking background `git fetch/pull` for `<toolbox_root>/copilot/knowledge`.
   - No-op when `copilot/knowledge` is not an initialized git repository.
   - Used by `.devcontainer/startup.sh` so each container start refreshes Copilot knowledge when available.
+- `pull_copilot_engineering_on_container_start <toolbox_root>`
+  - The same non-blocking refresh for `<toolbox_root>/copilot/engineering`.
+- `pull_copilot_side_repo_on_container_start <repo-dir>`
+  - The shared implementation behind both: a background `--ff-only` pull that is a no-op when the directory is not a git repository.
 
 ### `rewrite-detect` (TS)
 
@@ -588,7 +592,7 @@ repo-scratchpad resume        # return HEAD to the scratch branch after a promot
 
 ### `repo-bisect`
 
-First-bad-commit identification over a commit range (the hunt skill's time-travel mode). Walks `git bisect` with a probe command (exit 0 = good, non-zero = bad) and delivers the culprit with evidence. Works on **any branch** — no scratchpad requirement in the tool (bisect is non-destructive: read-only detached-HEAD visits); outside a scratchpad it prints a soft notice pointing AI hunts at `repo-scratchpad enter`. `status` and `reset` act only on a real bisect session (they detect one in flight) and otherwise report that none exists. Refuses on a dirty tree, and (exit 3) when a bisect session is already in flight — end it with `repo-bisect reset` first, since `git bisect start` would discard it. The probe must resolve to an executable command (a name on `PATH`, or a path with the execute bit) or the run is refused before the walk starts; the verdict is read only from git's own result lines, never from the probe's output. An all-skip walk (probe exiting 125 everywhere) answers **AMBIGUOUS** rather than fabricating a culprit from the candidate set.
+First-bad-commit identification over a commit range (the hunt skill's time-travel mode). Walks `git bisect` with a probe command (exit 0 = good, non-zero = bad) and delivers the culprit with evidence. Works on **any branch** — no scratchpad requirement in the tool (bisect is non-destructive: read-only detached-HEAD visits); outside a scratchpad it prints a soft notice pointing AI hunts at `repo-scratchpad enter`. `status` and `reset` act only on a real bisect session (they detect one in flight) and otherwise report that none exists. Refuses on a dirty tree, and (exit 3) when a bisect session is already in flight — end it with `repo-bisect reset` first, since `git bisect start` would discard it. The probe must resolve to an executable command (a name on `PATH`, or a path with the execute bit) or the run is refused before the walk starts; the probe is also run once on the good ref before the walk, and a probe that fails there (anything but exit 0, or 125 = skip) is refused, since it would otherwise mark every step bad. The verdict is read only from git's own result lines (the last matching line), never from the probe's output. An all-skip walk (probe exiting 125 everywhere) answers **AMBIGUOUS** rather than fabricating a culprit from the candidate set.
 
 ```bash
 repo-bisect <bad-ref> <good-ref> -- <probe command...>
@@ -1482,12 +1486,12 @@ issue-artifact-upsert [--issue ISSUE_NUMBER] [--body TEXT | --body-file FILE | p
 - Piped stdin with no source flag: body read from stdin automatically
 - No source flag with a TTY: interactive fzf picker over `.local-artifacts/*.md` (requires fzf; `--all` includes `tmp*.md`)
 
-`doc_id` is extracted from the exact metadata line `doc_id: <doc_id>` in the first 256 characters of the provided body.
+`doc_id` is extracted from the exact metadata line `doc_id: <doc_id>` inside the `DEVENV_ARTIFACT_V1` header block of the provided body (the marker must open within the first 1024 characters).
 
 Issue number is resolved in this order:
 
 1. `--issue ISSUE_NUMBER` when provided
-2. `issue_number: <N>` metadata line in the body header (first 256 characters)
+2. `issue_number: <N>` metadata line inside the body's `DEVENV_ARTIFACT_V1` header block
 
 If neither source provides an issue number, the command fails with invalid arguments. If both sources are present but differ, the command also fails.
 
@@ -1500,7 +1504,7 @@ If neither source provides an issue number, the command fails with invalid argum
 **Matching Rules:**
 
 - Matches exact metadata line only: `doc_id: <doc_id>`
-- Match is evaluated only within the first 256 characters of each existing comment body
+- Match is evaluated only against the header block of each existing comment body
 - No heading/title matching and no fuzzy matching
 
 **Behavior:**
@@ -1933,11 +1937,13 @@ Starts a SQL Server container for local development (uses Azure SQL Edge for ARM
 server-run-sql
 ```
 
+The port is published on `127.0.0.1` only.
+
 **Credentials:**
 
 - Username: `SA`
-- Password: `1Passw0rd`
-- Default database: `test` (auto-created)
+- Password: from the `SQL_SA_PASSWORD` environment variable, or prompted (hidden) at a terminal; the tool refuses to create a container without one
+- Default database: `test` (auto-created once the server accepts connections)
 
 ### `server-run-smb`
 
@@ -1947,10 +1953,12 @@ Starts an SMB/Samba server container for file sharing during development.
 server-run-smb
 ```
 
+The port is published on `127.0.0.1` only.
+
 **Credentials:**
 
-- Username: `devenv`
-- Password: `devenv123`
+- Username: `SMB_USER` (default `devenv`)
+- Password: from the `SMB_PASSWORD` environment variable, or prompted (hidden) at a terminal; the tool refuses to create a container without one
 - Share: `Data`
 
 ## Database Management
@@ -1970,20 +1978,22 @@ mongo-backup-server <connection-string> <backup-directory>
 - Backs up each non-built-in database individually
 - Creates timestamped backup directories
 - Skips admin, local, and config databases
+- Passes the connection string to `mongodump` through a private config file, not the command line
 
 ### `mongo-restore-server`
 
 Restores MongoDB server data from a backup.
 
 ```bash
-mongo-restore-server <connection-string> <backup-directory>
+mongo-restore-server <connection-string> <backup-directory> [--yes --confirm-target <target>]
 ```
 
 **Features:**
 
 - Automatically uses the latest backup if multiple exist
-- Drops existing collections before restore
+- Drops existing collections before restore, after the operator retypes the target (hosts and database) at a terminal; without a terminal, `--yes` must come with `--confirm-target` naming that exact target (`YES=1` is not consent)
 - Validates backup directory exists
+- Passes the connection string to `mongorestore` through a private config file, not the command line
 
 ## Build and Development Tools
 
@@ -2056,7 +2066,7 @@ tooling-create-script <script-name>
 
 ### `lint-scripts`
 
-Validates all shell scripts using shellcheck.
+Validates the remaining shell scripts using shellcheck.
 
 ```bash
 lint-scripts [--format <format>] [--fix]
@@ -2069,7 +2079,7 @@ lint-scripts [--format <format>] [--fix]
 
 **Features:**
 
-- Scans all `.sh` files in scripts/ and lib/
+- Scans `*.sh` and `*.bash` files, plus extensionless files with a shell shebang, anywhere under the project root (skipping `node_modules/`, `.git/`, `playground/`, `tools/cache/`, `.local-artifacts/` and the contents of `repos/` clones)
 - Provides statistics and summary
 - Integrates with CI/CD pipelines
 
@@ -2386,7 +2396,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 | `30` | Tests still failing after user had a chance to fix |
 | `40` | PR could not be created |
 | `41` | PR could not be merged |
-| `1`–`5` | Argument / environment error (from `error-handling.bash`) |
+| `1`–`5` | Argument / environment error (the suite exit-code contract in `tools/lib/core/exit-codes.ts`) |
 
 **Workflow:**
 
@@ -2693,7 +2703,7 @@ devenv-update
 
 ### `devenv-add-env-vars`
 
-Adds or updates environment variables in `env-vars.sh`.
+Adds or updates environment variables in `.runtime/env-vars.user.sh`, the file that `env-vars.sh` sources last. Variables added here survive `devenv-update` (which regenerates `env-vars.sh`) and win over generated values.
 
 ```bash
 devenv-add-env-vars "VAR1=value1" "VAR2=value2" ...
@@ -2703,7 +2713,8 @@ devenv-add-env-vars "VAR1=value1" "VAR2=value2" ...
 
 - Validates environment variable format (uppercase with underscores)
 - Updates existing variables (removes old values to prevent duplicates)
-- Appends new variables to the file
+- Appends new variables to the file (created owner-only on first use)
+- Quotes values so nothing in a value is ever executed
 - Provides clear logging of added/updated variables
 
 **Example:**
@@ -2712,7 +2723,7 @@ devenv-add-env-vars "VAR1=value1" "VAR2=value2" ...
 devenv-add-env-vars "MY_API_KEY=abc123" "DEBUG_MODE=true"
 ```
 
-**Note:** Restart your container or source the env-vars.sh file to apply changes.
+**Note:** Restart your container or source the `env-vars.sh` file to apply changes.
 
 ### `devenv-add-custom-bootstrap`
 
@@ -2762,7 +2773,7 @@ devenv-add-custom-startup "echo 'Container started'" "export MY_VAR=value"
 
 ### Function-backed commands (function vs script)
 
-`key-update-provider`, `key-update-do`, and `key-update-tailscale` are **bash functions** defined by bootstrap (`tools/ts/setup-steps/bash-functions.ts` emits the shell functions): `key-update-do` and `key-update-tailscale` wrap `tools/ts/_key-update-*.ts`, `key-update-provider` dispatches to the active provider's `tools/lib/providers/<name>/key-update.sh` (bootstrap also generates one `key-update-<provider>` command per provider that ships a script, for example `key-update-azure`, to rotate that provider's credential regardless of which is active), and all of them re-source `.runtime/env-vars.sh` afterward, so the current shell sees refreshed values. The underscore-prefixed scripts have no depth-1 `tools/` entry by design — always invoke the bare function name. (`repo-get` is the deliberate counter-example: its depth-1 stub has real value for non-interactive use, so it is a plain script plus stub.)
+`key-update-provider`, `key-update-do`, and `key-update-tailscale` are **bash functions** defined by bootstrap (`tools/ts/setup-steps/bash-functions.ts` emits the shell functions): `key-update-do` and `key-update-tailscale` wrap `tools/ts/_key-update-*.ts`, `key-update-provider` dispatches to the active provider's `tools/lib/providers/<name>/key-update.ts` (bootstrap also generates one `key-update-<provider>` command per provider that ships a script, for example `key-update-azure`, to rotate that provider's credential regardless of which is active), and all of them re-source `.runtime/env-vars.sh` afterward, so the current shell sees refreshed values. The underscore-prefixed scripts have no depth-1 `tools/` entry by design — always invoke the bare function name. (`repo-get` is the deliberate counter-example: its depth-1 stub has real value for non-interactive use, so it is a plain script plus stub.)
 
 ### `key-update-provider`
 
@@ -2789,7 +2800,7 @@ key-update-tailscale
 
 - Prompts for new reusable auth key (input is hidden)
 - Validates key format (must start with `tskey-`)
-- Updates `TS_AUTHKEY` in `.runtime/env-vars.sh`
+- Updates `TS_AUTHKEY` in `.runtime/env-vars.user.sh`
 - Re-authenticates the Tailscale daemon immediately
 - Sources the updated environment variables in the current shell
 
@@ -2815,8 +2826,8 @@ key-update-do [new-token]
 
 - Accepts token as command-line argument or interactive prompt
 - Warns when a token looks shorter than the typical format (proceeds anyway)
-- Stores token persistently in `.setup/do_token.txt` with secure permissions
-- Updates `DO_TOKEN` environment variable
+- Stores token persistently in `.setup/digitalocean_token.txt` with secure permissions
+- Updates the `DIGITALOCEAN_API_TOKEN` environment variable (persisted in `.runtime/env-vars.user.sh`)
 - Reloads environment variables in the current shell
 
 **When to use:**
@@ -2833,7 +2844,7 @@ Or manually update the token file:
 echo "your_new_token_here" > .setup/digitalocean_token.txt
 ```
 
-The token is automatically loaded into the `DO_API_TOKEN` environment variable in the dev container, making it available to infrastructure and deployment scripts like `terraform-plan.sh` and `doctl` commands.
+The token is loaded into the `DIGITALOCEAN_API_TOKEN` environment variable in the dev container (generated into `env-vars.sh` from the seed file), making it available to infrastructure and deployment scripts like `terraform-plan` and `doctl` commands.
 
 ### `get-services-config`
 
@@ -2857,7 +2868,7 @@ Every script that targets namespaced resources resolves its namespace the same
 way, in priority order:
 
 1. **Flag:** `-n <ns>` or `--namespace <ns>` (also `--namespace=<ns>`)
-2. **Environment:** `NAMESPACE=<ns>`
+2. **Environment:** `KUBE_NAMESPACE=<ns>`
 3. **Partial match:** a non-exact flag/env value is matched case-insensitively
    against the cluster's namespaces — a unique match auto-selects, multiple
    matches offer a filtered picker (interactive) or an error listing
@@ -2865,14 +2876,14 @@ way, in priority order:
 4. **Interactive picker:** with no namespace given on a TTY, an `fzf` list of
    all namespaces appears
 5. **Non-interactive default:** the current context's default namespace is
-   used, with a one-line hint that `-n` / `NAMESPACE` / the picker exist
+   used, with a one-line hint that `-n` / `KUBE_NAMESPACE` / the picker exist
 
 Examples:
 
 ```bash
 kube-logs api -n prod              # exact namespace via flag
 kube-logs api -n prod-eu           # partial: resolves if unique
-NAMESPACE=prod kube-logs api       # env form
+KUBE_NAMESPACE=prod kube-logs api       # env form
 kube-pod-delete api -n prod        # destructive scripts honor the flag
 KUBE_NO_INTERACTIVE=1 kube-logs api  # force non-interactive (scripts/CI)
 ```
@@ -2922,7 +2933,7 @@ githook backing scripts, CI-only checkers, lifecycle event entry points.
   entry in `.gitignore`, so the folder is tracked by git.
 - Not overridden by `tools/fork/` or `tools/custom/` — machinery behavior is
   not user-replaceable through the override chain.
-- Tests live in `tools/tests/scripts/` like any other tool.
+- Tests live in `tools/tests/ts/` like any other tool.
 
 **Current contents:**
 
@@ -2952,8 +2963,6 @@ caller is always machinery (a hook, CI, the event dispatcher), use
 `tools/internal/`. If a human might ever run it — even rarely — use
 `tools/ts/` (TypeScript) so it gets a `PATH` stub
 and enters the override chain.
-Scripts that are runnable later but outside any daily workflow belong in
-`tools/special/` instead (see below).
 
 ### `repo-update-config.sh`
 
@@ -3053,7 +3062,6 @@ service:
 **Dependencies:**
 
 - `tools/lib/domain/repos/types.ts` (shared TS module)
-- `yq` (YAML processor, repo-reset-merge-config leg only)
 
 **Related:** See [repo-create](#repo-create) for initial repository creation details, and [Repo Creation Standards (repo-create.ts)](./Forking.md#repo-creation-standards-repo-create) in the Forking Guide for configuration options.
 
@@ -3066,138 +3074,70 @@ Three tools keep a soft fork connected to its upstream (see [Keeping a Soft Fork
 - **`fork-export`**: exports an upstream-based, linear commit range as a bundle, patch series, or both (a range with a merge commit is refused with guidance); optionally applies it to a sibling clone of the upstream repository without upstream credentials. Exported copies are stamped with `Change-Id` (generated when absent) and `Exported-From: <fork-side-sha>`; a conflict-resolved copy is declared `Fork-Adapted: yes`. Re-runs detect what the target already has and refuse to re-apply it. `--dry-run` previews the operation. See [Forking.md](Forking.md#the-intended-loop-export-promptly-sync-promptly).
 - **`lint-documentation`**: runs markdownlint over `README.md` and `docs/**/*.md` (`--fix` applies autofixes) and checks that relative `.md` links resolve — including in-page anchors (GitHub-style heading fragments). Run before committing docs changes; CI runs it on changed docs.
 
-## Special / Rarely-Used Tooling
+## Manual-Only Validation
 
-`tools/special/` holds scripts that are runnable again, on purpose, later — but
-are not part of any daily workflow and are intentionally **not on `PATH`**. Each
-script's entry in [`tools/special/README.md`](../tools/special/README.md) states
-what it does, when to run it, and its blast radius. Invoke by explicit path:
-`bash tools/special/<script>.sh`.
+These are run by hand and are intentionally **not on `PATH`**; invoke by explicit path.
 
 - **`tools/lib/providers/azure/smoke.ts`** — Azure provider live validation, two opt-in tiers:
   `AZURE_SMOKE=1` (read-only: auth, repo list, WIQL, work-item view, PR list)
   and `AZURE_SMOKE=write` (destructive: create/comment/close work items,
   create and rebase-merge a PR — disposable test project only). Manual-only;
   never in tests or CI; output is token-redacted by design.
-- **`repo-reset-merge-config.sh`** — org-wide re-apply of repo-type rulesets and
-  merge methods (rebase-only policy); dry-run report by default, `--apply` to
-  mutate. Use after config changes or when onboarding a fork with inherited
-  merge settings.
 
 ## Shared Libraries
 
-Reusable bash libraries located in `tools/lib/` that provide common functionality for scripts and other tools. These are sourced (not executed) and include guards to prevent double-loading.
+Reusable TypeScript modules in `tools/lib/` that provide common functionality for tools. They are imported (never executed), organized by role: `core/` (runtime seams), `ui/` (prompts and panels), `providers/` (the provider facade) and `domain/` (headless logic). The full module catalog and the dependency direction between layers are in [Tooling Standards](./Tooling-Standards.md#typescript-standards). The sections below document the libraries behind the repo-cache, desktop-menu and C# dependency tools.
 
-### `repo-cache.bash`
+### `lib/domain/cs/dependency-graph.ts` (repo cache and dependency index)
 
-Maintains shallow clones of all organization repositories in a local cache directory for use by cross-repo analysis tools.
+Maintains shallow clones of all organization repositories in a local cache directory, and builds and queries a reverse dependency graph across the cached C# repositories. Used by `repo-cache-update`, `cs-dependencies-trace` and `cs-dependencies-update-wizard`.
 
-**Provided function:**
+**Configuration:**
 
-#### `refresh_repo_cache [filter]`
+- `[organization] org` in `devenv.config`: the organization whose repositories are cached (identity resolves through `providerOrgGet`; authentication resolves through the provider keychain, with no token env var).
+- `CS_DEP_ORG_PREFIX` (default: `[nuget] package_prefix` in `devenv.config`; no built-in value): only packages matching this prefix are considered org-internal. The index is not built until one of them is set.
+- `REPO_CACHE_DIR`: the cache root (default `tools/cache/repo_cache`).
+- The index lives in `.index/` inside the cache root.
 
-Clones or updates all organization repositories into `$DEVENV_TOOLS/cache/repo_cache` using minimal shallow clones.
+**Public functions:**
 
-**Arguments:**
-
-- `filter` (optional): A grep-compatible pattern to filter repository names
-
-**Return codes:**
-
-- `0`: All repositories cached successfully
-- `1`: Complete failure (no repos found, missing credentials, or all clones failed)
-- `2`: Partial failure (some repos failed, others succeeded)
-
-**Behaviour:**
-
-- New repos are cloned with `--depth 1 --single-branch --no-tags`
-- Existing repos are updated with `fetch --depth 1` + `reset --hard` + `gc --prune=all`
-- Writes a `.cache_timestamp` file (ISO timestamp + content hash) for staleness detection by downstream tools
-- Outputs the cache directory path on success
-
-**Required configuration:** `[organization] org` in devenv.config (identity resolves via provider accessors; authentication resolves via the provider keychain — no token env var)
+- `refreshRepoCache()`: clones or updates every organization repository into the cache as a shallow single-branch clone, then writes the `.cache_timestamp` staleness file. Resolves to `0` when all repositories were cached, `2` for a partial failure (some repositories failed), `1` for a complete failure (no repositories found, missing credentials, or every clone failed). A cached clone with uncommitted changes is left untouched and counted as failed, so refreshing never discards work.
+- `isIndexStale()`: whether `.cache_timestamp` is newer than `.index_timestamp` (a rebuild is needed).
+- `buildDependencyIndex()`: scans the cached repositories' `src/**/*.csproj` files (skipping `test/` and `tests/` directories) and writes three TSV index files: `package_to_repo.tsv` (package to producing repo), `repo_packages.tsv` (packages each repo publishes) and `repo_dependencies.tsv` (org-internal package references per repo, excluding self-references and third-party packages).
+- `ensureDependencyIndex()`: builds the index only when `isIndexStale()` says it is outdated.
+- `listRepoPackages(repoName)` and `listRepoDependencies(repoName)`: the packages a repository produces, and the org-internal packages it consumes.
+- `getReverseDependencyTree(repoNameOrPath)`: a breadth-first traversal returning every repository that depends on the given one, directly or transitively. Each row carries the depth (0 = direct dependent), the dependent repo, the package reference, the version and the full dependency chain.
+- `getTopologicalGenerations()`: repositories grouped into dependency generations (Kahn's algorithm).
 
 **Example:**
 
-```bash
-source "$DEVENV_TOOLS/lib/repo-cache.bash"
+```ts
+import { ensureDependencyIndex, getReverseDependencyTree, refreshRepoCache } from "../lib/domain/cs/dependency-graph.ts";
 
-# Cache all org repos
-refresh_repo_cache
+await refreshRepoCache();
+ensureDependencyIndex();
 
-# Cache only service repos
-refresh_repo_cache "^service\."
+// Direct dependents only
+const direct = getReverseDependencyTree("<your-library>").filter((row) => row.depth === 0);
 ```
 
-### `desktop-menu.bash`
+### `lib/domain/desktop-menu.ts`
 
-Provides idempotent functions for managing the Fluxbox desktop application menu. Used by `devenv-desktop-menu-add-shortcut` and `devenv-desktop-menu-add-folder`, and can be sourced directly by install-extras scripts to add menu entries as part of tool installation.
+Idempotent functions for managing the Fluxbox desktop application menu. Used by `devenv-desktop-menu-add-shortcut` and `devenv-desktop-menu-add-folder`; an install-extras step that needs a menu entry calls those two tools.
 
-**Sourcing:**
+**Public functions:**
 
-```bash
-source "$DEVENV_TOOLS/lib/desktop-menu.bash"
-```
+- `menuFile()`: the path to the Fluxbox menu file. Respects the `FLUXBOX_MENU` environment variable; defaults to `~/.fluxbox/menu`.
+- `shortcutExists(menu, label)` and `folderExists(menu, name)`: whether an `[exec]` entry or a `[submenu]` entry with that label or name exists.
+- `addShortcut(menu, label, command, folder = "")`: adds an `[exec]` entry. Silently skips if a shortcut with the same label already exists. Throws if the menu file or a named folder does not exist.
+- `addFolder(menu, name, parent = "")`: adds a `[submenu]` / `[end]` block. Silently skips if a folder with the same name already exists. Throws if the menu file or a named parent does not exist.
+- `escapeMenuText(text)`: escapes the menu syntax delimiters (backslash, parentheses, braces) in user text, and rejects text containing a line break. Labels, names and commands pass through it before they are written.
 
-**Provided functions:**
-
-#### `desktop_menu_get_file`
-
-Returns the path to the Fluxbox menu file. Respects the `FLUXBOX_MENU` environment variable override; defaults to `~/.fluxbox/menu`.
+**Example, from an install step:**
 
 ```bash
-menu_file="$(desktop_menu_get_file)"
-```
-
-#### `desktop_menu_shortcut_exists MENU_FILE LABEL`
-
-Returns `0` if an `[exec]` entry with the given label exists, `1` otherwise.
-
-```bash
-if desktop_menu_shortcut_exists "$menu_file" "MongoDB Compass"; then
-  echo "already present"
-fi
-```
-
-#### `desktop_menu_folder_exists MENU_FILE FOLDER_NAME`
-
-Returns `0` if a `[submenu]` entry with the given name exists, `1` otherwise.
-
-```bash
-if ! desktop_menu_folder_exists "$menu_file" "Databases"; then
-  desktop_menu_add_folder "$menu_file" "Databases"
-fi
-```
-
-#### `desktop_menu_add_shortcut MENU_FILE LABEL COMMAND [FOLDER]`
-
-Adds an `[exec]` entry to the menu. Silently skips if a shortcut with the same label already exists. Calls `die` if the menu file or a specified folder does not exist.
-
-| Argument | Description |
-|----------|-------------|
-| `MENU_FILE` | Path to the Fluxbox menu file |
-| `LABEL` | Display label shown in the menu |
-| `COMMAND` | Shell command to execute |
-| `FOLDER` | Optional — existing folder to place the shortcut in |
-
-#### `desktop_menu_add_folder MENU_FILE FOLDER_NAME [PARENT_FOLDER]`
-
-Adds a `[submenu]` / `[end]` block to the menu. Silently skips if a folder with the same name already exists. Calls `die` if the menu file or a specified parent does not exist.
-
-| Argument | Description |
-|----------|-------------|
-| `MENU_FILE` | Path to the Fluxbox menu file |
-| `FOLDER_NAME` | Display name for the new folder |
-| `PARENT_FOLDER` | Optional — existing folder to nest inside |
-
-**Example — install-extras script:**
-
-```bash
-source "$DEVENV_TOOLS/lib/desktop-menu.bash"
-
-menu_file="$(desktop_menu_get_file)"
-desktop_menu_add_folder   "$menu_file" "Databases"
-desktop_menu_add_shortcut "$menu_file" "MongoDB Compass" "mongodb-compass" "Databases"
+devenv-desktop-menu-add-folder "Databases"
+devenv-desktop-menu-add-shortcut "MongoDB Compass" "mongodb-compass" "Databases"
 ```
 
 **Menu format reference:**
@@ -3216,74 +3156,6 @@ desktop_menu_add_shortcut "$menu_file" "MongoDB Compass" "mongodb-compass" "Data
 **Environment variables:**
 
 - `FLUXBOX_MENU`: Override the default menu file path (`~/.fluxbox/menu`)
-
-### `cs-dependency-graph.bash`
-
-Builds and queries a reverse dependency graph across all cached C# organization repositories. Scans `.csproj` files to map NuGet package production and consumption relationships between repos.
-
-**Configuration:**
-
-- `CS_DEP_ORG_PREFIX` (default: `[nuget] package_prefix` in `devenv.config`; no built-in value): Only packages matching this prefix are considered org-internal. The index is not built until one of them is set.
-- `REPO_CACHE_DIR`: Inherited from `repo-cache.bash`
-- `CS_DEP_INDEX_DIR`: Index storage location (default: `$REPO_CACHE_DIR/.index`)
-
-**Provided functions:**
-
-#### `is_index_stale`
-
-Checks whether the dependency index needs rebuilding by comparing `.cache_timestamp` against `.index_timestamp`.
-
-**Return codes:** `0` = stale (rebuild needed), `1` = fresh
-
-#### `build_dependency_index`
-
-Scans all cached repos' `src/**/*.csproj` files (skipping `test/` and `tests/` directories) and produces three TSV index files:
-
-- `package_to_repo.tsv` — Maps each package name to its producing repo
-- `repo_packages.tsv` — Lists all packages each repo publishes
-- `repo_dependencies.tsv` — Lists org-internal package references per repo (excludes self-references and third-party packages)
-
-#### `ensure_dependency_index`
-
-Convenience wrapper: calls `build_dependency_index` only when `is_index_stale` indicates the index is outdated.
-
-#### `list_repo_packages "repo-name"`
-
-Returns the list of NuGet packages produced by a repository (one per line).
-
-#### `list_repo_dependencies "repo-name"`
-
-Returns the list of org-internal packages consumed by a repository (one per line).
-
-#### `get_reverse_dependency_tree "repo-name-or-path"`
-
-Performs a breadth-first traversal to find all repos that depend on the given repo, directly or transitively.
-
-**Output format:** TSV with five columns:
-
-| Column | Description |
-|--------|-------------|
-| DEPTH | Distance from root (0 = direct dependent) |
-| REPO | Name of the dependent repository |
-| PACKAGE_REF | The specific package being consumed |
-| VERSION | The version of the referenced package |
-| PATH | Full dependency chain (`>` delimited) |
-
-**Example:**
-
-```bash
-source "$DEVENV_TOOLS/lib/cs-dependency-graph.bash"
-
-# Ensure cache and index are current
-refresh_repo_cache
-ensure_dependency_index
-
-# Show what depends on the essentials library
-get_reverse_dependency_tree "<your-library>"
-
-# Filter to direct dependents only
-get_reverse_dependency_tree "<your-library>" | awk -F'\t' '$1 == 0'
-```
 
 ## Bash Functions and Aliases
 
@@ -3380,8 +3252,10 @@ markdown-plan-complete-task [OPTIONS] TASK_NUMBER... [PLAN_FILE]
 
 - `TASK_NUMBER...`: One or more dotted task numbers to update (`X.Y` or `X.Y.Z`).
   Multiple task numbers can be supplied in a single invocation.
-- `PLAN_FILE`: Path to the markdown plan file. Defaults to the first
-  `Plan-*.md` file found in the current directory, then in `.local-artifacts/`.
+- `PLAN_FILE`: Path to the markdown plan file. Defaults to the `Plan-*.md`
+  file found in `.local-artifacts/`, then in the current directory. When that
+  directory holds several plans the tool refuses (exit 2) and lists them;
+  name the file explicitly.
   Positional arguments are classified automatically: anything matching the
   `X.Y` / `X.Y.Z` pattern is treated as a task number; everything else is
   treated as the plan file. The plan file may appear anywhere in the argument
@@ -3435,9 +3309,10 @@ markdown-plan-complete-ac [OPTIONS] AC_NUMBER... [FILE]
 **Arguments:**
 
 - `AC_NUMBER...`: One or more AC numbers to update (`AC-N`, `AC-N.N`, `AC-N.N.N`).
-- `FILE`: Path to the markdown file. Defaults to the first `Plan-*.md`
+- `FILE`: Path to the markdown file. Defaults to the `Plan-*.md`
   (or `Implementation_plan-*.md`) found in `.local-artifacts/`, then in
-  the current directory — plans are the only artifact with checkable ACs.
+  the current directory; several plans in that directory is an error (exit 2) —
+  plans are the only artifact with checkable ACs.
   Other files (e.g. `Specifications-*.md`) are updated only when named
   explicitly. As with `markdown-plan-complete-task`,
   the file may appear anywhere among the arguments.
@@ -3498,6 +3373,29 @@ plan-parse <PLAN_FILE> --summary | --census | --anchors | --lint [--require-head
   `weighted` progress; the `Progress:` snapshot line uses these values.
 - `--lint` errors block issue-artifact upserts until fixed.
 - Progress values are computed from the file, never hand-counted.
+
+**Plan grammar** (shared by `plan-parse`, `markdown-plan-complete-task`,
+`markdown-plan-complete-ac`, `roadmap-parse` and `tools/lib/domain/markdown.ts`):
+
+- A checkbox item is `- [ ]`, `- [x]` or `- [X]`; completion is read from the
+  checkbox position only, never from a `[x]` inside the item text.
+- Task: the item text starts with a dotted numeric id (`2.1`, `2.1.1`), bold or
+  not. Tasks are classified before ACs, so a task that mentions an AC stays a
+  task. `plan-parse` counts tasks only under a `Phase N` heading.
+- AC: the item text starts with `AC-N[.N...]`, optionally after an
+  `<a id="ac-N"></a>` anchor and bold. `AC-1.2` is an AC of its own, never
+  `AC-1`; an AC mentioned mid-line does not make the item an AC.
+- Only top-level items (no indentation) are counted by `plan-parse` and the
+  progress lines; nested bullets are detail.
+- `--anchors` keeps the full extension (`.json`, `.csproj`, `.yaml`).
+
+### `spec-dependency-check`
+
+Validates the `SPEC-NNN` dependency graph of `Specifications-*.md`. Reads
+`Dependencies:` and `Depends on:` lines (bold or plain; `None`, markdown links
+and a cross-doc `(File.md)` suffix are understood), compares `Group:` values
+numerically (`P2` before `P10`), and reports `unknown`, `duplicate`, `cycle`
+and `group-order` errors as JSON.
 
 ### `devenv-marker-check`
 

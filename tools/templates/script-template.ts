@@ -56,7 +56,7 @@ async function main(argv: string[]): Promise<number> {
   } catch (err) {
     // Parse failures report with a usage hint and exit 2 (house contract).
     logError(err instanceof Error ? err.message : String(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return 2;
   }
 

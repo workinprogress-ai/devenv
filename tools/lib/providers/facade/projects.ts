@@ -63,6 +63,19 @@ export async function projectsNumberByName(owner: string, nameOrNumber: string):
   return m.gh.projectsNumberByName(owner, nameOrNumber);
 }
 
+/** Add an issue (by URL) to a project given by title or number. GitHub keys
+ * the add on the project number, so a title is resolved first; Azure boards
+ * resolve names and numbers alike. Failures throw with the provider's reason. */
+export async function projectsAddIssue(owner: string, project: string, issueUrl: string): Promise<void> {
+  const m = await load();
+  if (m.provider === "azure") {
+    await (m.az as AzureProjects).projectsItemAdd("", project, issueUrl);
+    return;
+  }
+  const gh = m.gh as GithubProjects;
+  gh.projectsItemAdd(undefined, gh.projectsNumberByName(owner, project), issueUrl, ["--owner", owner]);
+}
+
 async function load(): Promise<{ provider: string; gh: GithubProjects | undefined; az: AzureProjects | undefined }> {
   const loaded = await loadProviderModules("projects");
   if (loaded.provider === "azure") {

@@ -6,7 +6,7 @@
 // package_prefix (the org-package marker); no direct config file reads.
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, copyFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { configGetRaw } from "../../core/config.ts";
@@ -15,6 +15,7 @@ import { logError, logInfo, logWarn } from "../../core/logging.ts";
 import { providerOrgGet, ensureProviderAuth } from "../../providers/provider-core.ts";
 import { reposList } from "../../providers/facade/repos.ts";
 import { gitTransportUrl } from "../../providers/facade/urls.ts";
+import { csprojPackageReferences } from "./csproj.ts";
 
 /** The repo cache root (repo-cache.bash's location contract). Read at
  * call time: REPO_CACHE_DIR redirects tests and CI at a scratch cache. */
@@ -70,7 +71,7 @@ function csprojFilesUnder(dir: string, srcOnly: boolean): string[] {
         // src-only scans exclude test/tests subtrees (bash find parity).
         if (srcOnly && (e.name === "test" || e.name === "tests")) continue;
         walk(p);
-      } else if (e.name.endsWith(".csproj") && (!srcOnly || p.includes("/src/"))) {
+      } else if (e.name.endsWith(".csproj") && (!srcOnly || `/${relative(dir, p)}`.includes("/src/"))) {
         found.push(p);
       }
     }
@@ -127,21 +128,20 @@ export function buildDependencyIndex(): void {
   for (const e of readdirSync(repoCacheDir(), { withFileTypes: true })) {
     if (!e.isDirectory() || e.name.startsWith(".")) continue;
     const repoName = e.name;
-    for (const csproj of csprojFilesUnder(join(repoCacheDir(), repoName), true)) {
-      const content = readFileSync(csproj, "utf8");
-      const re = /PackageReference\s+Include="([^"]+)"\s+Version="([^"]+)"/g;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(content)) !== null) {
-        const ref = m[1] as string;
-        const ver = m[2] as string;
+    const repoDir = join(repoCacheDir(), repoName);
+    const seenDeps = new Set<string>();
+    for (const csproj of csprojFilesUnder(repoDir, true)) {
+      for (const { name: ref, version: ver } of csprojPackageReferences(csproj, repoDir)) {
         if (!ref.startsWith(prefix)) continue;
         // Exclude self-references: exact match on the package column (a
         // substring match would attribute Org.Lib.Core to the repo that
         // makes Org.Lib.Core.Common).
         const owner = pkgOwner.get(ref);
-        if (owner !== undefined && owner !== repoName) {
-          repoDepsLines.push(`${repoName}\t${ref}\t${ver}`);
-        }
+        if (owner === undefined || owner === repoName) continue;
+        const line = `${repoName}\t${ref}\t${ver}`;
+        if (seenDeps.has(line)) continue;
+        seenDeps.add(line);
+        repoDepsLines.push(line);
       }
     }
   }
@@ -389,16 +389,26 @@ export async function refreshRepoCache(): Promise<number> {
       return;
     }
     const exists = existsSync(join(repoDir, ".git"));
+    if (exists) {
+      // A clone with uncommitted changes is left exactly as it is and counted
+      // as failed: refreshing must never discard work done in the cache.
+      const dirty = spawnSync("git", ["-C", repoDir, "status", "--porcelain"], { encoding: "utf8" });
+      if (dirty.status !== 0 || (dirty.stdout ?? "").trim() !== "") {
+        logWarn(`${repo} has uncommitted changes in the cache; left untouched`);
+        done(false);
+        return;
+      }
+    }
     const args = exists
       ? ["-C", repoDir, "fetch", "--depth", "1", "origin"]
       : ["clone", "--depth", "1", "--single-branch", "--no-tags", url, repoDir];
     const r = spawnSync("git", args, { stdio: "ignore" });
     if (r.status !== 0) { done(false); return; }
     if (exists) {
-      const reset = spawnSync("git", ["-C", repoDir, "reset", "--hard", "origin/HEAD"], { stdio: "ignore" });
-      if (reset.status !== 0) { done(false); return; }
-      spawnSync("git", ["-C", repoDir, "clean", "-fd"], { stdio: "ignore" });
-      spawnSync("git", ["-C", repoDir, "gc", "--prune=all", "--quiet"], { stdio: "ignore" });
+      // Detaching onto the fetched tip refuses to overwrite local changes
+      // instead of discarding them; local branches keep their commits.
+      const moved = spawnSync("git", ["-C", repoDir, "checkout", "--quiet", "--detach", "origin/HEAD"], { stdio: "ignore" });
+      if (moved.status !== 0) { done(false); return; }
     }
     done(true);
   };

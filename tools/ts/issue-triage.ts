@@ -15,6 +15,7 @@
 //   scripted surface and refuses the wizard without a TTY.
 
 import { basename } from "node:path";
+import { existsSync } from "node:fs";
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
@@ -70,9 +71,7 @@ async function applyIssueBundle(
   bundle: Bundle,
 ): Promise<number> {
   let failed = 0;
-  let didAny = false;
   const edits = async (opts: Parameters<typeof issuesEdit>[2], what: string): Promise<void> => {
-    didAny = true;
     try {
       await issuesEdit(repo, issue, opts);
     } catch (err) {
@@ -88,7 +87,6 @@ async function applyIssueBundle(
     await edits({ addLabel: [label] }, `label update for '${label}'`);
   }
   if (bundle.triageComplete === true) {
-    didAny = true;
     // Fire the event in-process: the same path workflow-signal uses, so a
     // failed status write is reported here instead of vanishing in a child.
     const fired = await fireEvent("_on_triage_complete", Number(issue), {
@@ -98,10 +96,6 @@ async function applyIssueBundle(
       logError(`triage-complete signal failed${fired.error !== undefined ? `: ${fired.error}` : ""}`);
       failed = 1;
     }
-  }
-  if (!didAny) {
-    logError("no bundle options given");
-    return 1;
   }
   return failed;
 }
@@ -117,9 +111,10 @@ async function main(argv: string[]): Promise<number> {
     "--title", "--body-file", "--assignee", "--label", "--triage-complete", "--devenv",
   ]);
   for (const tok of argv) {
-    if (tok.startsWith("-") && tok !== "-" && !knownFlags.has(tok)) {
+    const flag = tok.startsWith("--") && tok.includes("=") ? tok.slice(0, tok.indexOf("=")) : tok;
+    if (tok.startsWith("-") && tok !== "-" && !knownFlags.has(flag)) {
       logError(`Unknown option: ${tok}`);
-      console.log("Use --help for usage information");
+      console.error("Use --help for usage information");
       return EXIT_MISUSE;
     }
   }
@@ -129,6 +124,7 @@ async function main(argv: string[]): Promise<number> {
   let devenv = false;
   try {
     const cli = toolCli({
+      rejectEmptyValues: true,
       name: SCRIPT_NAME,
       version: SCRIPT_VERSION,
       argv,
@@ -159,20 +155,33 @@ async function main(argv: string[]): Promise<number> {
     for (const p of cli.positionals) {
       if (!/^[0-9]+$/.test(p)) {
         logError(`Unknown option: ${p}`);
-        console.log("Use --help for usage information");
+        console.error("Use --help for usage information");
         return EXIT_MISUSE;
       }
       issues.push(p);
     }
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 
   checkTargetRepo(devenv);
 
   if (issues.length > 0) {
+    // The whole bundle is validated before the first edit lands.
+    const hasBundle = bundle.title !== undefined || bundle.bodyFile !== undefined || bundle.milestone !== undefined ||
+      bundle.assignee !== undefined || bundle.labels.length > 0 || bundle.triageComplete === true;
+    if (!hasBundle) {
+      logError("no bundle options given");
+      console.error("Use --help for usage information");
+      return EXIT_MISUSE;
+    }
+    if (bundle.bodyFile !== undefined && !existsSync(bundle.bodyFile)) {
+      logError(`Body file not found: ${bundle.bodyFile}`);
+      return EXIT_MISUSE;
+    }
+
     const repo = requireRepoTarget(providerRepoTarget(""), "issue-triage", "issues");
     let rc = 0;
     for (const issue of issues) {

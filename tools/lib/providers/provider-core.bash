@@ -1,33 +1,27 @@
 #!/usr/bin/env bash
-# provider-core.bash - Provider abstraction core: detection, dispatch, auth and
-# secret-store seams, capability flags, and the error contract.
+# provider-core.bash - The provider seam the container bootstrap chain sources:
+# detection, the module loader, the hook dispatcher, the credential seam and the
+# identity accessors. Everything else about a provider (issues, pull requests,
+# repositories, capabilities, repo targeting) lives in the TypeScript layer; see
+# tools/lib/providers/README.md ("Bash bootstrap surface") for who sources this
+# file and which functions they call.
 #
 # Design contract:
-#   - Dispatch is by naming convention: domain code calls provider_<domain>_<verb>;
-#     the active provider's module (sourced after this file) defines those
-#     functions. Adding a provider means adding module files — provider-core
-#     never changes. There is no registry.
 #   - Detection is config-driven: the `[provider] name` key in devenv.config
-#     (default: github).
-#   - Auth seam: all credential handling goes through provider_secret_get and the
-#     provider_auth_* lifecycle verbs. Domain modules and scripts never read GH_TOKEN
-#     directly, so the credential backing store swaps in behind these
-#     functions without touching callers.
-#   - Token resolution order: env-if-allowlisted → provider credential
-#     store (the active provider's auth module) → error. A session-scoped GH_TOKEN export is honored only when the
-#     allowlist opts in (escape hatch); otherwise the seam warns and falls
-#     through to the keychain.
-#   - Capability flags: GH-only surfaces (rulesets, project boards, native
-#     issue types) are declared capabilities. Callers gate with
-#     provider_require_capability, which fails with a defined
-#     "provider does not support this" error instead of failing mid-command.
-#   - Error contract: library functions return non-zero and log via log_error;
-#     provider-core never exits (provider-loader's `exit 1` is the recorded
-#     anti-precedent). Exit decisions belong to scripts.
+#     (default: github). The TypeScript detection answers the same way; the
+#     agreement is pinned by tools/tests/ts/provider-bash-agreement.test.ts.
+#   - A provider is a directory beside this file holding its hook modules
+#     (auth.bash, bootstrap.bash, setup.bash); adding a provider means adding
+#     those files, provider-core never changes. There is no registry.
+#   - Auth seam: credentials resolve through provider_secret_get and the
+#     provider_auth_* lifecycle verbs, never from GH_TOKEN directly. A session
+#     GH_TOKEN export is honored only when the allowlist opts in; otherwise the
+#     seam warns and falls through to the provider credential store.
+#   - Error contract: functions return non-zero and log via log_error;
+#     provider-core never exits. Exit decisions belong to the caller.
 #
-# Sourcing contract: callers set DEVENV_TOOLS (self-root contract), source
-# this file, then source the active provider's domain modules from
-# "${DEVENV_TOOLS}/lib/providers/${PROVIDER_NAME}/".
+# Sourcing contract: callers set DEVENV_TOOLS (self-root contract) and source
+# this file, then load the active provider's modules with provider_load.
 
 # Guard against multiple sourcing
 if [ -n "${_PROVIDER_CORE_LOADED:-}" ]; then
@@ -58,7 +52,7 @@ fi
 PROVIDER_NAME="${PROVIDER_NAME:-}"
 export PROVIDER_NAME
 
-# Escape-hatch allowlist for session-scoped GH_TOKEN exports (AC-2). Ships
+# Escape-hatch allowlist for session-scoped GH_TOKEN exports. Ships
 # empty; entries are added via devenv.config [provider] token_env_allowlist
 # and follow a justification-and-review protocol (see tools/lib/providers/
 # README.md). Tokens outside the allowlist warn at consumer time and are
@@ -66,43 +60,14 @@ export PROVIDER_NAME
 PROVIDER_TOKEN_ENV_ALLOWLIST="${PROVIDER_TOKEN_ENV_ALLOWLIST:-}"
 export PROVIDER_TOKEN_ENV_ALLOWLIST
 
-# Resolve the active provider from devenv.config [provider] name, defaulting
-# to github. Sets PROVIDER_NAME (exported) so domain modules can be sourced
-# from "${DEVENV_TOOLS}/lib/providers/${PROVIDER_NAME}/".
-#
-# Usage:
-#   provider_detect                       # uses DEVENV_ROOT/devenv.config
-#   provider_detect /path/to/devenv.config
-#
-# Returns:
-#   0 on success; 1 if the config file exists but the value is empty.
-# The default-provider fallback is org policy: load the identity policy
-# module (config-driven, POLICY_DEFAULT_PROVIDER overridable) once.
-if ! declare -F policy_default_provider >/dev/null; then
-    _policy_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../policy" 2>/dev/null && pwd)"
-    if [ -n "$_policy_dir" ] && [ -f "$_policy_dir/policy-core.bash" ]; then
-        # shellcheck disable=SC1090,SC1091
-        source "$_policy_dir/policy-core.bash"
-        # no argument when DEVENV_ROOT is unset: the policy core then uses this
-        # checkout's own devenv.config (an empty root would name /devenv.config)
-        policy_core_init ${DEVENV_ROOT:+"$DEVENV_ROOT/devenv.config"} 2>/dev/null || true
-        # shellcheck disable=SC1090,SC1091
-        source "$_policy_dir/identity-policy.bash"
-    else
-        # No policy layer (the org-policy module retired with the bash verb
-        # layer): the config reader's CONFIG_FILE must still be initialized
-        # for config_read_value callers — the policy core used to do this as
-        # a side effect of policy_core_init. Load the reader inline (the
-        # _provider_config_reader helper is defined further down this file)
-        # and initialize the same file the detection would read; absent
-        # config stays unset (reads then fail defined).
-        declare -F config_get_raw >/dev/null || \
-            source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config-reader.bash"
-        _cfg="${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/devenv.config"
-        [ -f "$_cfg" ] && config_init "$_cfg"
-        unset _cfg
-    fi
-fi
+# Initialize the config reader's CONFIG_FILE for config_read_value callers, from
+# the same file provider detection reads. An absent config stays unset (reads
+# then fail defined).
+declare -F config_get_raw >/dev/null || \
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config-reader.bash"
+_cfg="${DEVENV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/devenv.config"
+[ -f "$_cfg" ] && config_init "$_cfg"
+unset _cfg
 
 # The one INI reader (lib/config-reader.bash, beside this lib's parent directory).
 # Anchored on this file's own location, so it loads whatever DEVENV_TOOLS says.
@@ -112,7 +77,16 @@ _provider_config_reader() {
     source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config-reader.bash"
 }
 
-
+# Resolve the active provider from devenv.config [provider] name, defaulting to
+# github when the name is absent. Sets PROVIDER_NAME (exported); provider_load
+# sources the provider's modules from the directory of that name beside this file.
+#
+# Usage:
+#   provider_detect                       # uses DEVENV_ROOT/devenv.config
+#   provider_detect /path/to/devenv.config
+#
+# Returns:
+#   0 on success; 1 when the configured name is not a shipped provider.
 provider_detect() {
     local config_file="${1:-}"
 
@@ -135,39 +109,37 @@ provider_detect() {
     fi
 
     if [ -z "$name" ]; then
-        # Default provider is org policy (fork-replaceable): resolve via the
-        # policy layer, falling back to the historical value when the policy
-        # layer itself cannot load (bootstrapping edge).
-        name="$(policy_default_provider 2>/dev/null || echo github)"
+        name="github"
     else
         # A configured name must name a shipped provider — a typo must fail
         # at detection time (listing what shipped), not degrade to per-module
-        # warnings and call-time errors. Absent config keeps the policy
-        # default path above; validation targets explicit misconfiguration.
-        local _shipped
-        _shipped="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && \
-            for d in */; do printf '%s ' "${d%/}"; done 2>/dev/null || true)"
-        case " $_shipped " in
-            *" $name "*) ;;
-            *)
-                log_error "provider_detect: provider '$name' is not shipped (available: ${_shipped:-none}) — check [provider] name in $config_file"
-                PROVIDER_NAME=""
-                return 1
-                ;;
-        esac
+        # warnings and call-time errors. A shipped provider is a directory
+        # beside this file that holds its bootstrap hooks; other directories
+        # (the TypeScript facade) are not providers. Names compare exactly.
+        local _providers_dir _entry _shipped="" _found=0
+        _providers_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        for _entry in "$_providers_dir"/*/; do
+            [ -f "${_entry}bootstrap.bash" ] || continue
+            _entry="${_entry%/}"
+            _entry="${_entry##*/}"
+            _shipped="${_shipped:+$_shipped }$_entry"
+            [ "$_entry" = "$name" ] && _found=1
+        done
+        if [ "$_found" -ne 1 ]; then
+            log_error "provider_detect: provider '$name' is not shipped (available: ${_shipped:-none}) — check [provider] name in $config_file"
+            PROVIDER_NAME=""
+            return 1
+        fi
     fi
 
     PROVIDER_NAME="$name"
     export PROVIDER_NAME
 
-    # Escape-hatch allowlist (AC-2): read [provider] token_env_allowlist when
-    # a config file is available. A caller-provided export is preserved when
-    # there is no config file or the key is absent (detection never widens
-    # nor narrows an explicit caller decision); only an existing config file
-    # is authoritative.
+    # Escape-hatch allowlist: read [provider] token_env_allowlist when a config
+    # file is available. A caller-provided export is preserved when there is no
+    # config file; an existing config file is authoritative.
     if [ -f "$config_file" ]; then
         local allow=""
-        _provider_config_reader
         allow=$(config_get_raw "$config_file" "provider" "token_env_allowlist" "")
         PROVIDER_TOKEN_ENV_ALLOWLIST="$allow"
     fi
@@ -175,29 +147,11 @@ provider_detect() {
     return 0
 }
 
-# Directory holding the active provider's domain modules.
-#
-# Usage:
-#   source "$(provider_module_dir)/issues.bash"
-#
-# Returns:
-#   Prints the module directory; returns 1 if detection has not run.
-provider_module_dir() {
-    if [ -z "$PROVIDER_NAME" ]; then
-        log_error "provider_detect has not run — call it before sourcing modules"
-        return 1
-    fi
-    echo "${DEVENV_TOOLS}/lib/providers/${PROVIDER_NAME}"
-}
-
 # The one canonical module loader: detect if needed, then source the named
-# domain modules for the active provider. This replaces the per-lib guarded
-# detect+source blocks (which drifted — one lib forgot auth.bash, and their
-# hard-coded github fallbacks bypassed the policy layer). Best-effort by
-# contract: a module file that does not exist is skipped with a warning, so
-# a bare checkout carrying only this lib still loads (call sites fail
-# defined), and an already-sourced module is a no-op (each module guards its
-# own re-sourcing).
+# modules of the active provider. Best-effort by contract: a module file that
+# does not exist is skipped with a warning, so a bare checkout carrying only this
+# lib still loads (call sites fail defined), and an already-sourced module is a
+# no-op (each module guards its own re-sourcing).
 #
 # Module paths anchor on this file's own location (the self-root contract:
 # self-location wins), not on DEVENV_TOOLS — a caller may legitimately point
@@ -205,8 +159,8 @@ provider_module_dir() {
 # the provider modules out from under the loader.
 #
 # Usage:
-#   provider_load issues prs repos        # source those modules
-#   provider_load                          # core only (detect + no modules)
+#   provider_load auth bootstrap          # source those modules
+#   provider_load                          # detect only, no modules
 #
 # Returns:
 #   0 when detection ran (or was already done); 1 when detection fails, with the
@@ -257,11 +211,11 @@ command_not_found_handle() {
     esac
 }
 
-# Run a provider's bootstrap hook. The main bootstrap and `setup` call hooks and
-# never branch on the provider name: each provider's bootstrap.bash (container
-# side) and setup.bash (host side) define the hooks it implements; a hook the
-# provider does not define is a no-op success. See the "Bootstrap and setup hooks"
-# section of providers/README.md for the hook list and their contracts.
+# Run a provider's bootstrap hook. The main bootstrap and the container-start
+# pulls call hooks and never branch on the provider name: each provider's
+# bootstrap.bash defines the hooks it implements; a hook the provider does not
+# define is a no-op success. The hooks are listed in the "Bash bootstrap surface"
+# section of providers/README.md.
 #
 # Usage:
 #   provider_bootstrap_call HOOK [ARGS...]    # runs provider_bootstrap_<HOOK> ARGS...
@@ -283,7 +237,7 @@ provider_bootstrap_call() {
 }
 
 # ============================================================================
-# Auth seam (AC-4)
+# Auth seam
 # ============================================================================
 
 # Escape-hatch allowlist entry: true when the token is allowlisted for
@@ -307,15 +261,6 @@ provider_token_env_allowed() {
 # store decides what "keychain" concretely means.
 provider_token_env_denied_warning() {
     log_warn "GH_TOKEN is set but not on the env allowlist (config key [provider] token_env_allowlist) — ignored; resolving via the ${PROVIDER_NAME:-active} provider credential store. Add an allowlist entry only with a documented justification."
-}
-
-# Whether the active provider offers a credential-store (keychain) token.
-# Delegates to the provider module's provider_auth_token_impl — the neutral
-# core owns the allowlist policy, never a concrete credential CLI.
-# Returns 0 when a keychain token is available; 1 otherwise.
-_provider_keychain_available() {
-    declare -F provider_auth_token_impl >/dev/null || return 1
-    provider_auth_token_impl >/dev/null 2>&1
 }
 
 # Read a named secret through the seam. Scope: single secret kind today
@@ -354,113 +299,7 @@ provider_secret_get() {
 }
 
 # ============================================================================
-# Capability flags (AC-3)
-# ============================================================================
-
-# Capability registry for the active provider. Domain modules declare at
-# source time via provider_declare_capability (validation against the
-# canonical list fails fast on typos); core owns the query/gate helpers.
-# Canonical capability names:
-#   rulesets  project-boards  native-issue-types  pipelines
-# (releases is deliberately absent: portable across providers, ungated.)
-PROVIDER_CAPABILITIES="${PROVIDER_CAPABILITIES:-}"
-
-# Canonical capability names. A declare of anything else is a bug — fail at
-# source time with a named error rather than silently answering false at
-# query time.
-PROVIDER_CAPABILITY_CANONICAL="rulesets project-boards native-issue-types pipelines"
-
-# Declare one capability for the active provider.
-# Usage: provider_declare_capability <name>
-provider_declare_capability() {
-    local cap="$1"
-    case " $PROVIDER_CAPABILITY_CANONICAL " in
-        *" $cap "*) ;;
-        *)
-            log_error "provider_declare_capability: '$cap' is not a canonical capability (${PROVIDER_CAPABILITY_CANONICAL})"
-            return 1
-            ;;
-    esac
-    case " $PROVIDER_CAPABILITIES " in
-        *" $cap "*) ;;
-        *) PROVIDER_CAPABILITIES="${PROVIDER_CAPABILITIES:+$PROVIDER_CAPABILITIES }$cap" ;;
-    esac
-}
-
-# Query a capability (read-only).
-#
-# Usage:
-#   provider_has_capability rulesets && gh_only_thing
-#
-# Returns:
-#   0 if declared; 1 if not (silent — use provider_require_capability to fail).
-provider_has_capability() {
-    local cap="$1"
-    [[ " $PROVIDER_CAPABILITIES " == *" $cap "* ]]
-}
-
-# An option no verb accepts is an error, never a silent drop: ignoring it would
-# return a result the caller did not ask for (a filter that does nothing, a flag
-# that never reached the host). Used by every verb's option loop.
-# Usage: provider_unknown_option VERB OPTION   (returns 1)
-provider_unknown_option() {
-    if declare -F log_error >/dev/null; then
-        log_error "${1:-provider}: unknown or unsupported option '${2:-}' — see tools/lib/providers/CONTRACT.md"
-    else
-        echo "ERROR: ${1:-provider}: unknown or unsupported option '${2:-}' — see tools/lib/providers/CONTRACT.md" >&2
-    fi
-    return 1
-}
-
-# Fail a value-taking option that was given no value ("--state" as the last
-# argument). Without this check, `shift 2` with one argument left shifts nothing
-# and an option loop never ends (or aborts on an unbound variable under set -u).
-# Usage: provider_need_value VERB OPTION ARGC   (ARGC is "$#" at the option; returns 1)
-provider_need_value() {
-    if [ "${3:-0}" -ge 2 ]; then
-        return 0
-    fi
-    if declare -F log_error >/dev/null; then
-        log_error "${1:-provider}: option '${2:-}' requires a value — see tools/lib/providers/CONTRACT.md"
-    else
-        echo "ERROR: ${1:-provider}: option '${2:-}' requires a value — see tools/lib/providers/CONTRACT.md" >&2
-    fi
-    return 1
-}
-
-
-# Fail a limit that is not a positive integer: "--limit abc" must be an error, never
-# a silent empty result.
-# Usage: provider_need_count VERB OPTION VALUE   (returns 1)
-provider_need_count() {
-    if [[ "${3:-}" =~ ^[1-9][0-9]*$ ]]; then
-        return 0
-    fi
-    if declare -F log_error >/dev/null; then
-        log_error "${1:-provider}: option '${2:-}' needs a positive number, got '${3:-}' — see tools/lib/providers/CONTRACT.md"
-    else
-        echo "ERROR: ${1:-provider}: option '${2:-}' needs a positive number, got '${3:-}' — see tools/lib/providers/CONTRACT.md" >&2
-    fi
-    return 1
-}
-
-# Defined degradation gate (AC-3): fail with the canonical
-# "provider does not support this" error when the capability is absent.
-# Returns non-zero; the caller (script) decides whether to exit.
-#
-# Usage:
-#   provider_require_capability rulesets || exit 1
-provider_require_capability() {
-    local cap="$1"
-    if provider_has_capability "$cap"; then
-        return 0
-    fi
-    log_error "provider '${PROVIDER_NAME}' does not support capability '${cap}' — operation not available"
-    return 1
-}
-
-# ============================================================================
-# Credential lifecycle seam (#35/#36 follow-up)
+# Credential lifecycle seam
 # ============================================================================
 
 # Import a credential into the provider's credential store, wiring whatever
@@ -489,25 +328,6 @@ provider_auth_import_token() {
     provider_auth_import_token_impl
 }
 
-# Wire git credentials for the active provider's host so clone/push work
-# without embedded URLs. GitHub: wires its existing credential-helper setup;
-# azure: registers the PAT-backed credential helper for dev.azure.com.
-# Idempotent — safe to call after every successful token import (key-update-*
-# does).
-# Usage: provider_auth_setup_git
-provider_auth_setup_git() {
-    if [ -z "${PROVIDER_NAME:-}" ]; then
-        log_error "provider_auth_setup_git: provider_detect has not run"
-        return 1
-    fi
-    # Guard on the _impl function (same reason as import_token above).
-    if ! declare -F provider_auth_setup_git_impl >/dev/null; then
-        log_error "provider '${PROVIDER_NAME}' does not implement auth setup-git (provider_auth_setup_git_impl is not defined)"
-        return 1
-    fi
-    provider_auth_setup_git_impl
-}
-
 # Check whether the provider has a usable credential (exit-code only; no
 # output, no stdout leakage). Gates scripts that require authentication
 # without performing it.
@@ -534,38 +354,19 @@ provider_auth_status() {
 # Identity accessors (org / user)
 # ============================================================================
 
-# Config file used by the identity accessors. Set via provider_identity_init;
-# defaults to DEVENV_ROOT/devenv.config on first accessor use. An inherited
-# (exported) PROVIDER_IDENTITY_CONFIG is honored — accessor calls may bind the
-# file via the environment alone, without a provider_identity_init call.
-PROVIDER_IDENTITY_CONFIG="${PROVIDER_IDENTITY_CONFIG:-}"
-
-# Bind the identity accessors to a config file. Optional: accessors fall back
-# to DEVENV_ROOT/devenv.config. provider_detect callers that pass an explicit
-# config path should pass the same one here.
-#
-# Usage:
-#   provider_identity_init /path/to/devenv.config
-provider_identity_init() {
-    PROVIDER_IDENTITY_CONFIG="${1:-${DEVENV_ROOT:-}/devenv.config}"
-}
-
-# Raw INI read for one section/key, mirroring provider_detect's layered
-# strategy: config-reader when loadable, minimal awk fallback otherwise.
-# Reads RAW values only — no ${VAR} template expansion. Template expansion
-# stays in config-reader, which resolves those templates against these
-# accessors; expansion here would make the two mutually recurse.
+# Raw INI read for one section/key of DEVENV_ROOT/devenv.config. Reads RAW
+# values only — no ${VAR} template expansion. Template expansion stays in
+# config-reader, which resolves those templates against these accessors;
+# expansion here would make the two mutually recurse.
 #
 # Returns:
-#   Prints the raw value (possibly empty); 0 when a config file exists.
+#   Prints the raw value (possibly empty); 1 when the config file is absent.
 _provider_identity_raw_read() {
     local section="$1"
     local key="$2"
-    local config_file="${PROVIDER_IDENTITY_CONFIG:-${DEVENV_ROOT:-}/devenv.config}"
+    local config_file="${DEVENV_ROOT:-}/devenv.config"
     [ -f "$config_file" ] || return 1
     _provider_config_reader
-    # Raw read: an expanding read would interpolate ${PROVIDER_ORG}/${PROVIDER_USER}
-    # templates, re-entering the accessor that calls this.
     config_get_raw "$config_file" "$section" "$key" ""
 }
 
@@ -620,123 +421,4 @@ provider_user_get() {
     fi
     log_error "unable to resolve user identity — set [organization] user in devenv.config (or run setup)"
     return 1
-}
-
-# ============================================================================
-# Repo-target normalization: the neutral owner/repo resolver
-# ============================================================================
-# Hoisted from github/repos.bash: every provider needs repo-target
-# resolution, and the chain is provider-neutral except two legs that
-# providers override via hooks:
-#   - _provider_repo_env_extra     (provider-specific env vars, e.g. the
-#                                  github module consumes GH_REPO here;
-#                                  return the spec or empty)
-#   - _provider_repo_cwd_spec ORG  (cwd leg; github composes ORG/basename,
-#                                  azure composes azure_org/azure_project/
-#                                  basename via its own hook)
-# Resolution order:
-#   1. explicit owner/repo argument (passes through)
-#   2. DEVENV_REPO env (the single devenv override)
-#   3. provider env hook (_provider_repo_env_extra)
-#   4. provider cwd hook (_provider_repo_cwd_spec)
-#   5. empty (caller decides the error)
-#
-# Usage:
-#   repo=$(provider_repo_target org/repo)   # spec
-#   repo=$(provider_repo_target)            # chain, may be empty
-provider_repo_target() {
-    # Repo-targeting env contract: DEVENV_REPO is the single override; no
-    # other devenv env var participates. (Provider-internal env vars are
-    # consumed via the hook below, not as devenv aliases.)
-    local repo="${1:-}"
-    if [ -n "$repo" ]; then
-        echo "$repo"
-        return 0
-    fi
-    if [ -n "${DEVENV_REPO:-}" ]; then
-        echo "$DEVENV_REPO"
-        return 0
-    fi
-    if declare -F _provider_repo_env_extra >/dev/null; then
-        repo=$(_provider_repo_env_extra 2>/dev/null) || repo=""
-        if [ -n "$repo" ]; then
-            echo "$repo"
-            return 0
-        fi
-    fi
-    if declare -F _provider_repo_cwd_spec >/dev/null; then
-        repo=$(_provider_repo_cwd_spec 2>/dev/null) || repo=""
-        if [ -n "$repo" ]; then
-            echo "$repo"
-            return 0
-        fi
-    fi
-    echo ""
-    return 0
-}
-
-# Split a provider repo spec into its first component and the rest.
-# Provider-agnostic about arity: github specs are owner/repo (2 parts),
-# azure specs are org/project/repo (3 parts) — the split is positional
-# (head vs tail), callers interpret the parts per their provider.
-# Fails when the spec has no separator.
-# Usage: provider_repo_split spec HEAD_VAR TAIL_VAR
-#
-# Transport-URL arity contract: neutral callers pass the spec shape their
-# resolution produced (repo-get passes ORG REPO); each provider's
-# provider_git_transport_url owns arity normalization for its host — github
-# takes (ORG REPO); azure takes (ORG PROJECT REPO) or (ORG REPO) with the
-# project injected from config. Callers never branch on provider arity.
-provider_repo_split() {
-    local spec="$1" __head="$2" __tail="$3"
-    if [[ "$spec" != */* ]]; then
-        log_error "provider_repo_split: '$spec' is not owner/repo form (or org/project/repo for three-part providers)"
-        return 1
-    fi
-    # printf -v performs the assignment without eval, so spec content can
-    # never be interpreted as shell syntax.
-    printf -v "$__head" '%s' "${spec%%/*}"
-    printf -v "$__tail" '%s' "${spec#*/}"
-}
-
-# ============================================================================
-# Issue-domain capability hooks: provider-shaped requirements answered by the
-# provider seam. Callers ask; they never branch on PROVIDER_NAME, and they
-# never assume one provider's resource shape (GitHub: work items live in a
-# repository; Azure: they live in org/project and the repository field is
-# seam filler). Overrides go in the provider's own modules; these core
-# defaults encode the GitHub shape, which is the contract's reference shape.
-# ============================================================================
-
-# Whether the provider's issue verbs require a repository identity to resolve
-# before a tool may act (probe/validation). Prints "yes" or "no".
-#
-# GitHub: yes — an issue belongs to owner/repo and the transport needs it.
-# Azure: no — work items resolve to org/project from config; the repo field
-# in the verb signature is accepted for seam shape and ignored.
-#
-# Usage: [ "$(provider_issues_target_required)" = yes ] && probe_target_repo
-provider_issues_target_required() {
-    if declare -F _provider_issues_target_required >/dev/null; then
-        _provider_issues_target_required
-        return 0
-    fi
-    echo "yes"
-}
-
-# The owner/name context the set-type verb's positional signature expects.
-#
-# Core default (GitHub shape): resolve owner and name from the repo spec via
-# provider_repos_view. Providers whose set-type verb ignores these fields
-# override this to emit their configured identity without a repo lookup
-# (azure emits [provider] azure_org and azure_project).
-#
-# Usage: read -r owner name <<< "$(provider_issues_set_type_context SPEC)"
-# Emits: "<owner> <name>" on stdout; non-zero when resolution fails.
-provider_issues_set_type_context() {
-    local spec="${1:-}"
-    local owner name
-    owner=$(provider_repos_view "$spec" --json owner -q .owner.login) || return 1
-    name=$(provider_repos_view "$spec" --json name -q .name) || return 1
-    printf '%s %s\n' "$owner" "$name"
 }

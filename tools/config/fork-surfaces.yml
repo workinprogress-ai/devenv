@@ -23,9 +23,9 @@ classes:
       paths:
         - devenv.config
         - tools/config/issues-config.yml
-    - description: Behavior policy (policy overrides) — policy_define knob catalog
+    - description: Behavior policy (policy values) — config keys and YAML files the TypeScript tools read
       paths:
-        - tools/lib/policy/*.bash
+        - tools/config/*.yml
     - description: Provider modules — per-provider domain modules
       paths:
         - tools/lib/providers/*

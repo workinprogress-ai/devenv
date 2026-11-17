@@ -61,8 +61,10 @@ describe("devenv.config integration", () => {
 
   it("devenv.config: organization section has required keys", () => {
     // Org identity: the neutral "org" key is the only one read (github_org is not).
-    const r = reader(CONFIG, "config_validate_required organization name org email_domain");
-    expect(r.status).toBe(0);
+    for (const key of ["name", "org", "email_domain"]) {
+      const r = reader(CONFIG, `[ -n "$(config_read_value organization ${key})" ]`);
+      expect(r.status, key).toBe(0);
+    }
   });
 
   it("devenv.config: nuget section has feed_url configured", () => {
@@ -71,7 +73,7 @@ describe("devenv.config integration", () => {
   });
 
   it("devenv.config: workflows section has status_workflow", () => {
-    const r = reader(CONFIG, "config_read_array workflows status_workflow");
+    const r = reader(CONFIG, "config_read_value workflows status_workflow");
     expect(r.status).toBe(0);
     // 8-state kanban, hyphenated single tokens
     for (const state of ["TBD", "To-Groom", "Ready", "Implementing", "Review", "Merged", "Staging", "Production"]) {
@@ -107,10 +109,6 @@ describe("config-reader.bash", () => {
 
   it("has config_read_value function", () => {
     expect(sh(`source '${READER}' && declare -f config_read_value`).status).toBe(0);
-  });
-
-  it("has config_read_array function", () => {
-    expect(sh(`source '${READER}' && declare -f config_read_array`).status).toBe(0);
   });
 });
 
@@ -181,7 +179,7 @@ describe("test fixture parity", () => {
     expect(fx).toBe(real.out);
   });
 
-  it("the test fixture's workflow states are single tokens (config_read_array splits on whitespace)", () => {
+  it("the test fixture's workflow states are single tokens (status states stay single tokens)", () => {
     const fixture = join(mkdtempSync(join(tmpdir(), `cfgfix-${Date.now()}-${Math.random().toString(36).slice(2)}`)), "devenv.config");
     writeFileSync(fixture, FIXTURE);
     const out = reader(fixture, "config_read_value workflows status_workflow").out;

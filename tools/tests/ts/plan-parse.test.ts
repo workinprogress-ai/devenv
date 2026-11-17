@@ -370,6 +370,14 @@ describe("plan-parse", () => {
     expect(jqOk(r.out, '.errors[] | select(test("header missing"))')).toBe(true);
   });
 
+  it("plan-parse --lint --require-header says the marker is beyond the first 1024 characters when it is late", () => {
+    const content = read(PLAN_FILE);
+    write(PLAN_FILE, [content, "x".repeat(1100), "<!-- DEVENV_ARTIFACT_V1", "doc_id: dv1:test-org/test-repo:issue-42:plan:test-slug", "-->"].join("\n"));
+    const r = parse([PLAN_FILE, "--lint", "--require-header"]);
+    expect(r.status).toBe(1);
+    expect(jqOk(r.out, '.errors[] | select(test("marker beyond the first 1024 characters"))')).toBe(true);
+  });
+
   it("plan-parse --lint --require-header passes valid header", () => {
     const content = read(PLAN_FILE);
     write(

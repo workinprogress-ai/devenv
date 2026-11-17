@@ -9,27 +9,31 @@
 // Preview-first: the default mode prints the assembled issue-create command
 // per entry without touching the provider; --create executes. Two input
 // modes: repeated --issue "Title|key=value" entries, or a --file manifest.
-// The manifest reader is a bounded YAML-subset parser covering the documented
-// schema (maps, lists of maps, flow arrays, block scalars, quoted scalars).
+// The manifest is read with a real YAML parser. With --create a manifest
+// re-run skips every entry whose title already exists in the target repo, so
+// repeating a run never duplicates issues.
 
 import { basename, join } from "node:path";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 
+import { load, JSON_SCHEMA } from "js-yaml";
+
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logDebug, logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { resolveToolsRoot } from "../lib/core/self-root.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { childOfMapFromConfig, issueNumberFromRef } from "../lib/domain/issues/refs.ts";
+import { issueNumberFromRef } from "../lib/domain/issues/refs.ts";
+import { childOfMap } from "../lib/domain/issues/types.ts";
+import { providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
+import { issuesList } from "../lib/providers/facade/issues.ts";
 import { spawnSync } from "node:child_process";
 
 assertNodeFloor();
 
 const SCRIPT_VERSION = "1.1.0";
 const SCRIPT_NAME = basename(process.argv[1] ?? "issue-create-batch.ts");
-const TOOLS_ROOT = resolveToolsRoot(import.meta.url);
 
 function showUsage(): never {
   const s = SCRIPT_NAME;
@@ -61,6 +65,8 @@ ${usageCommonFlags({ noDevenv: true })}
 Rules:
 - Exactly one input mode: --issue entries OR --file manifest.
 - Preview is the default mode. Add --create to execute.
+- With --file, --create skips entries whose title already exists in the repo,
+  so re-running a manifest never duplicates issues.
 - Each issue must resolve a type from item \`type\` or default \`--type\`.
 - Command always uses non-interactive creation (--no-template).
 
@@ -102,200 +108,50 @@ Examples:
   process.exit(0);
 }
 
-// --- Bounded YAML-subset manifest parser ------------------------------------
+// --- Manifest reading ---------------------------------------------------------
 
-interface Line {
-  indent: number;
-  text: string;
-  /** Verbatim line (post-CRLF-strip): block scalars need blank lines and
-   # -initial lines that the structural pass must not interpret. */
-  raw: string;
-  /** Structural line: false for blank/comment lines, which never match
-   * keys or list items but ARE block-scalar content. */
-  structural: boolean;
+type Doc = { [key: string]: unknown };
+
+function parseManifest(raw: string): unknown {
+  try {
+    return load(raw, { schema: JSON_SCHEMA });
+  } catch (err) {
+    throw new Error(`Invalid manifest: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+  }
 }
 
-function manifestLines(raw: string): Line[] {
-  const out: Line[] = [];
-  for (const line of raw.split("\n")) {
-    const noCr = line.replace(/\r$/, "");
-    const indent = noCr.length - noCr.trimStart().length;
-    const text = noCr.trim();
-    // Blank and comment lines stay in the list (block scalars may contain
-    // them verbatim) but are marked non-structural so the map/list walkers
-    // never match keys or items against them.
-    const structural = !(text === "" || text.startsWith("#"));
-    out.push({ indent, text, raw: noCr, structural });
-  }
-  // Drop trailing non-structural lines (blank tail of the file).
-  while (out.length > 0 && !out[out.length - 1]!.structural) out.pop();
-  return out;
+function asObject(v: unknown): Doc | null {
+  return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Doc) : null;
 }
 
-function unquote(v: string): string {
-  const t = v.trim();
-  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
-    return t.slice(1, -1);
-  }
+function scalarText(v: unknown): string | null {
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return null;
+}
+
+/** A scalar field as text; absent reads as empty, a non-scalar is an error. */
+function str(v: unknown, field: string): string {
+  if (v === undefined || v === null) return "";
+  const t = scalarText(v);
+  if (t === null) throw new Error(`Invalid manifest: '${field}' must be a single value`);
   return t;
 }
 
-function parseScalar(text: string): string {
-  // Strip a trailing comment outside quotes.
-  let inQuote: string | null = null;
-  let out = "";
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i]!;
-    if (inQuote !== null) {
-      out += c;
-      if (c === inQuote) inQuote = null;
-      continue;
-    }
-    if (c === '"' || c === "'") {
-      inQuote = c;
-      out += c;
-      continue;
-    }
-    if (c === "#" && (i === 0 || text[i - 1] === " ")) break;
-    out += c;
+/** A list field: a YAML list, or a comma-separated string (the fast-mode form). */
+function list(v: unknown, field: string): string[] {
+  if (v === undefined || v === null) return [];
+  if (typeof v === "string") return splitCsv(v);
+  if (Array.isArray(v)) {
+    return v.map((x) => {
+      const t = scalarText(x);
+      if (t === null) throw new Error(`Invalid manifest: '${field}' entries must be single values`);
+      return t.trim();
+    }).filter((x) => x !== "");
   }
-  return unquote(out.trim());
-}
-
-type YamlValue = string | YamlValue[] | { [key: string]: YamlValue };
-
-function isBlockScalarToken(v: string): boolean {
-  return v === "|" || v === "|-" || v === ">" || v === ">-";
-}
-
-function parseBlock(lines: Line[], pos: { i: number }, indent: number): YamlValue {
-  // List block: consecutive "- " items at this indent.
-  if (lines[pos.i] !== undefined && lines[pos.i]!.structural && lines[pos.i]!.text.startsWith("- ") && lines[pos.i]!.indent === indent) {
-    const arr: YamlValue[] = [];
-    while (pos.i < lines.length && lines[pos.i]!.indent === indent && lines[pos.i]!.structural && lines[pos.i]!.text.startsWith("- ")) {
-      const line = lines[pos.i]!;
-      const inline = line.text.slice(2);
-      const kv = /^([^:]+):(.*)$/.exec(inline);
-      if (kv === null) {
-        // Flow array item: "labels: [x, y]" -> the item value is the csv text.
-        const flow = /^([^:]+):\s*\[(.*)\]\s*$/.exec(inline);
-        if (flow !== null) {
-          arr.push({ [unquote(flow[1]!.trim())]: flow[2]!.trim() });
-        } else {
-          arr.push(parseScalar(inline));
-        }
-        pos.i++;
-        continue;
-      }
-      // Map item: the first key lives on the dash line; deeper keys follow.
-      const itemIndent = indent + 2;
-      const item: { [key: string]: YamlValue } = {};
-      const key = unquote(kv[1]!.trim());
-      const rest = kv[2]!.trim();
-      pos.i++;
-      if (isBlockScalarToken(rest)) {
-        item[key] = readBlockScalar(lines, pos, itemIndent, rest);
-      } else if (rest !== "") {
-        item[key] = parseScalar(rest);
-      } else {
-        const deeper = pos.i < lines.length && lines[pos.i]!.indent > indent;
-        item[key] = deeper ? parseBlock(lines, pos, lines[pos.i]!.indent) : "";
-      }
-      while (pos.i < lines.length && lines[pos.i]!.indent >= itemIndent && !lines[pos.i]!.text.startsWith("- ")) {
-        const before = pos.i;
-        Object.assign(item, parseBlock(lines, pos, lines[pos.i]!.indent) as { [key: string]: YamlValue });
-        if (pos.i === before) {
-          // parseBlock consumed nothing: the line is unadvanceable (malformed
-          // shape). Park-and-spin would hang the parse forever.
-          throw new Error(`manifest: unparseable structure at line ${pos.i + 1}: "${lines[pos.i]?.text ?? ""}"`);
-        }
-      }
-      arr.push(item);
-    }
-    return arr;
-  }
-  // Map block: "key: value" lines at this indent.
-  const obj: { [key: string]: YamlValue } = {};
-  while (pos.i < lines.length && lines[pos.i]!.indent === indent && lines[pos.i]!.structural && !lines[pos.i]!.text.startsWith("- ")) {
-    // A non-structural gap (blank/comment) between keys is fine; skip it.
-    if (!lines[pos.i]!.structural) {
-      pos.i++;
-      continue;
-    }
-    const line = lines[pos.i]!;
-    const kv = /^([^:]+):(.*)$/.exec(line.text);
-    if (kv === null) {
-      // Unparseable structural line: breaking would leave pos.i parked on it
-      // and the caller's loop re-testing it forever. Named error instead.
-      throw new Error(`manifest: unparseable line ${pos.i + 1}: "${line.text}"`);
-    }
-    const key = unquote(kv[1]!.trim());
-    const rest = kv[2]!.trim();
-    pos.i++;
-    // Flow array: "labels: [x, y]" — kept as a csv string so the callers'
-    // `csv()` reads stay uniform.
-    const flow = /^\[(.*)\]$/.exec(rest);
-    if (rest.startsWith("[") && flow !== null) {
-      obj[key] = flow[1]!.trim();
-      continue;
-    }
-    if (isBlockScalarToken(rest)) {
-      obj[key] = readBlockScalar(lines, pos, indent, rest);
-    } else if (rest !== "") {
-      obj[key] = parseScalar(rest);
-    } else {
-      const deeper = pos.i < lines.length && lines[pos.i]!.indent > indent;
-      obj[key] = deeper ? parseBlock(lines, pos, lines[pos.i]!.indent) : "";
-    }
-  }
-  return obj;
-}
-
-function readBlockScalar(lines: Line[], pos: { i: number }, keyIndent: number, token: string): string {
-  const collected: string[] = [];
-  let contentIndent: number | null = null;
-  // Block-scalar content = every line (verbatim, including blanks and
-  // #-initial lines) indented deeper than the key, until the first line at
-  // or below the key's indent. Indentation relative to the first content
-  // line is preserved; the common indent itself is stripped.
-  while (pos.i < lines.length) {
-    const line = lines[pos.i]!;
-    if (line.structural && line.indent <= keyIndent) break;
-    if (!line.structural && line.raw.trim() === "") {
-      // Blank line: content if more indented lines follow, else trailing.
-      collected.push("");
-      pos.i++;
-      continue;
-    }
-    if (contentIndent === null) contentIndent = line.indent;
-    if (line.indent < contentIndent) break;
-    collected.push(line.raw.slice(contentIndent));
-    pos.i++;
-  }
-  // Trim trailing blank lines (they carry no content); blank lines between
-  // content lines are kept.
-  while (collected.length > 0 && collected[collected.length - 1]!.trim() === "") collected.pop();
-  const body = collected.join("\n");
-  return token.endsWith("-") ? body : `${body}\n`;
-}
-
-function parseManifest(raw: string): YamlValue {
-  return parseBlock(manifestLines(raw), { i: 0 }, 0);
-}
-
-function asObject(v: YamlValue): { [key: string]: YamlValue } | null {
-  return typeof v === "object" && !Array.isArray(v) ? (v as { [key: string]: YamlValue }) : null;
-}
-
-function str(v: YamlValue | undefined): string {
-  return typeof v === "string" ? v : "";
-}
-
-function csv(v: YamlValue | undefined): string {
-  if (v === undefined) return "";
-  if (typeof v === "string") return v;
-  if (Array.isArray(v)) return v.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(",");
-  return "";
+  const t = scalarText(v);
+  if (t === null) throw new Error(`Invalid manifest: '${field}' must be a list`);
+  return [t];
 }
 
 // --- Entry parsing and command assembly -------------------------------------
@@ -304,9 +160,9 @@ interface ParsedEntry {
   title: string;
   type: string;
   parent: string;
-  labels: string;
-  assignees: string;
-  blockedBy: string;
+  labels: string[];
+  assignees: string[];
+  blockedBy: string[];
   milestone: string;
   project: string;
   size: string;
@@ -316,7 +172,7 @@ interface ParsedEntry {
 }
 
 function emptyParsed(): ParsedEntry {
-  return { title: "", type: "", parent: "", labels: "", assignees: "", blockedBy: "", milestone: "", project: "", size: "", target: "", body: "", bodyFile: "" };
+  return { title: "", type: "", parent: "", labels: [], assignees: [], blockedBy: [], milestone: "", project: "", size: "", target: "", body: "", bodyFile: "" };
 }
 
 function parseFastIssue(entry: string): ParsedEntry | null {
@@ -330,9 +186,9 @@ function parseFastIssue(entry: string): ParsedEntry | null {
     switch (key) {
       case "type": p.type = value; break;
       case "parent": p.parent = value; break;
-      case "labels": p.labels = value; break;
-      case "assignees": p.assignees = value; break;
-      case "blocked_by": p.blockedBy = value; break;
+      case "labels": p.labels = splitCsv(value); break;
+      case "assignees": p.assignees = splitCsv(value); break;
+      case "blocked_by": p.blockedBy = splitCsv(value); break;
       case "milestone": p.milestone = value; break;
       case "project": p.project = value; break;
       case "size": p.size = value; break;
@@ -409,9 +265,9 @@ function assemble(ctx: BatchCtx, index: number, mode: Built["mode"], p: ParsedEn
     logError(`Issue[${index}] missing title`);
     return null;
   }
-  const labels = p.labels !== "" ? p.labels : d.labels.join(",");
-  const assignees = p.assignees !== "" ? p.assignees : d.assignees.join(",");
-  const blocked = p.blockedBy !== "" ? p.blockedBy : d.blockedBy.join(",");
+  const labels = p.labels.length > 0 ? p.labels : d.labels;
+  const assignees = p.assignees.length > 0 ? p.assignees : d.assignees;
+  const blocked = p.blockedBy.length > 0 ? p.blockedBy : d.blockedBy;
 
   let bodyFile = p.bodyFile;
   if (bodyFile !== "" && !existsSync(bodyFile)) {
@@ -430,57 +286,42 @@ function assemble(ctx: BatchCtx, index: number, mode: Built["mode"], p: ParsedEn
   if (parent !== "") cmd.push("--parent", parent);
   if (milestone !== "") cmd.push("--milestone", milestone);
   if (project !== "") cmd.push("--project", project);
-  for (const l of splitCsv(labels)) cmd.push("--label", l);
-  for (const a of splitCsv(assignees)) cmd.push("--assignee", a);
-  for (const b of splitCsv(blocked)) cmd.push("--blocked-by", b);
+  for (const l of labels) cmd.push("--label", l);
+  for (const a of assignees) cmd.push("--assignee", a);
+  for (const b of blocked) cmd.push("--blocked-by", b);
   return { mode, title: p.title, cmd };
 }
 
-function entryFromManifestItem(item: { [key: string]: YamlValue }, d: Defaults): ParsedEntry {
-  return {
-    title: str(item["title"]),
-    type: str(item["type"]),
-    parent: str(item["parent"]),
-    labels: csv(item["labels"]),
-    assignees: csv(item["assignees"]),
-    blockedBy: csv(item["blocked_by"]),
-    milestone: str(item["milestone"]),
-    project: str(item["project"]),
-    size: str(item["size"]),
-    target: str(item["target"]),
-    body: str(item["body"]),
-    bodyFile: str(item["body_file"]),
-    ...{},
-  } satisfies ParsedEntry as ParsedEntry;
-  // Manifest defaults per scalar field are applied by the caller chain below.
-  void d;
-}
-
 /** Manifest field resolution: item > manifest defaults > command-line defaults. */
-function manifestEntry(item: { [key: string]: YamlValue }, d: Defaults): ParsedEntry {
-  const base = entryFromManifestItem(item, d);
+function manifestEntry(item: Doc, d: Defaults): ParsedEntry {
+  const own = (k: string): string => str(item[k], k);
+  const pick = (k: string, fallback: string): string => (own(k) !== "" ? own(k) : fallback);
+  const pickList = (k: string, fallback: string[]): string[] => {
+    const v = list(item[k], k);
+    return v.length > 0 ? v : fallback;
+  };
   return {
-    ...base,
-    type: base.type !== "" ? base.type : d.type,
-    parent: base.parent !== "" ? base.parent : d.parent,
-    milestone: base.milestone !== "" ? base.milestone : d.milestone,
-    project: base.project !== "" ? base.project : d.project,
-    body: base.body !== "" ? base.body : d.body,
-    bodyFile: base.bodyFile !== "" ? base.bodyFile : d.bodyFile,
-    labels: base.labels !== "" ? base.labels : d.labels.join(","),
-    assignees: base.assignees !== "" ? base.assignees : d.assignees.join(","),
-    blockedBy: base.blockedBy !== "" ? base.blockedBy : d.blockedBy.join(","),
+    title: own("title"),
+    type: pick("type", d.type),
+    parent: pick("parent", d.parent),
+    labels: pickList("labels", d.labels),
+    assignees: pickList("assignees", d.assignees),
+    blockedBy: pickList("blocked_by", d.blockedBy),
+    milestone: pick("milestone", d.milestone),
+    project: pick("project", d.project),
+    size: own("size"),
+    target: own("target"),
+    body: pick("body", d.body),
+    bodyFile: pick("body_file", d.bodyFile),
   };
 }
 
 function previewBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry | null, count: number): number {
   console.log("index|mode|title|command");
-  // 15.15: flag child_of placement violations in the preview (static
+  // Flag child_of placement violations in the preview (static
   // config check — the authoritative rejection happens inside issue-create
   // at create time, resolving the parent's live type).
-  const childOf = childOfMapFromConfig(
-    process.env.ISSUES_CONFIG ?? join(TOOLS_ROOT, "config", "issues-config.yml"),
-  );
+  const childOf = childOfMap();
   for (let index = 0; index < count; index++) {
     const entry = buildEntry(index);
     if (entry === null) return 1;
@@ -499,13 +340,49 @@ function previewBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry 
   return 0;
 }
 
-// The type -> allowed-parent-types map comes from the shared refs module
-// (one parser for the static preview check and issue-create's create-time
-// check — inline and block child_of forms both handled there).
+// The type -> allowed-parent-types map comes from the shared issues-config
+// loader (one reader for the static preview check and issue-create's
+// create-time check).
 
-function createBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry | null, count: number): number {
+/** Page size of the existing-issue listing; a repo at or past it cannot be checked. */
+const EXISTING_LIST_LIMIT = 1000;
+
+/** Title -> number of every issue already in the target repo (any state); null on failure. */
+async function existingIssuesByTitle(): Promise<Map<string, number> | null> {
+  const spec = requireRepoTarget(providerRepoTarget(""), "issue-create-batch", "issues");
+  let raw: string;
+  try {
+    raw = await issuesList(spec, { state: "all", json: "number,title", limit: EXISTING_LIST_LIMIT });
+  } catch (err) {
+    logError(`could not list existing issues: ${errorMessage(err)}`);
+    return null;
+  }
+  let rows: Array<{ number?: unknown; title?: unknown }>;
+  try {
+    rows = JSON.parse(raw) as typeof rows;
+  } catch {
+    logError("could not list existing issues: the provider's answer is not JSON");
+    return null;
+  }
+  if (!Array.isArray(rows) || rows.length >= EXISTING_LIST_LIMIT) {
+    logError(`could not list existing issues: the repository has ${EXISTING_LIST_LIMIT} or more, so a re-run cannot be checked for duplicates`);
+    return null;
+  }
+  const byTitle = new Map<string, number>();
+  for (const r of rows) {
+    if (typeof r.title === "string" && typeof r.number === "number" && !byTitle.has(r.title.trim())) byTitle.set(r.title.trim(), r.number);
+  }
+  return byTitle;
+}
+
+async function createBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry | null, count: number): Promise<number> {
   let created = 0;
   let failed = 0;
+  let skipped = 0;
+  // Manifest re-runs are idempotent: an entry whose title already exists is
+  // reported and skipped instead of created again.
+  const existing = ctx.mode === "manifest" ? await existingIssuesByTitle() : new Map<string, number>();
+  if (existing === null) return EXIT_GENERAL_ERROR;
   console.log("index|issue_number|title|url");
   for (let index = 0; index < count; index++) {
     const entry = buildEntry(index);
@@ -514,6 +391,12 @@ function createBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry |
       failed++;
       if (ctx.continueOnError) continue;
       return 1;
+    }
+    const already = existing.get(built.title.trim());
+    if (already !== undefined) {
+      console.log(`${index}|${already}|${built.title}|existing`);
+      skipped++;
+      continue;
     }
     logDebug(`Creating issue[${index}] from ${built.mode} mode: ${built.title}`);
     const r = spawnSync(built.cmd[0]!, built.cmd.slice(1), { encoding: "utf8" });
@@ -564,7 +447,7 @@ function createBatch(ctx: BatchCtx, buildEntry: (index: number) => ParsedEntry |
     console.log(`${index}|${number}|${built.title}|${resultRef}`);
     created++;
   }
-  logInfo(`Batch complete: created=${created} failed=${failed}`);
+  logInfo(`Batch complete: created=${created} failed=${failed} skipped=${skipped}`);
   return failed > 0 ? 1 : 0;
 }
 
@@ -643,7 +526,13 @@ async function main(argv: string[]): Promise<number> {
       logError(`Manifest file not found: ${manifestFile}`);
       return EXIT_GENERAL_ERROR;
     }
-    const parsed = asObject(parseManifest(readFileSync(manifestFile, "utf8")));
+    let parsed: Doc | null;
+    try {
+      parsed = asObject(parseManifest(readFileSync(manifestFile, "utf8")));
+    } catch (err) {
+      logError(errorMessage(err));
+      return EXIT_GENERAL_ERROR;
+    }
     const issues = parsed !== null && Array.isArray(parsed["issues"]) ? parsed["issues"] : null;
     if (issues === null) {
       logError("Invalid manifest format: expected top-level 'issues' array");
@@ -653,30 +542,39 @@ async function main(argv: string[]): Promise<number> {
       logError("Manifest has no issues to create");
       return EXIT_GENERAL_ERROR;
     }
-    const parsedDefaults = parsed === null ? null : asObject(parsed["defaults"] ?? {});
-    const md = parsedDefaults ?? {};
+    const md = asObject(parsed?.["defaults"] ?? {}) ?? {};
     // Field resolution order: item > manifest defaults > command-line defaults,
     // so the manifest default wins wherever it is set and the CLI value fills
     // the rest.
-    manifestDefaults = {
-      type: str(md["type"]) !== "" ? str(md["type"]) : cliDefaults.type,
-      parent: str(md["parent"]) !== "" ? str(md["parent"]) : cliDefaults.parent,
-      milestone: str(md["milestone"]) !== "" ? str(md["milestone"]) : cliDefaults.milestone,
-      project: str(md["project"]) !== "" ? str(md["project"]) : cliDefaults.project,
-      body: str(md["body"]) !== "" ? str(md["body"]) : cliDefaults.body,
-      bodyFile: str(md["body_file"]) !== "" ? str(md["body_file"]) : cliDefaults.bodyFile,
-      labels: splitCsv(csv(md["labels"])).length > 0 ? splitCsv(csv(md["labels"])) : cliDefaults.labels,
-      assignees: splitCsv(csv(md["assignees"])).length > 0 ? splitCsv(csv(md["assignees"])) : cliDefaults.assignees,
-      blockedBy: splitCsv(csv(md["blocked_by"])).length > 0 ? splitCsv(csv(md["blocked_by"])) : cliDefaults.blockedBy,
-    };
-    mode = "manifest";
-    for (const item of issues) {
-      const obj = asObject(item);
-      if (obj === null) {
-        logError("Invalid manifest format: expected top-level 'issues' array");
-        return EXIT_GENERAL_ERROR;
+    try {
+      const own = (k: string): string => str(md[k], `defaults.${k}`);
+      const ownList = (k: string, fallback: string[]): string[] => {
+        const v = list(md[k], `defaults.${k}`);
+        return v.length > 0 ? v : fallback;
+      };
+      manifestDefaults = {
+        type: own("type") !== "" ? own("type") : cliDefaults.type,
+        parent: own("parent") !== "" ? own("parent") : cliDefaults.parent,
+        milestone: own("milestone") !== "" ? own("milestone") : cliDefaults.milestone,
+        project: own("project") !== "" ? own("project") : cliDefaults.project,
+        body: own("body") !== "" ? own("body") : cliDefaults.body,
+        bodyFile: own("body_file") !== "" ? own("body_file") : cliDefaults.bodyFile,
+        labels: ownList("labels", cliDefaults.labels),
+        assignees: ownList("assignees", cliDefaults.assignees),
+        blockedBy: ownList("blocked_by", cliDefaults.blockedBy),
+      };
+      mode = "manifest";
+      for (const item of issues) {
+        const obj = asObject(item);
+        if (obj === null) {
+          logError("Invalid manifest format: every 'issues' entry must be a mapping");
+          return EXIT_GENERAL_ERROR;
+        }
+        entries.push(manifestEntry(obj, manifestDefaults));
       }
-      entries.push(manifestEntry(obj, manifestDefaults));
+    } catch (err) {
+      logError(errorMessage(err));
+      return EXIT_GENERAL_ERROR;
     }
   } else {
     // Fast-mode entries parse lazily, per index, inside the batch loop — a
@@ -699,9 +597,9 @@ async function main(argv: string[]): Promise<number> {
         project: p.project !== "" ? p.project : manifestDefaults.project,
         body: p.body !== "" ? p.body : manifestDefaults.body,
         bodyFile: p.bodyFile !== "" ? p.bodyFile : manifestDefaults.bodyFile,
-        labels: p.labels !== "" ? p.labels : manifestDefaults.labels.join(","),
-        assignees: p.assignees !== "" ? p.assignees : manifestDefaults.assignees.join(","),
-        blockedBy: p.blockedBy !== "" ? p.blockedBy : manifestDefaults.blockedBy.join(","),
+        labels: p.labels.length > 0 ? p.labels : manifestDefaults.labels,
+        assignees: p.assignees.length > 0 ? p.assignees : manifestDefaults.assignees,
+        blockedBy: p.blockedBy.length > 0 ? p.blockedBy : manifestDefaults.blockedBy,
       };
     }
     return entries[index] ?? null;
@@ -725,7 +623,7 @@ async function main(argv: string[]): Promise<number> {
         logError("issue-create is required but not found in PATH");
         return EXIT_GENERAL_ERROR;
       }
-      return createBatch(ctx, buildEntry, count);
+      return await createBatch(ctx, buildEntry, count);
     }
     return previewBatch(ctx, buildEntry, count);
   } finally {

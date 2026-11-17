@@ -97,7 +97,7 @@ describe("lint-scripts scope", () => {
   });
 
   it("lint-scripts shellchecks an extensionless script that has a shell shebang", () => {
-    // Extensionless scripts (tools/scripts/git-*, the root setup) carry a
+    // Extensionless scripts (the git-* tools, the root setup) carry a
     // shell shebang instead of a .sh suffix; those are shellchecked too, and
     // a file with no shell shebang is not.
     write("tools/git-thing", "#!/bin/bash\ncd /nonexistent-dir\necho done\n");

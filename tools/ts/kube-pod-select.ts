@@ -22,7 +22,7 @@ when several match. Prints the selected pod name.
 
 Options:
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
-  -n, --namespace NS     Namespace (flag > NAMESPACE env > partial match >
+  -n, --namespace NS     Namespace (flag > KUBE_NAMESPACE env > partial match >
                          current-context default)
 
 FILTER is an optional regex filter; HEADER overrides the menu header.`);

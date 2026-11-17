@@ -8,7 +8,7 @@
 
 import { spawnSync } from "node:child_process";
 import { requireCommandOrExit } from "../lib/core/commands.ts";
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { closeSync, existsSync, openSync, readdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, basename } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
@@ -18,6 +18,7 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { siblingInvocation } from "../lib/core/sibling.ts";
+import { csprojPackageReferences, targetFrameworksOf } from "../lib/domain/cs/csproj.ts";
 
 assertNodeFloor();
 
@@ -30,6 +31,14 @@ const EXIT_UPDATE_FAILED = 21;
 const EXIT_TESTS_FAILED = 30;
 const EXIT_PR_FAILED = 40;
 const EXIT_MERGE_FAILED = 41;
+
+// Branch names the update branch may never take: the wizard force-resets and
+// deletes its branch, which must not touch a long-lived branch.
+const PROTECTED_BRANCHES = new Set(["master", "main", "develop", "development", "trunk", "HEAD"]);
+const PROTECTED_BRANCH_PREFIXES = ["release/", "hotfix/"];
+
+// TODO:DEVENV[Plan-001]: the commit message suffix below suppresses CI on the update commit while the dependency wizard waits for CI between generations — remove when the maintainer has confirmed what the skip-CI token does to the release workflows the dependency wizard waits on
+const COMMIT_SUFFIX = " [skip ci]";
 
 function showUsage(): never {
   console.log(`Usage: cs-references-update-wizard [OPTIONS] REPO_DIR
@@ -45,7 +54,9 @@ Runs the full NuGet dependency-update workflow for a single repository:
 
 Options:
 ${usageCommonFlags({ noDryRunShort: true })}
-    --branch NAME       Branch name to create (default: ${DEFAULT_UPDATE_BRANCH})
+    --branch NAME       Branch name to create (default: ${DEFAULT_UPDATE_BRANCH});
+                        protected names (default branch, master, main, develop,
+                        trunk, release/*, hotfix/*) are refused
     --continue          Resume a previously started update
     --framework TFM     Forwarded to cs-references-update
     --lang-version VER  Forwarded to cs-references-update
@@ -74,7 +85,23 @@ function promptUser(message: string): void {
   console.log("");
 }
 
+/** True when a controlling terminal can be opened for an answer. */
+function hasTerminal(): boolean {
+  try {
+    closeSync(openSync("/dev/tty", "r"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Ask a yes/no question on the terminal. Without a terminal there is nobody
+ * to ask, so the answer is no. */
 function promptYesNo(question: string): boolean {
+  if (!hasTerminal()) {
+    logWarn(`No terminal to ask: ${question} — treating as no`);
+    return false;
+  }
   console.log("");
   for (;;) {
     process.stdout.write(`>>> ${question} [y/n]: `);
@@ -98,6 +125,53 @@ function git(repoDir: string, args: string[], opts: { quiet?: boolean } = {}): {
   void opts;
   const r = gitCapture(repoDir, args);
   return { ok: r.status === 0, out: r.out };
+}
+
+// ── Leftover update branch ───────────────────────────────────────────────
+
+/** Number of commits on local `branch` that the remote counterpart does not
+ * have. A branch with no remote counterpart is compared with `base`. Zero
+ * when the branch does not exist. */
+function unpushedCommitCount(repoDir: string, branch: string, base: string): number {
+  if (!gitCheck(repoDir, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]).ok) return 0;
+  const remoteRef = `refs/remotes/origin/${branch}`;
+  const since = gitCheck(repoDir, ["rev-parse", "--verify", "--quiet", remoteRef]).ok ? remoteRef : base;
+  const n = Number.parseInt(gitCheck(repoDir, ["rev-list", "--count", `${since}..refs/heads/${branch}`]).out.trim(), 10);
+  // An unreadable count is treated as unpushed work: never delete on doubt.
+  return Number.isNaN(n) ? 1 : n;
+}
+
+/** Whether a leftover local update branch may be deleted: only when it holds
+ * no commits beyond its remote counterpart (or the base), or the operator
+ * confirms. Without a terminal the answer is no. */
+function mayDiscardLeftoverBranch(repoDir: string, branch: string, base: string): boolean {
+  const n = unpushedCommitCount(repoDir, branch, base);
+  if (n === 0) return true;
+  logWarn(`Local branch '${branch}' holds ${n} commit(s) that are not on its remote counterpart.`);
+  return promptYesNo(`Delete local branch '${branch}' and lose those commits`);
+}
+
+// ── Staging ──────────────────────────────────────────────────────────────
+
+/** Stage the modified and deleted tracked files by explicit path. Untracked
+ * files are never swept in; they are listed so nothing disappears silently.
+ * The reference update itself only rewrites existing project files in place.
+ * The only other writer is the repo's own boilerplate script, whose new files
+ * cannot be told apart from operator residue, so they are reported, not
+ * staged. */
+function stageTrackedChanges(repoDir: string): void {
+  const changed = gitCheck(repoDir, ["-c", "core.quotePath=false", "diff", "--name-only", "-z", "HEAD"]).out
+    .split("\0")
+    .filter((p) => p !== "");
+  if (changed.length > 0 && !gitCheck(repoDir, ["add", "--", ...changed]).ok) {
+    throw new Error(`git add failed in ${repoDir}`);
+  }
+  const untracked = gitCheck(repoDir, ["-c", "core.quotePath=false", "ls-files", "--others", "--exclude-standard", "-z"]).out
+    .split("\0")
+    .filter((p) => p !== "");
+  if (untracked.length > 0) {
+    logWarn(`Untracked files are not part of the update commit: ${untracked.join(", ")}`);
+  }
 }
 
 // ── Version snapshots ────────────────────────────────────────────────────
@@ -127,18 +201,10 @@ function snapshotVersions(repoDir: string): Snapshot {
         if (!`${p}/`.includes("/src/")) continue;
         walk(p);
       } else if (e.name.endsWith(".csproj")) {
-        const content = readFileSync(p, "utf8");
-        const pkgRe = /PackageReference\s+Include="([^"]+)"\s+Version="([^"]+)"/g;
-        let m: RegExpExecArray | null;
-        while ((m = pkgRe.exec(content)) !== null) {
-          packages.add(`${m[1]} ${m[2]}`);
+        for (const ref of csprojPackageReferences(p, repoDir)) {
+          if (ref.version !== "") packages.add(`${ref.name} ${ref.version}`);
         }
-        const tfmRe = /<TargetFrameworks?>([^<]+)<\/TargetFrameworks?>/g;
-        while ((m = tfmRe.exec(content)) !== null) {
-          for (const t of (m[1] ?? "").split(";")) {
-            if (t !== "") tfms.add(`__TFM__ ${t}`);
-          }
-        }
+        for (const t of targetFrameworksOf(readFileSync(p, "utf8"))) tfms.add(`__TFM__ ${t}`);
       }
     }
   };
@@ -213,7 +279,7 @@ function main(): void {
     repoDir = positionals[0] ?? "";
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }
 
@@ -230,6 +296,19 @@ function main(): void {
     .trim()
     .replace(/^origin\//, "");
   if (defaultBranch === "") defaultBranch = "master";
+
+  if (
+    PROTECTED_BRANCHES.has(updateBranch) ||
+    updateBranch === defaultBranch ||
+    PROTECTED_BRANCH_PREFIXES.some((p) => updateBranch.startsWith(p))
+  ) {
+    logError(`Refusing protected branch name '${updateBranch}': the wizard resets and deletes its update branch.`);
+    process.exit(EXIT_MISUSE);
+  }
+  if (!gitCheck(repoDir, ["check-ref-format", "--branch", updateBranch]).ok) {
+    logError(`'${updateBranch}' is not a valid branch name.`);
+    process.exit(EXIT_MISUSE);
+  }
 
   if (dryRun) {
     console.log(`  [DRY RUN] Would update ${repoName} (branch: ${updateBranch})`);
@@ -291,6 +370,10 @@ function main(): void {
     logInfo(`Creating branch ${updateBranch} in ${repoName}...`);
     if (!git(repoDir, ["checkout", "-b", updateBranch], { quiet: true }).ok) {
       git(repoDir, ["checkout", defaultBranch], { quiet: true });
+      if (!mayDiscardLeftoverBranch(repoDir, updateBranch, defaultBranch)) {
+        logError(`Aborted: refusing to delete the leftover local branch '${updateBranch}' in ${repoName} (push it, merge it, or delete it by hand, or pass --branch with another name)`);
+        process.exit(EXIT_GIT_FAILED);
+      }
       git(repoDir, ["branch", "-D", updateBranch], { quiet: true });
       if (!git(repoDir, ["checkout", "-b", updateBranch], { quiet: true }).ok) {
         logError(`Failed to create branch ${updateBranch} in ${repoName}`);
@@ -393,15 +476,19 @@ function main(): void {
   }
 
   // ── Commit and push (git hook will run tests) ──
-  git(repoDir, ["add", "-A"]);
-  let commit = gitCheck(repoDir, ["commit", "-m", `${prTitle} [skip ci]`, "--quiet"]);
+  stageTrackedChanges(repoDir);
+  let commit = gitCheck(repoDir, ["commit", "-m", `${prTitle}${COMMIT_SUFFIX}`, "--quiet"]);
   if (!commit.ok) {
     logWarn(`Commit failed for ${repoName} (likely a git hook failure)`);
     promptUser(`Please fix the issue in ${repoDir} so that COMMIT HOOKS PASS, then press Enter to retry.`);
-    git(repoDir, ["add", "-A"]);
-    commit = gitCheck(repoDir, ["commit", "-m", `${prTitle} [skip ci]`, "--quiet"]);
+    stageTrackedChanges(repoDir);
+    commit = gitCheck(repoDir, ["commit", "-m", `${prTitle}${COMMIT_SUFFIX}`, "--quiet"]);
     if (!commit.ok) {
       logError(`Commit still failing for ${repoName} — aborting`);
+      if (!promptYesNo(`Discard the working-tree changes and delete branch '${updateBranch}' (the fixes made for the commit hooks are lost)`)) {
+        logError(`Left branch '${updateBranch}' and the working tree in ${repoName} untouched; fix the commit and re-run with --continue`);
+        process.exit(EXIT_TESTS_FAILED);
+      }
       git(repoDir, ["checkout", "-f", defaultBranch], { quiet: true });
       git(repoDir, ["branch", "-D", updateBranch], { quiet: true });
       process.exit(EXIT_TESTS_FAILED);
@@ -409,16 +496,17 @@ function main(): void {
   }
 
   logInfo(`Pushing branch ${updateBranch}...`);
-  let push = gitCheck(repoDir, ["push", "-u", "origin", updateBranch, "--quiet"]);
+  const push = gitCheck(repoDir, ["push", "-u", "origin", updateBranch, "--quiet"]);
   if (!push.ok) {
-    // Force push in case the branch exists on the remote from an aborted run.
-    push = gitCheck(repoDir, ["push", "-u", "origin", updateBranch, "--force", "--quiet"]);
-    if (!push.ok) {
-      logError(`Failed to push branch ${updateBranch} for ${repoName}`);
-      git(repoDir, ["checkout", defaultBranch], { quiet: true });
-      git(repoDir, ["branch", "-D", updateBranch], { quiet: true });
-      process.exit(EXIT_GIT_FAILED);
-    }
+    logError(`Failed to push branch ${updateBranch} for ${repoName}; the wizard never force-pushes`);
+    // The local branch holds the only copy of the update commit (including any
+    // fixes made so the commit hooks pass), so it is kept. The next run's
+    // leftover-branch guard refuses to delete it while it has unpushed commits.
+    logWarn(
+      `Kept local branch '${updateBranch}' with its update commit in ${repoName}. Retry the push by hand, or remove a leftover '${updateBranch}' on the remote first if one exists.`,
+    );
+    git(repoDir, ["checkout", defaultBranch], { quiet: true });
+    process.exit(EXIT_GIT_FAILED);
   }
 
   // ── Create PR (via the pr-create wrapper — never raw gh) ──

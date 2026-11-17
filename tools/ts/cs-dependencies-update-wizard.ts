@@ -8,9 +8,9 @@
 
 import { spawnSync } from "node:child_process";
 import { requireCommandOrExit } from "../lib/core/commands.ts";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, basename } from "node:path";
-import { resolveToolsRoot, selfRoot } from "../lib/core/self-root.ts";
+import { existsSync, readdirSync } from "node:fs";
+import { join, basename, resolve } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -22,8 +22,12 @@ import {
   getTopologicalGenerations,
   listRepoPackages,
   refreshRepoCache,
+  repoCacheDir,
 } from "../lib/domain/cs/dependency-graph.ts";
 import { providerOrgGet } from "../lib/providers/provider-core.ts";
+import { pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
+import { csprojPackageReferences } from "../lib/domain/cs/csproj.ts";
+import { repoDefaultBranch } from "../lib/domain/cs/default-branch.ts";
 
 assertNodeFloor();
 
@@ -130,9 +134,8 @@ function getLatestVersion(pkgName: string): string {
 }
 
 /** Version of a package used in a repo's non-test src/ csprojs (empty when
- * absent). The package name reaches grep via its argv, never a shell string. */
+ * absent). */
 function getUsedVersion(repoDir: string, pkgName: string): string {
-  const re = new RegExp(`PackageReference Include="${pkgName}" Version="([^"]+)"`);
   const walk = (dir: string): string => {
     let entries;
     try {
@@ -144,12 +147,12 @@ function getUsedVersion(repoDir: string, pkgName: string): string {
       const p = join(dir, e.name);
       if (e.isDirectory()) {
         if (e.name === "test" || e.name === "tests" || e.name === "bin" || e.name === "obj") continue;
-        if (!p.includes("/src/")) continue;
+        if (!`${p}/`.includes("/src/")) continue;
         const hit = walk(p);
         if (hit !== "") return hit;
       } else if (e.name.endsWith(".csproj")) {
-        const m = re.exec(readFileSync(p, "utf8"));
-        if (m !== null && m[1] !== undefined) return m[1];
+        const ref = csprojPackageReferences(p, repoDir).find((r) => r.name === pkgName && r.version !== "");
+        if (ref !== undefined) return ref.version;
       }
     }
     return "";
@@ -161,8 +164,7 @@ function getUsedVersion(repoDir: string, pkgName: string): string {
  * wait_for_workflow_runs contract: unknown states are retried, a failed or
  * cancelled latest run fails the wait). Goes through the facade's
  * pipelines verbs — no direct gh anywhere. */
-function waitForWorkflowRuns(repo: string, branch: string, interval: number, timeout: number): boolean {
-  // Made async-capable by the caller; the loop stays sync (sleep) for parity.
+async function waitForWorkflowRuns(repo: string, branch: string, interval: number, timeout: number): Promise<boolean> {
   let elapsed = 0;
   let queryFailures = 0;
   const maxQueryFailures = 3;
@@ -173,7 +175,7 @@ function waitForWorkflowRuns(repo: string, branch: string, interval: number, tim
     }
     let activeCount: number;
     try {
-      const out = runPipelinesListSync(repo, branch, 10, "status");
+      const out = await runPipelinesList(repo, branch, 10, "status");
       const parsed = JSON.parse(out) as Array<{ status?: string }>;
       if (!Array.isArray(parsed)) throw new Error("run list returned a non-array payload");
       activeCount = parsed.filter((r) =>
@@ -186,13 +188,13 @@ function waitForWorkflowRuns(repo: string, branch: string, interval: number, tim
         return false;
       }
       logWarn(`could not query workflow runs on ${repo} (${branch}); retrying (${queryFailures}/${maxQueryFailures})`);
-      spawnSync("sleep", [String(interval)]);
+      await sleep(interval * 1000);
       elapsed += interval;
       continue;
     }
     if (activeCount === 0) {
       try {
-        const out = runPipelinesListSync(repo, branch, 1, "conclusion");
+        const out = await runPipelinesList(repo, branch, 1, "conclusion");
         const parsed = JSON.parse(out) as Array<{ conclusion?: string }>;
         const latest = parsed[0]?.conclusion ?? "";
         if (latest === "failure" || latest === "cancelled") {
@@ -207,35 +209,23 @@ function waitForWorkflowRuns(repo: string, branch: string, interval: number, tim
           return false;
         }
         logWarn(`could not read the latest run's conclusion on ${repo} (${branch}); retrying (${queryFailures}/${maxQueryFailures})`);
-        spawnSync("sleep", [String(interval)]);
+        await sleep(interval * 1000);
         elapsed += interval;
         continue;
       }
     }
     queryFailures = 0;
     logInfo(`Waiting for ${activeCount} workflow run(s) on ${repo} (${branch})... [${elapsed}s/${timeout}s]`);
-    spawnSync("sleep", [String(interval)]);
+    await sleep(interval * 1000);
     elapsed += interval;
   }
 }
 
-/** Sync wrapper over the facade's run list (the wizard is a top-level
- * script; the facade verb is async — bridge with spawnSync on the stub). */
-function runPipelinesListSync(repo: string, branch: string, limit: number, json: string): string {
-  const toolsRoot = resolveToolsRoot(import.meta.url);
-  // Through the provider facade verb via its own module import in-process is
-  // async; the wizard's sync flow bridges through the facade-backed lib with
-  // a subprocess import — the provider seam stays the only gh caller.
-  // Plain --json only: the jq programs this used to pass are outside
-  // applyJq's supported subset, so every poll threw and the CI-wait was
-  // structurally dead. The wizard filters in-process (status) or reads
-  // fields directly (conclusion).
-  const script = `import { pipelinesRunList } from "${join(toolsRoot, "lib/providers/facade/pipelines.ts")}";
-  const out = await pipelinesRunList(${JSON.stringify(repo)}, { branch: ${JSON.stringify(branch)}, limit: ${limit}, json: ${JSON.stringify(json === "status" ? "status,conclusion" : "conclusion")} });
-  process.stdout.write(out);`;
-  const r = spawnSync("node", ["--input-type=module", "-e", script], { encoding: "utf8" });
-  if (r.status !== 0) throw new Error(r.stderr ?? "pipelines run list failed");
-  return r.stdout ?? "";
+/** The facade's run list for a branch, called in-process. Plain --json only
+ * (the jq programs this used to pass are outside applyJq's supported
+ * subset): the caller filters the rows itself. */
+async function runPipelinesList(repo: string, branch: string, limit: number, json: string): Promise<string> {
+  return pipelinesRunList(repo, { branch, limit, json: json === "status" ? "status,conclusion" : "conclusion" });
 }
 
 /** Full owner/repo name of a cached repo (get_full_repo_name parity through
@@ -244,27 +234,6 @@ function getFullRepoName(repoDir: string): string {
   const name = basename(repoDir);
   const org = providerOrgGet();
   return org !== "" ? `${org}/${name}` : "";
-}
-
-/** Default branch of a repo through the facade's repos view. "master" when
- * unresolvable (bash fallback). */
-function defaultBranch(repoFull: string): string {
-  try {
-    // Sync bridge over the async facade verb (same mechanism as the run list).
-    const toolsRoot = resolveToolsRoot(import.meta.url);
-    const script = `import { reposView } from "${join(toolsRoot, "lib/providers/facade/repos.ts")}";
-    const out = await reposView(${JSON.stringify(repoFull)}, { json: "defaultBranch" });
-    const j = JSON.parse(out) as { defaultBranch?: string };
-    process.stdout.write(j.defaultBranch ?? "");`;
-    const r = spawnSync("node", ["--input-type=module", "-e", script], { encoding: "utf8" });
-    if (r.status === 0) {
-      const b = (r.stdout ?? "").trim();
-      if (b !== "") return b;
-    }
-  } catch {
-    // fall through to the bash fallback
-  }
-  return "master";
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────
@@ -324,7 +293,7 @@ function parseArgs_main(): WizardArgs {
     a.targetDir = positionals[0] ?? "";
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     process.exit(EXIT_MISUSE);
   }
   if (a.globalMode && a.targetDir !== "") {
@@ -388,7 +357,7 @@ async function main(): Promise<void> {
       logError(`Directory not found: ${targetDir}`);
       process.exit(EXIT_API_FAILURE);
     }
-    targetDir = spawnSync("bash", ["-c", `cd "$1" && pwd`, "cd", targetDir], { encoding: "utf8" }).stdout.trim();
+    targetDir = resolve(targetDir);
     if (countNonTestCsproj(targetDir) === 0 && !hasSln(targetDir)) {
       logError(`No .sln or .csproj files found in: ${targetDir}`);
       process.exit(EXIT_MISUSE);
@@ -491,8 +460,7 @@ async function main(): Promise<void> {
   console.log("============================================================");
 
   // ── Step 4: process each generation ──
-  const repoCacheDir =
-  process.env.REPO_CACHE_DIR ?? join(selfRoot(import.meta.url), "tools", "cache", "repo_cache");
+  const cacheRoot = resolve(repoCacheDir());
 
   for (let idx = 0; idx < depths.length; idx++) {
     const depth = depths[idx] as number;
@@ -531,7 +499,7 @@ async function main(): Promise<void> {
     const mergedRepos: string[] = [];
 
     for (const repo of reposAtDepth) {
-      const repoDir = join(repoCacheDir, repo);
+      const repoDir = join(cacheRoot, repo);
       if (!existsSync(repoDir)) {
         logWarn(`Cached repo not found: ${repo} — skipping`);
         continue;
@@ -604,7 +572,7 @@ async function main(): Promise<void> {
         }
       }
 
-      const fullName = getFullRepoName(join(repoCacheDir, repo));
+      const fullName = getFullRepoName(join(cacheRoot, repo));
       if (fullName !== "") mergedRepos.push(fullName);
       processed += 1;
     }
@@ -619,16 +587,29 @@ async function main(): Promise<void> {
         logInfo(`Waiting for GitHub Actions to complete before processing generation ${nextDepth}...`);
         let workflowFailed = false;
         for (const repoFull of mergedRepos) {
-          const branch = defaultBranch(repoFull);
-          if (!waitForWorkflowRuns(repoFull, branch, 15, 600)) workflowFailed = true;
+          try {
+            const branch = await repoDefaultBranch(repoFull);
+            if (!(await waitForWorkflowRuns(repoFull, branch, 15, 600))) workflowFailed = true;
+          } catch (err) {
+            logError(`Could not determine the default branch of ${repoFull}: ${errorMessage(err)}`);
+            workflowFailed = true;
+          }
         }
         if (workflowFailed) {
           logWarn("Some workflow runs failed or timed out.");
           promptUser("Please verify GitHub Actions manually, then press Enter to continue.");
         }
       }
-      logInfo("Refreshing repository cache for next generation...");
-      await refreshRepoCache();
+      // --no-refresh and --dry-run both mean the cache is not touched.
+      if (!args.skipRefresh && !args.dryRun) {
+        logInfo("Refreshing repository cache for next generation...");
+        const refreshed = await refreshRepoCache();
+        if (refreshed === 1) {
+          logError("Failed to refresh repository cache; the next generation would run on stale data");
+          process.exit(EXIT_GENERAL_ERROR);
+        }
+        if (refreshed === 2) logWarn("Some repositories failed to cache (continuing with partial cache)");
+      }
       // Rebuild the tree state against the refreshed index? The bash wizard
       // reuses the in-memory tree; parity: keep the in-memory state.
     }

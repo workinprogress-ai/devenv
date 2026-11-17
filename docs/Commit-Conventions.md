@@ -29,7 +29,7 @@ enforcement surface derives from it:
 | Surface | Mechanism |
 | --- | --- |
 | Local commitlint | `type-enum` in `commitlint.config.js` — the single source |
-| Repository ruleset | `commit_message_pattern` in `tools/config/ruleset-default.json` — must equal the enum (enforced by a drift test, `test_repo_metadata.bats`) |
+| Repository ruleset | `commit_message_pattern` in `tools/config/ruleset-default.json` — must equal the enum (no automated drift check exists; keep the two in step by hand) |
 | Wrapper validation | `repo-commit` (TS) validates every message against the target repo's own commitlint config before opening the editor — the same enum, applied at commit time |
 | CI | the `commit-messages` job in `.github/workflows/test.yml` runs commitlint (this enum) over every pull-request commit |
 | Skills / prose | Skills cite this document; they do not restate type lists |

@@ -193,6 +193,18 @@ export async function reposView(
   return JSON.stringify(enriched);
 }
 
+/** Whether a repository exists and is reachable: any provider failure reading
+ * the repository (absent, no access) is false. */
+export async function reposExists(spec: string): Promise<boolean> {
+  try {
+    await azureHttp("GET", gitRepoUrl(spec));
+    return true;
+  } catch (err) {
+    if (err instanceof ProviderError) return false;
+    throw err;
+  }
+}
+
 /** List an org/project's repos as seam-shaped records. The argument is
  * org/project; a bare org takes the project from config. When --json/-q
  * flags are present the rendered projection string is returned instead. */

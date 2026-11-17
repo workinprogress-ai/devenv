@@ -125,7 +125,7 @@ export function syncStateRef(): void {
 export function returnToBase(): void {
   const r = returnToBaseChecked();
   if (!r.ok) {
-    // F23: a failed checkout silently proceeding was the promote-reset hazard.
+    // A failed checkout must be reported: proceeding silently would let a later reset run on the wrong branch.
     console.error(`returnToBase failed: ${r.error}`);
   }
 }

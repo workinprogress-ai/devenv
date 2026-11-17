@@ -16,7 +16,8 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { providerOrgGet, ghApiSync } from "../lib/providers/provider-core.ts";
+import { providerOrgGet } from "../lib/providers/provider-core.ts";
+import { reposNameWithOwner } from "../lib/providers/facade/repos.ts";
 import {
   loadRepoTypesConfig,
   validateRepoType,
@@ -111,7 +112,7 @@ const config = loadRepoTypesConfig(REPO_TYPES_CONFIG);
 
 // Get the full repository name from git remote (gh first, git-remote fallback).
 logInfo("Reading repository information...");
-const fullName = getFullRepoName(repoPath);
+const fullName = await getFullRepoName(repoPath);
 if (fullName === null) process.exit(1);
 logInfo(`Repository: ${fullName}`);
 
@@ -169,15 +170,11 @@ if (failedSteps.length > 0) {
 }
 logInfo("✓ Configuration applied");
 
-/** owner/repo from the provider view (gh repo view, cwd seam), falling back
+/** owner/repo from the provider view (cwd seam), falling back
  * to the git remote URL (SSH and HTTPS forms) — get_full_repo_name's chain. */
-function getFullRepoName(repoDir: string): string | null {
-  const gh = ghApiSync(["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], {
-    cwd: repoDir,
-    tolerateFailure: true,
-  });
-  if (gh.status === 0 && gh.stdout.trim() !== "") return gh.stdout.trim();
-
+async function getFullRepoName(repoDir: string): Promise<string | null> {
+  const viewed = await reposNameWithOwner(repoDir);
+  if (viewed !== null) return viewed;
   const git = spawnSync("git", ["config", "--get", "remote.origin.url"], { encoding: "utf8", cwd: repoDir });
   const gitUrl = git.status === 0 ? (git.stdout ?? "").trim() : "";
   if (gitUrl === "") {

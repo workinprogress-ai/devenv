@@ -136,9 +136,11 @@ provider_auth_setup_git_impl() {
     fi
     # The Azure organization ([provider] azure_org) is the one the API and the git
     # remotes use, so the visualstudio.com host derives from it, not from the
-    # generic [organization] org.
+    # generic [organization] org. The value is read literally (no template
+    # expansion), the same read the Azure API and remote handling use: a
+    # templated azure_org is not a valid organization and is skipped below.
     local org
-    if ! org=$(config_read_value "provider" "azure_org" "" 2>/dev/null) || [ -z "$org" ]; then
+    if [ -z "${CONFIG_FILE:-}" ] || ! org=$(config_get_raw "$CONFIG_FILE" "provider" "azure_org" "" 2>/dev/null) || [ -z "$org" ]; then
         log_warn "organization identity unavailable; skipping visualstudio.com host credential helper"
         return 0
     fi

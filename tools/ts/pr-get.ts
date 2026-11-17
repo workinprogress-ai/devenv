@@ -66,7 +66,7 @@ async function main(argv: string[]): Promise<number> {
     devenv = cli.common.devenv;
     if (cli.positionals.length === 0) {
       logError("PR number is required");
-      console.log("Use --help for usage information");
+      console.error("Use --help for usage information");
       return EXIT_MISUSE;
     }
     prNumber = cli.positionals[0] ?? "";
@@ -76,7 +76,7 @@ async function main(argv: string[]): Promise<number> {
     }
   } catch (err) {
     logError(errorMessage(err));
-    console.log("Use --help for usage information");
+    console.error("Use --help for usage information");
     return EXIT_MISUSE;
   }
 

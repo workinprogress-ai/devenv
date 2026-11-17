@@ -1,12 +1,14 @@
 // harness/canary.ts — the no-network canary for the regular test run.
 //
-// What it enforces: provider CLIs and generic network clients (gh, az, curl,
-// wget, ssh), host-affecting commands (kubectl, docker, sudo, dotnet, ...) and
-// every `fetch`. What it does not: `git` is not shimmed because
-// the suites need it (they use local file remotes), and a suite that builds its
+// What it enforces: every command in CANARY_COMMANDS (provider and network
+// clients, package managers, remote-copy tools and host-affecting commands such
+// as kubectl, docker, sudo, dotnet) and every `fetch`. `git` is not shimmed
+// because the suites need it; instead the hermetic env restricts git to the
+// file transport (GIT_ALLOW_PROTOCOL, see harness/env.ts), so a remote git
+// operation fails. A suite that builds its
 // own PATH from scratch bypasses the shims (use canaryEnv()). Three tripwires
 // share one log file:
-//   - shim executables for gh, az, curl, wget and ssh placed first on PATH: a
+//   - shim executables for every CANARY_COMMANDS entry placed first on PATH: a
 //     suite that stubs the CLI puts its own stub directory before them, so only
 //     an unmocked call reaches a shim;
 //   - a fetch guard (harness/canary-fetch.ts) preloaded into the worker and,
@@ -22,7 +24,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  * or through a shared library), so a probe that slips past the static
  * host-effect scan fails instead of touching the host. */
 export const CANARY_COMMANDS = [
-  "gh", "az", "curl", "wget", "ssh",
+  "gh", "az", "curl", "wget", "ssh", "scp", "rsync",
+  "pnpm", "npm", "npx", "tailscale",
   "kubectl", "docker", "sudo", "dotnet", "apt-get", "pkill",
   "mongorestore", "mongodump", "mongosh", "telepresence", "terraform",
 ] as const;

@@ -69,6 +69,29 @@ describe("scripts/repo-bump-version", () => {
     expect(r.status).not.toBe(0);
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("No repositories provided");
   });
+
+  it("an empty or closed stdin is misuse (exit 2), not a crash", () => {
+    const r = spawnSync("node", [toolScript("repo-bump-version"), "patch"], {
+      encoding: "utf8",
+      env: GIT_ENV(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    expect(r.status).toBe(2);
+    expect(r.stderr).not.toContain("EAGAIN");
+  });
+
+  it.each(["../x", "--select", "-x", "a/b", ".hidden/../x", "a b"])("rejects the repository name %j with exit 2 before touching anything", (name) => {
+    const viaArg = spawnSync("node", [toolScript("repo-bump-version"), "patch", "--", name], { encoding: "utf8", env: { ...GIT_ENV(), DEVENV_ROOT: TMP } });
+    expect(viaArg.status).toBe(2);
+    expect(viaArg.stderr).toContain("Invalid repository name");
+    const viaStdin = spawnSync("node", [toolScript("repo-bump-version"), "patch"], {
+      encoding: "utf8",
+      input: `${name}\n`,
+      env: { ...GIT_ENV(), DEVENV_ROOT: TMP },
+    });
+    expect(viaStdin.status).toBe(2);
+    expect(viaStdin.stderr).toContain("Invalid repository name");
+  });
 });
 
 describe("scripts/repo-calc-version", () => {
