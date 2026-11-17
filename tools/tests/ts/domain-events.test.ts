@@ -56,6 +56,41 @@ describe("write side (PR signals)", () => {
     expect(parseLinkedIssues(body).length).toBe(10);
   });
 
+  it.each([
+    ["(Closes #5)", ["5"]],
+    ["[Fixes #6]", ["6"]],
+    ["Fixes #1, #2", ["1", "2"]],
+    ["Fixes #1 and #2", ["1", "2"]],
+    ["Fixes #1, #2 and #3", ["1", "2", "3"]],
+    ["Fixes #1,#2", ["1", "2"]],
+    ["Resolved: #4", ["4"]],
+    ["CLOSES #3 And #4", ["3", "4"]],
+    ["prefixes #8", []],
+    ["unfixes #1", []],
+    ["Fixes org/repo#9", []],
+    ["Fixes https://github.com/o/r/issues/9", []],
+    ["Fixes #1, org/repo#2", ["1"]],
+    ["Fixes #1, #1 and #2, #1", ["1", "2"]],
+    ["", []],
+    ["No keyword here, see #7 and #8", []],
+  ])("parses %j", (body, expected) => {
+    expect(parseLinkedIssues(body)).toEqual(expected);
+  });
+
+  it("caps a single list at the first 10 issues", () => {
+    const body = `Fixes ${Array.from({ length: 15 }, (_, i) => `#${i + 1}`).join(", ")}`;
+    expect(parseLinkedIssues(body)).toEqual(
+      Array.from({ length: 10 }, (_, i) => String(i + 1)),
+    );
+  });
+
+  it("keeps order and the total cap across keywords on separate lines", () => {
+    const body = ["Closes #3, #1", "Fixes #2", "Resolves #4, #5, #6, #7, #8, #9, #10, #11, #12"].join("\n");
+    expect(parseLinkedIssues(body)).toEqual(
+      ["3", "1", "2", "4", "5", "6", "7", "8", "9", "10"],
+    );
+  });
+
   it("signalPrEvents is best-effort: a body with no issues fires nothing", () => {
     const r = signalPrEvents("created", "no linked issues here");
     expect(r.fired).toEqual([]);

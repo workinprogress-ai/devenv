@@ -32,7 +32,9 @@ Options:
     --plan-dir DIR    Directory of plan files (.local-artifacts) scanned for
                       STEP-NN backlinks in their headers
     --plan-file FILE  Specific plan file to match (repeatable)
-    --org ORG         Default org for bare/repo-relative issue refs
+    --org ORG         Org for repo#N refs and --repo refs. Without it: the
+                      configured organisation, then the first org/repo#N in the
+                      roadmap; exits 2 if a ref needs an org and none resolves
     --repo REPO       Default repo for bare #N refs
 ${usageCommonFlags({ noDryRun: true })}
 
@@ -99,7 +101,9 @@ if (!existsSync(roadmap)) invalidArgs(`Roadmap file not found: ${roadmap}`);
 // --- extraction (ports of the awk helpers) ---
 
 const content = readFileSync(roadmap, "utf8");
-const lines = content.split("\n");
+// CRLF is normalised once here so every later match and comparison (headings,
+// the `---` separator, field lines) sees LF-only text.
+const lines = content.replace(/\r\n/g, "\n").split("\n");
 
 interface RawStep { step: string; phase: string; title: string; body: string[] }
 const rawSteps: RawStep[] = [];
@@ -135,7 +139,7 @@ function stepStatus(body: string[]): string {
 
 // Issue refs in **Issues** lines: org/repo#N canonical; repo#N gets the org
 // prepended; bare #N resolves via --repo or is flagged UNRESOLVED.
-function stepIssues(body: string[], org: string, repo: string): string[] {
+function stepIssues(body: string[], org: () => string, repo: string): string[] {
   const out: string[] = [];
   let inIssues = false;
   for (const line of body) {
@@ -149,9 +153,9 @@ function stepIssues(body: string[], org: string, repo: string): string[] {
       if (ref.includes("/")) {
         out.push(ref);
       } else if (/^[A-Za-z0-9_.-]+#/.test(ref)) {
-        out.push(`${org}/${ref}`);
+        out.push(`${org()}/${ref}`);
       } else if (repo !== "") {
-        out.push(`${org}/${repo}${ref}`);
+        out.push(`${org()}/${repo}${ref}`);
       } else {
         out.push(`UNRESOLVED:${ref}`);
       }
@@ -192,18 +196,33 @@ function planProgress(plan: string): { done: number; total: number; pct: string 
   }
 }
 
-// --- default org resolution ---
+// --- org resolution ---
 
-if (defaultOrg === "") defaultOrg = providerOrgGet();
-if (defaultOrg === "") {
-  defaultOrg = content.match(/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#[0-9]+/)?.[0].split("/")[0] ?? "";
+// Resolved lazily: only refs that need an organisation (repo#N, or bare #N with
+// --repo) ask for it, so a roadmap without such refs parses with none configured.
+// Order: --org, the configured organisation, the first org/repo#N in the file.
+let resolvedOrg: string | null = null;
+function orgForRefs(): string {
+  if (resolvedOrg !== null) return resolvedOrg;
+  let org = defaultOrg;
+  if (org === "") org = providerOrgGet();
+  if (org === "") {
+    org = content.match(/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#[0-9]+/)?.[0].split("/")[0] ?? "";
+  }
+  if (org === "") {
+    invalidArgs(
+      "An issue reference needs an organisation and none resolved: pass --org ORG, " +
+        "configure [organization] org in devenv.config, or write one reference as org/repo#N in the roadmap",
+    );
+  }
+  resolvedOrg = org;
+  return org;
 }
-if (defaultOrg === "") defaultOrg = "org";
 
 // --- assemble ---
 
 const steps: StepRec[] = rawSteps.map((raw) => {
-  const issues = stepIssues(raw.body, defaultOrg, defaultRepo);
+  const issues = stepIssues(raw.body, orgForRefs, defaultRepo);
   const deps = stepDependencies(raw.body);
   const planFile = planFiles.length > 0 ? findPlanForStep(raw.step, planFiles) : "";
   const progress = planFile !== "" ? planProgress(planFile) : null;

@@ -1,7 +1,8 @@
 // mongo-restore-server — restore a MongoDB backup with a consent gate.
 // Takes <connection_string>
-// <backup_directory>, picks the latest backup folder by greatest
-// directory-name timestamp, redacts credentials for display, and requires the
+// <backup_directory>, picks the latest backup folder by the timestamp parsed
+// from its name (the backup tool's YYYYMMDD_HHMMSS or the legacy
+// backup-YYYYMMDD[...] form; other directories are ignored), redacts credentials for display, and requires the
 // operator to retype the target (at a terminal, or via --yes plus
 // --confirm-target naming it) before the destructive `mongorestore --drop`.
 
@@ -88,19 +89,45 @@ if (!existsSync(backupDir)) {
   process.exit(EXIT_API_FAILURE);
 }
 
-// Pick the latest backup folder. "Latest" means the greatest directory-name
-// timestamp (backup-YYYYMMDD...), NOT mtime — mtimes of freshly-created
-// backup dirs can tie or invert under load, silently selecting the wrong
-// backup.
-const subdirs = readdirSync(backupDir, { withFileTypes: true })
+// Parse a backup directory name into a sortable YYYYMMDDHHMMSS key. Two name
+// forms count as backups: the backup tool's own YYYYMMDD_HHMMSS (local time)
+// and the legacy backup-YYYYMMDD optionally followed by an `_`/`-` separator
+// and up to six more digits of time (a missing time reads as 000000).
+// Anything else returns null.
+function backupTimestamp(name: string): string | null {
+  const tool = /^(\d{8})_(\d{6})$/.exec(name);
+  if (tool) return `${tool[1]}${tool[2]}`;
+  const legacy = /^backup-(\d{8})(?:[_-]?(\d{1,6}))?$/.exec(name);
+  if (legacy) return `${legacy[1]}${(legacy[2] ?? "").padEnd(6, "0")}`;
+  return null;
+}
+
+// Pick the latest backup folder. "Latest" means the greatest timestamp parsed
+// from the directory name, NOT mtime (mtimes of freshly-created backup dirs
+// can tie or invert under load) and NOT the raw name (the two name forms
+// would not compare by time). Directories that are not backup-named are
+// ignored; equal timestamps break ties by name.
+const dirNames = readdirSync(backupDir, { withFileTypes: true })
   .filter((e) => e.isDirectory())
-  .map((e) => `${backupDir}/${e.name}`)
-  .sort()
-  .reverse();
-const latestBackup = subdirs[0] ?? "";
+  .map((e) => e.name);
+const backups = dirNames
+  .flatMap((name) => {
+    const ts = backupTimestamp(name);
+    return ts === null ? [] : [{ name, ts }];
+  })
+  .sort((x, y) => (x.ts === y.ts ? (x.name < y.name ? 1 : -1) : x.ts < y.ts ? 1 : -1));
+const latestBackup = backups[0] ? `${backupDir}/${backups[0].name}` : "";
 
 if (latestBackup === "") {
-  console.error(`No backup subdirectories found in ${backupDir}.`);
+  const ignored = dirNames.sort();
+  const listed = ignored.slice(0, 10).join(", ");
+  const more = ignored.length > 10 ? `, ... (${ignored.length - 10} more)` : "";
+  console.error(`No backup-named directories found in ${backupDir}.`);
+  console.error(
+    ignored.length > 0
+      ? `Ignored directories: ${listed}${more}`
+      : "The directory contains no subdirectories.",
+  );
   process.exit(EXIT_API_FAILURE);
 }
 

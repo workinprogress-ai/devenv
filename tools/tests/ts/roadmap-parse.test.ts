@@ -3,10 +3,10 @@
 // exit contracts.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { toolScript } from "./harness/index.ts";
+import { toolScript, runTool } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -115,5 +115,85 @@ describe("scripts/roadmap-parse", () => {
     expect(r.out).not.toContain("Status precedence");
     expect(r.out).toContain("as written");
     expect(r.out).toContain("does not compute");
+  });
+});
+
+// A DEVENV_ROOT whose config names a provider but no organisation, with no seed file.
+function noOrgEnv(): Record<string, string> {
+  const root = join(TMP, "noorg-root");
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, "devenv.config"), "[provider]\nname=github\n");
+  return { DEVENV_ROOT: root };
+}
+
+function writeRoadmap(name: string, text: string): string {
+  const f = join(TMP, name);
+  writeFileSync(f, text);
+  return f;
+}
+
+describe("scripts/roadmap-parse line endings", () => {
+  it("parses a CRLF roadmap identically to its LF twin", () => {
+    const crlf = writeRoadmap("crlf.md", ROADMAP_MD.replace(/\n/g, "\r\n"));
+    const lf = parse([ROADMAP, "--org", "acme"]);
+    const cr = parse([crlf, "--org", "acme"]);
+    expect(cr.status).toBe(0);
+    const norm = (o: string, f: string) => JSON.parse(o.replace(f, "FILE"));
+    expect(norm(cr.out, crlf)).toEqual(norm(lf.out, ROADMAP));
+    expect(jqOut(cr.out, ["-r", ".steps[0].phase"])).toBe("PHASE-01");
+  });
+
+  it("ends a CRLF step body at a --- separator", () => {
+    const text = [
+      "### PHASE-01: Foundation",
+      "### STEP-01: First",
+      "**Status**: Done",
+      "---",
+      "**Depends on**: STEP-09",
+      "### STEP-02: Second",
+      "**Status**: Open",
+      "",
+    ].join("\r\n");
+    const f = writeRoadmap("sep.md", text);
+    const r = parse([f, "--org", "acme"]);
+    expect(r.status).toBe(0);
+    expect(jqOut(r.out, ["-c", ".steps[0].dependencies"])).toBe("[]");
+    expect(jqOut(r.out, ["-r", ".steps[1].status"])).toBe("Open");
+  });
+});
+
+describe("scripts/roadmap-parse organisation resolution", () => {
+  it("refuses a repo#N ref with exit 2 naming --org when no organisation resolves", () => {
+    const f = writeRoadmap("rel.md", "### STEP-01: A\n**Issues**: service.bar#205\n");
+    const r = runTool("roadmap-parse", [f], { env: noOrgEnv() });
+    expect(r.status).toBe(2);
+    expect(r.output).toContain("--org");
+    const ok = runTool("roadmap-parse", [f, "--org", "acme"], { env: noOrgEnv() });
+    expect(ok.status).toBe(0);
+    expect(ok.stdout).toContain('"acme/service.bar#205"');
+  });
+
+  it("refuses a bare #N ref with --repo when no organisation resolves", () => {
+    const f = writeRoadmap("bare-repo.md", "### STEP-01: A\n**Issues**: #7\n");
+    const r = runTool("roadmap-parse", [f, "--repo", "svc"], { env: noOrgEnv() });
+    expect(r.status).toBe(2);
+    expect(r.output).toContain("--org");
+  });
+
+  it("parses a bare #N ref without --repo as UNRESOLVED even with no organisation", () => {
+    const f = writeRoadmap("bare.md", "### STEP-01: A\n**Issues**: #7\n");
+    const r = runTool("roadmap-parse", [f], { env: noOrgEnv() });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("UNRESOLVED:#7");
+  });
+
+  it("resolves repo#N through the first canonical org reference in the file", () => {
+    const f = writeRoadmap(
+      "canon.md",
+      "### STEP-01: A\n**Issues**: acme/service#1\n### STEP-02: B\n**Issues**: other#2\n",
+    );
+    const r = runTool("roadmap-parse", [f], { env: noOrgEnv() });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('"acme/other#2"');
   });
 });

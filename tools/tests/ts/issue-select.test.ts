@@ -1,12 +1,13 @@
 // Tests for issue-select.ts — the selection contract. The picker needs a
-// TTY (D4: clack), so the automated cases pin the NON-interactive refusals
-// and the filter pass-through (what the bash suite's fzf-stubbed cases
-// covered); the interactive paths are exercised manually.
+// terminal (clack), so the cases without one pin the non-interactive refusals
+// and the argument validation, and the cases that reach the issue list run the
+// tool through a pseudo-terminal and cancel the picker.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
+import { runTool as runHarness, pathWithStubs, toolScript } from "./harness/index.ts";
+import { drivePty } from "./harness/pty.ts";
 
 const TOOL = "issue-select";
 
@@ -19,6 +20,7 @@ function installStubs(): void {
     join(stubDir, "gh"),
     [
       "#!/usr/bin/env bash",
+      `printf '%s\\n' "$*" >> "${join(stubDir, "gh-calls.log")}"`,
       `if [ "$1" = "rev-parse" ]; then printf '%s\\n' "${repoRoot}"; exit 0; fi`,
       'if [ -s "__RESPONSES__" ]; then',
       "  while IFS= read -r line; do",
@@ -100,4 +102,53 @@ describe("issue-select (non-interactive refusals)", () => {
     expect(r.stderr).toContain("Invalid state: bogus");
     expect(r.stderr).not.toContain("interactive terminal");
   });
+
+  function ghCalls(): string[] {
+    const log = join(stubDir, "gh-calls.log");
+    return existsSync(log) ? readFileSync(log, "utf8").split("\n").filter((l) => l !== "") : [];
+  }
+
+  function listRows(n: number): string {
+    return JSON.stringify(Array.from({ length: n }, (_, i) => ({ number: i + 1, title: `Issue ${i + 1}`, state: "OPEN" })));
+  }
+
+  async function pickAndCancel(args: string[], rows: number): Promise<{ status: number; out: string; listCall: string }> {
+    writeFileSync(responses, `issue list\t${listRows(rows)}\n`);
+    const r = await drivePty("node", [toolScript(TOOL), ...args], {
+      keys: ["e"],
+      tailHoldMs: 1000,
+      cwd: repoRoot,
+      env: { PATH: pathWithStubs(stubDir), DEVENV_REPO: "org/repo" },
+    });
+    const listCall = ghCalls().find((l) => l.startsWith("issue list")) ?? "";
+    return { status: r.status, out: r.out, listCall };
+  }
+
+  it.each(["abc", "0", "-3", "1.5"])("an invalid --limit %s exits 2 before any provider call and without a terminal", (bad) => {
+    const r = runTool([`--limit=${bad}`]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("Invalid --limit");
+    expect(r.stderr).not.toContain("interactive terminal");
+    expect(ghCalls()).toEqual([]);
+  });
+
+  it("the listing carries --limit 200 by default", async () => {
+    const r = await pickAndCancel([], 3);
+    expect(r.listCall).toContain("--limit 200");
+  }, 120_000);
+
+  it("an explicit --limit reaches the listing", async () => {
+    const r = await pickAndCancel(["--limit", "7"], 3);
+    expect(r.listCall).toContain("--limit 7");
+  }, 120_000);
+
+  it("notes possible truncation when the provider returns exactly the limit", async () => {
+    const r = await pickAndCancel(["--limit", "3"], 3);
+    expect(r.out).toContain("may be truncated at 3 issues");
+  }, 120_000);
+
+  it("does not note truncation when fewer issues than the limit come back", async () => {
+    const r = await pickAndCancel(["--limit", "5"], 3);
+    expect(r.out).not.toContain("truncated");
+  }, 120_000);
 });

@@ -15,7 +15,7 @@ import { basename } from "node:path";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { errorMessage } from "../lib/core/logging.ts";
+import { errorMessage, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issueTypeNames, resolveIssueType } from "../lib/domain/issues/types.ts";
@@ -25,6 +25,7 @@ import { select, multiSelect, isInteractive } from "../lib/ui/prompts.ts";
 assertNodeFloor();
 
 const SCRIPT_VERSION = "1.0.0";
+const DEFAULT_LIMIT = 200;
 const SCRIPT_NAME = basename(process.argv[1] ?? "issue-select.ts");
 
 function showUsage(): never {
@@ -37,6 +38,7 @@ Filters:
     -t, --type TYPE             Filter by native issue type (case-insensitive)
     -m, --milestone NAME        Filter by milestone
     -l, --label LABEL           Filter by label
+    -n, --limit NUMBER          Maximum issues offered in the picker (default: 200)
 
 Selection:
     -M, --multi                 Enable multi-select mode
@@ -63,6 +65,7 @@ async function main(argv: string[]): Promise<number> {
   let type = "";
   let milestone = "";
   let label = "";
+  let limit = DEFAULT_LIMIT;
   let multi = false;
   let format = "number";
   let devenv = false;
@@ -78,6 +81,7 @@ async function main(argv: string[]): Promise<number> {
         type: { type: "string", short: "t" },
         milestone: { type: "string", short: "m" },
         label: { type: "string", short: "l" },
+        limit: { type: "string", short: "n", default: String(DEFAULT_LIMIT) },
         multi: { type: "boolean", short: "M", default: false },
         format: { type: "string", short: "f", default: "number" },
       },
@@ -100,6 +104,12 @@ async function main(argv: string[]): Promise<number> {
     }
     milestone = (values["milestone"] as string | undefined) ?? "";
     label = (values["label"] as string | undefined) ?? "";
+    const limitText = (values["limit"] as string | undefined) ?? String(DEFAULT_LIMIT);
+    limit = Number.parseInt(limitText, 10);
+    if (!/^[0-9]+$/.test(limitText) || !Number.isSafeInteger(limit) || limit <= 0) {
+      logError(`Invalid --limit: ${limitText} (expected a positive integer)`);
+      return EXIT_MISUSE;
+    }
     multi = Boolean(values["multi"]);
     format = (values["format"] as string | undefined) ?? "number";
     if (format !== "number" && format !== "url" && format !== "json") {
@@ -129,6 +139,7 @@ async function main(argv: string[]): Promise<number> {
       ...(type !== "" ? { type } : {}),
       ...(milestone !== "" ? { milestone } : {}),
       ...(label !== "" ? { label: [label] } : {}),
+      limit,
       json: "number,title,state",
     });
   } catch (err) {
@@ -146,6 +157,10 @@ async function main(argv: string[]): Promise<number> {
   if (issues.length === 0) {
     logError("No issues found matching the filters");
     return EXIT_GENERAL_ERROR;
+  }
+
+  if (issues.length === limit) {
+    logWarn(`The list may be truncated at ${limit} issues (raise --limit to see more)`);
   }
 
   const options = issues.map((i) => ({
