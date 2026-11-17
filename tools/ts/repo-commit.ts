@@ -853,13 +853,35 @@ function commandExists(cmd: string): boolean {
 // ("code or code-insiders is not installed") when no VS Code remote-cli follows
 // it on PATH, as in shells not spawned by a VS Code terminal. Existence is not
 // launchability, so a VS Code CLI candidate must answer --version before it is
-// chosen; any other editor is judged by the existing checks alone.
+// chosen; any other editor is judged by the existing checks alone. The launcher
+// is recognised by the BASENAME of the command that actually runs, looking
+// through a leading `env` (and its options) and VAR=value assignments, so
+// `/usr/bin/code --wait` and `env code --wait` are probed as well as the bare
+// form. The probe runs the configured path itself with the assignments applied.
 function vscodeCliLaunches(candidate: string): boolean {
-  const cmd = candidate.trim().split(/\s+/)[0] ?? "";
-  if (cmd !== "code" && cmd !== "code-insiders") return true;
-  return spawnSync(cmd, ["--version"], { stdio: "ignore", timeout: 10_000 }).status === 0;
+  const words = candidate.trim().split(/\s+/).filter((w) => w !== "");
+  const assignment = /^[A-Za-z_][A-Za-z0-9_]*=/;
+  const probeEnv: NodeJS.ProcessEnv = { ...process.env };
+  let i = 0;
+  while (i < words.length) {
+    const w = words[i] ?? "";
+    if (assignment.test(w)) {
+      probeEnv[w.slice(0, w.indexOf("="))] = w.slice(w.indexOf("=") + 1);
+      i += 1;
+    } else if ((w.split("/").pop() ?? w) === "env") {
+      i += 1;
+      while (i < words.length && ((words[i] ?? "").startsWith("-") || assignment.test(words[i] ?? ""))) {
+        const o = words[i] ?? "";
+        if (assignment.test(o)) probeEnv[o.slice(0, o.indexOf("="))] = o.slice(o.indexOf("=") + 1);
+        i += 1;
+      }
+    } else break;
+  }
+  const cmd = words[i] ?? "";
+  const base = cmd.split("/").pop() ?? cmd;
+  if (base !== "code" && base !== "code-insiders") return true;
+  return spawnSync(cmd, ["--version"], { stdio: "ignore", timeout: 10_000, env: probeEnv }).status === 0;
 }
-
 
 
 // --- Wrap the suggested BODY at 72 columns (git-standard width) so the
@@ -964,20 +986,30 @@ console.log("repo-commit: pre-commit hooks run after the editor closes; on this 
 // stdin/stdout stay inherited (terminal editors draw their UI there); stderr is
 // piped so a HOOK rejection can be told apart from an editor abort — with full
 // inherit, spawnSync captures nothing and the two failures are indistinguishable.
+// The editor runs through a thin launcher that records the editor's own exit
+// status in a marker file. Whether the editor failed is then an observed fact,
+// independent of git's (translatable) message text and of the user's locale,
+// which is left untouched for the editor, hooks and everything printed. The
+// launcher runs exactly the vetted editor string and adds no other behavior.
+const editorStatusFile = join(tmpDir, "editor-status");
+const editorLauncher = join(tmpDir, "editor-launch.sh");
+writeFileSync(editorLauncher, `#!/bin/sh\n${editor} "$@"\ns=$?\nprintf '%s' "$s" > '${editorStatusFile}'\nexit "$s"\n`, { mode: 0o700 });
 const commit = spawnSync("git", ["-c", `core.commentChar=${cc}`, "commit", "--cleanup=strip", "--edit", "-F", msgfile], {
   stdio: ["inherit", "inherit", "pipe"],
-  env: { ...process.env, GIT_EDITOR: editor },
+  env: { ...process.env, GIT_EDITOR: `'${editorLauncher}'` },
 });
+const editorStatus = existsSync(editorStatusFile) ? readFileSync(editorStatusFile, "utf8").trim() : "";
 const commitStderr = commit.stderr instanceof Buffer
   ? commit.stderr.toString()
   : typeof commit.stderr === "string" ? commit.stderr : "";
 if (commitStderr !== "") process.stderr.write(commitStderr);
 rmSync(tmpDir, { recursive: true, force: true });
 if (commit.status !== 0) {
-  // git's own text for an editor that failed to launch or exited non-zero.
-  // Checked first: the hook's captured stderr can contain "hook" on a PASS,
-  // so the hook regex alone mislabels an editor failure as a hook rejection.
-  if (/problem with the editor/i.test(commitStderr)) {
+  // The editor's recorded exit status says it failed to launch or exited
+  // non-zero. Checked first: the hook's captured stderr can contain "hook" on
+  // a PASS, so the hook regex alone mislabels an editor failure as a hook
+  // rejection.
+  if (editorStatus !== "" && editorStatus !== "0") {
     die("the editor failed to launch or exited non-zero — no commit exists, index untouched");
   }
   // Distinguish the two abort classes honestly: a HOOK rejection prints its
