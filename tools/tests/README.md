@@ -80,22 +80,40 @@ test file and makes the guarantee structural:
 
 ## Provider smoke suites: the only code that may touch a backend
 
-Each provider adapter can carry a live smoke suite beside it
-(`tools/lib/providers/azure/smoke.ts`; the GitHub adapter gets
-`tools/lib/providers/github/smoke.ts`). These are special-case, on-demand
-suites that exercise a real backend:
+Each provider adapter carries a live smoke suite beside it:
+`tools/lib/providers/azure/smoke.ts` and `tools/lib/providers/github/smoke.ts`. They are
+special-case, on-demand suites that exercise a real backend, documented in full beside the
+adapters: [GitHub](../lib/providers/github/SMOKE.md) and
+[Azure](../lib/providers/azure/SMOKE.md).
 
-- They are never part of the regular run: they live outside
-  `tools/tests/ts/`, no vitest include pattern collects them, and no
-  regular test imports or spawns one (`provider-smoke-guard.test.ts` pins
-  all three).
-- Each refuses to run without an explicit opt-in variable and a throwaway
-  target (Azure: `AZURE_SMOKE=1` read-only, `AZURE_SMOKE=write` plus
-  `AZURE_SMOKE_CONFIRM=<test project>` for the destructive tier).
-- Run one by hand when the adapter layer changes (a verb added or changed,
-  a transport or auth change, a provider CLI upgrade), for example
-  `node tools/lib/providers/azure/smoke.ts` with the opt-in set, against a
-  disposable project.
+- **When to run one.** By hand, when the adapter layer changes: a verb added or changed, a
+  transport or authentication change, a provider CLI upgrade. CI never runs them and the
+  regular run never collects them: they live outside `tools/tests/ts/`, no vitest include
+  pattern matches them, and no regular test imports or runs one against a backend
+  (`provider-smoke-guard.test.ts` pins all of this).
+- **How to opt in.** Each refuses to run (exit code 2, no request made) without explicit
+  variables. GitHub: `GITHUB_SMOKE=write`, `GITHUB_SMOKE_OWNER=<test organisation>` and
+  `GITHUB_SMOKE_CONFIRM=<the same organisation>`, plus `GITHUB_SMOKE_ALLOW_REAL_ORG` when the
+  target is the organisation configured in `devenv.config`. Azure: `AZURE_SMOKE=1` (read-only)
+  or `AZURE_SMOKE=write` with `AZURE_SMOKE_CONFIRM=<test project>` (destructive), plus
+  `AZURE_DEVOPS_ORG`, `AZURE_SMOKE_TEST_PROJECT` and `AZURE_PAT`.
+- **What each creates and cleans up.** The GitHub suite creates its own private repository
+  `devenv-smoke-<pid>-<timestamp>` in the test organisation, plus a project and a team at
+  organisation level, and exercises issues, pull requests, projects, pipelines, organisation
+  rulesets and repositories against them; it records every item it creates and deletes only
+  those at the end. The Azure suite works inside one pre-existing disposable test project and
+  deletes the work items, repository and policies it created.
+- **Cost and permissions.** Both need a real credential with write access in the test target.
+  The GitHub suite needs repository, `delete_repo`, `workflow`, `project` and organisation
+  admin scopes, uses a little Actions time and a few hundred API calls, and leaves audit-log
+  entries. The Azure suite needs Code, Pull Request, Work Items, Boards, Build, Packaging and
+  Policy rights on the test project. Scenarios the account or plan cannot support skip with a
+  reason instead of failing.
+- **Guard test.** `provider-smoke-guard.test.ts` runs without a backend: it spawns each suite
+  with failing `gh`, `curl`, `az` and `git` stubs on `PATH` to prove the opt-in refusal reaches
+  no backend, reads the GitHub suite's registry with `--list-coverage`, and checks it against the
+  contract table: every verb in the contract's GitHub column is exercised by a scenario or listed
+  as excluded with a reason.
 
 ## Test hygiene: scratch artifacts live in tmp, never in the repo
 

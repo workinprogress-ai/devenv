@@ -3083,6 +3083,13 @@ These are run by hand and are intentionally **not on `PATH`**; invoke by explici
   and `AZURE_SMOKE=write` (destructive: create/comment/close work items,
   create and rebase-merge a PR — disposable test project only). Manual-only;
   never in tests or CI; output is token-redacted by design.
+- **`tools/lib/providers/github/smoke.ts`** — GitHub provider live validation: creates a throwaway
+  repository, project and team in a test organisation, exercises every contract verb family
+  (issues, pull requests, projects, pipelines, organisation rulesets, repositories) and deletes
+  what it created. Opt-in with `GITHUB_SMOKE=write`, `GITHUB_SMOKE_OWNER` and
+  `GITHUB_SMOKE_CONFIRM`; manual-only, never in tests or CI. See
+  [github/SMOKE.md](../tools/lib/providers/github/SMOKE.md) (and
+  [azure/SMOKE.md](../tools/lib/providers/azure/SMOKE.md) for the Azure suite).
 
 ## Shared Libraries
 
