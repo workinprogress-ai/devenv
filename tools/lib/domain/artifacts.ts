@@ -1,12 +1,12 @@
-// artifacts.ts — the artifacts domain (merge of artifact-header.bash +
-// artifact-operations.bash per the migration mapping; the bash originals
-// remain until the bash retirement sweep).
+// artifacts.ts — the artifacts domain (artifact header parsing and
+// package-type registry).
 //
 // Two halves:
 //   1. Header parse: the DEVENV_ARTIFACT_V1 metadata block parser. The
 //      marker must open within the first 1024 chars; a block closed by a
-//      `-->` line holds every key line before it (other lines are skipped);
-//      an unclosed block holds the leading run of key lines. Values are
+//      `-->` line reachable through key, blank and comment lines alone holds
+//      every key line before it; any other block holds the leading run of
+//      key lines (see headerBlock). Values are
 //      collected into a flat object. Every lookup in this file reads the
 //      same delimited block (headerBlock), never a fixed-length prefix.
 //      Tests pin the rules.
@@ -38,40 +38,112 @@ const MARKER_WINDOW = 1024;
 export const HEADER_KEY_PATTERN = "[A-Za-z_][A-Za-z0-9_-]*";
 
 /** A `key: value` header line: indent and spaces before the colon tolerated. */
-const HEADER_KEY_LINE = new RegExp(`^[ \\t]*(${HEADER_KEY_PATTERN})[ \\t]*:[ \\t]*(.*)$`);
+export const HEADER_KEY_LINE = new RegExp(`^[ \\t]*(${HEADER_KEY_PATTERN})[ \\t]*:[ \\t]*(.*)$`);
 
 /**
- * The lines of the DEVENV_ARTIFACT_V1 block: everything after the marker
- * line up to (not including) the first line that starts with `-->`. When
- * that closing line exists, the block holds the `key: value` lines between
- * the two and other lines (blank lines, comment lines) are skipped rather
- * than ending the block. A block that is never closed ends at the first
- * line that is not a `key: value` line (a blank line or prose) instead of
- * extending over the body. CRLF is normalized. Null when no marker opens within the first
- * MARKER_WINDOW characters. Every header lookup in this file reads this
- * block, so no value is cut at a character offset.
+ * The text of a key line with its trailing comment closer (`-->` plus the
+ * whitespace around it) removed, or null when the line does not end with the
+ * closer. Scans from the end only, so a very long whitespace run costs linear
+ * time (an unanchored `[ \t]*-->$` pattern retries from every run position).
  */
-function headerBlock(body: string): string[] | null {
+export function stripInlineCloser(line: string): string | null {
+  let end = line.length;
+  while (end > 0 && (line[end - 1] === " " || line[end - 1] === "\t")) end--;
+  if (end < 3 || line.slice(end - 3, end) !== "-->") return null;
+  end -= 3;
+  while (end > 0 && (line[end - 1] === " " || line[end - 1] === "\t")) end--;
+  return line.slice(0, end);
+}
+
+/**
+ * The structure of a DEVENV_ARTIFACT_V1 block with positions, as line indexes
+ * into `body.split("\n")` (a CRLF body keeps its trailing carriage returns on
+ * those lines; positions are identical to the CRLF-normalized text because
+ * only `\r\n` pairs are normalized and `\n` count is preserved).
+ *
+ *  - markerLine: the line holding the marker. The rest of that line is ignored.
+ *  - firstLine: the first line after the marker (markerLine + 1).
+ *  - endLine: exclusive end; lines [firstLine, endLine) belong to the block.
+ *    A `-->` line closer is not part of the range; an inline closer is part of
+ *    the key line that carries it.
+ *  - closerKind / closerLine: how and where the block closes (`line`: a line
+ *    starting with `-->` after optional indent; `inline`: a key line whose
+ *    value ends with `-->`), both null when the block is unclosed.
+ *
+ * Bounds, in order:
+ *  - A key line whose value ends with `-->` closes the block at that line.
+ *  - A line that starts (after optional indent) with `-->` closes the block,
+ *    but only when it is reachable from the marker through key lines, blank
+ *    lines and comment lines (`#` or `//`) alone.
+ *  - Any other line (prose, a code fence, non-key text) met before a closer
+ *    means the header is not closed: the block is then the leading run of
+ *    key lines, ending at the first line that is not a key line (blank
+ *    lines included). A `-->` line further down the body never extends it.
+ *
+ * Null when no marker opens within the first MARKER_WINDOW characters.
+ */
+export interface HeaderSpan {
+  markerLine: number;
+  firstLine: number;
+  endLine: number;
+  closerKind: "line" | "inline" | null;
+  closerLine: number | null;
+}
+
+export function headerSpan(body: string): HeaderSpan | null {
   const normalized = body.replaceAll("\r\n", "\n");
   const markerAt = normalized.indexOf("DEVENV_ARTIFACT_V1");
   if (markerAt < 0 || markerAt >= MARKER_WINDOW) return null;
-  const lines = normalized.slice(markerAt).split("\n");
-  const rest = lines.slice(1);
-  const closeAt = rest.findIndex((line) => /^-->/.test(line));
-  if (closeAt >= 0) return rest.slice(0, closeAt).filter((line) => HEADER_KEY_LINE.test(line));
-  const block: string[] = [];
-  for (const line of rest) {
-    if (!HEADER_KEY_LINE.test(line)) break;
-    block.push(line);
+  let markerLine = 0;
+  for (let i = normalized.indexOf("\n"); i >= 0 && i < markerAt; i = normalized.indexOf("\n", i + 1)) markerLine++;
+  const lines = normalized.split("\n");
+  const firstLine = markerLine + 1;
+  let leadingEnd: number | null = null;
+  for (let i = firstLine; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (HEADER_KEY_LINE.test(line)) {
+      if (stripInlineCloser(line) !== null) {
+        return { markerLine, firstLine, endLine: i + 1, closerKind: "inline", closerLine: i };
+      }
+      continue;
+    }
+    if (/^[ \t]*-->/.test(line)) {
+      return { markerLine, firstLine, endLine: i, closerKind: "line", closerLine: i };
+    }
+    if (leadingEnd === null) leadingEnd = i;
+    if (/^[ \t]*$/.test(line) || /^[ \t]*(#|\/\/)/.test(line)) continue;
+    break;
   }
-  return block;
+  return { markerLine, firstLine, endLine: leadingEnd ?? lines.length, closerKind: null, closerLine: null };
+}
+
+/**
+ * The `key: value` lines of the DEVENV_ARTIFACT_V1 block (see headerSpan for
+ * the bounds), CRLF normalized, blank and comment lines skipped, an inline
+ * closer trimmed from the value. Null when no marker opens within the first
+ * MARKER_WINDOW characters.
+ *
+ * Every header lookup in this file reads this block, so no value is cut at a
+ * character offset.
+ */
+function headerBlock(body: string): string[] | null {
+  const span = headerSpan(body);
+  if (span === null) return null;
+  const lines = body.replaceAll("\r\n", "\n").split("\n");
+  const keys: string[] = [];
+  for (let i = span.firstLine; i < span.endLine; i++) {
+    const line = lines[i] ?? "";
+    if (!HEADER_KEY_LINE.test(line)) continue;
+    keys.push(span.closerKind === "inline" && i === span.closerLine ? (stripInlineCloser(line) ?? line) : line);
+  }
+  return keys;
 }
 
 /**
  * Parse the DEVENV_ARTIFACT_V1 block from `body`. Returns null when the body has
  * no artifact header marker.
  *
- * Port of the bash awk engine for the values this header carries (machine
+ * Handles the values this header carries (machine
  * generated: doc ids, issue numbers, dates, slugs — no quotes or
  * backslashes). The marker opens the block, the first `-->` line closes it,
  * `KEY:` lines contribute `"KEY":"value"` pairs, and embedded double quotes
@@ -263,7 +335,7 @@ export async function listArtifacts(repo: string, issue: number, artifactTypeFil
 }
 
 // ---------------------------------------------------------------------------
-// Package-type registry — faithful port of artifact-operations.bash
+// Package-type registry
 // ---------------------------------------------------------------------------
 
 /** Canonical package-type ids and the aliases that normalize onto them. */
