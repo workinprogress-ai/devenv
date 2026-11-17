@@ -183,7 +183,7 @@ function resolveEditor(): void {
   ];
   for (const candidate of candidates) {
     if (candidate === "") continue;
-    if (!editorIsNoninteractive(candidate)) {
+    if (!editorIsNoninteractive(candidate) && vscodeCliLaunches(candidate)) {
       editor = candidate;
       break;
     }
@@ -849,6 +849,17 @@ function commandExists(cmd: string): boolean {
   return spawnSync("sh", ["-c", `command -v ${cmd} >/dev/null 2>&1`]).status === 0;
 }
 
+// `code` can exist on PATH yet be unusable: the devcontainer shim exits 127
+// ("code or code-insiders is not installed") when no VS Code remote-cli follows
+// it on PATH, as in shells not spawned by a VS Code terminal. Existence is not
+// launchability, so a VS Code CLI candidate must answer --version before it is
+// chosen; any other editor is judged by the existing checks alone.
+function vscodeCliLaunches(candidate: string): boolean {
+  const cmd = candidate.trim().split(/\s+/)[0] ?? "";
+  if (cmd !== "code" && cmd !== "code-insiders") return true;
+  return spawnSync(cmd, ["--version"], { stdio: "ignore", timeout: 10_000 }).status === 0;
+}
+
 
 
 // --- Wrap the suggested BODY at 72 columns (git-standard width) so the
@@ -963,6 +974,12 @@ const commitStderr = commit.stderr instanceof Buffer
 if (commitStderr !== "") process.stderr.write(commitStderr);
 rmSync(tmpDir, { recursive: true, force: true });
 if (commit.status !== 0) {
+  // git's own text for an editor that failed to launch or exited non-zero.
+  // Checked first: the hook's captured stderr can contain "hook" on a PASS,
+  // so the hook regex alone mislabels an editor failure as a hook rejection.
+  if (/problem with the editor/i.test(commitStderr)) {
+    die("the editor failed to launch or exited non-zero — no commit exists, index untouched");
+  }
   // Distinguish the two abort classes honestly: a HOOK rejection prints its
   // own diagnostics (reprinted above from the captured stderr) — naming it
   // prevents misreading a failed suite as an editor abort.
