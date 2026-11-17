@@ -1385,7 +1385,7 @@ issue-close reopen 123
 
 ### `issue-select`
 
-Interactive issue selection using fzf with preview.
+Interactive issue selection using a terminal picker (clack). It needs an interactive terminal; without one it exits 2.
 
 ```bash
 issue-select [OPTIONS]
@@ -1397,7 +1397,8 @@ issue-select [OPTIONS]
 - `--type TYPE`: Filter by type
 - `--milestone NAME`: Filter by milestone
 - `--label LABEL`: Filter by label
-- `--multi`: Enable multi-select (use TAB)
+- `--limit NUMBER` (`-n`): Maximum number of issues offered in the picker (default: 200). Must be a positive integer; anything else exits 2 before any provider call or terminal check. When the provider returns exactly that many issues, a one-line note on stderr says the list may be truncated and suggests raising `--limit`.
+- `--multi`: Enable multi-select (space toggles, Enter confirms)
 - `--format FORMAT`: Output format (number, url, json)
 
 **Examples:**
@@ -1786,7 +1787,7 @@ These are internal scripts (underscore prefix): they have no depth-1 `tools/` en
 
 - Skills fire them at lifecycle boundaries (grooming completion, plan approval, implementation kickoff, PR open, review completion)
 - Local PR tooling fires `_on_begin_review` when a PR is created via `pr-create` and `_on_merge` when a merge completes via `pr-merge`
-- Issues are linked via closing keywords in the PR body (`Closes #N`, `Fixes #N`, …), deduplicated, capped at 10 per PR
+- Issues are linked via closing keywords in the PR body (`Closes #N`, `Fixes #N`, `Resolves #N`, in any case and tense), deduplicated, capped at 10 per PR. A keyword counts at the start of the text or after whitespace, `(` or `[`; it may be followed by a colon; and it may name a list (`Fixes #1, #2 and #3`). References to other repositories (`org/repo#N`, issue URLs) are ignored
 - Everything is local: signals run under your own provider authentication (keychain). Web-UI merges fire nothing — status changes you make outside local tooling are your own
 
 **Guarantees:** best-effort (signals exit 0 and never block work), idempotent (re-signaling repairs drift), config-driven (Status values live in `tools/config/skill-events.yml` + `devenv.config [workflows]` — callers never name statuses or projects).
@@ -1992,7 +1993,7 @@ mongo-restore-server <connection-string> <backup-directory> [--yes --confirm-tar
 
 **Features:**
 
-- Automatically uses the latest backup if multiple exist
+- Restores the latest backup in the directory, chosen by the timestamp in each directory name. Two name forms count: the form `mongo-backup-server` writes (`YYYYMMDD_HHMMSS`) and the legacy `backup-YYYYMMDD`, optionally followed by a time (`backup-YYYYMMDD_HHMMSS`). Other directories are ignored. If none match, the tool refuses (exit 4) and lists the ignored directory names
 - Drops existing collections before restore, after the operator retypes the target (hosts and database) at a terminal; without a terminal, `--yes` must come with `--confirm-target` naming that exact target (`YES=1` is not consent)
 - Validates backup directory exists
 - Passes the connection string to `mongorestore` through a private config file, not the command line
@@ -3200,7 +3201,7 @@ The following convenience aliases are available in the dev container:
 - `issue-search` - Keyword search across titles and bodies
 - `issue-update` - Update issue fields
 - `issue-close` - Close or reopen issues
-- `issue-select` - Interactive issue selection with fzf
+- `issue-select` - Interactive issue selection with a terminal picker
 - `issue-triage` - Interactive backlog metadata wizard
 
 **Project Management:**
@@ -3400,6 +3401,23 @@ plan-parse <PLAN_FILE> --summary | --census | --anchors | --lint [--require-head
 - Only top-level items (no indentation) are counted by `plan-parse` and the
   progress lines; nested bullets are detail.
 - `--anchors` keeps the full extension (`.json`, `.csproj`, `.yaml`).
+
+### `roadmap-parse`
+
+Emits per-step JSON (`step`, `phase`, `title`, `status`, `issues`, `progress`, `dependencies`, `plan_file`) for a roadmap markdown file. `status` is passed through as written.
+
+```bash
+roadmap-parse ROADMAP_FILE [--plan-dir DIR] [--plan-file FILE]... [--org ORG] [--repo REPO]
+```
+
+**Notes:**
+
+- A roadmap with CRLF line endings is read exactly like its LF twin.
+- Issue references are `org/repo#N` (used as written), `repo#N` (gets the organisation) and bare `#N` (gets `--repo` and the organisation when `--repo` is given, otherwise it is reported as `UNRESOLVED:#N`).
+- The organisation comes from `--org`, then the configured organisation (`[organization] org` in `devenv.config`), then the first `org/repo#N` reference in the roadmap.
+- Only a `repo#N` reference or a `--repo` reference needs an organisation. If one exists and none resolves, the tool exits 2 and names `--org`; a roadmap that needs no organisation parses without one.
+
+---
 
 ### `spec-dependency-check`
 

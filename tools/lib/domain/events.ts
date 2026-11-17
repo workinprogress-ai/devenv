@@ -93,17 +93,25 @@ export function prEventFor(point: PrLifecyclePoint): string | null {
 }
 
 /**
- * Issue numbers linked in a PR body (closing keywords: closes/fixes/resolves
- * in their forms, optional colon). Deduplicated, capped at 10.
+ * Issue numbers linked in a PR body. A closing keyword (close/fix/resolve in
+ * their -s/-d forms, case-insensitive, optional colon) must start at the
+ * beginning of the text or after whitespace, `(` or `[`; it is followed by a
+ * list of same-repository references (`#1`, `#1, #2`, `#1 and #2`,
+ * `#1,#2 and #3`). The list ends at the first item that is not `#N`, so
+ * cross-repository references (`org/repo#2`, issue URLs) are never matched.
+ * Deduplicated in order of appearance and capped at 10, including inside a
+ * single list.
  */
 export function parseLinkedIssues(prBody: string): string[] {
   const matches = prBody.matchAll(
-    /(?:^|\s)(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)/gi,
+    /(?:^|[\s(\[])(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+(#\d+(?:(?:\s*,\s*|\s+and\s+)#\d+)*)/gi,
   );
   const seen = new Set<string>();
   for (const m of matches) {
-    if (m[1]) seen.add(m[1]!);
-    if (seen.size >= 10) break;
+    for (const n of m[1]!.matchAll(/\d+/g)) {
+      seen.add(n[0]);
+      if (seen.size >= 10) return [...seen];
+    }
   }
   return [...seen];
 }

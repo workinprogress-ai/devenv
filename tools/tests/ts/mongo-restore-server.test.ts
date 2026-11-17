@@ -131,6 +131,59 @@ describe("scripts/mongo-restore-server", () => {
     expect(readFileSync(RESTORE_LOG, "utf8")).toContain("backup-20260910");
   });
 
+  // Replace the default backup tree with exactly these directory names.
+  function useBackups(names: string[]): string {
+    const dir = join(TMP, "custom-backups");
+    for (const n of names) mkdirSync(join(dir, n, "db"), { recursive: true });
+    return dir;
+  }
+
+  function restoredDir(): string {
+    const line = readFileSync(RESTORE_LOG, "utf8").split("\n").find((l) => l.startsWith("mongorestore ")) ?? "";
+    return line.split(" ").pop() ?? "";
+  }
+
+  const YES = ["--yes", "--confirm-target", "localhost:27017"];
+
+  it("mongo-restore: ignores non-backup directories when picking the latest", () => {
+    const dir = useBackups(["20260101_010101", "backup-20260102", "zzz-notes", "tmp"]);
+    const r = runRestore(["mongodb://localhost:27017", dir, ...YES]);
+    expect(r.status).toBe(0);
+    expect(restoredDir()).toBe(join(dir, "backup-20260102"));
+  });
+
+  it("mongo-restore: compares mixed name formats by timestamp, not by name", () => {
+    const dir = useBackups(["20260105_120000", "backup-20260102"]);
+    expect(runRestore(["mongodb://localhost:27017", dir, ...YES]).status).toBe(0);
+    expect(restoredDir()).toBe(join(dir, "20260105_120000"));
+
+    writeFileSync(RESTORE_LOG, "");
+    mkdirSync(join(dir, "backup-20260106", "db"), { recursive: true });
+    expect(runRestore(["mongodb://localhost:27017", dir, ...YES]).status).toBe(0);
+    expect(restoredDir()).toBe(join(dir, "backup-20260106"));
+  });
+
+  it("mongo-restore: picks the later time among same-day backup-tool directories", () => {
+    const dir = useBackups(["20260105_080000", "20260105_235959", "20260105_120000"]);
+    expect(runRestore(["mongodb://localhost:27017", dir, ...YES]).status).toBe(0);
+    expect(restoredDir()).toBe(join(dir, "20260105_235959"));
+  });
+
+  it("mongo-restore: parses a legacy name with a time suffix", () => {
+    const dir = useBackups(["backup-20260105", "backup-20260105_130000", "backup-20260105-090000", "backup-20260104235959"]);
+    expect(runRestore(["mongodb://localhost:27017", dir, ...YES]).status).toBe(0);
+    expect(restoredDir()).toBe(join(dir, "backup-20260105_130000"));
+  });
+
+  it("mongo-restore: refuses when no directory is backup-named, listing the ignored ones", () => {
+    const dir = useBackups(["zzz-notes", "tmp", ".hidden"]);
+    const r = runRestore(["mongodb://localhost:27017", dir, ...YES]);
+    expect(r.status).toBe(4);
+    expect(r.out).toContain(`No backup-named directories found in ${dir}`);
+    expect(r.out).toContain(".hidden, tmp, zzz-notes");
+    expect(logEmpty()).toBe(true);
+  });
+
   it("mongo-restore: displays redacted credentials, restores with real ones", () => {
     const r = runRestore(["mongodb://user:secret@localhost:27017", join(TMP, "backups"), "--yes", "--confirm-target", "localhost:27017"]);
     expect(r.status).toBe(0);
