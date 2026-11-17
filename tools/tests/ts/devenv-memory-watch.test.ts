@@ -2,8 +2,8 @@
 // persistence across runs, culprit summary format, reset.
 import { toolScript } from "./harness/index.ts";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -17,9 +17,45 @@ beforeEach(() => {
   TMP = mkdtempSync(join(tmpdir(), `memwatch-${Date.now()}-${Math.random().toString(36).slice(2)}`));
 });
 
+const background: ChildProcess[] = [];
+
 afterEach(() => {
+  // Kill every background instance with its whole process group.
+  for (const child of background.splice(0)) {
+    try { if (child.pid !== undefined) process.kill(-child.pid, "SIGKILL"); } catch { /* already gone */ }
+  }
   rmSync(TMP, { recursive: true, force: true });
 });
+
+const sleepMs = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+async function waitFor(cond: () => boolean, what: string, timeoutMs = 20_000): Promise<void> {
+  const end = Date.now() + timeoutMs;
+  while (!cond()) {
+    if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
+    await sleepMs(50);
+  }
+}
+
+/** Starts a long-interval instance in its own process group and waits for its first sample. */
+async function startBackground(stateDir: string, extra: string[] = []): Promise<ChildProcess> {
+  const child = spawn("node", [SCRIPT_PATH, "--state-dir", stateDir, "--max-processes", "5", "--interval-minutes", "60", ...extra], {
+    detached: true,
+    stdio: "ignore",
+  });
+  background.push(child);
+  // The culprit summary is written after the process snapshot, so the loop is then idle in its timer.
+  await waitFor(() => existsSync(join(stateDir, "current-culprits.tsv")), "first report");
+  return child;
+}
+
+const exited = (child: ChildProcess): Promise<void> =>
+  new Promise((resolve) => (child.exitCode !== null || child.signalCode !== null ? resolve() : child.once("exit", () => resolve())));
+
+const aged = (file: string): void => {
+  const old = new Date(Date.now() - 120_000);
+  utimesSync(file, old, old);
+};
 
 function watch(args: string[]): { status: number; out: string } {
   const r = spawnSync("node", [SCRIPT_PATH, ...args], { encoding: "utf8" });
@@ -96,7 +132,9 @@ describe("scripts/devenv-memory-watch", () => {
     const state = join(TMP, "state");
     mkdirSync(state, { recursive: true });
     const sig = "zz-fixture-proc | zz-fixture-proc";
-    writeFileSync(join(state, "samples.tsv"), "S\t9\t1000\t1\tmax\nS\t10\t1060\t1\tmax\n");
+    // Recent timestamps keep both samples inside the retention window.
+    const t = Math.floor(Date.now() / 1000);
+    writeFileSync(join(state, "samples.tsv"), `S\t9\t${t - 120}\t1\tmax\nS\t10\t${t - 60}\t1\tmax\n`);
     writeFileSync(join(state, "processes.tsv"), `P\t9\t100\t${sig}\nP\t10\t500\t${sig}\n`);
     const r = watch(["--once", "--state-dir", state, "--max-processes", "1", "--top", "100000", "--interval-minutes", "1"]);
     expect(r.status, r.out).toBe(0);
@@ -108,6 +146,155 @@ describe("scripts/devenv-memory-watch", () => {
     // columns: rank label current delta peak samples first_sample last_sample ...
     expect(cols[2]).toBe("500 KB");
     expect(cols[7]).toBe("10");
+  });
+});
+
+describe("single-instance lock", () => {
+  const lockOf = (dir: string): string => join(dir, ".lock");
+
+  it("refuses a second instance while the first lives, even after the lock ages past 30 s", async () => {
+    const dir = join(TMP, "lock-live");
+    await startBackground(dir);
+    aged(lockOf(dir));
+    const r = watch([...ARGS, "--state-dir", dir]);
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain("Another memory watch is already running");
+    expect(existsSync(lockOf(dir))).toBe(true);
+  });
+
+  it("reclaims a lock naming a dead pid and removes it on exit", () => {
+    const dir = join(TMP, "lock-dead");
+    mkdirSync(dir, { recursive: true });
+    const dead = spawnSync("true");
+    // A reaped short-lived process: its pid is certainly not running now.
+    const pid = dead.pid;
+    expect(() => process.kill(pid, 0)).toThrow();
+    writeFileSync(lockOf(dir), String(pid));
+    const r = watch([...ARGS, "--state-dir", dir]);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain("Captured sample #1");
+    expect(existsSync(lockOf(dir))).toBe(false);
+  });
+
+  it("reclaims a lock with garbage content", () => {
+    const dir = join(TMP, "lock-garbage");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(lockOf(dir), "not-a-pid\n");
+    const r = watch([...ARGS, "--state-dir", dir]);
+    expect(r.status, r.out).toBe(0);
+    expect(existsSync(lockOf(dir))).toBe(false);
+  });
+
+  it("a refused instance started with --reset leaves the owner's lock and history intact", async () => {
+    const dir = join(TMP, "lock-reset");
+    await startBackground(dir);
+    const files = ["samples.tsv", "processes.tsv", ".lock"];
+    const before = files.map((f) => readFileSync(join(dir, f), "utf8"));
+    const r = watch([...ARGS, "--state-dir", dir, "--reset"]);
+    expect(r.status, r.out).toBe(2);
+    expect(files.map((f) => readFileSync(join(dir, f), "utf8"))).toEqual(before);
+  });
+
+  it("SIGTERM releases the lock, exits promptly and leaves no child process", async () => {
+    const dir = join(TMP, "lock-sigterm");
+    const child = await startBackground(dir);
+    const kids = spawnSync("pgrep", ["-P", String(child.pid)], { encoding: "utf8" }).stdout.trim();
+    expect(kids).toBe("");
+    process.kill(child.pid as number, "SIGTERM");
+    await exited(child);
+    expect(child.exitCode).toBe(143);
+    expect(existsSync(lockOf(dir))).toBe(false);
+  });
+
+  it("an instance never removes a lock that names another live process", async () => {
+    const dir = join(TMP, "lock-foreign");
+    const child = await startBackground(dir);
+    writeFileSync(lockOf(dir), String(process.pid));
+    process.kill(child.pid as number, "SIGTERM");
+    await exited(child);
+    expect(readFileSync(lockOf(dir), "utf8")).toBe(String(process.pid));
+  });
+});
+
+describe("retention", () => {
+  const DAY = 86400;
+  const nowS = (): number => Math.floor(Date.now() / 1000);
+  const sigOf = (n: number): string => `zz-ret-${n} | zz-ret-${n}`;
+
+  /** Seeds samples (id, age in days) each with one process row; returns the state dir. */
+  function seed(name: string, ages: Array<[string, number | string]>): string {
+    const dir = join(TMP, name);
+    mkdirSync(dir, { recursive: true });
+    const s = ages.map(([id, age]) => `S\t${id}\t${typeof age === "number" ? nowS() - age * DAY : age}\t1\tmax`);
+    const p = ages.map(([id]) => `P\t${id}\t100\t${sigOf(Number(id))}`);
+    writeFileSync(join(dir, "samples.tsv"), `${s.join("\n")}\n`);
+    writeFileSync(join(dir, "processes.tsv"), `${p.join("\n")}\n`);
+    return dir;
+  }
+  const ids = (dir: string, file: string, kind: string): string[] =>
+    readFileSync(join(dir, file), "utf8").split("\n").filter((l) => l.startsWith(`${kind}\t`)).map((l) => l.split("\t")[1] as string);
+  const run = (dir: string, extra: string[]) => watch(["--once", "--state-dir", dir, "--max-processes", "1", "--top", "100", ...extra]);
+  const AGES: Array<[string, number]> = [["1", 10], ["2", 8], ["3", 6], ["4", 1]];
+
+  it("trims both files to the window, keeps ids monotonic and leaves no temp file", () => {
+    const dir = seed("ret-a", AGES);
+    const r = run(dir, ["--retain-days", "7"]);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain("Captured sample #5");
+    expect(ids(dir, "samples.tsv", "S")).toEqual(["3", "4", "5"]);
+    expect(ids(dir, "processes.tsv", "P").filter((i) => Number(i) <= 4)).toEqual(["3", "4"]);
+    expect(readdirSync(dir).filter((f) => f.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("defaults to 7 days", () => {
+    const dir = seed("ret-b", AGES);
+    expect(run(dir, []).status).toBe(0);
+    expect(ids(dir, "samples.tsv", "S")).toEqual(["3", "4", "5"]);
+  });
+
+  it("--retain-days 30 keeps older samples", () => {
+    const dir = seed("ret-c", AGES);
+    expect(run(dir, ["--retain-days", "30"]).status).toBe(0);
+    expect(ids(dir, "samples.tsv", "S")).toEqual(["1", "2", "3", "4", "5"]);
+  });
+
+  it.each(["0", "-1", "abc", "1.5", ""])("rejects --retain-days '%s' and writes nothing", (bad) => {
+    const dir = seed("ret-d", AGES);
+    const before = [readFileSync(join(dir, "samples.tsv"), "utf8"), readFileSync(join(dir, "processes.tsv"), "utf8")];
+    const r = run(dir, ["--retain-days", bad]);
+    expect(r.status, r.out).toBe(2);
+    expect(readdirSync(dir).sort()).toEqual(["processes.tsv", "samples.tsv"]);
+    expect([readFileSync(join(dir, "samples.tsv"), "utf8"), readFileSync(join(dir, "processes.tsv"), "utf8")]).toEqual(before);
+  });
+
+  it("computes the report from the retained window only", () => {
+    const dir = seed("ret-e", AGES);
+    expect(run(dir, []).status).toBe(0);
+    const culprits = readFileSync(join(dir, "current-culprits.tsv"), "utf8");
+    expect(culprits).not.toContain(sigOf(1));
+    expect(culprits).not.toContain(sigOf(2));
+    expect(culprits).toContain(sigOf(4));
+  });
+
+  it("keeps the newest sample even when it is older than the window", () => {
+    const dir = seed("ret-keep-newest", [["1", 20], ["2", 15]]);
+    // The new capture becomes the newest; the old ones fall out of the window.
+    expect(run(dir, []).status).toBe(0);
+    expect(ids(dir, "samples.tsv", "S")).toEqual(["3"]);
+  });
+
+  it("keeps rows with an unparsable timestamp", () => {
+    const dir = seed("ret-f", [["1", "not-a-time"], ["2", 10], ["3", 1]]);
+    expect(run(dir, []).status).toBe(0);
+    expect(ids(dir, "samples.tsv", "S")).toEqual(["1", "3", "4"]);
+  });
+
+  it("drops process rows whose sample id has no sample row", () => {
+    const dir = seed("ret-g", [["1", 1]]);
+    writeFileSync(join(dir, "processes.tsv"), `P\t1\t100\t${sigOf(1)}\nP\t99\t100\t${sigOf(99)}\n`);
+    expect(run(dir, []).status).toBe(0);
+    expect(ids(dir, "processes.tsv", "P")).not.toContain("99");
+    expect(readFileSync(join(dir, "current-culprits.tsv"), "utf8")).not.toContain(sigOf(99));
   });
 });
 

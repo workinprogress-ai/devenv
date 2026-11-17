@@ -103,6 +103,7 @@ devenv-memory-watch [OPTIONS]
 - `--top N`: Show the top `N` culprits in the report. Default: `10`
 - `--state-dir PATH`: Persist samples in `PATH`. Default: `<repo>/.debug/devenv-memory-watch`
 - `--max-processes N`: Cap the number of processes captured per sample. Default: `250`
+- `--retain-days N`: Keep only samples from the last `N` days in both history files (a positive integer). Default: `7`
 - `--reset`: Clear previous history before starting
 - `--once`: Capture one sample, print the report, and exit
 
@@ -112,6 +113,8 @@ devenv-memory-watch [OPTIONS]
 - It is intended for long-running OOM investigations where you want to compare usage over hours, not minutes.
 - The report prints a short console summary and writes a `current-culprits.tsv` file with the current ranking, memory growth, and timestamps.
 - Console output stays brief by default; the persisted TSV files still retain the full process signatures.
+- Only one instance runs per state directory. The lock records the owner's pid and is refreshed every loop, so a second instance refuses (exit 2) while the first is alive, whatever the lock's age, and a dead instance's lock is reclaimed. SIGINT and SIGTERM release the lock, and a refused instance never touches the owner's lock or history (not even with `--reset`).
+- Retention: after each capture the sample and process files are trimmed together to the retention window (7 days by default). The newest sample is always kept, sample numbers are never reused, and the report covers the retained window only.
 
 ## Repository Management
 
