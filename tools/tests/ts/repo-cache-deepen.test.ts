@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_repo_cache_deepen.bats (12 tests).
 // repo-cache-deepen: history deepening over a shallow single-branch clone,
 // branch fetches as remote refs, no checkout, idempotency, failure paths.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_outdated_comments.bats (11 tests) — one vitest `it` per source `@test`.
+// Tests that bootstrap.sh carries no outdated or temporary comments.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";

@@ -1,6 +1,6 @@
 // hunk-select.test.ts — unit tests for the pure hunk-selection primitives.
-// The diff fixtures are real `git diff` output shapes (captured from the
-// Phase 1 spike), not hand-composed.
+// The diff fixtures are real `git diff` output shapes (captured from a
+// real repository), not hand-composed.
 import { describe, expect, it } from "vitest";
 import {
   buildSelectionPatch,

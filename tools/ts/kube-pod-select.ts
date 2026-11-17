@@ -1,5 +1,5 @@
 // kube-pod-select — interactive Kubernetes pod selection.
-// Port of kube-pod-select.sh: resolve the namespace, list matching pods,
+// Resolve the namespace, list matching pods,
 // then smart-select — auto-select the single match, menu when several
 // (clack select on a TTY; first-line pick when KUBE_NO_INTERACTIVE=1 as the
 // test contract requires; otherwise errors naming the candidates).

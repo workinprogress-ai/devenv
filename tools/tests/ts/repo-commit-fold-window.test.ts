@@ -1,5 +1,4 @@
-// Tests for repo-commit --fold-window: the read-only foldable-commit report
-// (15.45). Fixture: the shared repo-commit harness with a local bare remote,
+// Tests for repo-commit --fold-window: the read-only foldable-commit report. Fixture: the shared repo-commit harness with a local bare remote,
 // so pushed-but-unlanded vs landed states are both constructible. Boundary
 // agreement (a listed commit is one --fix accepts) is exercised against the
 // same helper via the fix lane.

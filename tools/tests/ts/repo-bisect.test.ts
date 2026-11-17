@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_repo_bisect.bats (7 tests).
 // repo-bisect: first-bad identification on any branch, dirty-tree refusal,
 // unsandboxed notice, scratchpad composition.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";

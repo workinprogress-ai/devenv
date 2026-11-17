@@ -230,7 +230,7 @@ describe("domain/cs dependency-graph", () => {
 
 });
 // ---------------------------------------------------------------------------
-// 15.103: refreshRepoCache lists via `gh repo list` (the `repos list`
+// refreshRepoCache lists via `gh repo list` (the `repos list`
 // subcommand does not exist in gh and killed every cache refresh).
 // ---------------------------------------------------------------------------
 

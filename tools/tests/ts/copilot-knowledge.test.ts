@@ -1,5 +1,4 @@
-// Port of tools/tests/lib/test_copilot_knowledge.bats (2 tests) — one vitest
-// `it` per source `@test`. The background fast-forward sync must authenticate
+// The background fast-forward sync must authenticate
 // the way the active provider expects (header shape: GitHub vs Azure).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";

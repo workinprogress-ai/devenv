@@ -1,5 +1,5 @@
 // repo-cache-update — refresh the C# repository cache and dependency index.
-// Port of repo-cache-update.sh over lib/domain/cs/dependency-graph.ts.
+// Built over lib/domain/cs/dependency-graph.ts.
 // Prints the cache directory path on stdout.
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";

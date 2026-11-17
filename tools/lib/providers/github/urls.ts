@@ -1,7 +1,6 @@
 // urls.ts — provider URL seam for GitHub: web-URL construction, URL
-// extraction from provider output, and remote-URL normalization (port of
-// providers/github/urls.bash). The host literal lives here — the single
-// point of definition; every derivation follows it.
+// extraction from provider output, and remote-URL normalization. The host literal lives here — the single point of
+// definition; every derivation follows it.
 
 import { execFileSync } from "node:child_process";
 

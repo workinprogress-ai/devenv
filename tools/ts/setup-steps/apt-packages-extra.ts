@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // apt-packages-extra.ts — install step: the packages that come from the
-// specialized repositories added by apt-repos (terraform, kubectl). Ported
-// from the bash bootstrap's install_os_packages_round2.
+// specialized repositories added by apt-repos (terraform, kubectl)..
 //
 // Idempotent: apt install on installed packages is a no-op.
 

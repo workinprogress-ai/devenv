@@ -1,4 +1,4 @@
-// lint-scripts scope tests (port of test_lint_scripts_scope.bats): which
+// lint-scripts scope tests: which
 // files get shellchecked — top-level infra scripts under repos/ are included;
 // repository clones beneath it (other people's code) are not; scratch and
 // vendored trees are excluded; extensionless shebang scripts are included.

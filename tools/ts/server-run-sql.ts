@@ -1,5 +1,5 @@
 // server-run-sql — run (or start) a local SQL Server container.
-// Port of server-run-sql.sh: start the existing sqlserver container when
+// Start the existing sqlserver container when
 // present, otherwise run a new azure-sql-edge container, wait, and create
 // the test database. Prints the sqlcmd connect line.
 
@@ -87,8 +87,7 @@ const secretEnv = { ...process.env, MSSQL_SA_PASSWORD: password, SQLCMDPASSWORD:
 const mkdir = spawnSync("sudo", ["mkdir", "-p", dataDir], { stdio: "inherit" });
 if (mkdir.status !== 0) process.exit(mkdir.status ?? 1);
 
-// Stop-and-remove was commented out in the bash original: an existing
-// container is started, not recreated.
+// An existing container is started, never stopped and recreated.
 const ps = spawnSync("docker", ["ps", "-a", "--format", "{{.Names}}"], { encoding: "utf8" });
 // A failed lookup says nothing about the container, so it is never read as
 // "no container": nothing is created or removed on a guess.

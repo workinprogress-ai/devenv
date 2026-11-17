@@ -1,4 +1,4 @@
-// fork.ts — fork-domain basics (port of fork.bash): config load, git-URL
+// fork.ts — fork-domain basics: config load, git-URL
 // normalization (Azure spellings reduced), upstream-match, selection slugs.
 
 import { existsSync, readFileSync } from "node:fs";

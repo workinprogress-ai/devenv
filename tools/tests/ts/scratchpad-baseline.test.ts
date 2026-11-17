@@ -1,7 +1,5 @@
-// Port of tools/tests/scripts/test_scratchpad_baseline.bats (5 tests).
-// Baseline behavior locks for tools that scratchpad mode will later
-// restrict: their pre-scratchpad observable behavior is locked here so the
-// Phase 3 refusal wiring is a provable delta.
+// Baseline behavior locks for tools that scratchpad mode restricts: their
+// pre-scratchpad observable behavior is locked here.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, appendFileSync } from "node:fs";

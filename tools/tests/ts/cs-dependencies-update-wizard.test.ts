@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_cs_dependencies_update_wizard.bats (19 tests).
 // cs-dependencies-update-wizard: --global mode and argument validation over a
 // hand-built dependency-index cache.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";

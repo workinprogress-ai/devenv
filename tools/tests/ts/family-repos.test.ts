@@ -1,9 +1,7 @@
 // Tests for the repo/git family's TS facades: repos.ts verbs (view/create/
 // commits-count/list + settings mutations), org.ts ruleset verbs, and the
 // reposView/list seam field mapping — over a stubbed gh with a call log.
-// The bash-side contracts (test_provider_repos.bats) keep covering the live
-// bash modules their downstream consumers still source; this file pins the
-// TS surface the migrated tools call.
+// Pins the TS surface the migrated tools call.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, mkdirSync } from "node:fs";

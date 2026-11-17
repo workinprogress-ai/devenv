@@ -1,13 +1,7 @@
-// Port of tools/tests/scripts/test_config_read.bats (10) +
-// test_bootstrap_auth_schemes.bats (13) — 23 tests.
-//
-// Subjects: config-read (INI reader contract incl. provider-variable
-// expansion) and bootstrap auth (provider git headers + npmrc setup). The
-// bats assertions are the oracle. The cli-stubs.bash smoke pins and the
-// azure-setup board-convergence pins retired with their subjects (the
-// bash stub fixture library and the azure smoke cluster — Phase 10/11
-// retirements); stub semantics live in harness/stubs.ts (stubCli), whose
-// call-log convention every harness-based suite exercises.
+// Tests for config-read (INI reader contract incl. provider-variable
+// expansion) and bootstrap auth (provider git headers + npmrc setup).
+// Stub semantics live in harness/stubs.ts (stubCli), whose call-log
+// convention every harness-based suite exercises.
 // Fixture hygiene per tools/tests/README.md: scratch under tmpPath().
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
@@ -72,7 +66,7 @@ function runBashC(script: string, env: Record<string, string | undefined> = {}):
 
 // ── config-read ─────────────────────────────────────────────────────────────
 
-describe("config-read (bats port)", () => {
+describe("config-read", () => {
   let CONF = "";
   let IDENT = "";
 
@@ -151,7 +145,7 @@ describe("config-read (bats port)", () => {
 
 // ── bootstrap auth (provider git headers + npmrc setup) ─────────────────────
 
-describe("bootstrap auth (bats port)", () => {
+describe("bootstrap auth", () => {
   let HOME = "";
 
   let fixtureToolbox = "";

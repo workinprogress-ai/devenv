@@ -1,7 +1,6 @@
-// fork-export PTY tests (port of the clack-driven tests from
-// test_fork_export.bats) — PROOF OF THE PTY HELPER. One representative test
-// first: interactive picker cancellation leaves the target untouched. The
-// remaining fork-export clack tests port onto this pattern once timing is
+// fork-export PTY tests (the clack-driven picker): a proof of the PTY helper.
+// One representative test first: interactive picker cancellation leaves the
+// target untouched. Further clack tests follow this pattern once timing is
 // calibrated under vitest's parallel workers.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
@@ -25,7 +24,7 @@ function git(target: string, ...args: string[]): string {
   return r.stdout;
 }
 
-/** The fork fixture trio (port of the retired bats helper's create_fork_fixture_trio):
+/** The fork fixture trio :
  * upstream bare, a working clone of an ado-origin bare, and a gh clone of
  * upstream — the fork-export shape. */
 function makeForkTrio(): void {

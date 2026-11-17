@@ -1,5 +1,4 @@
-// Port of tools/tests/scripts/test_provider_routing_lock.bats (5 tests).
-// Provider routing lock (slice 3/#36 follow-up): wrapper scripts and
+// Provider routing lock: wrapper scripts and
 // non-provider libs never invoke the `gh` CLI directly — all GitHub transport
 // goes through provider verbs (or the provider_api escape hatch); scripts and
 // non-provider libs never read the branded identity env vars directly.
@@ -16,7 +15,7 @@ const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOOLS = join(ROOT, "tools");
 
 // Sanctioned direct-gh sites: file substring -> regex of allowed gh usages.
-// The bash verb twins retired with the verb layer (Phase 10); no transport
+// The bash verb twins retired with the verb layer; no transport
 // exception remains necessary outside the provider modules.
 const ALLOWED_EXCEPTIONS: Array<[string, string]> = [];
 
@@ -50,8 +49,7 @@ const RESIDUE_PATTERNS = [
 ];
 
 // Sanctioned non-provider sites: directory-anchored path key -> regex of
-// allowed reads (see the bats source for the rationale per entry). The
-// test_helper.bash entry retired with the helper (Phase 11).
+// allowed reads (one entry per sanctioned read).
 const RESIDUE_ALLOWED: Array<[string, string]> = [
   ["lib/config-reader.bash", "GH_(ORG|USER):\\-\\}"],
 ];

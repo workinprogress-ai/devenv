@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_identity_docs.bats (5 tests) — one vitest `it` per source `@test`.
+// Tests that the docs and identity accessor list no retired organisation-config legs (github_org, GH_ORG).
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -18,9 +18,7 @@ function sh(script: string): { status: number; out: string } {
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-// Port of tools/tests/devenv/test_identity_docs.bats — one vitest `it` per source `@test`.
-
-// ── identity docs (port of test_identity_docs.bats, 5 tests) ─────────────
+// ── identity docs ─────────────
 
 describe("identity docs", () => {
   it("no doc claims the github_org config key still resolves", () => {

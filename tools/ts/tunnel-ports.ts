@@ -1,5 +1,5 @@
 // tunnel-ports — open SSH local port-forwards and hold until a keypress.
-// Port of tunnel-ports.sh: spawns detached ssh -NTC -L tunnels, reports PIDs,
+// Spawns detached ssh -NTC -L tunnels, reports PIDs,
 // waits for one keypress, then closes them all.
 
 import { spawn, spawnSync } from "node:child_process";

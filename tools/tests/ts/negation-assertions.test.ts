@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_negation_assertions.bats (3 tests) — one vitest `it` per source `@test`.
+// Tests for the negation-assertions gate on the live *.bats lane: a negated command must be the last statement of a test.
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -9,9 +9,7 @@ import { join } from "node:path";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))); // file → ts → tests → tools → devenv root
 
-// Port of tools/tests/devenv/test_negation_assertions.bats — one vitest `it` per source `@test`.
-
-// ── negation-assertions (port of test_negation_assertions.bats, 3 tests) ─
+// ── negation-assertions ─
 
 // negationOffenders: "file:line: text" for each statement-start `! cmd`
 // whose next significant line is neither the closing brace of the test nor

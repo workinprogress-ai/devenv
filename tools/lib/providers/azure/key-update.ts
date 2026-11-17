@@ -1,11 +1,11 @@
 // providers/azure/key-update.ts — the Azure DevOps credential rotation
-// entry point (TS port of key-update.sh). The generated shell function
+// entry point. The generated shell function
 // (_key_update_run) invokes this file; the env-vars.sh reload hook stays
 // shell-side in the generated function.
 //
 // Credential lifecycle: the 0600 PAT file in the devenv config area is the
 // single durable copy (import = write + mode-verify), plus the git
-// credential-helper wiring the bash impl performs. After rotation the
+// credential-helper wiring. After rotation the
 // package-feed wiring hooks re-run (a rotated PAT invalidates ~/.npmrc and
 // the nuget source credentials); failures report but do not undo the
 // rotation.

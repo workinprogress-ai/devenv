@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // claude-integration.ts — provision step: link Copilot instructions and the
 // skills entries into ~/.claude so Claude Code reads the same instructions.
-// Port of provision.bash install_claude_code_integration.
+//
 //
 // Contract: never replace Claude's personal skills directory (a real
 // ~/.claude/skills dir is preserved with a warning + failure, matching the

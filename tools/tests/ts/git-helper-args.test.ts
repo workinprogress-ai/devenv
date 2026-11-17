@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_git_helper_args.bats (5 tests).
 // Argument handling of the small git helpers: --help prints usage and changes
 // nothing, an unknown argument is refused, and git-repo hands its arguments to
 // the repo-get source that sits next to it.

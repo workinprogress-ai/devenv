@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_pr_threads_get_pagination.bats (4 tests).
 // Pagination behavior of pr-threads-get: the manual GraphQL pagination loop
 // through a paginated gh fixture — multi-page traversal merges both pages'
 // threads; a single page short-circuits with exactly one gh call; a gh failure

@@ -1,6 +1,6 @@
 // provider-core.ts — TS provider facade core: detection, repo targeting,
-// capability gates, and the error contract (port of provider-core.bash's
-// seams; the bash original remains until the bash retirement sweep).
+// capability gates, and the error contract (the bash
+// bootstrap keeps its own provider-core.bash).
 //
 // Contract (tools/lib/providers/CONTRACT.md):
 //   - Detection is config-driven: the `[provider] name` key in devenv.config,
@@ -165,12 +165,12 @@ export function requireGithubProvider(action: string): void {
   }
 }
 
-/** Fail loud on an unresolvable repo target (15.8): a wrapper whose provider
+/** Fail loud on an unresolvable repo target a wrapper whose provider
  * verb consumes a repo spec calls this right after providerRepoTarget. Empty
  * resolved target -> named error naming the tool, the failed resolution, and
- * the remediation — the 14.10 named-error-with-remediation pattern. When the
+ * the remediation — a named error with a remediation. When the
  * active provider's explain data says the family needs no repo target at all
- * (project-scoped providers, per 15.5's qualifier), the guard passes empty
+ * (project-scoped providers), the guard passes empty
  * targets through: those families resolve org+project from config instead. */
 export function requireRepoTarget(
   spec: string,

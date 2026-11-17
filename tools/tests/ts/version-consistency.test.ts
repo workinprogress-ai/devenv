@@ -1,5 +1,4 @@
-// Port of tools/tests/devenv/test_version_consistency.bats (7 tests) — one
-// vitest `it` per source `@test`: doc-claims guards and version pins.
+// Tests for doc-claims guards and version pins.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -14,9 +13,7 @@ function sh(script: string): { status: number; out: string } {
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-// Port of tools/tests/devenv/test_version_consistency.bats — one vitest `it` per source `@test`.
-
-// ── version consistency (port of test_version_consistency.bats, 7 tests) ─
+// ── version consistency ─
 
 describe("version consistency", () => {
   it("every script's '# Version:' header agrees with its SCRIPT_VERSION", () => {
@@ -88,7 +85,7 @@ describe("version consistency", () => {
   });
 
   it("repo-deps reports a failed pnpm install and does not abort the chain", () => {
-    // Port of the bats behavioral test, now against the TS step module:
+    // Against the TS step module:
     // a failing pnpm is WARNed and the step exits 0 (the ACTION REQUIRED
     // line carries the failure; the chain continues).
     const stubDir = mkdtempSync(join(tmpdir(), "pnpm-stub-fail-"));

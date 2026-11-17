@@ -1,5 +1,4 @@
-// Port of tools/tests/lib/test_config_reader.bats (49 tests) — one vitest
-// `it` per source `@test`. Tests for config-reader.bash: INI reading, template
+// Tests for config-reader.bash: INI reading, template
 // expansion locks, literal (non-regex) section/key matching, the one-reader
 // variant agreement matrix, and the global-CONFIG_FILE isolation contracts.
 import { beforeEach, describe, expect, it, vi } from "vitest";

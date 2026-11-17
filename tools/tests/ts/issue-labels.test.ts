@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_issue_labels.bats (12 tests).
 // issue-label-list, issue-label-create, and issue-update --type.
 import { describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";

@@ -1,4 +1,4 @@
-// prs.ts — GitHub PR verbs over gh (port of providers/github/prs.bash).
+// prs.ts — GitHub PR verbs over gh.
 //
 // Contract (tools/lib/providers/CONTRACT.md, prs verbs): the repo spec is
 // the first positional (empty = the resolved target); verbs throw

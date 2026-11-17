@@ -1,5 +1,4 @@
-// Port of tools/tests/scripts/test_fork_sync_links.bats (4 tests) — one
-// vitest `it` per source `@test`: fork-sync --link / --propose-links
+// Tests for fork-sync --link / --propose-links
 // adoption-map wiring.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
@@ -43,7 +42,7 @@ function setupLinksFixture(): void {
   writeFileSync(join(DEVENV_ROOT, "devenv.config"), `[fork]\nupstream_repo=${fx().upstream}\nupstream_branch=master\n`);
 }
 
-/** The links lane's env legs (the bats setup exported these): the twin
+/** The links lane's env legs : the twin
  * repos for propose-links scanning and the upstream clone pointer. */
 function linksEnv(): Record<string, string> {
   return {

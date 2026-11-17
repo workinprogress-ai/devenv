@@ -1,16 +1,16 @@
 #!/bin/bash
 # bootstrap.bash - the thin pre-node stage of the devenv bootstrap.
 #
-# 17.3 (bash-native phase): everything after node exists lives in the
+# Everything after node exists lives in the
 # TypeScript setup orchestrator (tools/ts/setup.ts) — one convergence path
 # for first-run provisioning AND the post-node install stage. This file keeps
 # ONLY what must precede node:
 #   - paths + minimal config read (provider seam, identity)
 #   - seed-file checks and the provider token gate
-#   - node resolution from the image's pinned install (17.0: the node:1
-#     feature; nvm-dir onto PATH — no runtime nvm install)
+#   - node resolution from the image's pinned install (the node feature;
+#     nvm-dir onto PATH — no runtime nvm install)
 #   - verified-download helper + yq (a pre-node GitHub-release binary; its
-#     consumers are the bash-era repo-types lib and the ops tool that uses it)
+#     consumers are the repo-types lib and the ops tool that uses it)
 #   - the bootstrap run-time markers container-start.sh reconciles on
 #   - the handoff: exec the setup orchestrator with --all
 #
@@ -18,10 +18,10 @@
 # run_bootstrap_tasks [tasks...] — or the setup orchestrator directly:
 #   node tools/ts/setup.ts --all
 #
-# Retired with 17.2/17.3: install_os_packages_*, add_specialized_repositories,
-# install_dotnet, configure_dotnet_tools, install_node_packages,
-# install_repo_dependencies, install_or_configure_nvm (superseded by the
-# image's pinned node feature), and the whole provision.bash bridge.
+# The OS package, apt repository, dotnet, node-global and repo-dependency
+# installs are TypeScript setup steps (tools/ts/setup-steps/); node itself
+# comes from the image's pinned node feature, so there is no runtime nvm
+# install.
 
 # Guard against multiple sourcing
 if [ -n "${_BOOTSTRAP_LOADED:-}" ]; then return 0; fi

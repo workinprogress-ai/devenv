@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // npmrc.ts — provision step: keep ~/.npmrc owner-only and let the provider
-// authenticate its registry. Port of provision.bash configure_user_npmrc
-// (+ providers/github/bootstrap.bash provider_bootstrap_configure_npmrc).
+// authenticate its registry.
 //
 // Contract: chmod 600 when the file exists; drop the stale status line the
 // old tooling could write as if it were a setting; then the registry token

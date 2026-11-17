@@ -1,5 +1,5 @@
 // kube-set-context — switch Kubernetes context with smart selection.
-// Port of kube-set-context.sh: list contexts, filter by a case-insensitive
+// List contexts, filter by a case-insensitive
 // substring, auto-select the single match, menu when several (clack on a
 // TTY; first-line pick when KUBE_NO_INTERACTIVE=1, the test contract).
 

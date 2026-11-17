@@ -1,9 +1,8 @@
-// Port of tools/tests/scripts/test_project_triage_consumers.bats (2 tests).
 // Consumers that build or consume a repo spec and run under `set -u`:
 // issue-triage (the milestone list targets the resolved repo, and the
 // interactive menus read the terminal, not the issue list that is being
 // iterated). The project-add-issue half of the source suite is covered by
-// the TS port's own guard (see issue-triage.ts).
+// the tool's own guard (see issue-triage.ts).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";

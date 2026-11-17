@@ -1,5 +1,5 @@
 // fork-setup — one-time setup of this repo's upstream relationship.
-// Port of fork-setup.sh: idempotently adds a fetch-only `upstream` remote and
+// Idempotently adds a fetch-only `upstream` remote and
 // confirms the [fork] config values. --dry-run reports without changing.
 
 import { spawnSync } from "node:child_process";

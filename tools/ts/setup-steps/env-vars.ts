@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // env-vars.ts — provision step: generate .runtime/env-vars.sh from the .setup
-// configuration. Port of provision.bash generate_env_vars_file.
+// configuration.
 //
 // The file is sourced by every shell (via devenvrc) and accumulates identity
 // and tool settings; the bash heredoc is reproduced verbatim below with the

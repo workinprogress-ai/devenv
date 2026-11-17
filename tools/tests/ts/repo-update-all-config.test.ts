@@ -1,5 +1,4 @@
-// Port of tools/tests/scripts/test_repo_update_all.bats (7 tests)
-// and test_repo_update_config.bats (6 tests), kept as separate describes.
+// Tests for repo-update-all and repo-update-config, kept as separate describes.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";

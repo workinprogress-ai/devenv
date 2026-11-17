@@ -1,5 +1,5 @@
 // kube-pod-console — open an interactive shell on a pod.
-// Port of kube-pod-console.sh: resolve the namespace, single matching pod,
+// Resolve the namespace, single matching pod,
 // default to /bin/bash when no command is given, then kubectl exec -it.
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";

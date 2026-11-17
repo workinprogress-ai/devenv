@@ -1,4 +1,4 @@
-// self-root.ts — devenv self-location resolver (port of self-root.bash).
+// self-root.ts — devenv self-location resolver.
 //
 // Contract: self-location wins unless the exported value realpath-resolves to
 // the same root. A tool derives its own checkout from its module path; an

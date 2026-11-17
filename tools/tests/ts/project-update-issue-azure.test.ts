@@ -1,4 +1,4 @@
-// 15.14: the projects-family provider dispatch in project-update-issue —
+// The projects-family provider dispatch in project-update-issue —
 // under [provider] name=azure the tool's ops route to the azure verbs
 // (end-to-end through a stubbed fetch): the fan-out's tab-separated row
 // parses with column 2 = the work-item id, and the Status write lands as

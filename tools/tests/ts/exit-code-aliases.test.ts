@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_exit_code_aliases.bats (5 tests).
 // Each exit-code value has one name. The former aliases are gone: nothing
 // defines or uses them.
 import { beforeEach, describe, expect, it, vi } from "vitest";

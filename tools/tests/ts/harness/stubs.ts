@@ -1,6 +1,4 @@
-// harness/stubs.ts — PATH-stub factories (the 25 per-suite installGhStub
-// copies unified; cli-stubs.bash semantics absorbed per the
-// bats-retirement phase).
+// harness/stubs.ts — PATH-stub factories (one shared set of factories).
 //
 // Every stub is mode-driven shell the suite writes; the factory owns only
 // the boilerplate: write an executable to the stub dir, hand back the

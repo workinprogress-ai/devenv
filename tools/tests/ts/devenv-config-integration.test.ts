@@ -1,4 +1,4 @@
-// Port of test_devenv_config_integration.bats (24 tests): devenv.config
+// Tests for devenv.config
 // integration with setup and bootstrap scripts. Bash-function behavior goes
 // through the real config-reader.bash in a sourced subshell; the rest are
 // structural greps against the tree.
@@ -165,8 +165,7 @@ describe("setup + test-helper email wiring", () => {
     expect(grepFile("email_domain", join(ROOT, "setup"))).toBe(0);
   });
 
-  // The test_helper.bash pins retired with the helper (Phase 11: the bats
-  // corpus and its helper deleted; the vitest harness owns fixture hygiene).
+  // The vitest harness owns fixture hygiene.
 });
 
 describe("test fixture parity", () => {

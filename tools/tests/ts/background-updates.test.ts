@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_background_updates.bats (13 tests) — one vitest `it` per source `@test`.
+// Tests for the background update checker (.devcontainer/background-check-devenv-updates.sh): existence, syntax and structure.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -17,9 +17,7 @@ function grepBash(args: string[]): number {
   return spawnSync("grep", args, { encoding: "utf8" }).status ?? 1;
 }
 
-// Port of tools/tests/devenv/test_background_updates.bats — one vitest `it` per source `@test`.
-
-// ── background updates (port of test_background_updates.bats) ────────────
+// ── background updates ────────────
 
 describe("background updates", () => {
   it("background-check-devenv-updates.sh exists", () => {

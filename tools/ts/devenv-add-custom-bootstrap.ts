@@ -1,5 +1,5 @@
 // devenv-add-custom-bootstrap — add custom bootstrap commands to
-// .devcontainer/user-custom-bootstrap.sh. Port of devenv-add-custom-bootstrap.sh.
+// .devcontainer/user-custom-bootstrap.sh.
 // Commands run each time the container is recreated or bootstrap executes.
 // Each command is syntax-checked (bash -n) before it is appended.
 

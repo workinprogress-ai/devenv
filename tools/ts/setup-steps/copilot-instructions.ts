@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // copilot-instructions.ts — provision step: install Copilot instructions and
-// the skills folder into ~/.copilot. Port of provision.bash
-// install_copilot_instructions (with link_replacing_symlink_only semantics).
+// the skills folder into ~/.copilot. Links use
+// replace-only-symlinks semantics.
 //
 // Link contract (link_replacing_symlink_only): replace ONLY symlinks — an
 // existing real file/directory is never clobbered (warned and left); a

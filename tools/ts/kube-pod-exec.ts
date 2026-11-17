@@ -1,5 +1,5 @@
 // kube-pod-exec — run a command in a Kubernetes pod.
-// Port of kube-pod-exec.sh: resolve the pod fragment via the listing seam,
+// Resolve the pod fragment via the listing seam,
 // then `kubectl exec <pod> -n <ns> -- <command...>` with stdio inherited.
 // The command and its arguments — INCLUDING dash-prefixed ones — are
 // forwarded verbatim: only the options before the command word (the namespace option,

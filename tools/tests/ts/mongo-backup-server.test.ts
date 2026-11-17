@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_mongo_backup_server.bats (4 tests).
 // mongo-backup-server's guarded database-listing path: a mongosh failure
 // aborts before any dump; a malformed name in the listing aborts before any
 // dump; a valid listing dumps each non-built-in database exactly once; a

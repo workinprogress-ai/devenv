@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_plan_parse.bats (47 tests).
 // plan-parse: summary mode (counts, weights, phases, header routing),
 // census/structure/anchors, lint (+ --require-header), multi-mode rejection,
 // characterization pins. The tool spawns per test against fixture plan files.
@@ -61,7 +60,7 @@ function write(file: string, content: string): void {
   writeFileSync(file, content);
 }
 
-// jq helper mirroring the bats echo|jq pattern (numbers via -r print bare).
+// jq helper (numbers via -r print bare).
 function jq(json: string, expr: string): string {
   const r = spawnSync("jq", ["-r", expr], { input: json, encoding: "utf8" });
   return (r.stdout ?? "").trim();

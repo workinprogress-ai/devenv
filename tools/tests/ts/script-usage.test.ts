@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_script_usage.bats (15 tests) — one vitest `it` per source `@test`.
+// Tests that the scripts expose --help or a usage function.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -11,9 +11,7 @@ function tool(toolName: string, ...args: string[]): { status: number; out: strin
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-// Port of tools/tests/devenv/test_script_usage.bats — one vitest `it` per source `@test`.
-
-// ── script usage (port of test_script_usage.bats devenv section, 15 tests) ─
+// ── script usage ─
 
 describe("script usage surfaces", () => {
   it("repo-get has --help or usage", () => {

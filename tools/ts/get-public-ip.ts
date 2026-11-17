@@ -1,5 +1,5 @@
 // get-public-ip — retrieve the public IP with resilient fallbacks.
-// Port of get-public-ip.sh: three providers tried in order, first success wins.
+// Three providers tried in order, first success wins.
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";

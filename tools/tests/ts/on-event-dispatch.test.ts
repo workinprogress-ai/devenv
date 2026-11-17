@@ -1,6 +1,5 @@
-// Port of tools/tests/scripts/test_on_event_dispatch.bats +
-// test_on_events_write.bats — the process-level contract of the _on_*
-// dispatcher entry point (tools/internal/_on_event_dispatch.ts).
+// Tests for the process-level contract of the _on_* dispatcher entry point
+// (tools/internal/_on_event_dispatch.ts).
 //
 // The graph/write layers beneath it (onEvent resolution, --devenv override
 // rule, rollup climb, best-effort) are pinned by workflow-orchestration.test.ts
@@ -99,7 +98,7 @@ afterEach(() => {
   delete process.env["DEVENV_ROOT"];
 });
 
-describe("_on_event_dispatch.ts (bats pair port)", () => {
+describe("_on_event_dispatch.ts", () => {
   // ── usage contract ──────────────────────────────────────────────────────
 
   it("no args is a usage error", () => {

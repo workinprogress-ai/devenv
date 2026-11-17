@@ -61,8 +61,7 @@ try {
   else if (cli.values["branch"] === true) mode = "--branch";
   branchNameArg = cli.positionals[0] ?? "";
 } catch {
-  // The bash original refused unknown options with exit 1 (general error),
-  // not exit 2 — preserved on adoption.
+  // Unknown options exit 1 (general error), not exit 2.
   logError(`git-wip-recover: unknown option. Use --help for usage.`);
   process.exit(EXIT_GENERAL_ERROR);
 }

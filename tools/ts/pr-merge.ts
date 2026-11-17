@@ -6,9 +6,9 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 //
-// Port of pr-merge.sh + the git-operations.bash helpers it inlines. The git
-// invocation sequences are preserved exactly from the bash tool — no
-// "improvements".
+// The git invocation sequences (branch inspection, merge-context checks,
+// merge, cleanup) are fixed; changing their order or arguments is a
+// behaviour change.
 
 import { basename } from "node:path";
 import { spawnSync } from "node:child_process";

@@ -1,5 +1,5 @@
 // cs-references-update — update NuGet package references across a tree.
-// Port of cs-references-update.sh: for every .csproj under a target
+// For every .csproj under a target
 // directory, run `dotnet outdated --upgrade`, optionally rewriting
 // <TargetFramework>/<TargetFrameworks> and <LangVersion> tags first (with a
 // `dotnet restore` gate on any rewrite), then summarize the blast radius of
@@ -293,14 +293,14 @@ for (const csproj of csprojs) {
 // there are projects. To avoid double-running the tool, the summary instead
 // reuses the captured stream: spawn each outdated with a piped stdout and
 // forward it, so nothing runs twice. (The loop above intentionally prints
-// through; the pipe variant would need duplexing — recorded for 13.2.)
+// through; the pipe variant would need duplexing — not done.)
 
 // ── Update summary — src/ blast radius ───────────────────────────────────
 //
 // Summary: the per-package classification needs dotnet-outdated's captured
 // stdout, which the loop above forwarded to the terminal (stdio inherit),
-// so the summary reports at project granularity. The line-level capture
-// refactor lands with Phase 13's consolidation; disable with CS_REF_SUMMARY=0.
+// so the summary reports at project granularity. A line-level capture
+// would give per-package granularity; disable with CS_REF_SUMMARY=0.
 const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 if (process.env.CS_REF_SUMMARY !== "0") {

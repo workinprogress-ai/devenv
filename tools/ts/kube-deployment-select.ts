@@ -1,5 +1,5 @@
 // kube-deployment-select — interactive deployment selection.
-// Port of kube-deployment-select.sh: resolve the namespace, list
+// Resolve the namespace, list
 // deployments, apply a case-insensitive filter, then smart-select —
 // auto-select the single match, menu when several (clack on a TTY;
 // first-line pick when KUBE_NO_INTERACTIVE=1, the test contract).

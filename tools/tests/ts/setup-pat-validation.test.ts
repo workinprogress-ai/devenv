@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_setup_pat_validation.bats (14 tests) — one vitest `it` per source `@test`.
+// Tests for PAT validation in the setup script.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync, chmodSync } from "node:fs";
@@ -13,9 +13,7 @@ function sh(script: string, cwd?: string): { status: number; out: string } {
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-// Port of tools/tests/devenv/test_setup_pat_validation.bats — one vitest `it` per source `@test`.
-
-// ── setup PAT validation (port of test_setup_pat_validation.bats) ────────
+// ── setup PAT validation ────────
 // setup: the provider token is checked for shape and validated against the
 // provider API (one call per attempt) through the provider's host-side hooks;
 // setup itself names no provider. The provider API is a stubbed curl; nothing

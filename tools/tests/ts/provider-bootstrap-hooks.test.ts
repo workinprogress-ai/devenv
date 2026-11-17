@@ -1,5 +1,4 @@
-// Port of tools/tests/lib/test_provider_bootstrap_hooks.bats (31 tests) — one
-// vitest `it` per source `@test`. The per-provider bootstrap hook contract:
+// Tests for the per-provider bootstrap hook contract:
 // each provider ships bootstrap.bash (container side) and setup.bash (host
 // side, bash 3.2 only); the main bootstrap and `setup` call hooks and never
 // branch on the provider name.

@@ -1,7 +1,7 @@
 // explain.ts — the provider calling-requirements contract, shared by the
 // per-provider explain modules and the provider-explain tool. One shape,
 // so a provider's self-description cannot drift from the tool that prints
-// it (15.7).
+// it.
 
 /** Whether a family's verbs need a repo spec, per operation class. */
 export interface RepoTargetNeed {

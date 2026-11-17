@@ -1,5 +1,5 @@
 // cs-references-update-wizard — single-repo NuGet dependency-update
-// workflow. Port of cs-references-update-wizard.sh: create the update
+// workflow: create the update
 // branch, run cs-references-update, detect major/TFM bumps via version
 // snapshots, run tests (pause on failure), commit/push, create + merge the
 // PR (via the pr-* wrapper tools), and return to the default branch.
@@ -195,7 +195,7 @@ function snapshotVersions(repoDir: string): Snapshot {
       const p = join(dir, e.name);
       if (e.isDirectory()) {
         if (e.name === "test" || e.name === "tests" || e.name === "bin" || e.name === "obj") continue;
-        // Scoped to src/ trees (bash original). The trailing separator makes
+        // Scoped to src/ trees. The trailing separator makes
         // the repo's own src/ directory match — ".../src" alone does not
         // contain "/src/", which silently skipped every top-level csproj.
         if (!`${p}/`.includes("/src/")) continue;

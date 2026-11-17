@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_env_collision.bats (1 test) — one vitest `it` per source `@test`.
+// Tests that no bash local redeclares a devenv convenience export.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { dirname } from "node:path";
@@ -7,9 +7,7 @@ import { join } from "node:path";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))); // file → ts → tests → tools → devenv root
 
-// Port of tools/tests/devenv/test_env_collision.bats — one vitest `it` per source `@test`.
-
-// ── env-collision (port of test_env_collision.bats, 1 test) ──────────────
+// ── env-collision ──────────────
 
 describe("env-collision", () => {
   it("no bash local redeclares a devenv convenience export", () => {
@@ -33,7 +31,7 @@ describe("env-collision", () => {
       );
       if (r.stdout) offenders += r.stdout;
     }
-    // failure message names the hazard class (same as the bats `fail`)
+    // failure message names the hazard class
     expect(offenders).toBe("");
   });
 });

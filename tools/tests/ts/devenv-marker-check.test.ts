@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_devenv_marker_check.bats (26 tests).
 // devenv-marker-check: gate mode (plan-bounded FIXME blocks; conditioned TODO
 // sanctioned), --all audit, --todo-report finder, exclusions, copilot/ scope,
 // --marker REGEX custom sweeps.

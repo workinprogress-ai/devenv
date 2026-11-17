@@ -1,5 +1,4 @@
-// tooling-create-script generation test — locks the F020 gap's permanent
-// closure: a generated tool is born on the shared libs (toolCli + house
+// tooling-create-script generation test — locks that a generated tool is born on the shared libs (toolCli + house
 // flags), its imports resolve from the output directory, and it executes
 // (syntax + --help + -v) without any manual fixing.
 import { describe, expect, it } from "vitest";

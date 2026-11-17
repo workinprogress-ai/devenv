@@ -7,8 +7,7 @@
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 //
 // Resolution contract: scan the issue's comments; a comment is an artifact
-// when a `doc_id: ` line appears inside its DEVENV_ARTIFACT_V1 header block. Fields mirror the
-// bash tool exactly (title = first `# ` heading line; updatedAt-desc sort).
+// when a `doc_id: ` line appears inside its DEVENV_ARTIFACT_V1 header block. Title is the first `# ` heading line; results sort updatedAt-desc.
 
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { basename } from "node:path";

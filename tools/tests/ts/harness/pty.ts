@@ -1,6 +1,5 @@
 // harness/pty.ts — drive a tool's clack pickers and /dev/tty read prompts
-// through a pseudo-terminal from vitest. Port of the bats `_drive_clack`
-// driver (test_fork_export.bats): keys are paced ~0.6s apart so clack's
+// through a pseudo-terminal from vitest. Keys are paced ~0.6s apart so clack's
 // raw-mode reader has its listener attached; `W` waits 2.5s before a
 // /dev/tty read (the terminal line discipline batches input that arrives
 // before the read starts); the pty stays open 20s after the last key so the
@@ -39,7 +38,7 @@ export interface DriveOptions {
 export interface DriveResult {
   status: number;
   /** Combined stdout+stderr with ANSI escapes and box-drawing chrome stripped —
-   * the same normalization the bats driver's sed pipeline applied. */
+   * the same normalization `normalize` applies. */
   out: string;
 }
 
@@ -51,7 +50,7 @@ const KEY_BYTES: Record<string, string> = {
 };
 
 /** Normalize pty output: strip ANSI escapes, table chrome, and collapse runs
- * of spaces (mirrors the bats driver's sed pipeline). */
+ * of spaces. */
 function normalize(raw: string): string {
   return raw
     .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "")
@@ -66,8 +65,7 @@ export async function drivePty(command: string, args: string[], options: DriveOp
   const tailHoldMs = options.tailHoldMs ?? 20_000;
   const timeoutMs = options.timeoutMs ?? 120_000;
 
-  // node's stdio is not a tty; script(1) allocates the pty and keeps it open,
-  // exactly as the bats driver does.
+  // node's stdio is not a tty; script(1) allocates the pty and keeps it open.
   const child = spawn("script", ["-qfec", [command, ...args].join(" "), "/dev/null"], {
     env: { ...process.env, ...(options.env ?? {}) },
     cwd: options.cwd,

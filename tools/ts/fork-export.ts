@@ -1,5 +1,5 @@
 // fork-export — export a commit range for transfer into a clone of the
-// upstream repository. Port of fork-export.sh over lib/domain/fork.ts and
+// upstream repository. Built over lib/domain/fork.ts and
 // lib/core/change-id.ts. Non-interactive paths are fully supported; the fzf-based
 // pickers map to clack multiselect on a TTY and fail closed without one.
 

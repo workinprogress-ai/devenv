@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // repo-reset-merge-config.ts — one-time org-wide reset of merge
-// configuration to the rebase-only policy (TS port of the
-// retired bash script).
+// configuration to the rebase-only policy.
 //
 // Dry-run default: report per-repo type/open-PRs/WIP state. --apply is
 // gated: type detected, rebase-only in repo-types.yaml, attention report

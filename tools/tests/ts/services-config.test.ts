@@ -1,6 +1,5 @@
-// Port of tools/tests/scripts/test_services_config.bats (14 tests).
 // get-services-config: syntax, --help contract (an existing config folder
-// must be untouched), and the source-level shape locks of the TS port.
+// must be untouched), and the source-level shape locks of the tool.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, existsSync, readFileSync, readdirSync } from "node:fs";

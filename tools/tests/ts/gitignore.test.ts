@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_gitignore.bats (4 tests) — one vitest `it` per source `@test`.
+// Tests for the repository .gitignore patterns.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -18,9 +18,7 @@ function gitRepo(...args: string[]): { status: number; out: string } {
   return { status: r.status ?? 1, out: r.stdout ?? "" };
 }
 
-// Port of tools/tests/devenv/test_gitignore.bats — one vitest `it` per source `@test`.
-
-// ── gitignore (port of test_gitignore.bats, 4 tests) ─────────────────────
+// ── gitignore ─────────────────────
 
 describe("gitignore", () => {
   it(".gitignore has no redundant bare .update-time entry", () => {

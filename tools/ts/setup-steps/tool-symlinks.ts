@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // tool-symlinks.ts — provision step: sync the depth-1 tool entry points and
-// link the system editor. Port of provision.bash create_tool_symlinks.
+// link the system editor.
 //
 // The stub sync itself stays in .devcontainer/entry-stubs-sync.sh (it is the
 // one shell script with a public entry point; its vitest suite pins its

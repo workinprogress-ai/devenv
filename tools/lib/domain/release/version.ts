@@ -1,8 +1,7 @@
 // domain/release/version.ts - Release version plumbing over git tags and
-// commit history (port of release-operations.bash's tag/version functions:
-// get_latest_version_tag, parse_semver, is_breaking_commit,
-// commit_bump_from_header, calculate_next_version, get_version_change_type,
-// check_release_config_supports_custom_types, get_conventional_commit_type).
+// commit history (tag lookup, semver parsing,
+// breaking-commit detection, next-version calculation, change-type and
+// conventional-commit-type classification).
 // Consumers: repo-calc-version, repo-version-list, repo-bump-version.
 
 import { spawnSync } from "node:child_process";
@@ -41,7 +40,7 @@ function compareVersionStrings(a: string, b: string): number {
 }
 
 /** Parse semver "X.Y.Z" (leading `v` allowed; prerelease/metadata ignored).
- * Unparseable input reads as 0.0.0, as the bash original did. */
+ * Unparseable input reads as 0.0.0. */
 export function parseSemver(version: string): SemVer {
   const m = /^v?([0-9]+)\.([0-9]+)\.([0-9]+)/.exec(version);
   if (!m || m[1] === undefined || m[2] === undefined || m[3] === undefined) return { major: 0, minor: 0, patch: 0 };

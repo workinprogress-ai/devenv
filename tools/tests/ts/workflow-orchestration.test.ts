@@ -1,4 +1,4 @@
-// The write/propagation orchestration (14.12b): writeStatus fan-out, the
+// The write/propagation orchestration: writeStatus fan-out, the
 // --devenv override rule, rollup climb, best-effort contract, applyStatus
 // directions, and onEvent resolution — against a stubbed
 // project-update-issue wrapper (the WORKFLOW_CORE_TOOLS seam equivalent).
@@ -232,7 +232,7 @@ describe("applyStatus", () => {
     // The live provider is not reachable from the unit test; the cascade's
     // child walk needs graph reads. The wrapper-level contract is pinned by
     // the child-direction and gated tests; the full cascade is exercised by
-    // the bats fan-out suites against stubbed gh.
+    // the fan-out suites against stubbed gh.
     const ok = await applyStatus(42, "Production", h.ctx, "parent");
     expect(ok).toBe(true);
     expect(callsOf(h)[0]).toContain("--status Production");
@@ -240,7 +240,7 @@ describe("applyStatus", () => {
 });
 
 describe("recomputeParent", () => {
-  it("is exported and callable (graph reads need a live provider; contract pinned by the bats fan-out suites)", async () => {
+  it("is exported and callable (graph reads need a live provider; contract pinned by the fan-out suites)", async () => {
     await expect(recomputeParent(42, { toolsRoot: tmpdir() })).resolves.toBeUndefined();
   });
 });

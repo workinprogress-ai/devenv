@@ -1,5 +1,4 @@
-// Port of tools/tests/lib/test_provider_core.bats (30 tests) — one vitest
-// `it` per source `@test`. Contract tests for provider-core.bash: detection,
+// Contract tests for provider-core.bash: detection,
 // the module loader, the auth seam, identity accessors, and the error contract.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";

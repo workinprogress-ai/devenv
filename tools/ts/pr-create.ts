@@ -5,7 +5,7 @@
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 //
-// Port of pr-create.sh: the git invocation sequences (branch inspection, the
+// The git invocation sequences (branch inspection, the
 // --at merge-branch dance, push) are preserved exactly — no "improvements".
 // Scratchpad guard retained.
 
@@ -384,7 +384,7 @@ async function main(argv: string[]): Promise<number> {
     currentBranchVar = mergeBranch;
     if (!wipGuard(repoDir, `origin/${targetBranch}`, mergeBranch, "merge-branch range")) {
       restoreBranch(repoDir, current);
-      return EXIT_GENERAL_ERROR; // the restore matches the bash tool's EXIT trap
+      return EXIT_GENERAL_ERROR; // restore the original branch
     }
     const push = gitInherit(repoDir, ["push", "-q", "-u", "origin", mergeBranch]);
     if (!push.ok) {
@@ -468,8 +468,7 @@ async function main(argv: string[]): Promise<number> {
 
 let currentBranchVar = "";
 
-/** The bash tool's restore_original_branch EXIT trap: switch back to the
- * original branch when we are not already on it. */
+/** Switch back to the original branch when we are not already on it. */
 function restoreBranch(repoDir: string, original: string): void {
   const now = gitCheck(repoDir, ["rev-parse", "--abbrev-ref", "HEAD"]);
   const nowName = now.out.trim();

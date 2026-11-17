@@ -1,5 +1,4 @@
-// container-enable-dotnet-debugger behavioral tests (port of
-// test_container_enable_dotnet_debugger.bats): the argument guard, and that
+// container-enable-dotnet-debugger behavioral tests: the argument guard, and that
 // a given container name reaches docker. docker is a recording stand-in on
 // PATH.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";

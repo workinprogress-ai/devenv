@@ -1,6 +1,5 @@
 // git.ts — git plumbing: repository state, branch operations, merge-context
-// validation, and WIP-range guards (port of git-operations.bash's git-local
-// half + rewrite-detect.bash).
+// validation, and WIP-range guards.
 //
 // Scope note: PR operations (find_pr_by_branch, merge_pr,
 // build_merge_commit_message, …) route through the provider facade and are
@@ -241,7 +240,7 @@ export function wipRangeGuard(repo: string | null, range: string): WipGuardResul
 }
 
 // ---------------------------------------------------------------------------
-// history-rewrite classification (port of rewrite-detect.bash)
+// history-rewrite classification
 // ---------------------------------------------------------------------------
 
 /** Same reflog cap the original detection used. */

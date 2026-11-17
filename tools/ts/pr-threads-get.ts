@@ -68,7 +68,7 @@ Examples:
 
 async function ownerName(): Promise<{ owner: string; name: string }> {
   // DEVENV_REPO / cwd spec first; origin remote through the URL seam as the
-  // fallback leg (same chain as the bash tool).
+  // fallback leg.
   const spec = requireRepoTarget(providerRepoTarget(""), "pr-threads-get", "pr");
   if (spec.includes("/")) {
     const [owner, name] = spec.split("/");

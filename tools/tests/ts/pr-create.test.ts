@@ -1,5 +1,4 @@
-// Port of tools/tests/scripts/test_pr_create.bats (behavioral subset; the
-// syntax/--help boilerplate drops per 16.11). pr-create's full contract:
+// Tests for pr-create (behavioral subset; the syntax/--help boilerplate is not repeated). pr-create's full contract:
 // issue inference/validation, squash CC gate, dirty/WIP/review guards, plan
 // files, --at merge-branch mechanics against a local remote, and argv riders.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -36,7 +35,7 @@ function branch(name: string): void {
   git(["checkout", "-q", "-B", name, "main"]);
 }
 
-// The gh mock from the bats setup: records argv, answers issue/repo/pr shapes,
+// The gh mock: records argv, answers issue/repo/pr shapes,
 // knobs: EXISTING_PR_URL, PR_CREATE_FAIL, PR_CREATE_WARN, SQUASH_MODE.
 function writeGhStub(): void {
   const bin = join(TMP, "bin");

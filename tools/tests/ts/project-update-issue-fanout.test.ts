@@ -1,4 +1,4 @@
-// Behavioral port of the fan-out semantics tests (test_fanout_semantics.bats):
+// Behavioral tests for project-update-issue fan-out semantics:
 // updateStatusAllProjects' contract driven through the real tool with a
 // scenario-controlled gh stub — zero membership strict/safe, lookup failure
 // strict/safe, single-project write, idempotent skip, all-fail, partial.

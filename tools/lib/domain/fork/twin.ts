@@ -1,5 +1,5 @@
 // fork-twin.ts — divergent-commit classification between the fork and
-// upstream (port of fork-twin.bash): patch-ids, Change-Id matching, the
+// upstream: patch-ids, Change-Id matching, the
 // adoption map, and the pick-range classifier.
 
 import { spawnSync } from "node:child_process";

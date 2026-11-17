@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_devcontainer_json.bats (10 tests) — one vitest `it` per source `@test`.
+// Tests for .devcontainer/devcontainer.json: structure, settings and the approved-command allowlist.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -21,9 +21,7 @@ function devcontainer(expr: (d: any) => unknown): string {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DC = any;
 
-// Port of tools/tests/devenv/test_devcontainer_json.bats — one vitest `it` per source `@test`.
-
-// ── devcontainer.json (port of test_devcontainer_json.bats, 10) ──────────
+// ── devcontainer.json ──────────
 
 // Commands approved to run without a prompt. This is an allowlist on purpose:
 // a new entry fails the test until it is reviewed against the bar (reads

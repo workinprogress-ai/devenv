@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_naming_conventions.bats (12 tests) — one vitest `it` per source `@test`.
+// Tests that the naming-conventions documentation exists and covers the standard, verb prefixes and examples.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -12,9 +12,7 @@ function sh(script: string): { status: number; out: string } {
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-// Port of tools/tests/devenv/test_naming_conventions.bats — one vitest `it` per source `@test`.
-
-// ── naming conventions (port of test_naming_conventions.bats, 12 tests) ──
+// ── naming conventions ──
 
 describe("naming conventions", () => {
   it("Function naming conventions documentation exists", () => {

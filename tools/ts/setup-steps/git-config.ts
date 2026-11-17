@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 // git-config.ts — provision step: configure git identity and hooks.
-// Port of provision.bash configure_git (+ git-operations.bash
-// configure_git_global / add_git_safe_directory).
 //
 // Identity: read from the .setup seeds (steps are separate processes, so no
 // state travels between them through the environment).
@@ -49,8 +47,7 @@ if (name !== "") git(["config", "--global", "user.name", name]);
 if (email !== "") git(["config", "--global", "user.email", email]);
 
 // Add the devenv root to safe directories (exact-match guarded). The get-all
-// probe exits 1 when the key is unset — that is "not present", not an error
-// (the bash original's grep -Fxq on possibly-empty output had the same shape).
+// probe exits 1 when the key is unset — that is "not present", not an error.
 {
   const probe = spawnSync("git", ["config", "--global", "--get-all", "safe.directory"], { encoding: "utf8" });
   const listed = probe.status === 0 ? (probe.stdout ?? "") : "";

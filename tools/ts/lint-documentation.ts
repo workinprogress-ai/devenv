@@ -1,6 +1,6 @@
 // lint-documentation — run markdownlint-cli2 over the workspace docs (or
 // explicit files) and check relative .md links + their in-page anchors.
-// Port of lint-documentation.sh: --fix mode applies autofixes and reports
+// --fix mode applies autofixes and reports
 // which files changed; the link check is GitHub-anchor-shaped.
 
 import { spawnSync } from "node:child_process";

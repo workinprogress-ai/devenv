@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 // nuget-sources.ts — provision step: register the local dev NuGet source and
-// the provider's package feed. Port of provision.bash configure_nuget_sources
-// (+ add_nuget_source_if_not_exists) and providers/github/bootstrap.bash
-// provider_bootstrap_configure_nuget.
+// the provider's package feed.
 //
 // Contract: the local dev source always registers; the provider feed
 // registers only when identity + credentials + feed_url are all present

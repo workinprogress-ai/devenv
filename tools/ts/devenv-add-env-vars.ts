@@ -1,5 +1,5 @@
 // devenv-add-env-vars — add or update environment variables in
-// $DEVENV_ROOT/.runtime/env-vars.user.sh. Port of devenv-add-env-vars.sh.
+// $DEVENV_ROOT/.runtime/env-vars.user.sh.
 // The generated env-vars.sh is rewritten on every update and sources this
 // file last, so user variables survive and win over generated ones. Values
 // are quoted so spaces, quotes, $(...) and newlines come back exactly as

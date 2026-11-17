@@ -1,5 +1,5 @@
 // cs-nuget-clear-local — clear the local NuGet feed + package caches.
-// Port of cs-nuget-clear-local.sh: for every package in the local feed
+// For every package in the local feed
 // ($DEVENV_ROOT/.debug/local-nuget-dev), remove its ~/.nuget/packages cache
 // entry (version suffix stripped), then empty the feed folder. Cache-removal
 // failures are warnings; the tool never hard-fails on them (bash parity).

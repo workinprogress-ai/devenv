@@ -177,7 +177,7 @@ const owner = repoSpec.split("/")[0] ?? "";
 const repo = repoSpec.split("/")[1] ?? "";
 
 // Provider dispatch for the projects family lives in the facade (the
-// hoisted 15.14 ops-object): one async-neutral verb set, resolved lazily
+// ops object): one async-neutral verb set, resolved lazily
 // on first use. The `isAzure` probe and both per-provider op tables are
 // gone — the tool no longer knows providers exist.
 const ops = await projectsOps();

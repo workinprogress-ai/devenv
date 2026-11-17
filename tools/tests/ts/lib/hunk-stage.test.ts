@@ -151,7 +151,7 @@ describe("stageSelection (three-part invariant)", () => {
     // engine level. The protection against silently re-staging a group is
     // batch validation: every group's selectors are validated per invocation
     // and the OTHER groups' drifted selectors refuse the run before mutation
-    // (Phase 4 wires this; the commit-batch validator rows pin it).
+    // (the commit-batch validator rows pin it).
     expect("stagedPayloads" in r).toBe(true);
     if ("stagedPayloads" in r) expect(r.stagedPayloads).toEqual(["line40\nline40-CHANGED"]);
   });

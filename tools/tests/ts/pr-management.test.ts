@@ -1,8 +1,6 @@
-// Port of tools/tests/scripts/test_pr_management.bats (behavioral subset).
-// Misuse refusals across the pr tool family, the thread-tool devenv gate,
-// cursor first-page shape, and the source contracts (exit-codes/facade).
-// The syntax/--help/source-grep boilerplate is superseded by tsc + per-tool
-// vitest suites (16.11).
+// Tests for the pr tool family: misuse refusals across the family, the
+// thread-tool devenv gate, cursor first-page shape, and the source contracts
+// (exit-codes/facade).
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";

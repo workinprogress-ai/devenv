@@ -1,5 +1,5 @@
 // azure/issues.ts — Azure DevOps implementation of the issues domain facade
-// (port of azure/issues.bash over the http.ts transport).
+// (over the http.ts transport).
 //
 // Implements the CONTRACT.md Issues verbs: list / view / exists / create /
 // edit / close / reopen / comment / comments / comment_add / comment_get /

@@ -55,7 +55,7 @@ describe("path mode --patch (Phase 4.2)", () => {
   it("stages exactly the patch's hunks; remaining hunks stay unstaged; worktree untouched", () => {
     twoHunkFile();
     const h2 = `${manifestDir}/h2.patch`;
-    sh(`git diff -- f.txt | sed -n '1,4p;14,22p' > ${h2}`); // preamble + hunk 2 (fixture-only approximation; Phase 4 asserts via engine output)
+    sh(`git diff -- f.txt | sed -n '1,4p;14,22p' > ${h2}`); // preamble + hunk 2 (fixture-only approximation)
     const r = runTool("repo-stage", ["--patch", h2], { cwd: repo });
     expect(r.status).toBe(0);
     const staged = sh("git diff --cached -- f.txt").stdout;

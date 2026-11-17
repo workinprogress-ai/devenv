@@ -1,5 +1,5 @@
 // repo-bisect — first-bad-commit identification over a commit range.
-// Port of repo-bisect.sh: walks git bisect with a probe command; delivers the
+// Walks git bisect with a probe command; delivers the
 // first bad commit with evidence. Non-destructive by nature (detached-HEAD
 // visits); refuses on a dirty tree; outside a scratchpad prints a soft notice.
 

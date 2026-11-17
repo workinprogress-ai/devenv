@@ -1,7 +1,6 @@
 // metrics-count-code-lines — count lines of code across the repository.
-// Port of metrics-count-code-lines.sh: `git ls-files` over the tracked
-// source extensions, piped through wc -l (spawns wc to keep the output
-// byte-identical with the bash tool).
+// Runs `git ls-files` over the tracked source extensions, piped through
+// wc -l (spawns wc so the output format stays stable).
 
 import { spawnSync } from "node:child_process";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
@@ -17,8 +16,7 @@ try {
     version: "1.0.0",
     argv: process.argv.slice(2),
     noDryRun: true,
-    // Positionals are accepted (the bash original ignored them; callers
-    // pass '.' for cwd semantics) but never read.
+    // Positionals are accepted (callers pass '.' for cwd semantics) but never read.
     allowPositionals: true,
   });
   if (cli.common.help) {

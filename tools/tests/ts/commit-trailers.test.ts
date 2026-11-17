@@ -1,9 +1,8 @@
-// Port of tools/tests/scripts/test_check_commit_trailers.bats (18) +
-// test_prepare_commit_msg.bats (20) — the Devenv-Action/Change-Id hook pair.
+// Tests for the Devenv-Action/Change-Id hook pair.
 //
 // Subjects: tools/internal/commit-action-check (trailer gate, message-file +
 // commit-range modes) and tools/internal/prepare-commit-msg (Change-Id +
-// Devenv-Action prefill hook). The bats assertions are the oracle.
+// Devenv-Action prefill hook).
 // Fixture hygiene per tools/tests/README.md: all scratch paths flow through
 // tmpPath() (throws unless under os.tmpdir()).
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

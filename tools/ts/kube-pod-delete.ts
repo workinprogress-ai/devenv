@@ -1,5 +1,5 @@
 // kube-pod-delete — delete a pod, guarded.
-// Port of kube-pod-delete.sh: resolve the name fragment to exactly one pod
+// Resolve the name fragment to exactly one pod
 // (refuses on zero and on multiple matches), require confirmation (YES=1
 // skips; a TTY prompt asks; non-TTY without YES refuses), then delete.
 // Guard contract: multi-match exits 3, refusal exits 2, declined exits 130.

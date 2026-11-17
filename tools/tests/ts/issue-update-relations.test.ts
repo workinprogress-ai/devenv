@@ -1,4 +1,4 @@
-// Tests for 15.17 relation management: the blocked-by body-section
+// Tests for relation management: the blocked-by body-section
 // convention (pure functions) and issue-update's --add-blocked-by /
 // --remove-blocked-by flow over a stubbed provider.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";

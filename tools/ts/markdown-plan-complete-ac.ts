@@ -1,5 +1,5 @@
 // markdown-plan-complete-ac — mark AC checkboxes complete/incomplete.
-// Port of markdown-plan-complete-ac.sh over lib/domain/markdown.ts.
+// Built over lib/domain/markdown.ts.
 
 import { existsSync, readFileSync } from "node:fs";
 import { basename } from "node:path";

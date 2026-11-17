@@ -1,9 +1,8 @@
-// Port of tools/tests/scripts/test_issue_management.bats (behavioral subset;
-// the syntax/--help/source-grep boilerplate is superseded by tsc + the
-// per-tool vitest suites — see 16.11). Covers: birth rules (Ready/TBD by
-// delivery role), the deterministic type-selection refusals, close repo
-// resolution + --select contract, comment-source characterization, and the
-// picker/facade source contracts.
+// Tests for the issue tool family (behavioral subset; syntax/--help/source-grep
+// boilerplate is covered by tsc and the per-tool suites). Covers: birth rules
+// (Ready/TBD by delivery role), the deterministic type-selection refusals,
+// close repo resolution + --select contract, comment-source characterization,
+// and the picker/facade source contracts.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
@@ -86,7 +85,7 @@ function logCount(regex: string): number {
   return Number.parseInt((r.stdout ?? "0").trim(), 10) || 0;
 }
 
-// source-grep helper (the bats grep assertions become file-content checks)
+// source-grep helper (grep assertions as file-content checks)
 function srcHas(rel: string, pattern: string): boolean {
   return spawnSync("grep", ["-qE", pattern, join(TOOLS, rel)]).status === 0;
 }
@@ -95,7 +94,7 @@ beforeEach(() => {
   TMP = mkdtempSync(join(tmpdir(), `issuemgmt-${Date.now()}-${Math.random().toString(36).slice(2)}`));
   mkdirSync(join(TMP, "devroot", ".setup"), { recursive: true });
   mkdirSync(join(TMP, "devroot", ".runtime"), { recursive: true });
-  // Provider detection reads the sandboxed config (the bats helper's default).
+  // Provider detection reads the sandboxed config .
   writeFileSync(join(TMP, "devroot", "devenv.config"), CONFIG);
 });
 
@@ -243,9 +242,8 @@ describe("issue management family (behavioral port)", () => {
   // ── Close/select contract ───────────────────────────────────────────────
 
   it("issue-close resolves to a defined refusal (repo chain: --repo > DEVENV_REPO)", () => {
-    // The bats source named the cwd+org leg and accepted either success or a
-    // defined refusal; the vitest providerRepoTarget tests cover the success
-    // leg, so the port pins the defined-refusal contract without identity.
+    // The providerRepoTarget tests cover the success leg, so this test pins
+    // the defined-refusal contract without identity.
     const bin = join(TMP, "bin");
     mkdirSync(bin, { recursive: true });
     writeFileSync(join(bin, "gh"), "#!/usr/bin/env bash\nexit 0\n");
@@ -333,7 +331,7 @@ describe("issue management family (behavioral port)", () => {
     expect(r.status).not.toBe(0);
   });
 
-  // ── Source contracts (grep → vitest file checks, per 16.11) ────────────
+  // ── Source contracts (grep → vitest file checks) ────────────
 
   it("issue scripts use the core error contract (exit-codes)", () => {
     expect(srcHas("ts/issue-create.ts", "exit-codes")).toBe(true);

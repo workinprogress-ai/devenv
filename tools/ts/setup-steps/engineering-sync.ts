@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // engineering-sync.ts — provision step: clone/update the configured
-// engineering-standards side-repo and link ~/.copilot/engineering. Port of
-// provision.bash sync_copilot_engineering (implementation in
-// side-repo-sync.ts).
+// engineering-standards side-repo and link ~/.copilot/engineering. The implementation
+// lives in side-repo-sync.ts.
 
 import { join } from "node:path";
 import { home, toolbox } from "./lib.ts";

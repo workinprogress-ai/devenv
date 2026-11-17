@@ -1,5 +1,5 @@
-// azure/urls.ts — Azure DevOps URL seam (port of azure/urls.bash + the
-// repo-spec helpers of repos.bash): web-URL construction, remote parsing,
+// azure/urls.ts — Azure DevOps URL seam (including the
+// repo-spec helpers): web-URL construction, remote parsing,
 // and org/project resolution. The host literal lives here — the single
 // point of definition; every derivation follows it.
 //

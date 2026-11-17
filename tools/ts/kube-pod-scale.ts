@@ -1,5 +1,5 @@
 // kube-pod-scale — scale a deployment, guarded.
-// Port of kube-pod-scale.sh: validate replicas numerically BEFORE touching
+// Validate replicas numerically BEFORE touching
 // kubectl, resolve the deployment fragment to exactly one match (refuses on
 // zero/multiple), require confirmation, then scale. Guard contract:
 // multi-match exits 3, refusal exits 2, declined exits 130.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // custom-bootstrap.ts — provision step: run the fork's org-level and the
 // user's personal custom bootstrap hooks when present.
-// Port of provision.bash run_custom_bootstrap_if_present.
+//
 //
 // Contract (docs/Bootstrap-Customization.md): org-custom-bootstrap.sh is
 // committed in the fork; user-custom-bootstrap.sh is machine-local. A hook's

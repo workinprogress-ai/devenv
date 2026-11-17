@@ -1,4 +1,4 @@
-// The multiselect focus-visibility contract (13.7): the focused row is marked
+// The multiselect focus-visibility contract: the focused row is marked
 // with a cursor column (`❯`) that does NOT depend on color support — clack's
 // own frame marks focus only with a checkbox color, which vanishes in
 // color-less profiles and left multi-select unusable without counting rows.

@@ -1,5 +1,5 @@
 // _key-update-tailscale — rotate the Tailscale auth key and re-authenticate
-// the daemon. Port of _key-update-tailscale.sh. Underscore-prefixed: no
+// the daemon. Underscore-prefixed: no
 // depth-1 stub by contract; the bootstrap-generated `key-update-tailscale`
 // shell function invokes this file by absolute path (written by the setup-steps bash-functions module).
 

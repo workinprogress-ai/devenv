@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_sanity_check.bats (5 tests) — one vitest `it` per source `@test`.
+// Tests for .devcontainer/sanity-check.sh: the bootstrap run-time warning.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, copyFileSync } from "node:fs";
@@ -9,9 +9,7 @@ import { canaryEnv } from "./harness/canary.ts";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 
-// Port of tools/tests/devenv/test_sanity_check.bats — one vitest `it` per source `@test`.
-
-// ── sanity-check (port of test_sanity_check.bats, 5 tests) ───────────────
+// ── sanity-check ───────────────
 // sanity-check.sh is sourced by the generated shell rc at every shell start;
 // its bootstrap run-time warning must appear only when the container's and
 // the repo's run times really differ.
@@ -72,7 +70,7 @@ describe("sanity-check", () => {
 
   it("sourcing it leaves no helper function or variable behind in the shell", () => {
     setup();
-    // env -i like the bats original: the leak check runs in a clean shell, so
+    // env -i: the leak check runs in a clean shell, so
     // the vitest process's own environment cannot contribute names. The inner
     // script goes through a temp file — no nested-quoting hazards.
     const inner = join(root, "leak-check.sh");

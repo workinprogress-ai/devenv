@@ -1,6 +1,5 @@
-// The pure workflow state model (14.12a): vocabulary order, policy knobs,
-// and the rollup function — ported from workflow-core.bash with the bats
-// suite's semantics as the oracle.
+// The pure workflow state model: vocabulary order, policy knobs,
+// and the rollup function.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -86,7 +85,7 @@ describe("computeRollup", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 15.19 drift gate: skill-events.yml statuses are members of [workflows]
+// Drift gate: skill-events.yml statuses are members of [workflows]
 // ---------------------------------------------------------------------------
 
 describe("skill-events binding gate", () => {

@@ -1,5 +1,4 @@
-// Behavioral port of the project-add-issue bash function-extraction tests
-// (test_project_triage_consumers.bats tests 1-3): the issue URL follows the
+// Behavioral tests for project-add-issue: the issue URL follows the
 // resolved repo spec, a failed add reports the provider error and exits 1,
 // a successful add reports success and exits 0 — all without stack traces.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";

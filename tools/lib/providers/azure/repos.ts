@@ -1,5 +1,5 @@
 // azure/repos.ts — Azure DevOps implementation of the repos domain facade
-// (port of azure/repos.bash over the http.ts transport).
+// (over the http.ts transport).
 //
 // Implements the CONTRACT.md Repositories verbs: list / view / commits_count /
 // default_branch / create / edit / patch / protect_branch / team_put /

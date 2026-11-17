@@ -1,5 +1,5 @@
 // cs-nuget-publish-local — restore/build/pack every csproj and push to the
-// local NuGet feed. Port of cs-nuget-publish-local.sh: walk <target> for
+// local NuGet feed. Walks <target> for
 // .csproj (skipping /test/ projects), restore + build + pack each with the
 // computed version, copy packages into $DEVENV_ROOT/.debug/local-nuget-dev,
 // then clear the caches of the pushed packages (so the next restore sees the

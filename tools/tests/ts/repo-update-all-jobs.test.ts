@@ -1,4 +1,4 @@
-// Tests for repo-update-all's --jobs validation (15.105): a zero pool never
+// Tests for repo-update-all's --jobs validation: a zero pool never
 // launches and never completes — refused with a named error before spawn.
 import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";

@@ -496,7 +496,7 @@ describe("azure policies ruleset translation", () => {
 
 });
 // ---------------------------------------------------------------------------
-// 15.22 [azure_body_fields]: per-type body field + write verification
+// [azure_body_fields]: per-type body field + write verification
 // ---------------------------------------------------------------------------
 
 describe("azure body fields ([azure_body_fields], 15.22)", () => {

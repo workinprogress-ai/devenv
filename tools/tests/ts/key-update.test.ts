@@ -1,10 +1,8 @@
-// key-update family behavioral tests (port of test_key_update.bats,
-// scripts-family subset). Locks: non-interactive invocation without an
+// key-update family behavioral tests. Locks: non-interactive invocation without an
 // argument refuses (non-zero, no hang on the read prompt); the DO script
 // persists token files with 600 permissions and calls the updater with the
 // value; --help/-h must never be consumed as a token/key. The provider
-// (github) script's own tests live in the provider suite — its bash module
-// is out of Phase 16's scope (providers' bootstrap-side bash stays).
+// (github) script's own tests live in the provider suite.
 //
 // The tools invoke the env-var updater by exact tools-root path, so PATH
 // stubbing cannot intercept it — tests point DEVENV_ROOT at a sandbox and

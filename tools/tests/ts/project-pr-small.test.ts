@@ -1,13 +1,10 @@
-// Port of tools/tests/scripts/test_project_list_for_issue.bats (7) +
-// test_project_update_issue.bats (15) + test_pr_thread_reply.bats (5) +
-// test_pr_review_flow.bats (6) + test_pr_cleanup_review_branches.bats (10)
-// — 43 tests.
+// Tests for the small project and pr tools.
 //
 // Subjects: project-list-for-issue (stubbed-gh TSV read), project-update-issue
 // (vocabulary validation + GraphQL --field write path), pr-thread-reply (REST
 // reply routing + repo-spec + comment-id validation), the pr-* review-flow
 // trio contracts (syntax + --help), and pr-cleanup-review-branches (local
-// bare-remote behavioral suite). The bats assertions are the oracle.
+// bare-remote behavioral suite).
 // Fixture hygiene per tools/tests/README.md: all scratch paths flow through
 // tmpPath(); the gh stubs are per-test bin dirs under the temp root.
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -97,7 +94,7 @@ function git(cwd: string, args: string[]): { status: number; stdout: string } {
 
 const EMPTY_PROJECTS = '{"data":{"resource":{"projectItems":{"nodes":[]}}}}';
 
-describe("project-list-for-issue (bats port)", () => {
+describe("project-list-for-issue", () => {
   let STUB = "";
 
   beforeEach(() => {
@@ -218,7 +215,7 @@ esac
 printf '%s' "$payload" | jq -r "$prog"
 `;
 
-describe("project-update-issue (bats port)", () => {
+describe("project-update-issue", () => {
   let STUB = "";
 
   beforeEach(() => {
@@ -325,7 +322,7 @@ describe("project-update-issue (bats port)", () => {
 
 // ── pr-thread-reply ─────────────────────────────────────────────────────────
 
-describe("pr-thread-reply (bats port)", () => {
+describe("pr-thread-reply", () => {
   let STUB = "";
   let GH_LOG = "";
 
@@ -380,7 +377,7 @@ describe("pr-thread-reply (bats port)", () => {
 
 // ── pr-* review-flow trio contracts ─────────────────────────────────────────
 
-describe("pr review-flow trio contracts (bats port)", () => {
+describe("pr review-flow trio contracts", () => {
   for (const tool of ["pr-create-for-review", "pr-get-review-link", "pr-cleanup-review-branches"]) {
     it(`${tool} entry exists and has --help`, () => {
       const path = join(TOOLS, "ts", `${tool}.ts`);
@@ -394,7 +391,7 @@ describe("pr review-flow trio contracts (bats port)", () => {
 
 // ── pr-cleanup-review-branches (local bare remote) ──────────────────────────
 
-describe("pr-cleanup-review-branches (bats port)", () => {
+describe("pr-cleanup-review-branches", () => {
   let REMOTE = "";
   let WORK = "";
   let TODAY = "";

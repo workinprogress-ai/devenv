@@ -9,7 +9,7 @@
 // Resolution contract: scan the issue's comments, match by the artifact
 // doc_id (the shared findDocId rule), parse the artifact
 // header keys, and enforce the single-match invariant (0 → not-found,
-// >1 → conflict report). Output field names are the bash tool's exact set.
+// >1 → conflict report). Output field names are fixed.
 
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { basename, dirname } from "node:path";

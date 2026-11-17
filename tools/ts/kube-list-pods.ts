@@ -1,5 +1,5 @@
 // kube-list-pods — list pod names in a namespace, optionally filtered.
-// Port of kube-list-pods.sh: -n/--namespace flag > KUBE_NAMESPACE env >
+// Namespace resolution: -n/--namespace flag > KUBE_NAMESPACE env >
 // partial-match > context default; the filter is a regex against pod names
 // (jq test() semantics, metacharacter-safe via argv, never shell).
 

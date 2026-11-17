@@ -208,7 +208,7 @@ export async function reposCreate(name: string, opts: ReposCreateOptions = {}): 
  * owns the has-at-least-one-commit contract described here. */
 /** The repo's HEAD tree blob+entry count via the git trees API
  * (recursive); null when the call fails OR the tree was truncated (a
- * truncated tree reads as not-ready, never as ready — 15.13). */
+ * truncated tree reads as not-ready, never as ready). */
 export async function reposTreeCount(repo: string): Promise<number | null> {
   const r = ghApiSync(["api", `repos/${repo}/git/trees/HEAD?recursive=1`], { tolerateFailure: true });
   if (r.status !== 0) return null;
@@ -253,8 +253,8 @@ export function reposPatch(repo: string, flags: string[]): boolean {
 
 /** reposPatch with the API error body surfaced: on failure `error` carries
  * GitHub's own message (redacted by the transport) so callers can quote the
- * real cause instead of guessing (15.11 — the allow_forking-on-public case
- * reported as "may require admin access"). */
+ * real cause instead of guessing (for example the allow_forking-on-public case,
+ * otherwise reported as "may require admin access"). */
 export function reposPatchWithError(repo: string, flags: string[]): { ok: boolean; error: string } {
   const r = ghApiSync(["api", "-X", "PATCH", `repos/${repo}`, ...flags], { tolerateFailure: true });
   if (r.status === 0) return { ok: true, error: "" };

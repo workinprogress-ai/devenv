@@ -1,5 +1,5 @@
 // mongo-restore-server — restore a MongoDB backup with a consent gate.
-// Port of mongo-restore-server.sh: takes <connection_string>
+// Takes <connection_string>
 // <backup_directory>, picks the latest backup folder by greatest
 // directory-name timestamp, redacts credentials for display, and requires the
 // operator to retype the target (at a terminal, or via --yes plus

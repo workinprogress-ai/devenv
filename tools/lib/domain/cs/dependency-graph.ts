@@ -1,5 +1,5 @@
 // domain/cs/dependency-graph.ts — org-package dependency index and graph
-// queries (port of cs-dependency-graph.bash). Builds a TSV index over the
+// queries. Builds a TSV index over the
 // repo cache (package→repo, repo→packages, repo→org-dependencies), answers
 // reverse-dependency trees via BFS, and computes global topological
 // generations via Kahn's algorithm. configGet* supplies the [nuget]

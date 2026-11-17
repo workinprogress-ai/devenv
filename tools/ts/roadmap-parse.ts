@@ -1,5 +1,5 @@
 // roadmap-parse — parse a roadmap artifact into per-step truth JSON.
-// Port of roadmap-parse.sh: emits per-STEP objects (step, phase, title,
+// Emits per-STEP objects (step, phase, title,
 // status, issues, progress, dependencies, plan_file). Status is passed
 // through as written — reconciling it with issue/PR state is the
 // update-roadmap skill's job, not this tool's.

@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_ci_workflows.bats (14 tests) — one vitest `it` per source `@test`.
+// Tests for the CI workflow files and the Node/pnpm pins they share with package.json.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";

@@ -128,7 +128,7 @@ describe("write side (PR signals)", () => {
 
 });
 // ---------------------------------------------------------------------------
-// 15.104: config paths resolve to files that EXIST on disk, from a foreign
+// Config paths resolve to files that EXIST on disk, from a foreign
 // cwd (the file:// URL pass-through used to resolve via the cwd walk and
 // adopt the wrong checkout or throw outside devenv).
 // ---------------------------------------------------------------------------
