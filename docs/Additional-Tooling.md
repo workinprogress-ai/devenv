@@ -2685,12 +2685,26 @@ install-extras dns-hijack
 2. Run `install-extras dns-hijack` to install and configure dnsmasq
 3. The script will fail with a helpful error if the config file is missing
 
+**Files and paths:**
+
+The installer writes `devenv-split.conf` into the dnsmasq configuration directory (`/etc/dnsmasq.d` by default). The mapping file is copied in as data, so `$` and backticks in it are kept literally, and re-running the installer rewrites identical content. If another `*-split.conf` exists in that directory, the installer prints a warning, because the startup script uses `devenv-split.conf` first.
+
+At container start, `addon-scripts/dns-startup.sh` looks for the configuration file in this order: `devenv-split.conf`, `split-dns.conf`, then the first other `*-split.conf` (sorted, following the shell locale), so an install whose file carries an organisation prefix keeps working. It copies `/etc/resolv.conf` to the dnsmasq upstream file (`/etc/resolv.dnsmasq`) only when resolv.conf names at least one non-loopback nameserver (not `127.x.x.x`, not `::1`). Otherwise it keeps the existing upstream file, but only if that file itself names a real nameserver. If neither resolv.conf nor the upstream file names a real nameserver (the upstream file is missing, empty, comments only, or loopback-only), it prints a warning, leaves DNS unchanged (resolv.conf is not rewritten and dnsmasq is not restarted) and exits 0, so dnsmasq never forwards to itself and the container start never fails. A real resolv.conf always overwrites the upstream file, which also heals a file that an earlier run left pointing at localhost. Otherwise it restarts dnsmasq and points resolv.conf at `127.0.0.1`, so running it repeatedly is safe.
+
+Both scripts take their paths from environment variables, defaulting to the system paths:
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `DEVENV_DNS_CONF_DIR` | `/etc/dnsmasq.d` | dnsmasq configuration directory |
+| `DEVENV_DNS_RESOLV_CONF` | `/etc/resolv.conf` | system resolver file |
+| `DEVENV_DNS_UPSTREAM_FILE` | `/etc/resolv.dnsmasq` | upstream resolver file named by `resolv-file=` |
+
 **Features:**
 
 - Automatic dnsmasq installation and configuration
 - Split-horizon DNS routing (specific domains to specific servers)
 - Strict ordering to prioritize mapped domains
-- Upstream DNS fallback for unmapped domains
+- Upstream DNS fallback for unmapped domains (idempotent across container restarts)
 - Configuration validation before installation
 
 ### `devenv-update`
