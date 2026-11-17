@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, existsSync, readFileSync, readdi
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runTool as runHarness } from "./harness/index.ts";
+import { pathWithStubs, recordedGitCalls, runTool as runHarness, stubRecordingGit } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -109,6 +109,7 @@ describe("scripts/services-config", () => {
   function existingConfig(): string {
     const cfg = join(TMP, "cfg");
     mkdirSync(cfg, { recursive: true });
+    mkdirSync(join(cfg, ".git"));
     writeFileSync(join(cfg, "marker"), "keep\n");
     return cfg;
   }
@@ -143,5 +144,123 @@ describe("scripts/services-config", () => {
     expect(sourceHas(["-A2", 'repoUrl === ""', TS_SOURCE])).toBe(true);
     const r = spawnSync("grep", ["-A2", 'repoUrl === ""', TS_SOURCE], { encoding: "utf8" });
     expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("logError");
+  });
+
+  describe("clone argument separation", () => {
+    function cloneCall(args: string[], env: Record<string, string> = {}): string[] {
+      const bin = join(TMP, "bin");
+      mkdirSync(bin, { recursive: true });
+      stubRecordingGit(bin);
+      runTool(args, { CONFIG_FOLDER: join(TMP, "cfg"), PATH: pathWithStubs(bin), ...env });
+      const call = recordedGitCalls(bin).find((c) => c[0] === "clone");
+      expect(call).toBeDefined();
+      return call!;
+    }
+
+    it("passes an option-looking SERVICES_CONFIG_REPO after --", () => {
+      const call = cloneCall([], { SERVICES_CONFIG_REPO: "--upload-pack=evil" });
+      expect(call.indexOf("--upload-pack=evil")).toBeGreaterThan(call.indexOf("--"));
+      expect(call[call.indexOf("--upload-pack=evil") - 1]).toBe("--");
+    });
+
+    it("passes a positional that begins with - after --", () => {
+      const call = cloneCall(["--", "-oops"]);
+      expect(call[call.indexOf("-oops") - 1]).toBe("--");
+    });
+  });
+
+  describe("CONFIG_FOLDER validation", () => {
+    function run(folder: string, home: string): { status: number; out: string; calls: string[][] } {
+      const bin = join(TMP, "bin");
+      mkdirSync(bin, { recursive: true });
+      stubRecordingGit(bin, { cloneCreates: true });
+      const r = runTool(["https://example.invalid/cfg.git"], { CONFIG_FOLDER: folder, HOME: home, PATH: pathWithStubs(bin) });
+      return { ...r, calls: recordedGitCalls(bin) };
+    }
+
+    function listing(dir: string): string[] {
+      return readdirSync(dir, { recursive: true }).map(String).sort();
+    }
+
+    function homeDir(): string {
+      const home = join(TMP, "outer", "home");
+      mkdirSync(home, { recursive: true });
+      return home;
+    }
+
+    it.each([
+      ["a relative path", () => "relative/cfg", "not an absolute path"],
+      ["the filesystem root", () => "/", "home directory or one of its ancestors"],
+      ["the home directory", () => join(TMP, "outer", "home"), "home directory or one of its ancestors"],
+      ["an ancestor of the home directory", () => join(TMP, "outer"), "home directory or one of its ancestors"],
+    ])("refuses %s with exit 2 before any clone", (_name, folder, reason) => {
+      const home = homeDir();
+      writeFileSync(join(TMP, "outer", "keep.txt"), "keep\n");
+      const f = folder();
+      const before = listing(join(TMP, "outer"));
+      const r = run(f, home);
+      expect(r.status).toBe(2);
+      expect(r.out).toContain(f);
+      expect(r.out).toContain(reason);
+      expect(r.calls).toEqual([]);
+      expect(listing(join(TMP, "outer"))).toEqual(before);
+    });
+
+    it("refuses a non-empty directory that is not a git working tree", () => {
+      const cfg = join(TMP, "plain");
+      mkdirSync(cfg);
+      writeFileSync(join(cfg, "precious.txt"), "keep\n");
+      const before = listing(cfg);
+      const r = run(cfg, homeDir());
+      expect(r.status).toBe(2);
+      expect(r.out).toContain(cfg);
+      expect(r.out).toContain("neither a git working tree");
+      expect(r.calls).toEqual([]);
+      expect(listing(cfg)).toEqual(before);
+      expect(readFileSync(join(cfg, "precious.txt"), "utf8")).toBe("keep\n");
+    });
+
+    it("refuses a path that is a file", () => {
+      const file = join(TMP, "afile");
+      writeFileSync(file, "x\n");
+      const r = run(file, homeDir());
+      expect(r.status).toBe(2);
+      expect(r.out).toContain("not a directory");
+      expect(readFileSync(file, "utf8")).toBe("x\n");
+    });
+
+    it("accepts an empty directory", () => {
+      const cfg = join(TMP, "empty");
+      mkdirSync(cfg);
+      const r = run(cfg, homeDir());
+      expect(r.status).toBe(0);
+      expect(existsSync(join(cfg, "app.json"))).toBe(true);
+    });
+
+    it("accepts an existing git working tree and replaces it", () => {
+      const cfg = join(TMP, "tree");
+      mkdirSync(join(cfg, ".git"), { recursive: true });
+      writeFileSync(join(cfg, "old.txt"), "old\n");
+      const r = run(cfg, homeDir());
+      expect(r.status).toBe(0);
+      expect(existsSync(join(cfg, "old.txt"))).toBe(false);
+      expect(existsSync(join(cfg, "app.json"))).toBe(true);
+    });
+
+    it("accepts a non-existent folder under a missing parent", () => {
+      const cfg = join(TMP, "new", "deeper", "cfg");
+      const r = run(cfg, homeDir());
+      expect(r.status).toBe(0);
+      expect(existsSync(join(cfg, "app.json"))).toBe(true);
+    });
+
+    it("accepts the output of an earlier run, so a refresh works", () => {
+      const cfg = join(TMP, "again");
+      expect(run(cfg, homeDir()).status).toBe(0);
+      expect(existsSync(join(cfg, ".git"))).toBe(false);
+      const second = run(cfg, homeDir());
+      expect(second.status).toBe(0);
+      expect(existsSync(join(cfg, "app.json"))).toBe(true);
+    });
   });
 });

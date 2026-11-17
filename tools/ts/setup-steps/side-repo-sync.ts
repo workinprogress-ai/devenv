@@ -12,7 +12,8 @@
 //     (GIT_CONFIG_COUNT/KEY/VALUE, appended after any entries already
 //     present), never on argv, so it does not show in process listings; it
 //     lives only for the fetch/pull/clone
-//   - existing clone: set-url, fetch --prune, checkout the default branch,
+//   - existing clone: set-url, fetch --prune, checkout the default branch
+//     (a failed checkout leaves the clone untouched, with a warning),
 //     pull --ff-only; on failure the stash ladder runs (stash → retry →
 //     re-apply unless upstream already made the change → conflicted stash
 //     stays in the stack, loudly). A stale clone is a warning, never fatal.
@@ -112,7 +113,15 @@ function updateClone(repoDir: string, repoUrl: string, label: string, header: st
   if (defaultBranch === "") {
     defaultBranch = git(repoDir, ["rev-parse", "--abbrev-ref", "HEAD"]).out.trim();
   }
-  git(repoDir, ["checkout", defaultBranch]);
+  // A failed checkout (a dirty tree on another branch that the default
+  // branch would overwrite) leaves the clone alone: pulling here would
+  // fast-forward whatever branch the user has checked out.
+  const checkout = git(repoDir, ["checkout", defaultBranch]);
+  if (checkout.status !== 0) {
+    const reason = checkout.out.split("\n").find((l) => l.trim() !== "")?.trim() ?? "git checkout failed";
+    console.error(`WARNING: ${label} could not check out '${defaultBranch}' (${reason}); the clone was left untouched and may be stale. Not a bootstrap blocker.`);
+    return;
+  }
   if (git(repoDir, ["pull", "--ff-only", "origin", defaultBranch], header).status === 0) return;
 
   // Local modifications blocked the fast-forward. These clones are
@@ -171,7 +180,7 @@ function updateClone(repoDir: string, repoUrl: string, label: string, header: st
 function cloneFresh(repoDir: string, repoUrl: string, label: string, header: string, backupParent: string): boolean {
   const staging = `${repoDir}.sync-${process.pid}-${Date.now()}`;
   mkdirSync(dirname(repoDir), { recursive: true });
-  const clone = gitArgs(["clone", repoUrl, staging], header);
+  const clone = gitArgs(["clone", "--", repoUrl, staging], header);
   if (clone.status !== 0) {
     rmSync(staging, { recursive: true, force: true });
     console.error(`ERROR: ${label} clone failed; local data left untouched.\n${clone.out}`);

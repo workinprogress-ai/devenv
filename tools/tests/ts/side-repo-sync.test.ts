@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathWithStubs, recordedGitCalls, stubRecordingGit } from "./harness/index.ts";
 
 vi.mock("../../ts/setup-steps/provider-seam.ts", () => ({
   providerSecretToken: () => "test-token",
@@ -302,5 +303,67 @@ describe("side-repo-sync authorization header", () => {
       expect(l).not.toContain("extraheader");
     }
     expect(recorded).toContain("COUNT=1 KEY0=http.extraheader VALUE0=AUTHORIZATION: basic dGVzdA==");
+  });
+});
+
+describe("side-repo-sync clone argument separation", () => {
+  it("puts -- before a repository URL that begins with a dash", () => {
+    const bin = join(TMP, "bin");
+    mkdirSync(bin, { recursive: true });
+    stubRecordingGit(bin);
+    const savedPath = process.env.PATH;
+    process.env.PATH = pathWithStubs(bin);
+    try {
+      expect(sync("--upload-pack=evil", join(TMP, "clone"), join(TMP, "home", ".copilot", "k"))).toBe(1);
+    } finally {
+      process.env.PATH = savedPath;
+    }
+    const call = recordedGitCalls(bin).find((c) => c[0] === "clone");
+    expect(call).toBeDefined();
+    expect(call![call!.indexOf("--upload-pack=evil") - 1]).toBe("--");
+  });
+});
+
+describe("side-repo-sync default-branch checkout", () => {
+  it("leaves the clone untouched and warns when the default branch cannot be checked out", () => {
+    const remote = mkRemote();
+    write(remote, "a.txt", replaceLine(BASE, 1, "second"));
+    commitAll(remote, "c2");
+    const c2 = git(remote, "rev-parse", "HEAD");
+    write(remote, "a.txt", replaceLine(BASE, 1, "third"));
+    commitAll(remote, "c3");
+    const repo = join(TMP, "clone");
+    const link = join(TMP, "home", ".copilot", "k");
+    expect(sync(remote, repo, link)).toBe(0);
+
+    // The user's clone sits on a feature branch at c2 with an edit, while the
+    // local default branch is still at the first commit.
+    const first = git(repo, "rev-list", "--max-parents=0", "HEAD");
+    git(repo, "checkout", "-q", "-b", "feat", c2);
+    git(repo, "branch", "-f", "master", first);
+    const dirty = replaceLine(BASE, 1, "my uncommitted edit");
+    write(repo, "a.txt", dirty);
+    rmSync(link);
+
+    expect(sync(remote, repo, link)).toBe(0);
+
+    expect(git(repo, "rev-parse", "--abbrev-ref", "HEAD")).toBe("feat");
+    expect(git(repo, "rev-parse", "HEAD")).toBe(c2);
+    expect(readFileSync(join(repo, "a.txt"), "utf8")).toBe(dirty);
+    expect(stashCount(repo)).toBe(0);
+    expect(errors.join("\n")).toMatch(/Test side repo could not check out 'master' \(.*overwritten/);
+  });
+
+  it("still fast-forwards a clone on the default branch", () => {
+    const remote = mkRemote();
+    const repo = join(TMP, "clone");
+    const link = join(TMP, "home", ".copilot", "k");
+    expect(sync(remote, repo, link)).toBe(0);
+    write(remote, "a.txt", replaceLine(BASE, 1, "upstream"));
+    commitAll(remote, "c2");
+
+    expect(sync(remote, repo, link)).toBe(0);
+
+    expect(git(repo, "rev-parse", "HEAD")).toBe(git(remote, "rev-parse", "HEAD"));
   });
 });

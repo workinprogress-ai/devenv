@@ -56,6 +56,37 @@ export function stubGit(dir: string, repoRoot: string, mode?: string): string {
   return stubCli(dir, "git", body);
 }
 
+/** A `git` stub that records every call as one line with each argument in
+ * brackets (`[clone][--][url][dest]`), so an argv can be asserted exactly.
+ * A clone fails by default; with `cloneCreates` it instead creates its last
+ * argument as a directory holding one file. Every other subcommand exits 0. */
+export function stubRecordingGit(dir: string, opts: { cloneCreates?: boolean } = {}): string {
+  const log = join(dir, GIT_ARGV_LOG_NAME);
+  const onClone = opts.cloneCreates ? 'mkdir -p "${@: -1}"; echo "{}" > "${@: -1}/app.json"; exit 0' : "exit 1";
+  return stubCli(
+    dir,
+    "git",
+    [
+      "#!/usr/bin/env bash",
+      `{ for a in "$@"; do printf '[%s]' "$a"; done; echo; } >> "${log}"`,
+      `if [ "$1" = "clone" ]; then ${onClone}; fi`,
+      "exit 0",
+    ].join("\n"),
+  );
+}
+
+export const GIT_ARGV_LOG_NAME = "git-argv.log";
+
+/** The calls recorded by stubRecordingGit, each as its list of arguments. */
+export function recordedGitCalls(dir: string): string[][] {
+  const log = join(dir, GIT_ARGV_LOG_NAME);
+  if (!existsSync(log)) return [];
+  return readFileSync(log, "utf8")
+    .split("\n")
+    .filter((l) => l !== "")
+    .map((l) => l.slice(1, -1).split("]["));
+}
+
 /** Prepend, once per worker, a directory whose `gh` and `az` fail with exit 1
  * ("provider unavailable"). For suites whose contract is the behaviour when the
  * provider is down or unauthenticated: the failure is stubbed explicitly rather

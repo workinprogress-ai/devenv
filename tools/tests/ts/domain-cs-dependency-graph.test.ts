@@ -291,6 +291,37 @@ describe("refreshRepoCache argv shape", () => {
   });
 });
 
+describe("refreshRepoCache clone argv", () => {
+  it("puts -- before the clone URL", async () => {
+    const { spawnSync } = await import("node:child_process");
+    const { stubRecordingGit, recordedGitCalls, stubCli } = await import("./harness/index.ts");
+    const stubDir = mkdtempSync(join(tmpdir(), "cl-stub-"));
+    const workDir = mkdtempSync(join(tmpdir(), "cl-root-"));
+    stubRecordingGit(stubDir);
+    stubCli(stubDir, "gh", ["#!/usr/bin/env bash", 'if [ "$1 $2" = "auth status" ]; then exit 0; fi', 'case "$*" in', '  *"repo list"*) echo \'[{"name":"repo-one"}]\';;', "esac", "exit 0"].join("\n"));
+    writeFileSync(join(workDir, "devenv.config"), "[organization]\norg=test-org\n[provider]\nname=github\n");
+    try {
+      spawnSync("node", ["-e", `
+        const m = await import(${JSON.stringify(join(fileURLToPath(new URL(".", import.meta.url)), "../../lib/domain/cs/dependency-graph.ts"))});
+        process.exitCode = await m.refreshRepoCache();
+      `], {
+        encoding: "utf8",
+        cwd: workDir,
+        env: { ...process.env, DEVENV_ROOT: workDir, DEVENV_REPO: "test-org/repo-one", REPO_CACHE_DIR: cacheDir, PATH: `${stubDir}:${process.env.PATH ?? ""}` },
+        timeout: 30000,
+      });
+      const call = recordedGitCalls(stubDir).find((c) => c[0] === "clone");
+      expect(call).toBeDefined();
+      const dest = call![call!.length - 1]!;
+      expect(dest).toBe(join(cacheDir, "repo-one"));
+      expect(call![call!.length - 3]).toBe("--");
+    } finally {
+      rmSync(stubDir, { recursive: true, force: true });
+      rmSync(workDir, { recursive: true, force: true });
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------
 // refreshRepoCache never discards work in an existing cache clone.
 // ---------------------------------------------------------------------------
