@@ -379,41 +379,9 @@ regimes, merge steps) are verified against
 
 ## Live smoke suite
 
-`smoke.ts` validates every HTTP-touching verb in this provider
-against a LIVE org in one combined flow. Manual invocation only — never
-wired into tests or CI.
-
-How to run:
-
-```text
-AZURE_SMOKE=1 AZURE_PAT=<token> AZURE_DEVOPS_ORG=<org> AZURE_SMOKE_TEST_PROJECT=<project> \
-    [AZURE_SMOKE_REPORT=<path>] node tools/lib/providers/azure/smoke.ts
-```
-
-`AZURE_SMOKE=1` runs the read-only tier; `AZURE_SMOKE=write` runs the destructive tier and
-also needs `AZURE_SMOKE_CONFIRM=<test project>` (the exact project name).
-The PAT needs Code, PullRequest, WorkItems, Boards, Build, Packaging and
-Policy management (read+write) rights; the suite never persists it.
-
-Contract:
-
-- **User-provided test project only.** The suite never provisions or
-  deletes projects; every destructive case runs inside the named project
-  and the org outside it is never touched.
-- **Single combined flow:** fixtures first (work item + disposable repo
-  via provider verbs), then every verb, then mandatory reverse-order
-  teardown via an EXIT trap (fires even on a mid-suite death).
-- **Teardown matrix (as implemented in the smoke's teardown):** work items delete with
-  `?destroy=true`; repo DELETE may need the fallback chain
-  name+destroy → GUID+destroy → plain soft-delete; policy DELETEs
-  302-redirect (the transport follows redirects).
-- **Report:** `AZURE_SMOKE_REPORT=<path>` appends per-verb pass/fail
-  lines; the transport redacts the token on every path, so reports are
-  safe to keep in `.local-artifacts/`.
-- **Idempotence note:** `protect_branch` and the ruleset case both create
-  a minimum-reviewers policy on `main`; a duplicate is rejected 403
-  "rejected by policy" — the ruleset case reads a verified equivalent
-  configuration as idempotent success (anything else stays a FAIL).
+`smoke.ts` validates the HTTP-touching verbs of this provider against a LIVE organisation, by
+hand only. How to opt in, what each probe creates and deletes, the safety model, the cautions and
+the manual cleanup are in [SMOKE.md](SMOKE.md).
 
 Transport facts the smoke established (the regression tests in
 `tools/tests/ts/provider-azure-*.test.ts` cover them):

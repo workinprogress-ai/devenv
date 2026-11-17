@@ -25,6 +25,8 @@ tools/lib/providers/
 │   ├── transport.ts      # ghApi / ghApiSync / ghApiPaginate: the one place gh is spawned
 │   ├── explain.ts        # calling requirements for provider-explain
 │   ├── key-update.ts     # credential rotation entry point
+│   ├── smoke.ts          # on-demand live smoke suite (never part of the regular run)
+│   ├── SMOKE.md          # how to run the GitHub smoke suite, what it creates, cautions, cleanup
 │   └── auth.bash  setup.bash  bootstrap.bash   # bootstrap chain only
 └── azure/                # the Azure DevOps provider (REST)
     ├── MAPPING.md        # how GitHub concepts map onto Azure DevOps
@@ -36,6 +38,7 @@ tools/lib/providers/
     ├── explain.ts        # calling requirements for provider-explain
     ├── key-update.ts     # credential rotation entry point
     ├── smoke.ts          # on-demand live smoke suite (never part of the regular run)
+    ├── SMOKE.md          # how to run the Azure smoke suite, what it creates, cautions, cleanup
     ├── credential-helper.sh  # git credential helper for HTTPS remotes
     └── auth.bash  setup.bash  bootstrap.bash   # bootstrap chain only
 ```
@@ -126,10 +129,12 @@ allowlist. [facade/README.md](facade/README.md) has the rule in full.
   provider detection, organization and user identity, and the organization a git remote names.
   It is hermetic: scrubbed environment, fixture `HOME` and `DEVENV_ROOT`, no provider CLI.
 - **Live smoke suites** are the only code allowed to touch a backend, run by hand against a
-  disposable target: `azure/smoke.ts` today, and a `github/smoke.ts` planned beside the GitHub
-  adapter. Each refuses to run without an explicit opt-in variable; no vitest pattern
-  collects them and `provider-smoke-guard.test.ts` pins that. See the provider smoke section
-  of [tools/tests/README.md](../../tests/README.md).
+  disposable target: `azure/smoke.ts` and `github/smoke.ts`. Each refuses to run without an
+  explicit opt-in variable; no vitest pattern collects them and `provider-smoke-guard.test.ts`
+  pins that, and checks the GitHub suite's scenario registry against the contract's verb table.
+  Each suite is documented beside its adapter: [github/SMOKE.md](github/SMOKE.md) and
+  [azure/SMOKE.md](azure/SMOKE.md); the provider smoke section of
+  [tools/tests/README.md](../../tests/README.md) says when to run them.
 
 ## Bash bootstrap surface
 
