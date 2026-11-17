@@ -263,7 +263,7 @@ Without that setting, VS Code's Dev Containers extension defaults to `docker` an
 
 A few utility scripts have been provided to make life happy.
 
-* `get-services-config` This script pulls the service config from it's repository into the local dev environment.  It is placed in `.debug/config`
+* `get-services-config` This script pulls the service config from it's repository into the local dev environment.  It is placed in `.debug/config`; a different `CONFIG_FOLDER` must be an absolute, dedicated folder (see `get-services-config` in Additional-Tooling)
 * `metrics-count-code-lines` A utility to count code lines in a file or folder
 * `container-enable-dotnet-debugger` A utility to inject and run the dotnet debugger into a locally running container.
 * `repo-get` A utility to clone or update a repo in the `repos/` folder. Use `--select` for an interactive selection menu.

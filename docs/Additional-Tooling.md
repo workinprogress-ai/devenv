@@ -2854,7 +2854,9 @@ Pulls service configuration from its repository into the local development envir
 get-services-config
 ```
 
-The configuration is placed in `~/.debug/config`.
+Clones the configuration repository into a staging folder and swaps it in for the config folder (`CONFIG_FOLDER`, default `$DEVENV_ROOT/.debug/config`), keeping the existing folder if the clone or checkout fails. The repository URL is passed to `git clone` after `--`, so a value that begins with `-` is read as a URL and never as an option.
+
+`CONFIG_FOLDER` is validated before anything is created, moved or deleted, because the folder is replaced wholesale. It must be an absolute path and must not be `/`, the home directory or an ancestor of it. If it exists it must be a git working tree, an empty directory, or the output of an earlier run (a directory whose `info.txt` was written by this tool, which strips `.git` from what it extracts so that a refresh keeps working). Anything else is refused with exit 2, naming the folder and the reason. A folder that does not exist yet is created.
 
 ## Kubernetes Tools
 

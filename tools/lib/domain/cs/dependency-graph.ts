@@ -401,7 +401,7 @@ export async function refreshRepoCache(): Promise<number> {
     }
     const args = exists
       ? ["-C", repoDir, "fetch", "--depth", "1", "origin"]
-      : ["clone", "--depth", "1", "--single-branch", "--no-tags", url, repoDir];
+      : ["clone", "--depth", "1", "--single-branch", "--no-tags", "--", url, repoDir];
     const r = spawnSync("git", args, { stdio: "ignore" });
     if (r.status !== 0) { done(false); return; }
     if (exists) {

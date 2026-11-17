@@ -2,8 +2,9 @@
 // local config folder.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, rmSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -18,7 +19,9 @@ function usage(): never {
 
 Clone a configuration repository and extract it into the local config
 folder (CONFIG_FOLDER, default $DEVENV_ROOT/.debug/config). An existing
-config folder is replaced.
+config folder is replaced; CONFIG_FOLDER must be an absolute path that is
+not / or the home directory (or an ancestor), and an existing folder must
+be a git working tree, an empty directory or a previously extracted config.
 
 Options:
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
@@ -51,7 +54,7 @@ try {
   process.exit(EXIT_MISUSE);
 }
 
-const targetFolder = process.env.CONFIG_FOLDER
+const configuredFolder = process.env.CONFIG_FOLDER
   ?? join(process.env.DEVENV_ROOT ?? selfRoot(import.meta.url), ".debug", "config");
 
 if (repoUrl === "") {
@@ -59,6 +62,41 @@ if (repoUrl === "") {
   console.error("Use --help for usage information");
   process.exit(EXIT_MISUSE);
 }
+
+function refuseFolder(reason: string): never {
+  logError(`Refusing to use config folder '${configuredFolder}': ${reason}`);
+  console.error("Set CONFIG_FOLDER to a dedicated, absolute folder path");
+  process.exit(EXIT_MISUSE);
+}
+
+// The folder is replaced wholesale, so it must be unmistakably a config
+// folder: absolute, not the home directory or any ancestor of it, and — when
+// it exists — a git working tree, an empty directory, or the output of an
+// earlier run of this tool (recognised by the metadata file it writes).
+function validateTargetFolder(): string {
+  if (!isAbsolute(configuredFolder)) refuseFolder("it is not an absolute path");
+  const folder = resolve(configuredFolder);
+  const home = resolve(homedir());
+  if (folder === "/" || home === folder || home.startsWith(`${folder}/`)) {
+    refuseFolder("it is the home directory or one of its ancestors");
+  }
+  let stat;
+  try {
+    stat = lstatSync(folder);
+  } catch {
+    return folder; // does not exist yet: it will be created
+  }
+  if (!stat.isDirectory()) refuseFolder("it exists and is not a directory");
+  if (existsSync(join(folder, ".git")) || readdirSync(folder).length === 0) return folder;
+  try {
+    if (readFileSync(join(folder, "info.txt"), "utf8").startsWith("# Configuration extracted:")) return folder;
+  } catch {
+    // no metadata file: not this tool's output
+  }
+  refuseFolder("it exists and is neither a git working tree, an empty directory nor a previously extracted config");
+}
+
+const targetFolder = validateTargetFolder();
 
 // Everything is built in a staging folder beside the target; the existing
 // config is only replaced once a complete new one is in hand, so a failed
@@ -79,7 +117,7 @@ logInfo(`Cloning config repository: ${repoUrl}`);
   // spawnSync never throws on a failed clone (the old execSync's throw was
   // the failure signal) — the status must be checked explicitly, or a
   // failed clone would "succeed" into an empty config folder.
-  const r = spawnSync("git", ["clone", repoUrl, staging], { stdio: "pipe", encoding: "utf8" });
+  const r = spawnSync("git", ["clone", "--", repoUrl, staging], { stdio: "pipe", encoding: "utf8" });
   if (r.status !== 0 || r.error !== undefined) {
     failAndCleanUp(`Failed to clone config repository from: ${repoUrl} (${r.stderr?.trim() || r.error?.message || "git clone failed"})`);
   }
