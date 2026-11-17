@@ -26,7 +26,7 @@ without an opt-in and without contacting a backend).
 | `AZURE_SMOKE_CONFIRM` | for `write` | the exact test project name; a mismatch refuses with exit code 2 |
 | `AZURE_SMOKE_REPORT` | no | a file path; every probe line is appended to it |
 | `AZURE_SMOKE_STATUS_WORKFLOW` | no | a comma-separated list of Kanban column names; enables the status round-trip probes, which are skipped when unset |
-| `AZURE_SMOKE_TEST_REPO` | no | overrides the throwaway repository name; leave it unset (see the cautions) |
+| `AZURE_SMOKE_TEST_REPO` | no | overrides the throwaway repository name; a repository that already exists under that name is refused before anything is created |
 
 ```bash
 AZURE_SMOKE=write AZURE_SMOKE_CONFIRM=<project> AZURE_PAT=<token> \
@@ -60,7 +60,7 @@ first repository the list returns for the repository reads (`prs_list`, `repos_v
 
 | Family | What it creates, edits, deletes |
 |---|---|
-| fixtures | creates a work item `[SMOKE-DELETEME] fixture item` and a repository `smoke-repo-<pid>` (the fixture reads then run: `issues_view`, `issues_exists`, `issues_comments`, `prs_list`, default branch and commit count of the empty repository, `org_releases_list`, `org_rulesets_list`, `org_feeds_list`) |
+| fixtures | creates a work item `[SMOKE-DELETEME] fixture item` and a repository `smoke-repo-<pid>-<timestamp>` (the fixture reads then run: `issues_view`, `issues_exists`, `issues_comments`, `prs_list`, default branch and commit count of the empty repository, `org_releases_list`, `org_rulesets_list`, `org_feeds_list`) |
 | issues | creates a work item `smoke destructive item`, comments on it, closes it, then edits its title, adds, reads and edits a comment, reopens it, changes its type to Task, adds and lists tags, and checks the tag-edit sequence (two adds leave two tags, add keeps existing tags, remove drops only the named tag); creates `smoke child item` and links, reads children and parent, unlinks, and deletes it; creates `[SMOKE-DELETEME] board story` (a User Story), `[SMOKE-DELETEME] board bug` (a Bug through `issues_create --type Bug`) and `[SMOKE-DELETEME] retyped` (checked to be a User Story, then set to Bug) |
 | projects | sets a Status through `projects_field_set` on the work item, reads `projects_for_issue`, and, when `AZURE_SMOKE_STATUS_WORKFLOW` is set, writes and reads back every listed Kanban column for the Issue, User Story and Bug items |
 | repos | seeds `main` with a README by pushing from a temporary clone, creates a branch, patches the repository description (`repos_patch`), applies a minimum-reviewers branch policy (`repos_protect_branch`), and grants the project's team pull access (`repos_team_put`) |
@@ -74,23 +74,49 @@ first repository the list returns for the repository reads (`prs_list`, `repos_v
   outside it is not touched. The suite refuses to start unless the project exists.
 - **Naming.** Work items created as fixtures carry `[SMOKE-DELETEME]` in the title; some
   work items made by probes are titled `smoke destructive item` and `smoke child item` instead.
-  The repository is `smoke-repo-<pid>`, branches are `smoke-<pid>` and `smoke2-<pid>`.
-- **Recording.** Each item that needs teardown is pushed onto a teardown stack at the moment it
-  exists: work items by id, the repository, a policy sweep for the repository, and the temporary
-  directory holding the clone and the credential helper.
-- **Teardown.** Runs once, in reverse order of registration, after the last probe and on SIGINT
-  or SIGTERM (exit code 130). Work items are destroyed (`?destroy=true`); the repository is
-  deleted by trying name plus destroy, then id plus destroy, then a plain soft delete; every
-  policy configuration scoped to the repository is deleted. A failing teardown step is reported
-  and the rest continue, and any failure makes the exit code non-zero.
+  The repository is `smoke-repo-<pid>-<timestamp>`, branches are `smoke-<pid>` and `smoke2-<pid>`.
+- **Recording.** Each item that needs teardown is recorded, through the module shared with the
+  GitHub suite (`../smoke-teardown.ts`): work items by id at the moment they exist, a policy
+  sweep for the repository, and the temporary directory holding the clone and the credential
+  helper. The fixture repository is recorded before its create call when its name is the generated
+  one (`smoke-repo-<pid>-<timestamp>`, unique to the run), and the record counts as confirmed once
+  the create succeeds. With an `AZURE_SMOKE_TEST_REPO` override the name cannot be proven unique,
+  so the repository is recorded only after its create call succeeds.
+- **Teardown.** There is exactly one teardown run, in reverse order of recording. It runs after
+  the last probe, on SIGINT or SIGTERM (exit code 130) and on an uncaught exception or
+  unhandled rejection (exit code 1; the run is marked interrupted so no further probe starts).
+  The final pass, a second signal and the error handler all wait for that same run: a repeated
+  Ctrl-C prints `teardown in progress` and neither exits nor starts a second pass, and exit code
+  130 happens only after the run and any late cleanups have settled. If a cleanup hangs, the
+  repeated signal also prints how to leave: stop the process with a signal the suite does not
+  catch (`kill -9 <pid>`, or Ctrl-\ for SIGQUIT in a terminal), then remove what is left by hand
+  with the manual commands it prints (the same ones as under "Manual cleanup if teardown fails").
+  After an interrupt the next probe stops the script, so no further verb is exercised. The
+  fixture repository's create call is tracked as in flight: teardown first waits for it (for at
+  most 120 seconds; after that it prints `create still in flight after <N>s; it may exist:`
+  with the manual command and carries on), so a signal during the create cannot leak the
+  repository when the generated name was recorded. An item that an in-flight call records after
+  teardown began is cleaned up immediately and the run waits for it. Work items are destroyed
+  (`?destroy=true`); the repository is deleted by trying name plus destroy, then id plus destroy,
+  then a plain soft delete, and its cleanup succeeds when any variant succeeded or answered not
+  found; every policy configuration scoped to the repository is deleted. Only an HTTP 404
+  counts as already removed; any other failing delete (a surviving repository, work item or
+  policy) is reported with `TEARDOWN FAILED` and a manual command, the rest continue, and the exit
+  code is non-zero. A cleanup that fails for a repository whose create never succeeded is
+  printed as a `notice:` instead and does not change the exit code. A repository whose create
+  call fails stops the destructive tier before any write probe, after teardown of what was
+  created so far.
 - **Refusals.** Without `AZURE_SMOKE` it refuses (exit 2); the destructive tier refuses without a
   matching `AZURE_SMOKE_CONFIRM` (exit 2); a missing organisation, project or token, an
   authentication failure, or a missing test project aborts with exit 1.
 - **Tokens.** The transport redacts the token on every path, so output and reports are safe to
   keep.
-- **Limits.** There is no cap on the number of items created, and teardown does not run in a
-  `finally`: an exception that escapes the script, or a hard abort after the fixtures exist,
-  ends the process without teardown.
+- **Limits.** The shared module enforces a cap of 100 recorded items per run (a run records
+  about twenty); an item recorded over the cap is still torn down, and the probe that hit the cap
+  fails. A hard abort (SIGKILL, power loss) ends the process without teardown. Work items
+  and the policy sweep are recorded after their create call, so a work item whose create the
+  server finished but the client never saw return is not torn down; the same holds for an
+  override-named repository.
 
 ## Cautions
 
@@ -108,10 +134,11 @@ itself is not written to disk, and the directory is removed at teardown.
 - The suite writes only inside the test project, but a destroyed repository is soft deleted when
   the destroy forms are refused, and then stays in the project's deleted-repository list until
   someone purges it.
-- `AZURE_SMOKE_TEST_REPO` replaces the throwaway repository name. If it names an existing
-  repository, repository creation fails and no repository teardown is registered, but the
-  pushes, pull requests, policies and patch probes then run against that repository and are not
-  undone. Leave it unset.
+- `AZURE_SMOKE_TEST_REPO` replaces the throwaway repository name. The suite reads that name
+  before creating anything and refuses (exit code 1) when a repository already exists under it.
+  The read treats any failed response as absent, so if the read itself fails the creation then
+  decides: it fails for an existing repository, and the suite stops before any write probe. Use
+  a name that no repository has.
 - Pull requests and work items can notify project members and subscribers.
 - Azure DevOps applies rate limiting per identity; the suite makes a few hundred requests.
 
@@ -119,7 +146,9 @@ itself is not written to disk, and the directory is removed at teardown.
 
 A repository that fell back to a soft delete (still listed as deleted), notifications already
 sent, the audit trail, and anything created after a run was killed without a signal handler
-running (SIGKILL, power loss) or after an uncaught exception.
+running (SIGKILL, power loss), a work item or override-named repository whose create call the
+server finished but the client never saw return, and an override-named repository whose create
+was still in flight when a signal arrived.
 
 ### Probes that skip, and why
 
@@ -148,12 +177,13 @@ settings, Repositories, Policies, remove policies on the deleted repository. Wit
 
 One line per probe: `PASS  name — detail`, `FAIL  name — detail` or `SKIP  reason`, with a
 heading block naming the target (`org`, test project, tier) and a final line
-`summary: N pass, F fail` (skips are not counted). With `AZURE_SMOKE_REPORT` set, the PASS, FAIL
+`summary: N pass, F fail` (skips are not counted). Teardown failures print as
+`TEARDOWN FAILED: <kind> <id> — reason`, followed by a leftover list with one manual command each. With `AZURE_SMOKE_REPORT` set, the PASS, FAIL
 and summary lines are also appended to that file.
 
 | Exit code | Meaning |
 |---|---|
 | 0 | every probe passed and teardown succeeded |
-| 1 | a probe failed, teardown failed, or the run aborted (missing input, authentication, missing test project) |
+| 1 | a probe failed, teardown failed, or the run aborted (missing input, authentication, missing test project, a pre-existing throwaway repository, an uncaught error after teardown) |
 | 2 | the opt-in gate refused to run (no or wrong `AZURE_SMOKE`, unconfirmed destructive tier) |
-| 130 | interrupted by SIGINT or SIGTERM; teardown ran first |
+| 130 | interrupted by SIGINT or SIGTERM; exits only after the single teardown run and any late cleanups have settled |

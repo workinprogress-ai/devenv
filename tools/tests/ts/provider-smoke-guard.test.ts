@@ -3,8 +3,9 @@
 // This guard pins the properties that keep it that way, for every suite
 // (Azure and GitHub): outside the vitest include, never referenced by a
 // regular test, refusing to run without an opt-in and without contacting a
-// backend, and (GitHub) a scenario registry that matches the contract's verb
-// table.
+// backend, (GitHub) the real-organisation guard and the opted-in path stopping
+// at authentication before anything is created, and a scenario registry that
+// matches the contract's verb table.
 import { afterAll, beforeAll, describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -19,27 +20,44 @@ const PROVIDERS_DIR = join(REPO_ROOT, "tools", "lib", "providers");
 // PATH stubs for the backend CLIs: any invocation leaves a marker file and
 // fails loudly, so a suite that reaches for a backend is caught.
 let stubDir = "";
+const scratch: string[] = [];
 const backendHits = (): string => join(stubDir, "hit");
 
-beforeAll(() => {
-  stubDir = mkdtempSync(join(tmpdir(), "smoke-guard-"));
+/** A directory of failing CLI stubs; each invocation appends one line to `hit`. */
+function makeStubs(): string {
+  const dir = mkdtempSync(join(tmpdir(), "smoke-guard-"));
+  scratch.push(dir);
   for (const cli of ["gh", "curl", "az", "git"]) {
-    const file = join(stubDir, cli);
-    writeFileSync(file, `#!/bin/sh\necho "${cli} $*" >> "${join(stubDir, "hit")}"\nexit 99\n`);
+    const file = join(dir, cli);
+    writeFileSync(file, `#!/bin/sh\necho "${cli} $*" >> "${join(dir, "hit")}"\nexit 99\n`);
     chmodSync(file, 0o755);
   }
+  return dir;
+}
+
+/** A fixture DEVENV_ROOT whose devenv.config configures the given organisation
+ * (none when `org` is empty). */
+function fixtureRoot(org: string): string {
+  const dir = mkdtempSync(join(tmpdir(), "smoke-guard-root-"));
+  scratch.push(dir);
+  if (org !== "") writeFileSync(join(dir, "devenv.config"), `[provider]\nname=github\n\n[organization]\norg=${org}\n`);
+  return dir;
+}
+
+beforeAll(() => {
+  stubDir = makeStubs();
 });
 
 afterAll(() => {
-  if (stubDir !== "") rmSync(stubDir, { recursive: true, force: true });
+  for (const dir of scratch) rmSync(dir, { recursive: true, force: true });
 });
 
 /** Run a smoke suite with a minimal environment (no opt-in variables, no
  * inherited credentials) and only the failing CLI stubs on PATH. */
-function runSuite(provider: string, args: string[], env: Record<string, string> = {}) {
+function runSuite(provider: string, args: string[], env: Record<string, string> = {}, stubs = stubDir) {
   return spawnSync(process.execPath, [join(PROVIDERS_DIR, provider, "smoke.ts"), ...args], {
     encoding: "utf8",
-    env: { PATH: `${stubDir}:/usr/bin:/bin`, HOME: stubDir, ...env },
+    env: { PATH: `${stubs}:/usr/bin:/bin`, HOME: stubs, ...env },
   });
 }
 
@@ -125,14 +143,55 @@ describe("provider smoke suites stay out of the regular run", () => {
     expect(existsSync(backendHits()), "a backend CLI was invoked").toBe(false);
   });
 
-  it.each(smokeSuites().map((p) => [relative(REPO_ROOT, p), p] as const))(
-    "%s gates on an explicit opt-in variable before touching a backend",
-    (_name, path) => {
-      const source = readFileSync(path, "utf8");
-      expect(source).toMatch(/refuses to run/);
-      expect(source).toMatch(/process\.exit\(EXIT_MISUSE\)/);
-    },
-  );
+  it("the azure smoke suite refuses an incomplete or unconfirmed opt-in with exit 2 and contacts no backend", () => {
+    const target = { AZURE_DEVOPS_ORG: "some-org", AZURE_SMOKE_TEST_PROJECT: "some-project", AZURE_PAT: "not-a-token" };
+    const wrongValue = runSuite("azure", [], { AZURE_SMOKE: "yes", ...target });
+    expect(wrongValue.status).toBe(2);
+    expect(wrongValue.stderr).toContain("refuses to run");
+    const noConfirm = runSuite("azure", [], { AZURE_SMOKE: "write", ...target });
+    expect(noConfirm.status).toBe(2);
+    expect(noConfirm.stderr).toContain("AZURE_SMOKE_CONFIRM=some-project");
+    const wrongConfirm = runSuite("azure", [], { AZURE_SMOKE: "write", AZURE_SMOKE_CONFIRM: "other-project", ...target });
+    expect(wrongConfirm.status).toBe(2);
+    expect(existsSync(backendHits()), "a backend CLI was invoked").toBe(false);
+  });
+
+  it("the github smoke suite refuses the real organisation without the explicit variable", () => {
+    const root = fixtureRoot("real-org");
+    for (const typed of ["real-org", "Real-Org"]) {
+      const r = runSuite("github", [], { GITHUB_SMOKE: "write", GITHUB_SMOKE_OWNER: typed, GITHUB_SMOKE_CONFIRM: typed, DEVENV_ROOT: root });
+      expect(r.status, r.stderr).toBe(2);
+      expect(r.stderr).toContain("configured in devenv.config");
+    }
+    expect(existsSync(backendHits()), "a backend CLI was invoked").toBe(false);
+  });
+
+  it("the github smoke suite refuses when the configured organisation cannot be read", () => {
+    const root = fixtureRoot("");
+    const r = runSuite("github", [], { GITHUB_SMOKE: "write", GITHUB_SMOKE_OWNER: "some-org", GITHUB_SMOKE_CONFIRM: "some-org", DEVENV_ROOT: root });
+    expect(r.status, r.stderr).toBe(2);
+    expect(r.stderr).toContain("could not be evaluated");
+    expect(existsSync(backendHits()), "a backend CLI was invoked").toBe(false);
+  });
+
+  it("a fully opted-in github run stops at authentication and issues no create or write call", () => {
+    // Own stubs: this run is expected to reach the backend CLI, once.
+    const stubs = makeStubs();
+    const cases: Array<[string, Record<string, string>]> = [
+      ["an organisation other than the configured one", { GITHUB_SMOKE_OWNER: "test-org", GITHUB_SMOKE_CONFIRM: "test-org", DEVENV_ROOT: fixtureRoot("real-org") }],
+      ["the real organisation with the explicit variable", { GITHUB_SMOKE_OWNER: "real-org", GITHUB_SMOKE_CONFIRM: "real-org", GITHUB_SMOKE_ALLOW_REAL_ORG: "real-org", DEVENV_ROOT: fixtureRoot("real-org") }],
+      ["an unreadable configuration with the explicit variable", { GITHUB_SMOKE_OWNER: "test-org", GITHUB_SMOKE_CONFIRM: "test-org", GITHUB_SMOKE_ALLOW_REAL_ORG: "test-org", DEVENV_ROOT: fixtureRoot("") }],
+    ];
+    for (const [label, env] of cases) {
+      rmSync(join(stubs, "hit"), { force: true });
+      const r = runSuite("github", [], { GITHUB_SMOKE: "write", ...env }, stubs);
+      expect(r.status, `${label}: ${r.stderr}`).toBe(1);
+      expect(r.stderr, label).toContain("gh is not authenticated");
+      const hits = readFileSync(join(stubs, "hit"), "utf8").trim().split("\n");
+      expect(hits, label).toEqual(["gh auth status"]);
+      expect(hits.join("\n"), label).not.toMatch(/-X|POST|create|delete|--method/);
+    }
+  });
 
   it("github smoke registry covers every contract verb of the github column, or excludes it with a reason", () => {
     const r = runSuite("github", ["--list-coverage"]);

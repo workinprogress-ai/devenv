@@ -25,7 +25,7 @@ unless every required variable is set:
 | `GITHUB_SMOKE` | yes | exactly `write`; the suite is destructive and has no read-only tier, so any other value (including `1`) is refused |
 | `GITHUB_SMOKE_OWNER` | yes | the organization that receives the throwaway items; it must be an organization (not a user account) visible to the `gh` login |
 | `GITHUB_SMOKE_CONFIRM` | yes | the same organization name, repeated exactly |
-| `GITHUB_SMOKE_ALLOW_REAL_ORG` | only for the real organization | the organization name again; required when `GITHUB_SMOKE_OWNER` equals the organization configured in `devenv.config` (`[organization] org`, or the setup seed file), compared case-insensitively |
+| `GITHUB_SMOKE_ALLOW_REAL_ORG` | only for the real organization | the organization name again. Required when `GITHUB_SMOKE_OWNER` equals the organization configured in `devenv.config` (`[organization] org`, or the setup seed file), compared case-insensitively, and checked a second time against the name GitHub resolves the owner to (a renamed organization is redirected). Also required when the configured organization cannot be read at all, because the guard cannot then tell whether the target is the real one |
 | `GITHUB_SMOKE_COLLABORATOR` | no | a GitHub login; enables the collaborator scenario, which invites that account to the throwaway repository |
 | `GITHUB_SMOKE_REPORT` | no | a file path; every output line is appended to it |
 
@@ -49,7 +49,11 @@ the workspace is configured for; an ambient `DEVENV_REPO` or `GH_REPO` is cleare
 Every scenario is registered with the contract verbs it exercises. The registry is data, and the
 guard test compares it with the contract table: each verb in the GitHub column is exercised or is
 listed as excluded with a reason. After each scenario that ran without a skip or failure, the
-suite also fails it if a declared verb was never actually called.
+suite also fails it if a declared verb was never actually called. The recording, teardown and
+signal logic is the module shared with the Azure suite, `../smoke-teardown.ts`; the cleanup
+matchers, token scrubbing and scope parsing are pure helpers in `live-guards.ts` beside the
+suite, and both are unit-tested without importing the suite
+(`tools/tests/ts/provider-smoke-teardown.test.ts`).
 
 Facade verbs are called through `tools/lib/providers/facade/`. The fixtures that no verb covers
 (creating a branch and a file, a milestone, a team, a project, closing a pull request, deleting
@@ -130,31 +134,75 @@ the contract's GitHub gaps exactly, so a gap that is closed must gain a scenario
   not exist and refuses to continue if it does. Every repository-scoped call targets that one
   repository; the only other repository name read is the throwaway name with `-absent` appended,
   to prove an absent repository reads as absent. No pre-existing repository or project is used.
-- **Recording.** Every resource is recorded by identifier at the moment it is created: the
-  repository, branches, labels, milestone, issues, pull requests, ruleset, workflow run, team,
+- **Recording.** Every resource is recorded by identifier at the moment it is created, except
+  the repository, the team and the project, which are recorded just before their create call (see
+  Teardown): the repository, branches, labels, milestone, issues, pull requests, ruleset, workflow run, team,
   project, collaborator invitation and the temporary directory. Items that live inside another
   recorded item and cannot be addressed separately (comments, sub-issue links, blocked-by lines,
   project items, the workflow file, commits) end with their parent.
-- **Teardown.** Runs in a `finally`, and on SIGINT and SIGTERM (exit code 130). It deletes only
+- **Teardown.** Runs in a `finally`, on SIGINT and SIGTERM (exit code 130) and on an uncaught error (exit code 1). It deletes only
   recorded items, newest first, so the repository goes second to last, ahead only of the temporary
   directory, which was recorded first. Issues are deleted, or closed when deletion is refused; pull requests are closed; labels,
   the milestone, branches, the ruleset, runs, the team, the collaborator and the project are
-  deleted. A failing step is reported and the rest continue. The repository delete refuses to run
-  unless the name is exactly the one the run created.
-  An operation still in flight when the run is interrupted can create one more item after the
-  teardown pass; that item is cleaned up immediately when it is recorded, and the run waits for
-  those late cleanups before it exits. If the project create call succeeds but its response cannot
-  be read, the project's identifier is unknown, so it cannot be deleted automatically: teardown
-  reports it as a leftover with the command to find it.
+  deleted. A failing step is reported and the rest continue. The repository delete compares the
+  recorded name with `<resolved owner>/devenv-smoke-<pid>-<timestamp>`, rebuilt independently from
+  the resolved owner, the process id and the start timestamp, and also requires the
+  `devenv-smoke-` prefix; it refuses to delete anything else.
+  There is exactly one teardown run. The final pass, a second SIGINT or SIGTERM and any later
+  caller all wait for that same run, so a repeated Ctrl-C prints `teardown in progress` and does
+  not exit or start a second pass. If a cleanup hangs, the repeated signal prints how to leave:
+  stop the process with a signal the suite does not catch (`kill -9 <pid>`, or Ctrl-\ for
+  SIGQUIT in a terminal), then remove what is left by hand; the notice repeats the manual command
+  of every recorded item and the prefix queries (the same commands appear under "Manual cleanup if
+  teardown fails" below).
+  After an interrupt, or an uncaught error (which marks the run interrupted as well), the suite
+  makes no further `check()` or `poll()` call and starts no further scenario: the scenario in
+  progress unwinds at its next `check()` or `poll()`. Raw `gh` calls made between those probes
+  are not gated, but they only touch resources this run already recorded.
+  A create call for the repository, the team or the project is tracked as in flight. When
+  teardown starts it first waits for every tracked create call to settle (re-checking for ones
+  registered meanwhile), for at most 120 seconds in total, and only then runs the newest-first
+  cleanup pass, so a signal that arrives mid-create cannot leak the item: the create lands first
+  and is then cleaned up. If the bound expires, teardown prints `create still in flight after
+  <N>s; it may exist:` with the manual command and carries on with the cleanup pass; an item that
+  lands after that is not covered by the pass, and one recorded after teardown began is cleaned up
+  immediately (the teardown run does not finish until those late cleanups have settled). The run
+  exits 130 only after that.
+  The repository, the team and the project are recorded before their create call, so a failed
+  or timed-out create is also covered: the cleanup of a repository or team that was never
+  created finds nothing (a not-found response counts as cleaned), and the project cleanup, which
+  has no identifier until the create response arrives, looks the project up by the exact
+  throwaway title this run created and deletes it only when exactly one project has that title
+  (otherwise it reports the project as a leftover). A record counts as confirmed once its create
+  call succeeded (for the repository also when it is seen to exist after a reported failure). A
+  cleanup that fails for a resource whose create was never confirmed (a refused team or project
+  create, a failed repository create) is printed as a `notice:` ("nothing to remove"), is not a
+  teardown failure and does not change the exit code; a cleanup failure for a confirmed
+  resource is a failure. Issues are the exception: an issue whose
+  create call is interrupted before it returns is not recorded, but it lives in the throwaway
+  repository, which the repository delete removes.
+  Team and project cleanups treat only a not-found response (HTTP 404) as already cleaned; a
+  validation failure or any other message is a failed cleanup that is reported. Items inside the
+  throwaway repository use a broader tolerance, because the repository delete is their backstop.
 - **Failure handling.** A failing probe never stops the run; a scenario that cannot proceed
   because a prerequisite was not created is reported as a skip. Failure to create the repository
   stops the run (nothing else can work). Teardown failures are printed loudly with a manual
   command per leftover item and the prefix queries below, and make the exit code non-zero.
 - **Resource cap.** At most 60 resources are recorded in one run; the run stops before creating
-  more.
-- **Refusals.** It refuses to run without the full opt-in, when the owner is the configured
-  organization without the extra confirmation, when the owner is not an organization visible to
-  the login, when `gh` is not authenticated, and when the target repository name already exists.
+  more. A resource that is created at the cap is still recorded, so teardown still removes it.
+- **Refusals.** It refuses to run (exit code 2, nothing created) without the full opt-in, when the
+  owner is the configured organization without the extra confirmation, when the configured
+  organization cannot be read and the extra confirmation is absent, and when the owner resolves to
+  the configured organization under another name without the extra confirmation. It aborts (exit
+  code 1, nothing created) when the owner is not an organization visible to the login, when `gh`
+  is not authenticated, when the token's scope list is known and lacks `delete_repo`, and when the
+  target repository name already exists.
+- **Scope preflight.** Before creating anything the suite reads the token's scopes (the
+  `X-OAuth-Scopes` header of `gh api -i user`). A classic token whose list lacks `delete_repo` is
+  refused with the command to add it. An installation (app) token is refused by
+  `GET /user`, so the run stops with the `could not read the token's scopes` error. A
+  fine-grained user token exposes no scope list, so the check cannot run for it: the suite prints
+  a notice and continues, and a missing delete permission then only shows at teardown.
 - **Tokens.** Output is scrubbed of anything shaped like a GitHub token and of the literal
   `GH_TOKEN` and `GITHUB_TOKEN` values before it is printed or written to the report.
 
@@ -166,8 +214,10 @@ Use a login that can create and delete repositories, teams and projects in the t
 (an organization owner is simplest). With a classic token the suite needs `repo`, `delete_repo`,
 `workflow`, `project`, `admin:org` (team creation and deletion) and `read:packages`. A
 fine-grained token needs the equivalent organization and repository permissions. A missing scope
-mostly shows as a skip (project, workflow, packages) or a failed probe; a missing `delete_repo`
-shows as a teardown failure and leaves the repository behind.
+mostly shows as a skip (project, workflow, packages) or a failed probe. A classic token that
+lacks `delete_repo` is refused before anything is created; for a fine-grained token a missing
+delete permission cannot be checked up front and shows as a teardown failure that leaves the
+repository behind.
 
 ### Cost and effects
 
@@ -222,17 +272,23 @@ requests, labels, milestone, branches, ruleset and runs inside it.
 
 Each scenario prints a heading `[family] scenario`, then one line per probe:
 
-- `PASS  name` — the verb call succeeded and its outcome was verified;
+- `PASS  name` — the call returned and the probe's assertion held; a probe with no assertion of
+  its own prints `call returned without error; outcome not asserted here` (a read-back probe
+  that follows may confirm the effect, but that line alone does not);
 - `FAIL  name — reason` — the call threw or the outcome was wrong;
 - `SKIP  name — reason` — the scenario or probe could not run and says why;
 - `recorded <kind> <id>` — a resource was recorded for teardown;
-- `teardown ok:` and `TEARDOWN FAILED:` lines during teardown.
+- `teardown ok:` and `TEARDOWN FAILED:` lines during teardown;
+- `notice:` when the token's scopes could not be checked, or when a cleanup failed for a resource whose create was never confirmed.
 
-The last line is `summary: N pass, F fail, S skip; R resources recorded, T teardown failures`.
+The summary line is `summary: N pass, F fail, S skip; R resources recorded, T teardown failures`.
+When any contract verb was not called (skipped scenarios, an early stop or an interrupt), a last
+line `not exercised (skipped or stopped early): ...` names those verbs, so a green exit with skips
+is not read as full coverage.
 
 | Exit code | Meaning |
 |---|---|
 | 0 | no probe failed and teardown succeeded (skips do not fail the run) |
-| 1 | a probe failed, teardown failed, or the run aborted (authentication, target checks, repository creation) |
-| 2 | the opt-in gate refused to run |
-| 130 | interrupted by SIGINT or SIGTERM; teardown ran first |
+| 1 | a probe failed, teardown failed, or the run aborted (authentication, scope preflight, target checks, repository creation, an uncaught error after teardown) |
+| 2 | a guard refused to run: the opt-in gate, or the real-organization check |
+| 130 | interrupted by SIGINT or SIGTERM; exits only after the single teardown run and any late cleanups have settled |

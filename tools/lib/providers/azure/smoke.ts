@@ -1,12 +1,14 @@
 // azure/smoke.ts — live validation suite for the azure provider, driving the
-// TS modules (port of azure-smoke-test.sh's flow). Manual only: never invoked
+// TS modules. Manual only: never invoked
 // by tests or CI.
 //
 // One combined flow: reads and writes against a LIVE org through the TS
 // transport (azureHttp / azureHttpPaginate) — that is the point. Setup is
 // licensed (the suite creates the fixtures read cases need) and teardown is
 // mandatory: everything created inside the user-provided test project dies at
-// suite end, and the org outside that project is never touched.
+// suite end (also on SIGINT/SIGTERM and on an uncaught error), and the org
+// outside that project is never touched. The recording, teardown and signal
+// logic is shared with the GitHub suite (../smoke-teardown.ts).
 //
 // Safety gate (mirrors the bash harness):
 //   AZURE_SMOKE=1      read-only tier
@@ -85,15 +87,26 @@ import {
 } from "./projects.ts";
 import { pipelinesWorkflowList } from "./pipelines.ts";
 import { EXIT_MISUSE } from "../../core/exit-codes.ts";
+import { createTeardown, installSignalHandlers } from "../smoke-teardown.ts";
+import { ignoreNotFound, settleDeleteAttempts } from "./live-guards.ts";
 
 // ---------------------------------------------------------------------------
 // Harness
 // ---------------------------------------------------------------------------
 
 const REPORT_FILE = process.env.AZURE_SMOKE_REPORT ?? "";
-const teardownStack: Array<() => Promise<void> | void> = [];
-let teardownDone = false;
-let teardownFailed = 0;
+
+/** A hard ceiling on the resources one run may record. */
+const MAX_RESOURCES = 100;
+const td = createTeardown({
+  cap: MAX_RESOURCES,
+  out: (line) => console.log(line),
+  err: (line) => console.error(line),
+  leftoverHints: () => [
+    "Find any other leftovers by name: repositories start with 'smoke-repo-'; work items are titled '[SMOKE-DELETEME]' or start with 'smoke'.",
+  ],
+});
+installSignalHandlers(td, { host: process, exit: (code) => process.exit(code), err: (line) => console.error(line) });
 
 function reportLine(line: string): void {
   if (REPORT_FILE !== "") {
@@ -108,6 +121,9 @@ function reportLine(line: string): void {
 let pass = 0;
 let fail = 0;
 function probe(name: string, ok: boolean, detail = ""): void {
+  // After an interrupt the next probe stops the script; it is unwound by the
+  // shared uncaught-error handler, which waits for the one teardown run.
+  td.throwIfInterrupted();
   if (ok) {
     console.log(`PASS  ${name}${detail !== "" ? ` — ${detail}` : ""}`);
     reportLine(`PASS  ${name}${detail !== "" ? ` — ${detail}` : ""}`);
@@ -155,25 +171,6 @@ function failHard(message: string): never {
   process.exit(1);
 }
 
-async function teardownRun(): Promise<void> {
-  if (teardownDone) return;
-  teardownDone = true;
-  for (let i = teardownStack.length - 1; i >= 0; i--) {
-    try {
-      await teardownStack[i]!();
-    } catch (e) {
-      teardownFailed++;
-      console.error(`  teardown step failed: ${String(e).slice(0, 200)}`);
-    }
-  }
-}
-
-for (const sig of ["SIGINT", "SIGTERM"] as const) {
-  process.on(sig, () => {
-    void teardownRun().then(() => process.exit(130));
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Inputs + gate
 // ---------------------------------------------------------------------------
@@ -201,7 +198,11 @@ if (tier === "write" && process.env.AZURE_SMOKE_CONFIRM !== project) {
 // (which may have come from a file) is visible to it.
 process.env.AZURE_PAT = pat;
 
-const smokeRepo = process.env.AZURE_SMOKE_TEST_REPO ?? `smoke-repo-${process.pid}`;
+// A generated name embeds the process id and a timestamp, so it is unique to
+// this run. An override name is the user's choice and cannot be proven unique
+// (the existence check below treats a failed read as absent).
+const smokeRepoIsGenerated = process.env.AZURE_SMOKE_TEST_REPO === undefined;
+const smokeRepo = process.env.AZURE_SMOKE_TEST_REPO ?? `smoke-repo-${process.pid}-${Date.now()}`;
 
 // ---------------------------------------------------------------------------
 // Pre-flight: the test project must exist (fail fast with a real diagnosis
@@ -280,12 +281,21 @@ try {
 let firstId = 0;
 let firstRepo = "";
 async function destroyWorkItem(id: number): Promise<void> {
-  await azureHttp("DELETE", `${witBase}/workitems/${id}?destroy=true`).catch(() => {});
+  // Only a not-found response counts as already destroyed; any other failure
+  // propagates so teardown reports the surviving work item.
+  await ignoreNotFound(azureHttp("DELETE", `${witBase}/workitems/${id}?destroy=true`));
 }
 if (tier !== "write") {
   console.log("SKIP  fixture provisioning (read-only tier: AZURE_SMOKE=1)");
   firstRepo = (reposJson[0]?.name as string) ?? "";
 } else {
+  // The suite only ever writes to a repository it created: one that already
+  // exists under the throwaway name (AZURE_SMOKE_TEST_REPO included) is refused
+  // before anything is created.
+  const existing = await rawGet(`${gitBase}/repositories/${azureUri(smokeRepo)}`);
+  if (existing !== null) {
+    failHard(`refusing to run: repository '${smokeRepo}' already exists in project '${project}' and was not created by this run.`);
+  }
   try {
     const r = await azureHttp<{ id?: number }>("POST", `${witBase}/workitems/$Issue`, {
       body: JSON.stringify([
@@ -294,7 +304,7 @@ if (tier !== "write") {
       contentType: "application/json-patch+json",
     });
     firstId = r.id ?? 0;
-    teardownStack.push(() => destroyWorkItem(firstId));
+    td.record("work item", String(firstId), `az boards work-item delete --id ${firstId} --destroy --yes`, () => destroyWorkItem(firstId));
     probe(`fixture work item (id ${firstId})`, true);
   } catch (e) {
     probe("fixture work item", false, String(e).slice(0, 200));
@@ -302,33 +312,63 @@ if (tier !== "write") {
 
   firstRepo = smokeRepo;
   try {
-    await reposCreate(firstRepo);
+    // A generated name is unique to this run, so its repository is recorded
+    // BEFORE the create call, as the GitHub suite does: a repository that
+    // exists under it afterwards is this run's. The record is confirmed once
+    // the create succeeds; a cleanup that fails for a create that never
+    // succeeded is only a notice. Teardown waits for the create if a signal
+    // arrives while it is in flight. An override name cannot be proven unique,
+    // so it is recorded only after the create succeeds, never risking a
+    // repository this run did not create. Repo DELETE matrix: name+destroy can
+    // 400, GUID+destroy can 400, plain soft-delete always works, so every
+    // variant is tried and the cleanup fails only if none succeeded (a
+    // not-found response counts as already removed).
+    const recordRepo = (confirmed: boolean) =>
+      td.record(
+        "repository",
+        firstRepo,
+        `az repos delete --id <id of ${firstRepo}> --project ${project} --yes   (then purge it from the deleted list)`,
+        async () => {
+          const guid = await repoGuidShared(firstRepo).catch(() => "");
+          await settleDeleteAttempts([
+            () => azureHttp("DELETE", `${gitBase}/repositories/${firstRepo}?destroy=true`),
+            ...(guid !== ""
+              ? [
+                  () => azureHttp("DELETE", `${gitBase}/repositories/${guid}?destroy=true`),
+                  () => azureHttp("DELETE", `${gitBase}/repositories/${guid}`),
+                ]
+              : []),
+          ]);
+        },
+        confirmed,
+      );
+    const repoRecord = smokeRepoIsGenerated ? recordRepo(false) : undefined;
+    await td.inflight(
+      reposCreate(firstRepo).then(() => repoRecord?.confirm()),
+      `az repos delete --id <id of ${firstRepo}> --project ${project} --yes`,
+    );
+    if (repoRecord === undefined) recordRepo(true);
     probe(`fixture repo (${firstRepo})`, true);
-    // Register the repo teardown NOW, the moment it exists (LIFO stack: the
-    // policy sweep is registered second so it runs while the repo still
-    // exists). Repo DELETE matrix: name+destroy can 400, GUID+destroy can
-    // 400, plain soft-delete always works — fall through all three.
-    teardownStack.push(async () => {
-      const guid = await repoGuidShared(firstRepo).catch(() => "");
-      await azureHttp("DELETE", `${gitBase}/repositories/${firstRepo}?destroy=true`).catch(() => {});
-      if (guid !== "") {
-        await azureHttp("DELETE", `${gitBase}/repositories/${guid}?destroy=true`).catch(() => {});
-        await azureHttp("DELETE", `${gitBase}/repositories/${guid}`).catch(() => {});
-      }
-    });
-    teardownStack.push(async () => {
-      try {
-        const list = await orgRulesetsList(firstRepo);
-        const ids = (JSON.parse(list) as Array<{ id: string }>).map((p) => p.id);
-        for (const pid of ids) {
-          await azureHttp("DELETE", `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}/_apis/policy/configurations/${pid}`).catch(() => {});
-        }
-      } catch {
-        // the sweep is best-effort
+    // The policy sweep is recorded after the repo (LIFO stack: it runs first,
+    // while the repo still exists). A failure to list or delete a policy is a
+    // teardown failure; a not-found response is already removed.
+    td.record("policy sweep", firstRepo, `remove the policies scoped to ${firstRepo} in Project settings, Repositories, Policies`, async () => {
+      const list = await orgRulesetsList(firstRepo);
+      const ids = (JSON.parse(list) as Array<{ id: string }>).map((p) => p.id);
+      for (const pid of ids) {
+        await ignoreNotFound(azureHttp("DELETE", `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}/_apis/policy/configurations/${pid}`));
       }
     });
   } catch {
     probe(`fixture repo (${firstRepo})`, false);
+    // Every later write probe targets this repository; without a repository
+    // this run created, stop rather than write to one it did not.
+    console.error(`the throwaway repository '${firstRepo}' could not be created; stopping before any write probe.`);
+    await td.teardown();
+    console.log("================================");
+    console.log(`summary: ${pass} pass, ${fail} fail`);
+    reportLine(`summary: ${pass} pass, ${fail} fail`);
+    process.exit(1);
   }
 }
 
@@ -494,7 +534,7 @@ if (tier === "write") {
   // 1. Work item create → comment → close.
   try {
     wiId = await issuesCreate("", { title: "smoke destructive item", body: "smoke" });
-    teardownStack.push(() => destroyWorkItem(wiId));
+    td.record("work item", String(wiId), `az boards work-item delete --id ${wiId} --destroy --yes`, () => destroyWorkItem(wiId));
     probe(`work item create (id ${wiId})`, true);
     try {
       await issuesComment("", wiId, { body: "smoke comment" });
@@ -518,7 +558,7 @@ if (tier === "write") {
   // 2. Push a branch with one commit (git ops via CLI + askpass; the default
   // branch is seeded first because an empty repo has none).
   const smokeTmp = mkdtempSync(join(tmpdir(), "azu-smoke-"));
-  teardownStack.push(() => rmSync(smokeTmp, { recursive: true, force: true }));
+  td.record("tempdir", smokeTmp, `rm -rf ${smokeTmp}`, () => rmSync(smokeTmp, { recursive: true, force: true }));
   tmpClone = join(smokeTmp, "clone");
   const askpass = join(smokeTmp, "askpass.sh");
   writeFileSync(askpass, "#!/usr/bin/env bash\nprintf '%s\\n' \"$AZURE_PAT\"\n", { mode: 0o700 });
@@ -652,7 +692,7 @@ if (tier === "write") {
         contentType: "application/json-patch+json",
       });
       childId = child.id ?? 0;
-      if (childId !== 0) teardownStack.push(() => destroyWorkItem(childId));
+      if (childId !== 0) td.record("work item", String(childId), `az boards work-item delete --id ${childId} --destroy --yes`, () => destroyWorkItem(childId));
     } catch {
       childId = 0;
     }
@@ -725,7 +765,7 @@ if (tier === "write") {
       });
       usId = us.id ?? 0;
       if (usId !== 0) {
-        teardownStack.push(() => destroyWorkItem(usId));
+        td.record("work item", String(usId), `az boards work-item delete --id ${usId} --destroy --yes`, () => destroyWorkItem(usId));
         probe(`fixture User Story (id ${usId})`, true);
         await checkStatusRoundtrip(usId, "User Story");
       }
@@ -735,7 +775,7 @@ if (tier === "write") {
     // A Bug is born through the verb's type mapping.
     try {
       const bugId = await issuesCreate("", { title: "[SMOKE-DELETEME] board bug", type: "Bug" });
-      teardownStack.push(() => destroyWorkItem(bugId));
+      td.record("work item", String(bugId), `az boards work-item delete --id ${bugId} --destroy --yes`, () => destroyWorkItem(bugId));
       probe(`issues_create --type Bug (id ${bugId})`, true);
       await checkStatusRoundtrip(bugId, "Bug");
     } catch {
@@ -744,7 +784,7 @@ if (tier === "write") {
     // An untyped create is a User Story; set_type must be able to change it.
     try {
       const typedId = await issuesCreate("", { title: "[SMOKE-DELETEME] retyped" });
-      teardownStack.push(() => destroyWorkItem(typedId));
+      td.record("work item", String(typedId), `az boards work-item delete --id ${typedId} --destroy --yes`, () => destroyWorkItem(typedId));
       const before = (await rawGet(`${witBase}/workitems/${typedId}?$fields=System.WorkItemType`)) as {
         fields?: Record<string, unknown>;
       } | null;
@@ -960,11 +1000,12 @@ if (tier === "write") {
 // Teardown + summary
 // ---------------------------------------------------------------------------
 
-await teardownRun();
+// The same shared run a signal started, if one did: never a second pass.
+await td.teardown();
 console.log("================================");
 console.log(`summary: ${pass} pass, ${fail} fail`);
 reportLine(`summary: ${pass} pass, ${fail} fail`);
-process.exit(fail === 0 && teardownFailed === 0 ? 0 : 1);
+process.exit(td.isInterrupted() ? 130 : fail === 0 && td.failedCount() === 0 ? 0 : 1);
 
 // ---------------------------------------------------------------------------
 // Tier-2 outcome check helpers (defined at the bottom; hoisted)
