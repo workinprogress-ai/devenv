@@ -133,15 +133,12 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
   ContinuationToken; issue lists are project-scoped (per-repo scoping via
   area paths is a provisioning-only convention — see MAPPING.md); releases
   map to git tags; org rulesets map to per-repo branch policies.
-- **Smoke validation** (manual, opt-in, never in CI): `tools/lib/providers/azure/smoke.ts`
-  refuses to run without an explicit opt-in and a disposable test project
-  (`AZURE_DEVOPS_ORG`, `AZURE_SMOKE_TEST_PROJECT` and `AZURE_PAT` are read from
-  the invocation environment, never persisted).
-  - *Tier 1, read-only*: `AZURE_SMOKE=1 node tools/lib/providers/azure/smoke.ts` —
-    auth, repo list (pagination probe), WIQL, work-item view, PR list.
-  - *Tier 2, destructive*: `AZURE_SMOKE=write` plus `AZURE_SMOKE_CONFIRM=<test
-    project>` — create/comment/close work items, create and rebase-merge a
-    PR. Tokens never appear in output (transport redacts).
+- **Smoke validation** (manual, opt-in, never in CI): each provider ships a live
+  smoke suite with its own guide covering opt-in variables, what it creates and
+  deletes, safety model, cautions and manual cleanup:
+  [`github/SMOKE.md`](../tools/lib/providers/github/SMOKE.md) and
+  [`azure/SMOKE.md`](../tools/lib/providers/azure/SMOKE.md). The regular test
+  run never reaches a backend.
 
 ## Keeping a Soft Fork in Sync and Contributing Back
 

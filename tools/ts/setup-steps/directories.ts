@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // directories.ts — provision step: runtime directories, the C# debugger
 // download + sanity check, dotnet diagnostic optics, and the system settings
-// (inotify limit, docker group). Port of provision.bash
-// ensure_directories_and_settings.
+// (inotify limit, docker group).
 //
 // Idempotent: mkdir -p everywhere; each optional install is skipped when its
 // marker/already-present check hits; the sysctl append is grep-guarded.

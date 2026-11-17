@@ -1,5 +1,3 @@
-// Port of tools/tests/scripts/test_repo_bump_version.bats (4 tests)
-// and test_repo_calc_version.bats (6 tests), kept as separate describes.
 // repo-bump-version: usage/args contract; repo-calc-version: semver bump
 // analysis over the merge range (fix/feat/breaking, multi-commit ranges).
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";

@@ -1,7 +1,6 @@
 // core-body-source.test.ts — unit suite for lib/core/body-source.ts. The
-// bash original's 27-case bats spec is the behavioral reference; the cases
-// that map to a unit-testable surface live here (stdin-leg integration
-// cases run through the tool-level suites in the adoption phase).
+// cases that map to a unit-testable surface live here; stdin-leg integration
+// cases run through the tool-level suites.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";

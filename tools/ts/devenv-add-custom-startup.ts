@@ -1,5 +1,5 @@
 // devenv-add-custom-startup — add custom startup commands to
-// .devcontainer/user-custom-startup.sh. Port of devenv-add-custom-startup.sh.
+// .devcontainer/user-custom-startup.sh.
 // Commands run after the container starts; each is syntax-checked (bash -n)
 // before it is appended.
 

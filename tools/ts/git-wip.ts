@@ -3,7 +3,7 @@
 // Version: 1.1.0
 // Description: WIP snapshots are throwaway checkpoints by design — the commit
 //              is created with `git commit -n`, bypassing pre-commit/commit-msg
-//              hooks (intentional, like the bash original: requiring WIP
+//              hooks (intentional: requiring WIP
 //              snapshots to pass commitlint would defeat their purpose; normal
 //              commits must always go through hooks).
 //

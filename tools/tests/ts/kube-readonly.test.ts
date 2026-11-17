@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_kube_readonly.bats (9 tests).
 // Read-only kube families: kube-list-pods, kube-logs, kube-pod-console,
 // kube-pod-exec, kube-forward-ports, kube-intercept. Locks argument handling
 // and consumption of the shared selection path; network lifecycle is out of

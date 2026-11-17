@@ -1,5 +1,5 @@
 // Live MultiSelectPrompt render contract: the frame must show ALL toggled
-// rows as checked (13.10 finding C — the renderer once read clack's
+// rows as checked (the renderer once read clack's
 // focused-only _value, so exactly the cursor row ever rendered checked).
 // Drives the real prompt through pipes and inspects the rendered frame.
 import { describe, expect, it } from "vitest";

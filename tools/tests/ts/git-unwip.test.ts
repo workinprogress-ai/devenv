@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_git_unwip.bats (6 tests).
 // git-unwip target selection: the reset target is the last commit whose
 // subject does NOT start with "WIP:", that subject merely containing "wip:"
 // is never skipped, a WIP-only history refuses to unwip, and the

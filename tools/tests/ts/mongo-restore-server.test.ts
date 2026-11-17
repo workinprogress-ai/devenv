@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_mongo_restore_server.bats (9 tests).
 // mongo-restore-server consent gate and error path.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";

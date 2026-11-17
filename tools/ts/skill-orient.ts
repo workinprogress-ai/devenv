@@ -1,5 +1,5 @@
 // skill-orient — shared orientation stanza for devenv skills.
-// Port of skill-orient.sh: compact JSON blob — active plan census, scoped
+// Compact JSON blob — active plan census, scoped
 // TODO markers, git staging counts, provenance hint. Read-only, bounded.
 
 import { execFileSync } from "node:child_process";

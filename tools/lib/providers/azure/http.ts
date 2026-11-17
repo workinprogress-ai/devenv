@@ -1,5 +1,4 @@
-// azure/http.ts — thin HTTP transport for the Azure DevOps provider (port of
-// azure/http.bash).
+// azure/http.ts — thin HTTP transport for the Azure DevOps provider.
 //
 // Everything HTTP lives here once: Basic-auth header from the PAT,
 // api-version injection, continuation-token pagination, 429/Retry-After and

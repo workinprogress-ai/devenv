@@ -1,5 +1,5 @@
-// Behavioral tests for the core config INI reader. The assertions mirror the
-// contract the bats suite pins for the bash original (test_config_read.bats):
+// Behavioral tests for the core config INI reader. The assertions pin the
+// contract:
 // exact section/key matching, trimming rules, value-contains-equals,
 // last-occurrence-wins, empty-reads-as-default, comment/blank skipping, CRLF
 // tolerance, and template expansion with re-expansion neutralization.

@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_tunnel_ports.bats (6 tests).
 // tunnel-ports smoke tests. ssh is a stand-in that records its arguments,
 // notes its PID and sleeps, so tunnels can be "opened" and closed for real.
 import { toolScript } from "./harness/index.ts";

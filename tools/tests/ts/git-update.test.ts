@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_git_update.bats (15 tests).
 // git-update classification states, driven in throwaway repos: up to date,
 // strictly behind, ahead, diverged, and the rewritten-origin fixture family
 // (reset / replay-via-rebase / dirty refusal / merge-commit refusal /
@@ -174,7 +173,7 @@ describe("scripts/git-update", () => {
   });
 
   it("fixture: the check's reachability conditions identify the old tip as the base", () => {
-    // Phase-1 probe for the lib contract: the exact conditions from the
+    // Probe for the lib contract: the exact conditions from the
     // rewrite scan pick OLD_TIP out of the reflog as "rewritten, and here is
     // the pre-rewrite base".
     rewriteOrigin();
@@ -198,7 +197,7 @@ describe("scripts/git-update", () => {
     expect(found).toBe(true);
   });
 
-  // ── Rewritten-path behavior (Phase 2) ──────────────────────────────────────
+  // ── Rewritten-path behavior ───────────────────────────────────────────────────
 
   it("git-update: rewritten remote + nothing unique resets to origin", () => {
     rewriteOrigin();

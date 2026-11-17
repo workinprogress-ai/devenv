@@ -1,5 +1,4 @@
-// Port of tools/tests/scripts/test_fork_sync.bats (49 tests) — one vitest
-// `it` per source `@test`. Contract tests for on-demand upstream sync:
+// Contract tests for on-demand upstream sync:
 // divergence reporting, pick-plan replay, twin recognition, push-to-origin
 // (fast-forward + lease-protected rewrite), drift inventory, and the
 // fork-owned-surface snapshot.
@@ -315,7 +314,7 @@ describe("fork-sync", () => {
     commitIn(updater, "origin.txt", "origin-only change", "Origin-only commit");
     git(updater, ["push", "-q", "origin", "master"]);
     const beforeOriginTip = git(fx().adoOrigin, ["rev-parse", "master"]).out.trim();
-    // The bats shape: pipe "n\n" straight into script(1) — the confirm read
+    // Pipe "n\n" straight into script(1) — the confirm read
     // is canonical-mode and needs the newline (a bare key would hang).
     const r = sh(`printf "n\\n" | script -qec "node '${SCRIPT}' --rewrite-origin --push-to-origin" /dev/null`);
     expect(r.status).toBe(0);
@@ -339,8 +338,8 @@ describe("fork-sync", () => {
     git(racer, ["config", "user.name", "Test User"]);
     commitIn(racer, "race.txt", "concurrent origin update", "Concurrent origin commit");
     // pre-push hook: push the racer's commit concurrently with the rewrite.
-    // The hook runs from the tool's push (cwd = the working clone); the bats
-    // original inherited the runner env — here PATH must carry the REAL git
+    // The hook runs from the tool's push (cwd = the working clone); PATH
+    // here must carry the REAL git
     // (node stubs on PATH would shadow it inside env -i otherwise not).
     mkdirSync(join(fx().workingClone, ".git/hooks"), { recursive: true });
     const realGit = spawnSync("bash", ["-c", "command -v git"], { encoding: "utf8" }).stdout?.trim() ?? "git";
@@ -387,7 +386,7 @@ describe("fork-sync", () => {
     setupSyncFixture();
     commitIn(fx().workingClone, "local.txt", "local change", "Local ahead commit");
     const beforeOriginTip = git(fx().adoOrigin, ["rev-parse", "master"]).out.trim();
-    // Bats shape: "n\n" piped into script(1) (canonical read needs the newline).
+    // "n\n" piped into script(1) (canonical read needs the newline).
     const r = sh(`printf "n\\n" | script -qec "node '${SCRIPT}' --push-to-origin" /dev/null`);
     expect(r.status).toBe(0);
     expect(r.out).toContain("Proceed with push? [y/N]");

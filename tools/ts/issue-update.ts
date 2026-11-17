@@ -5,8 +5,8 @@
 // Requirements: Node >= 23.6 (native type-stripping execution)
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
-// The bash tool's --select issue-picker flow is deferred to the ui layer
-// (issue-select); this tool takes an explicit issue number.
+// The interactive issue picker lives in the ui layer (issue-select); this
+// tool takes an explicit issue number.
 //
 // Contract: at least one update is required (piped stdin with no updates
 // auto-reads as the new body); state changes ride the close/reopen verbs
@@ -87,7 +87,7 @@ async function main(argv: string[]): Promise<number> {
   let dryRun = false;
   let devenv = false;
 
-  // Leading issue number (before flags), matching the bash tool's parse.
+  // Leading issue number (before flags).
   let rest = argv;
   if (rest.length > 0 && /^[0-9]+$/.test(rest[0] ?? "")) {
     issueNumber = rest[0] ?? "";

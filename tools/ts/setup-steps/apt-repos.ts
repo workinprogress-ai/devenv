@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // apt-repos.ts — install step: add the specialized package repositories and
-// keys (HashiCorp, Kubernetes pkgs.k8s.io). Ported from the bash bootstrap's
-// add_specialized_repositories.
+// keys (HashiCorp, Kubernetes pkgs.k8s.io).
 //
 // Idempotent: keyrings and list files are overwritten in place.
 // Non-interactive: no prompts; downloads are read-only fetches.

@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_pipelines_argv.bats (3 tests).
 // The gh argv the pipelines wrappers produce: the flags a user passes must
 // reach gh, and the repository must be named exactly once.
 import { beforeEach, describe, expect, it, vi } from "vitest";

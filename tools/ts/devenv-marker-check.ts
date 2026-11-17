@@ -1,5 +1,5 @@
 // devenv-marker-check — deterministic DEVENV-marker and AC-comment scanning.
-// Port of devenv-marker-check.sh: gate mode (plan-bounded FIXME markers),
+// Gate mode (plan-bounded FIXME markers),
 // --all audit, --ac / --todo-report finders, --marker REGEX custom scan,
 // --require, --no-exclude, --include-copilot.
 

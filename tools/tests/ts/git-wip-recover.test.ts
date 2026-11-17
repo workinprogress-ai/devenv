@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_git_wip_recover.bats (7 tests).
 // git-wip-recover behavior with refs/wip/last pre-seeded as git-wip would.
 // Locks: --show output, --branch creation at the saved ref, unknown-option
 // refusal, missing-ref refusal.

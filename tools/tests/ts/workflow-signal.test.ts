@@ -1,9 +1,7 @@
-// Tests for workflow-signal.ts — the TypeScript port of the bash tool.
-// Black-box port of tools/tests/scripts/test_workflow_signal.bats: same
-// scenarios, same assertions, TS-tool specifics (node runner, vitest).
+// Tests for workflow-signal.ts, run as a black-box node child.
 // The WORKFLOW_SIGNAL_TOOLS seam points the tool at a fixture tools root
 // whose internal/ holds executable _on_*.sh stubs that log
-// "DISPATCH <event> <issue>" — the exact contract the bats suite asserts.
+// "DISPATCH <event> <issue>".
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, rmSync, statSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -39,7 +37,7 @@ function makeFakeEvent(event: string, body?: string): void {
 // real tree without the override.
 function runTool(args: string[]): { status: number; stdout: string; stderr: string; output: string } {
   // The seam points at the directory holding the _on_*.sh entry points —
-  // the internal/ dir itself, exactly as the bats harness sets it.
+  // the internal/ dir itself.
   const env: Record<string, string> = {};
   if (entryDirOverridden) env["WORKFLOW_SIGNAL_TOOLS"] = fakeInternal;
   const r = runHarness(TOOL, args, { stdin: "", env });

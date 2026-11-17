@@ -10,7 +10,7 @@
 // (default close). Each issue is verified to exist first (issuesExists);
 // failures accumulate and the tool exits non-zero when any issue failed.
 // --reason is close-only. The interactive --select flow needs a TTY picker
-// (ui/prompts per D4); it is deferred to the interactive-polish pass and
+// (ui/prompts); it is deferred to the interactive-polish pass and
 // refuses cleanly when no TTY is present.
 
 import { basename } from "node:path";

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // bashrc.ts — provision step: append the devenvrc sourcing block to ~/.bashrc.
-// Port of provision.bash append_bashrc.
+//
 //
 // Idempotent via the marker: the block is appended only when the
 // "### devenv rc start" marker is absent. Interactive-shell guard preserved

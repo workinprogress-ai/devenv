@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_roadmap_parse.bats (7 tests).
 // roadmap-parse: step extraction (phase/title/status), issue-ref
 // canonicalization to org/repo#N, UNRESOLVED flagging, dependency capture,
 // exit contracts.

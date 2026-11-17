@@ -1,5 +1,4 @@
-// azure/pipelines.ts — Azure DevOps pipelines domain (port of
-// azure/pipelines.bash): builds = runs, build definitions = workflows.
+// azure/pipelines.ts — Azure DevOps pipelines domain: builds = runs, build definitions = workflows.
 // The builds filter takes the repository's GUID; --status maps the gh
 // vocabulary onto statusFilter+resultFilter pairs. Contract: throw
 // ProviderError; never exit.

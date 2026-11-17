@@ -1,5 +1,5 @@
 // providers/github/key-update.ts — the GitHub credential rotation entry
-// point (TS port of key-update.sh). The generated shell function
+// point. The generated shell function
 // (_key_update_run in .runtime/bash-functions.sh) invokes this file; the
 // shell-side env-vars.sh reload hook stays in the generated function — a
 // child process cannot re-source the caller's shell, so the reload remains

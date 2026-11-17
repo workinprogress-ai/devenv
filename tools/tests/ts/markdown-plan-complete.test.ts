@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_markdown_plan_complete.bats (4 tests).
 // markdown-plan-complete-task / markdown-plan-complete-ac auto-detect order
 // (shared: .local-artifacts/ first, then cwd).
 import { beforeEach, describe, expect, it, vi } from "vitest";

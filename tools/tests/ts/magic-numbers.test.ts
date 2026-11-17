@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_magic_numbers.bats (15 tests) — one vitest `it` per source `@test`.
+// Tests that tools and bootstrap declare named constants (and tool versions in one place).
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -11,9 +11,7 @@ function sh(script: string): { status: number; out: string } {
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-// Port of tools/tests/devenv/test_magic_numbers.bats — one vitest `it` per source `@test`.
-
-// ── magic numbers (port of test_magic_numbers.bats, 15 tests; 1 skipped) ─
+// ── magic numbers ─
 
 describe("magic numbers", () => {
   const bg = join(ROOT, ".devcontainer/background-check-devenv-updates.sh");

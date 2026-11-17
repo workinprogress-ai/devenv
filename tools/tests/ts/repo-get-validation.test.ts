@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_repo_get_validation.bats (16 tests).
 // repo-get input validation, usage surface, and real --all runs against a
 // stubbed provider CLI and stubbed git.
 import { beforeEach, describe, expect, it, vi } from "vitest";

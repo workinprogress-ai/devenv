@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_repo_get_update.bats (7 tests).
 // repo-get's update of an existing clone must never destroy local work: a
 // dirty working tree or unpushed commits make it skip the repo with a
 // message, and a clean tree only ever moves forward (fast-forward).

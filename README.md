@@ -10,7 +10,8 @@ A comprehensive development environment setup with dev containers, tooling, and 
 - **Developer Utilities**: Script templates, linting, versioning, and code quality tools
 - **Database Tools**: MongoDB, SQL Server, and SMB server utilities
 - **.NET Development**: NuGet package management and local debugging support
-- **Comprehensive Testing**: vitest suite (`tools/tests/ts/`) with extensive coverage
+- **Hardened Tooling**: TypeScript tools behind one CLI contract (strict parsing, `--help`/`--version` without a backend, named exit codes); every provider call goes through a facade with GitHub and Azure DevOps implementations
+- **Testing**: a hermetic vitest suite (`tools/tests/ts/`) that never reaches a provider backend, plus opt-in live smoke suites per provider; bash remains only for the container bootstrap
 - **Documentation**: Detailed guides for tooling standards, workflow, and best practices
 
 ## Prerequisites
@@ -219,7 +220,13 @@ For more information see the documentation:
 
 - [Tooling Standards](./docs/Tooling-Standards.md) - How to write, structure, and test tools in this repo, including the logging framework
 - [Workflow Guide](./docs/Workflow.md) - Delivery methodology and working agreements
-- [Function Naming Conventions](./docs/Function-Naming-Conventions.md) - Bash function naming standards
+- [Function Naming Conventions](./docs/Function-Naming-Conventions.md) - Naming standards for functions, modules and tools
+
+**Providers and tests:**
+
+- [Provider library](./tools/lib/providers/README.md) - Facade, contract and bootstrap surface ([contract](./tools/lib/providers/CONTRACT.md))
+- [Test suite guide](./tools/tests/README.md) - Hermetic suite and harness
+- Live smoke suites, run on demand: [GitHub](./tools/lib/providers/github/SMOKE.md), [Azure DevOps](./tools/lib/providers/azure/SMOKE.md)
 
 **Advanced Topics:**
 
@@ -234,10 +241,12 @@ The devenv can be forked and customized to use with other organizations. See [th
 Run the test suite with:
 
 ```bash
-./tools/tests/run-devenv-tests.sh
+pnpm test
 ```
 
-Run linting with:
+The regular run is hermetic: it never contacts GitHub, Azure DevOps or any other backend. The provider smoke suites that do are opt-in and run by hand; see their guides linked above.
+
+Check types and lint with `pnpm typecheck` and `pnpm lint:ts`, and lint the remaining shell scripts with:
 
 ```bash
 lint-scripts

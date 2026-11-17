@@ -1,5 +1,5 @@
 // kube-intercept — intercept cluster traffic into local services via
-// telepresence. Port of kube-intercept.sh: mappings from a file and/or argv
+// telepresence. Mappings come from a file and/or argv
 // (DEPLOYMENT=PORT[,PORT...] — commas for multiple ports), each deployment
 // resolved to a pod via the namespace's pod listing; a watchdog keeps the
 // telepresence daemon connected; SIGINT/SIGTERM stops intercepts and the
@@ -108,8 +108,8 @@ for (const mapping of mappings) {
     console.error(`Invalid mapping format: ${mapping}`);
     process.exit(EXIT_MISUSE);
   }
-  // Resolve the deployment's pod (the bash tool used get_deployment_info's
-  // picker; the listing contract here is first matching pod, failing loud).
+  // Resolve the deployment's pod (the listing contract is first matching pod,
+  // failing loud).
   let pods: string[];
   try {
     pods = listPods({ namespace: ns, filter: depId });

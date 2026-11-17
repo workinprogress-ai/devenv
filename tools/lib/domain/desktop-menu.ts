@@ -1,5 +1,5 @@
 // desktop-menu.ts — Fluxbox menu mutation helpers (domain/headless).
-// Port of desktop-menu.bash: get menu file, folder/shortcut existence,
+// Get menu file, folder/shortcut existence,
 // add folder/shortcut with the awk engines' insertion semantics.
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";

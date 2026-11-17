@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_wip_gate.bats (6 tests).
 // The WIP-commit gate (tools/git-hooks/wip-gate.sh): only a WIP commit may
 // follow a WIP commit. Exercises the gate logic itself plus the delegation
 // mechanics (a husky-style local hooksPath with the exact block shape the

@@ -1,8 +1,6 @@
-// Port of the final port-row bats files: test_script_linting.bats (6) +
-// test_script_template.bats (38) + test_spec_dependency_check.bats (21) +
-// test_wrapper_suite_additions.bats (16) +
-// test_special_repo_reset_merge_config.bats (13) +
-// skills/test_provider_protocol_decoupling.bats (6) — 100 tests.
+// Tests for the script linting sweep, the script template, spec-dependency-check,
+// the wrapper suite additions, repo-reset-merge-config and the provider
+// protocol decoupling gate.
 // Fixture hygiene per tools/tests/README.md: scratch under tmpPath().
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";

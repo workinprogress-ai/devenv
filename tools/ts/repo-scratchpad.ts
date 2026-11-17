@@ -1,5 +1,5 @@
 // repo-scratchpad — governed experiment sandbox for AI sessions.
-// Port of repo-scratchpad.sh over lib/domain/scratchpad.ts. Cuts a
+// Built over lib/domain/scratchpad.ts. Cuts a
 // scratchpad/<slug> branch, records the base, permits hook-bypassing commits
 // on it. reset/exit only touch scratch-created content; entry is fail-closed.
 

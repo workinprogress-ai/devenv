@@ -1,4 +1,4 @@
-// Tests for issue-graph-link.ts (15.21): post-hoc sub-issue linking with
+// Tests for issue-graph-link.ts: post-hoc sub-issue linking with
 // same-repo and cross-repo references over a stubbed gh.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";

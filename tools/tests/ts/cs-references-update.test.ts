@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_cs_references_update.bats (25 tests).
 // cs-references-update: TFM/LangVersion rewrite engine, restore gate, and
 // no-flags passthrough behavior, plus the .repo/update.sh boilerplate chain.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";

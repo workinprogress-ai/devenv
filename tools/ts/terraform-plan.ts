@@ -1,5 +1,5 @@
 // terraform-plan — run Terraform plan with sensible defaults and DigitalOcean
-// token wiring. Port of terraform-plan.sh.
+// token wiring.
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";

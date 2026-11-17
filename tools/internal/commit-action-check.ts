@@ -1,5 +1,5 @@
 // commit-action-check — enforce the Devenv-Action commit trailer.
-// Port of tools/internal/commit-action-check.sh. One home for the rule:
+// One home for the rule:
 // message-file mode serves the local commit-msg hook; commit-range mode
 // serves CI, so a clone without hooks cannot land trailer-less commits on
 // master. INTERNAL tooling: invoked by .husky/commit-msg and the CI

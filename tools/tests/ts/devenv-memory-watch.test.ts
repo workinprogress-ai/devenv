@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_devenv_memory_watch.bats (7 tests).
 // devenv-memory-watch: entry-point contract, options surface, sample
 // persistence across runs, culprit summary format, reset.
 import { toolScript } from "./harness/index.ts";

@@ -1,5 +1,5 @@
 // next-id — resolve the next free numeric identifier deterministically.
-// Port of next-id.sh: filename mode (--pattern with {N}) and in-document
+// Filename mode (--pattern with {N}) and in-document
 // mode (--file + --prefix scanning PREFIX-NNN tokens).
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";

@@ -1,5 +1,5 @@
 // mongo-backup-server — back up every non-built-in MongoDB database.
-// Port of mongo-backup-server.sh: list databases via mongosh, validate
+// List databases via mongosh, validate
 // names (built-ins skipped; a malformed name aborts loudly), then mongodump
 // each database into a timestamped subfolder. A failed dump is non-zero.
 
@@ -53,9 +53,9 @@ requireCommandOrExit("mongosh", undefined, EXIT_GENERAL_ERROR);
 
 mkdirSync(backupDir, { recursive: true });
 
-// Unique timestamped subfolder in local time (the bash original's
-// `date +%Y%m%d_%H%M%S` was local; UTC here produced folder names that
-// drift from the operator's wall clock).
+// Unique timestamped subfolder in local time (`date +%Y%m%d_%H%M%S`
+// semantics; UTC would produce folder names that drift from the
+// operator's wall clock).
 const now = new Date();
 const pad = (n: number): string => String(n).padStart(2, "0");
 const timestamp =

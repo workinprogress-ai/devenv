@@ -1,4 +1,4 @@
-// Unit tests for requireRepoTarget (15.8): named-error with remediation on
+// Unit tests for requireRepoTarget: named-error with remediation on
 // an empty resolved target, pass-through when resolved, and the explain-data
 // arbiter (azure issues reads = never -> empty passes). Each case fresh-imports
 // the facade under its own DEVENV_ROOT (providerDetect caches per module).

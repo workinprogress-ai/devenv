@@ -1,4 +1,4 @@
-// Self-locating harness tests (port of test_self_locating_harness.bats):
+// Self-locating harness tests:
 // regression for the wrong-suite hazard — an exported DEVENV_TOOLS pointing
 // at a foreign tree must not redirect devenv's own tools. Asserts resolution
 // identity, never test counts.
@@ -69,8 +69,5 @@ process.stdout.write(dirname(tools));`,
   });
 });
 
-// The harness-copied-to-bare-checkout sentinel proof stays in the bats suite:
-// it executes the whole bats runner, which is the bats harness's own concern
-// (hook/signal machinery stays bats per Tooling-Standards). The two suites
-// complement: this file covers the tool-side identity, the bats suite covers
-// the runner-side identity.
+// The runner-side identity (the harness copied to a bare checkout) is not
+// covered here: this file covers the tool-side identity only.

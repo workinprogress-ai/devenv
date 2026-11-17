@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_pr_create_for_review.bats (4 tests).
 // pr-create-for-review: a REVIEW: PR between two commits, built on two
 // temporary branches. Those branches are the PR's base and head, so a
 // successful run must leave them on the remote (pr-cleanup-review-branches

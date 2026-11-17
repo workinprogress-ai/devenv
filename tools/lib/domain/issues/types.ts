@@ -1,5 +1,5 @@
-// types.ts — the native issue-type vocabulary and its normalization (port of
-// `normalize_issue_type` + the config vocabulary readers).
+// types.ts — the native issue-type vocabulary and its normalization (type normalization plus the
+// config vocabulary readers).
 //
 // Canonical set and aliases come from tools/config/issues-config.yml (name
 // list); the alias map matches the bash policy layer's pairs. Matching is

@@ -1,10 +1,9 @@
-// Port of tools/tests/scripts/test_repo_commit.bats (17) +
-// test_repo_create.bats (25) + test_repo_scratchpad.bats (30) — 72 tests.
+// Tests for repo-commit, repo-create and repo-scratchpad.
 //
 // Subjects: the repo-commit wrapper (interactive-only contract), repo-create
 // (types config + naming patterns + mocked-gh flows), and the repo-scratchpad
 // state machine (enter/carry/commit/reset/promote/exit/resume + restriction
-// refusals). The bats assertions are the oracle.
+// refusals).
 // Fixture hygiene per tools/tests/README.md: all scratch paths flow through
 // tmpPath() (throws unless under os.tmpdir()); every repo fixture is created
 // under the temp root, and suites chdir only into throwaway repos.
@@ -91,7 +90,7 @@ function run(exe: string, args: string[], opts: { cwd?: string; env?: Record<str
 
 // A PATH shadow that omits interactive editors (code/code-insiders/nano) so
 // auto-resolve candidates come back empty and refusal paths are deterministic.
-// It REPLACES PATH in the refusal tests (bats semantics) — prepending would
+// It REPLACES PATH in the refusal tests — prepending would
 // let editor auto-resolve walk the ambient PATH and find the real `code`.
 function shadowPathWithoutEditors(): string {
   const shadow = tmpPath("shadow-bin");
@@ -111,7 +110,7 @@ function shadowPathWithoutEditors(): string {
         try {
           symlinkSync(target, dest);
         } catch {
-          /* best-effort, as in bats */
+          /* best-effort */
         }
       }
     }
@@ -162,7 +161,7 @@ function writeEditor(name: string, body: string): string {
   return f;
 }
 
-describe("repo-commit wrapper (bats port)", () => {
+describe("repo-commit wrapper", () => {
   beforeEach(() => {
     C_REPO = commitRepo();
   });
@@ -349,8 +348,8 @@ describe("repo-commit wrapper (bats port)", () => {
 
 // ── repo-create ─────────────────────────────────────────────────────────────
 
-// YAML keys the bats suite asserted via yq; read structurally here (yq is not
-// a test dependency — the yaml text is the contract surface).
+// YAML keys of the types file, read structurally (yq is not a test
+// dependency — the yaml text is the contract surface).
 // Line-scanner for the repo-types.yaml structure — deliberately NOT regex:
 // a lazy block-matching regex on this 400-line file backtracks
 // catastrophically in V8 (the yaml tests hung until the runner timeout).
@@ -404,7 +403,7 @@ const NAMING = {
   gateway: /^gateway\.[a-z0-9-]+\.[a-z0-9-]+$/,
 };
 
-describe("repo-create (bats port)", () => {
+describe("repo-create", () => {
   it("the entry has valid TypeScript syntax", () => {
     expect(spawnSync("node", ["--check", REPO_CREATE]).status).toBe(0);
   });
@@ -442,9 +441,8 @@ describe("repo-create (bats port)", () => {
   });
 
   it("repo-types.yaml: all types have required fields", () => {
-    // Oracle semantics: the bats assertions ran yq, which prints "null" for
-    // missing keys — so their real force is "naming_pattern and naming_example
-    // are non-null" (the fields the tool actually reads). Mirror that.
+    // The check's real force is "naming_pattern and naming_example are
+    // non-null" (the fields the tool actually reads).
     for (const type of yamlKeysOfTypes()) {
       const block = yamlTypeBlock(type).join("\n");
       expect(block, `${type}.naming_pattern missing`).toMatch(/^    naming_pattern:/m);
@@ -609,8 +607,8 @@ function startRealBisect(): void {
   expect(git(SP_REPO, ["bisect", "start", "HEAD", root]).status).toBe(0);
 }
 
-// Add a scratch commit (work file + branded commit), the bats fixtures' bread
-// and butter.
+// Add a scratch commit (work file + branded commit), the basic building block of
+// the scratchpad fixtures.
 function scratchWork(message: string): string {
   writeFileSync(join(SP_REPO, "w.txt"), "work\n");
   git(SP_REPO, ["add", "-A"]);
@@ -627,7 +625,7 @@ function carryPatch(): string {
   return join(dir, name ?? "exp-carry.patch");
 }
 
-describe("repo-scratchpad state machine (bats port)", () => {
+describe("repo-scratchpad state machine", () => {
   beforeEach(() => {
     spSetup();
   });
@@ -799,7 +797,7 @@ describe("repo-scratchpad state machine (bats port)", () => {
     expect(r.out).toContain("git wip");
   });
 
-  // ── Phase 3: restrictions & refusals ────────────────────────────────────
+  // ── restrictions & refusals ──────────────────────────────────────────
 
   it("refusal contract: git-wip blocked while scratchpad active (exit 3, sentinel)", () => {
     sp(["enter"]);

@@ -1,5 +1,4 @@
-// Port of tools/tests/lib/test_provider_azure_auth.bats (14 tests): Azure
-// git-transport credentials — the credential helper and the
+// Tests for Azure git-transport credentials — the credential helper and the
 // git credential-helper wiring. All git-config writes happen under
 // GIT_CONFIG_GLOBAL pointed at a temp file — never the executor's real global
 // config. No network: the helper is exercised via `git credential fill` with a

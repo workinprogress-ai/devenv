@@ -2,7 +2,7 @@
 // devenvrc.ts — provision step: write the shared ~/.devenvrc (sourced by
 // every interactive shell via the bashrc block).
 //
-// Port of provision.bash write_devenvrc. Two parts, exactly as the bash
+// Two parts, exactly as the bash
 // function wrote them:
 //   header — unquoted heredoc: one dynamic slot (this toolbox's path as the
 //     DEVENV_ROOT fallback default; forks/renames resolve to themselves).

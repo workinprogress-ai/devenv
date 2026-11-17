@@ -1,4 +1,4 @@
-// editor.ts — open a file in the user's editor (port of editor.bash).
+// editor.ts — open a file in the user's editor.
 // Preference order: VS Code with --wait (blocking), then PREF_EDITOR, then
 // FALLBACK_EDITOR, then nano. All launches block until the editor closes —
 // tools need the file's final state after the call returns.

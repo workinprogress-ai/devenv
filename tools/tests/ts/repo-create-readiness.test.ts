@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { repoTreeParityReady } from "../../lib/domain/repos/types.ts";
-// Tests for the 15.13 readiness probe: reposTreeCount's truncated/null
+// Tests for the readiness probe: reposTreeCount's truncated/null
 // contract, and the parity decision waitForRepoReady applies (parity =
 // ready; template-ahead or probe failure = keep waiting, never ready).
 // Plain gh failure/response stubs per test — no tsv routing.

@@ -247,7 +247,7 @@ run_bootstrap_tasks "${TASKS[@]}"
 - `install_yq` - Install the yq YAML processor (verified download)
 - `require_setup_files` - Fail fast when the .setup/ seeds are missing
 - `require_provider_token` - Ensure a provider credential is present (seed import / interactive paste)
-- `resolve_node_on_path` - PATH-resolve the image's pinned node (17.0; no runtime install)
+- `resolve_node_on_path` - PATH-resolve the image's pinned node (no runtime install)
 - `reset_bashrc_to_original` - Reset .bashrc to original state (set `PRESERVE_BASHRC=1` to preserve direct edits)
 - `init_bootstrap_run_time` / `record_bootstrap_run_time` - bootstrap timing markers
 - `run_setup_first_run` - The handoff: `node tools/ts/setup.ts --all`

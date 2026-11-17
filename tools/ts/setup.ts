@@ -2,13 +2,12 @@
 // setup.ts — the setup orchestrator: first-run provisioning AND the convergent
 // post-update setup runner, as one non-interactive TypeScript tool.
 //
-// Handoff contract (from the slim bash bootstrap): every step is idempotent,
+// Handoff contract (from the slim bootstrap): every step is idempotent,
 // individually callable, and strictly non-interactive; `--all` runs them in
 // the bootstrap order. Fork bootstraps and CI run this unattended.
 //
-// One registry, two lanes (17.2: the provision bridge retired — every step
-// is a TS module under tools/ts/setup-steps/; tools/lib/provision.bash is
-// deleted):
+// One registry, two lanes (every step is a TS module under
+// tools/ts/setup-steps/):
 //   PROVISION_STEPS — the configure-half steps (credentials, shell files,
 //     integrations, package sources).
 //   INSTALL_STEPS — the post-node install stage (system packages,

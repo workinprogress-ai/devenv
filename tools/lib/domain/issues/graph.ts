@@ -1,5 +1,4 @@
-// graph.ts — native sub-issue hierarchy reads + body-text parent resolution
-// (port of issue-graph.bash).
+// graph.ts — native sub-issue hierarchy reads + body-text parent resolution.
 //
 // All I/O lives here (and in the provider facade it calls); the workflow
 // module stays policy-only by calling THESE helpers.
@@ -159,9 +158,9 @@ export function repoSpec(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Workflow state model (the workflow-core.bash port, pure half).
+// Workflow state model (pure half).
 //
-// Semantics (design-settled, unchanged from the bash original):
+// Semantics (design-settled, stable):
 // - Vocabulary order comes from devenv.config [workflows] status_workflow
 //   (WORKFLOW_ORDER_OVERRIDE honored for forks/tests).
 // - DELIVERY segment = the anchor token (Implementing by default)..last.
@@ -229,8 +228,7 @@ export function computeRollup(
 }
 
 // ---------------------------------------------------------------------------
-// Workflow state model — write/propagation half (the workflow-core.bash
-// orchestration port). All writes funnel through writeStatus (the single
+// Workflow state model — write/propagation half (orchestration). All writes funnel through writeStatus (the single
 // guarded choke point, --all-projects --safe fan-out via the
 // project-update-issue wrapper). Best-effort contract: write failures warn
 // and never throw past the entry points; idempotent (fixed values), so a

@@ -12,8 +12,7 @@
 //              require an explicit -y/--yes or interactive confirmation.
 //              Never touches anything outside .local-artifacts/.
 // Requirements: Node >= 23.6 (native type-stripping execution)
-// Requirements: ui/prompts (clack) replaces the bash tool's fzf picker per
-//               the migration's D4 decision: interactive selection is a
+// Requirements: ui/prompts (clack): interactive selection is a
 //               multiselect prompt; a non-TTY run never prompts (list-only).
 
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -95,7 +94,7 @@ async function sweepRoot(root: string, opts: SweepOptions): Promise<number> {
 
   if (opts.families.includes("interactive" as Family)) {
     // Interactive mode: ephemeral auto-cleaned (unless keepTmp), then one
-    // multiselect over every remaining candidate (D4: clack, not fzf).
+    // multiselect over every remaining candidate (clack).
     const sweepFamilies: Family[] = ["ephemeral", "session", "working", "other"];
     if (opts.families.includes("deliverable")) sweepFamilies.push("deliverable");
 

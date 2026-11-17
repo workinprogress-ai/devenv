@@ -1,5 +1,5 @@
 // cs-dependencies-trace — trace reverse dependencies of a repo's packages.
-// Port of cs-dependencies-trace.sh: optionally refresh the repo cache,
+// Optionally refresh the repo cache,
 // ensure the dependency index is current, then output the reverse
 // dependency tree — deduplicated and sorted — either grouped by repository
 // or annotated with the consuming packages.

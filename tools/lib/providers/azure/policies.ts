@@ -1,5 +1,5 @@
-// azure/policies.ts — Azure DevOps implementation of the ruleset surface
-// (port of azure/policies.bash): the repo-scoped policy configuration set is
+// azure/policies.ts — Azure DevOps implementation of the ruleset surface:
+// the repo-scoped policy configuration set is
 // azure's analog of the other provider's org rulesets. Contract: throw
 // ProviderError on failure; never process.exit.
 

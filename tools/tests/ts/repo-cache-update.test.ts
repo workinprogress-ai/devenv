@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_repo_cache_update.bats (3 tests).
 // repo-cache-update: the dependency index needs an organization package
 // prefix ([nuget] package_prefix); a fork without C# packages sets none and
 // must not be broken by that.
@@ -56,7 +55,7 @@ describe("scripts/repo-cache-update", () => {
     writeFileSync(join(DEVENV_ROOT, "devenv.config"), "[nuget]\npackage_prefix=Acme.\n");
     const r = runUpdate({}, ["CS_DEP_ORG_PREFIX"]);
     expect(r.status).toBe(0);
-    // logInfo writes to stderr; the bats $output combined both streams.
+    // logInfo writes to stderr; check both streams.
     expect(r.out + r.stderr).toContain("Building dependency index");
     expect(existsSync(join(REPO_CACHE_DIR, ".index"))).toBe(true);
   });

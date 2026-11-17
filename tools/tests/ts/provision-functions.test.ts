@@ -1,7 +1,6 @@
-// Port of tools/tests/devenv/test_provision_functions.bats (2 tests) — one
-// vitest `it` per source `@test`. 17.2: provision.bash retired; the "literal
-// tools/ script paths resolve" contract now spans the setup step modules
-// (the provision surface's home).
+// Tests that literal tools/ script paths referenced by the bash functions and
+// setup step modules resolve (provision.bash is retired; its surface lives in
+// tools/ts/setup-steps/). Asserts on the retired tools/scripts names on purpose.
 import { describe, expect, it } from "vitest";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";

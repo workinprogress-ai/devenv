@@ -1,4 +1,4 @@
-// lint-skills behavioral tests (port of test_lint_skills.bats): each defect
+// lint-skills behavioral tests: each defect
 // class must FAIL the checker (negative controls); a golden tree must PASS.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";

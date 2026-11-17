@@ -59,7 +59,7 @@ const TOOLS = [
   "repo-commit",
   "git-wip",
   "git-wip-recover",
-  // Phase 7.2 cluster A — tooling family
+  // cluster A — tooling family
   "artifact-clean",
   "artifact-header",
   "artifacts-list",
@@ -77,21 +77,21 @@ const TOOLS = [
   "skill-orient",
   "spec-dependency-check",
   "workflow-signal",
-  // Phase 7.2 cluster B — cs family
+  // cluster B — cs family
   "cs-dependencies-trace",
   "cs-dependencies-update-wizard",
   "cs-nuget-publish-local",
   "cs-references-update",
   "cs-references-update-wizard",
-  // Phase 7.2 cluster C — fork / mongo
+  // cluster C — fork / mongo
   "fork-export",
   "fork-sync",
   "mongo-backup-server",
   "mongo-restore-server",
-  // Phase 7.2 cluster D — kube forwarders
+  // cluster D — kube forwarders
   "kube-forward-ports",
   "kube-intercept",
-  // Phase 7.2 cluster E — pipelines / project
+  // cluster E — pipelines / project
   "pipelines-artifacts",
   "pipelines-list",
   "pipelines-status",

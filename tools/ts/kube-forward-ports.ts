@@ -1,5 +1,5 @@
 // kube-forward-ports — port-forward to one or more pods, auto-reconnecting.
-// Port of kube-forward-ports.sh: mappings come from a file (POD=PORT or
+// Mappings come from a file (POD=PORT or
 // POD=LOCAL:PODPORT per line) and/or argv; each mapping resolves its pod
 // via kube-pod-select; forwards run in parallel and reconnect until
 // interrupted. SIGINT/SIGTERM stops all forwards cleanly.
@@ -120,7 +120,7 @@ for (const mapping of mappings) {
     process.exit(EXIT_MISUSE);
   }
   // Resolve the pod via the select flow (unique match auto-selects; several
-  // offer the pick; none errors) — the bash tool shelled to kube-pod-select.
+  // offer the pick; none errors).
   let pods: string[];
   try {
     pods = listPods({ namespace: ns, filter: podId });

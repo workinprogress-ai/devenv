@@ -1,5 +1,5 @@
 // fork-sync.sh — report or apply upstream's new commits against the configured
-// upstream. Port of fork-sync.sh over lib/domain/{fork,fork-twin,fork-surfaces}.ts.
+// upstream. Built over lib/domain/{fork,fork-twin,fork-surfaces}.ts.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";

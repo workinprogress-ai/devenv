@@ -65,7 +65,7 @@ function scan(file: string, section: string, key: string, warnDuplicates: boolea
  * Expand template tokens in a value over the ORIGINAL value only: a token
  * spelling arriving inside a resolved value is neutralized with a sentinel no
  * later pass matches, so sequential replaces cannot re-expand substituted
- * content (contract carried verbatim from the bash implementation).
+ * content.
  */
 export function expandTokens(
   value: string,

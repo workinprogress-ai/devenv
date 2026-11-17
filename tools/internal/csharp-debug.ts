@@ -1,5 +1,5 @@
 // csharp-debug — drive the vsdbg .NET Core debugger (installed by bootstrap).
-// Port of tools/internal/csharp-debug.sh. Bridge between the workspace's
+// Bridge between the workspace's
 // vsdbg installation and CLI/DAP clients: launch, attach, version. The
 // default (--interpreter=vscode) mode speaks the debug adapter protocol on
 // stdin/stdout. All scratchpad-safe (Rung-3 instrumentation; never mutates

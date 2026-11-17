@@ -1,5 +1,5 @@
 // server-run-smb — run (or start) a local Samba (SMB) container.
-// Port of server-run-smb.sh: start the existing samba_server container when
+// Start the existing samba_server container when
 // present, otherwise run a new dockurr/samba container with the Data share,
 // then print the smbclient connect line.
 

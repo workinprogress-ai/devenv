@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_script_versioning.bats (12 tests) — one vitest `it` per source `@test`.
+// Tests for script versioning conventions.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -6,9 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 
-// Port of tools/tests/devenv/test_script_versioning.bats — one vitest `it` per source `@test`.
-
-// ── script versioning (port of test_script_versioning.bats, 12 tests) ────
+// ── script versioning ────
 
 describe("script versioning", () => {
   it("bootstrap.sh has valid bash syntax", () => {

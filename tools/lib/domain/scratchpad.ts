@@ -1,4 +1,4 @@
-// scratchpad.ts — governed experiment sandbox state (port of scratchpad.bash).
+// scratchpad.ts — governed experiment sandbox state.
 // Refs: base (entry HEAD), state (scratch tip), origin-branch (symbolic ref to
 // the working branch at entry). Destructive surface only touches scratch
 // content; entry is fail-closed on a dirty tree.

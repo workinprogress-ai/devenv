@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// issue-select.ts - Interactive GitHub issue selection (fzf in the bash
-// tool; clack multi-select per design decision D4 here — the ui layer is
-// the ONLY place interaction lives).
+// issue-select.ts - Interactive GitHub issue selection (clack multi-select;
+// the ui layer is the ONLY place interaction lives).
 // Version: 1.0.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
 //
@@ -31,7 +30,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "issue-select.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} [OPTIONS]
 
-Interactive GitHub issue selection (fzf in the bash tool; the clack picker here).
+Interactive GitHub issue selection (clack picker).
 
 Filters:
     -s, --state STATE           Filter by state: open, closed, or all (default: open)

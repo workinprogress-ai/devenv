@@ -1,5 +1,4 @@
-// Port of tools/tests/scripts/test_fork_export.bats (63 tests) — one vitest
-// `it` per source `@test`. Contract tests for exporting commits into a real
+// Contract tests for exporting commits into a real
 // GitHub clone: range resolution, formats, apply-to mechanics, Change-Id
 // stamping, skip management, and the interactive clack picker surface.
 import { beforeEach, describe, expect, it, vi } from "vitest";

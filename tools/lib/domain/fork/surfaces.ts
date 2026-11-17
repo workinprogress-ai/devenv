@@ -1,5 +1,4 @@
-// fork-surfaces.ts — the fork-stable surfaces contract (port of
-// fork-surfaces.bash): parse the declaration, classify paths, list globs.
+// fork-surfaces.ts — the fork-stable surfaces contract: parse the declaration, classify paths, list globs.
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";

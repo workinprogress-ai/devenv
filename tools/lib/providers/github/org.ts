@@ -54,8 +54,7 @@ export function orgRulesetUpdate(repo: string, id: string, payloadFile: string):
 }
 
 // ghApi is imported for interface parity with the other domain modules; the
-// ruleset verbs above use the sync transport because the bash originals are
-// synchronous command substitutions whose callers branch on their output.
+// ruleset verbs above use the sync transport because callers branch on their output synchronously.
 export { ghApi };
 
 /** List releases for a repo, newest first. Flags (--limit N, --json FIELDS)

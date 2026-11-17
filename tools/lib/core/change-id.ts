@@ -1,6 +1,6 @@
 // change-id.ts — stable commit identity for the fork workflow: the Change-Id
 // trailer, the Fork-Only/Fork-Adapted markers, and the shared skip list
-// (port of change-id.bash; contract docs: docs/Forking.md).
+//.
 //
 // Carried contracts: generated IDs are 12 base62 chars; foreign IDs (Gerrit
 // style) are 8–64 chars of [0-9A-Za-z._-]; trailer keys match exactly and

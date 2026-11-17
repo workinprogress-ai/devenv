@@ -1,5 +1,5 @@
 // kube-logs — fetch logs from a Kubernetes pod.
-// Port of kube-logs.sh: resolve the pod fragment via the listing seam, then
+// Resolve the pod fragment via the listing seam, then
 // `kubectl logs <pod> -n <ns> [kubectl-options...]` with stdio inherited
 // (log streams belong on the caller's terminal). Everything after the pod
 // fragment — INCLUDING dash-prefixed kubectl flags like -f/--tail — is

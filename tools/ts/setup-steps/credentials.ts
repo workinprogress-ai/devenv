@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // credentials.ts — provision step: verify the .setup identity seeds exist.
 //
-// Port of provision.bash load_setup_credentials. Steps run as separate
+// Steps run as separate
 // processes, so nothing is passed on through the environment: the env-vars
 // and git-config steps (and the provider accessors) read the seeds
 // themselves. The optional DigitalOcean token seed is only checked here.

@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_cs_references_update_wizard.bats (20 tests).
 // cs-references-update-wizard: branch/PR mechanics over sibling-tool mocks in
 // a fake tools root, PR-title rules (major/patch/chore(tests)), flag
 // forwarding, dry-run and failure paths.

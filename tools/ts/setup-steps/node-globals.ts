@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // node-globals.ts — install step: the global node packages (pnpm, turbo,
-// zx) onto the ACTIVE node. Ported from the bash bootstrap's
-// install_node_packages (the npm globals half).
+// zx) onto the ACTIVE node.
 //
 // Ordering contract: the thin bootstrap has put the pinned node on PATH
 // before this step — `npm install -g` lands in the active version's global

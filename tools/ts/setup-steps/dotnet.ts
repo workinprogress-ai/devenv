@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // dotnet.ts — install step: the .NET SDK channels (side by side) and the
-// dotnet-format global tool. Ported from the bash bootstrap's install_dotnet.
+// dotnet-format global tool.
 //
 // Idempotent: skips the SDK install when dotnet already resolves; dotnet
 // tool install is skipped when the tool is already present.

@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_pr_list.bats (4 tests).
 // pr-list: what it actually hands to the provider CLI.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";

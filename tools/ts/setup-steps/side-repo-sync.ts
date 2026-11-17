@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // side-repo-sync.ts — clone-or-update a Copilot-side external repo and
-// symlink its content into ~/.copilot/. Port of provision.bash
-// sync_copilot_side_repo (the shared implementation behind knowledge-sync and
-// engineering-sync).
+// symlink its content into ~/.copilot/. The shared implementation
+// behind knowledge-sync and engineering-sync.
 //
 // Contracts carried verbatim:
 //   - keychain-first auth: the token resolves through the provider seam —

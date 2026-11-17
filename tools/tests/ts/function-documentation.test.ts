@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_function_documentation.bats (8 tests) — one vitest `it` per source `@test`.
+// Tests that the script template and library functions carry parameter/return documentation.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -14,9 +14,7 @@ function sh(script: string): { status: number; out: string } {
 
 // The devcontainer.json as plain JSON (full-line // comments dropped).
 
-// Port of tools/tests/devenv/test_function_documentation.bats — one vitest `it` per source `@test`.
-
-// ── function documentation (port of test_function_documentation.bats, 8) ─
+// ── function documentation ─
 
 describe("function documentation", () => {
 

@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_run_tests_local.bats (16 tests) — one vitest `it` per source `@test`.
+// Tests for the test runner script (tools/tests/run-devenv-tests.sh): it runs the vitest lane only.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -18,8 +18,7 @@ function runnerContent(): string {
   return readFileSync(RUNNER, "utf8");
 }
 
-// The runner executes the vitest lane only (the bats corpus retired with the
-// Phase-11 port). A stub `pnpm` on PATH records the runner's invocation
+// The runner executes the vitest lane only. A stub `pnpm` on PATH records the runner's invocation
 // without executing the suite inside a probe (and without letting any suite
 // reach the network).
 function runnerCollectedFiles(): { status: number; out: string; vitestInvoked: boolean } {
@@ -114,7 +113,7 @@ describe("run tests local (runner contract)", () => {
     expect(r.status).toBe(1);
   });
 
-  it("the runner invokes no bats (the corpus retired with the Phase-11 port)", () => {
+  it("the runner invokes no bats", () => {
     const r = runnerCollectedFiles();
     expect(r.status).toBe(0);
     expect(r.out).not.toContain("/tests/scripts/");

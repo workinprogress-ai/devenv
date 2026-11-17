@@ -2,7 +2,7 @@
 // pr-create-for-review.ts - Create a draft "REVIEW:" pull request using
 // temporary source/target branches built from two commits. If FROM_COMMIT
 // and TO_COMMIT are omitted, an interactive picker is launched against the
-// repo's version tags (TTY required — D4: refused under automation).
+// repo's version tags (TTY required: refused under automation).
 // Version: 1.0.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
 //
@@ -118,8 +118,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   // Commit selection. With both commits given this is fully deterministic;
-  // the interactive tag picker needs a TTY and is refused under automation
-  // (D4) — the bash tool's fzf flow is the interactive polish pass.
+  // the interactive tag picker needs a TTY and is refused under automation.
   if (firstCommit === "" || finalCommit === "") {
     if (!Boolean(process.stdin.isTTY)) {
       logError("Interactive commit selection requires a terminal — pass FROM_COMMIT and TO_COMMIT explicitly");

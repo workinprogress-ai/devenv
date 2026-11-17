@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // dotnet-tools.ts — install step: the global dotnet tools and the HTTPS dev
-// certificate trusted system-wide. Ported from the bash bootstrap's
-// configure_dotnet_tools.
+// certificate trusted system-wide.
 //
 // Idempotent: each tool install is skipped when already present; cert export
 // and ca-certificates refresh are idempotent operations.

@@ -1,5 +1,5 @@
 // cs-open-coverage — open generated coverage reports in a browser.
-// Port of cs-open-coverage.sh: find index.html files under coverage.report
+// Find index.html files under coverage.report
 // paths and open each in chromium or firefox (detached).
 
 import { execFileSync, spawn } from "node:child_process";

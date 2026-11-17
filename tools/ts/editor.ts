@@ -1,5 +1,5 @@
 // editor — open file(s) in the user's editor, blocking until each closes.
-// Port of editor.sh: EDITOR/VISUAL point here; the plain-`git commit`
+// EDITOR/VISUAL point here; the plain-`git commit`
 // recovery hatch. Editor selection logic lives in lib/core/editor.ts
 // (VS Code --wait, then PREF_EDITOR, then FALLBACK_EDITOR, then nano).
 

@@ -1,6 +1,4 @@
-// Port of tools/tests/scripts/test_git_unwip.bats (7) +
-// test_install_extras.bats (14, source-contract form — the subject is TS and
-// the bats assertions were all source greps) — 21 tests.
+// Tests for git-unwip target selection and the install-extras source contract.
 // Fixture hygiene per tools/tests/README.md: scratch under tmpPath().
 import { toolScript } from "./harness/index.ts";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -65,7 +63,7 @@ function subject(): string {
   return git(TEST_REPO, ["log", "-1", "--format=%s"]).stdout.trim();
 }
 
-describe("git-unwip target selection (bats port)", () => {
+describe("git-unwip target selection", () => {
   beforeEach(() => {
     REMOTE_REPO = tmpPath(`unwip-remote-${Math.random().toString(36).slice(2)}`);
     TEST_REPO = tmpPath(`unwip-repo-${Math.random().toString(36).slice(2)}`);
@@ -139,7 +137,7 @@ describe("git-unwip target selection (bats port)", () => {
 
 // ── install-extras (source-contract form) ───────────────────────────────────
 
-describe("install-extras source contract (bats port)", () => {
+describe("install-extras source contract", () => {
   const src = (): string => readFileSync(INSTALL_EXTRAS_TS, "utf8");
 
   it("install-extras.ts exists", () => {

@@ -49,7 +49,7 @@ async function patchOutcome(fullName: string, flags: string[]): Promise<{ ok: bo
   }
 }
 
-/** The repo-creation readiness decision (15.13's two-stage parity probe):
+/** The repo-creation readiness decision (the two-stage parity probe):
  * ready only when BOTH tree counts are known and equal — null (a truncated
  * or failed probe) never counts as ready. repo-create's waitForRepoReady
  * loops on this. */

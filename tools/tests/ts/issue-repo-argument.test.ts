@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_issue_repo_argument.bats (3 tests).
 // issue-list.ts and issue-search.ts must hand the repo to the provider list
 // verb exactly once, as the leading positional argument. The Azure provider
 // consumes only that first positional, so a second copy reaches its flag loop

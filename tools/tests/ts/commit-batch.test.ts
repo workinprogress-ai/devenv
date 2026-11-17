@@ -303,7 +303,7 @@ describe("renderDraft", () => {
 });
 
 describe("validateCommitBatch consumedGroups exemption", () => {
-  // 15.23: a batch manifest re-validated across --group runs judges its own
+  // A batch manifest re-validated across --group runs judges its own
   // committed groups against the live tree. A fully consumed group's paths
   // may have been renamed or deleted by LATER commits — the stale entries
   // must not fail validation (consumption evidence, not a typo).

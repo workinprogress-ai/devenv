@@ -1,7 +1,7 @@
-// Port of tools/tests/scripts/test_entry_stubs_sync.bats (44 tests) — the
-// idempotent owner of the tools/ depth-1 entry points. Mechanics are exercised
-// against mock checkouts; one test guards the real tree. The bats assertions
-// are the oracle. Fixture hygiene per tools/tests/README.md: mock checkouts
+// Tests for entry-stubs-sync, the idempotent owner of the tools/ depth-1
+// entry points. Mechanics are exercised against mock checkouts; one test
+// guards the real tree. Retired names (the tools/scripts layer) are asserted
+// absent on purpose. Fixture hygiene per tools/tests/README.md: mock checkouts
 // live under tmpPath().
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { spawn, spawnSync } from "node:child_process";
@@ -80,15 +80,14 @@ function runStub(root: string, name: string): { status: number; out: string } {
 }
 
 // The extensionless-script execution path sources self-root via the stub's
-// own dir; running the stub as `bash <path>` matches the bats `run bash`.
+// own dir; running the stub as `bash <path>`.
 function md5(path: string): string {
   return spawnSync("md5sum", [path], { encoding: "utf8" }).stdout.split(" ")[0] ?? "";
 }
 
-describe("entry-stubs-sync (bats port)", () => {
+describe("entry-stubs-sync", () => {
   beforeEach(() => {
-    // Each test builds its own mock checkout (the bats suites did the same
-    // inside every @test).
+    // Each test builds its own mock checkout (every test is independent).
   });
 
   it("setup: sync script exists in .devcontainer/", () => {
@@ -398,7 +397,7 @@ describe("entry-stubs-sync (bats port)", () => {
     expect(readFileSync(join(root, "tools", "moved"), "utf8")).toContain('exec node "$(dirname "$0")/ts/moved.ts"');
   });
 
-  // ── safety/edge cases (the bats file's harder half) ──────────────────────
+  // ── safety/edge cases (the harder half) ──────────────────────
 
   it("a custom tool named like a tools/ directory is skipped with a warning and the rest still sync", () => {
     const { root, syncScript } = makeMockCheckout();
@@ -497,7 +496,7 @@ describe("entry-stubs-sync (bats port)", () => {
   });
 
   it("a stub that cannot be written leaves the old entry in place and says so (skips as root)", () => {
-    if (typeof process.getuid === "function" && process.getuid() === 0) return; // bats skipped as root too
+    if (typeof process.getuid === "function" && process.getuid() === 0) return; // root bypasses file permissions
     const { root, syncScript } = makeMockCheckout();
     makeScript(root, "alpha.sh");
     writeFileSync(join(root, "tools", "alpha"), "#!/bin/bash\necho old entry");

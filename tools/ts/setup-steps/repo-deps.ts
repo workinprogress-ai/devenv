@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // repo-deps.ts — install step: repository dependencies via pnpm install.
-// Ported from the bash bootstrap's install_repo_dependencies.
+//
 //
 // Contract: CI=1 HUSKY=0 — bootstrap contexts (fresh container, CI) must not
 // install git hooks; a failed or unwanted husky prepare would fail the whole
@@ -8,8 +8,8 @@
 // and get hooks as usual.
 //
 // Failure semantics match the historical task: a pnpm failure WARNS but does
-// not fail the step (the bash bootstrap set PNPM_INSTALL_FAILED and let the
-// chain continue; finish_message carried the ACTION REQUIRED line).
+// not fail the step (the chain continues and the final message carries the
+// ACTION REQUIRED line).
 //
 // Idempotent: pnpm install on a satisfied lockfile is a fast no-op.
 

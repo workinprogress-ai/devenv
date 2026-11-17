@@ -23,8 +23,7 @@ export function git(repo: string | undefined, args: string[], opts: { env?: Reco
 }
 
 /** The four-repo fork fixture. The prepare-commit-msg hook (Change-Id) is
- * NOT installed here — scenario builders install it where needed, exactly
- * as the bats helper did. */
+ * NOT installed here — scenario builders install it where needed. */
 export function createForkFixtureTrio(baseDir: string): ForkFixture {
   mkdirSync(baseDir, { recursive: true });
   const upstream = join(baseDir, "upstream.git");
@@ -106,7 +105,7 @@ for k in ${spec.split(",").join(" ")}; do
 done
 sleep 20`;
   const script = `{ ${driver} ; } | script -qec "${command.replace(/"/g, '\\"')}" /dev/null | sed -e 's/\\x1b\\[[0-9;?]*[a-zA-Z]//g' -e 's/│ *//g' -e 's/  */ /g'; status="\${PIPESTATUS[1]}"`;
-  // PIPESTATUS[1] like the bats driver: sed's exit code must not mask the
+  // PIPESTATUS[1]: sed's exit code must not mask the
   // tool's (sed dies of SIGPIPE when script(1) outlives it — status 141).
   const r = spawnSync("bash", ["-c", `${script}; exit "$status"`], {
     cwd: process.env.FORK_TEST_CWD,

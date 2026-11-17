@@ -1,5 +1,5 @@
 // devenv-memory-watch — sample container memory over time and flag likely
-// culprits. Port of devenv-memory-watch.sh: cgroup sampling, per-process
+// culprits: cgroup sampling, per-process
 // snapshots, a current-culprits TSV (delta/peak aggregation per signature).
 
 import { spawnSync } from "node:child_process";

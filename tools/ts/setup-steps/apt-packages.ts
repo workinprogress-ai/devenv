@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // apt-packages.ts — install step: the stable OS package set plus the active
-// provider's apt additions. Ported from the bash bootstrap's
-// install_os_packages_round1 (same package list, same sudo apt mechanics).
+// provider's apt additions.
 //
 // Provider packages: the OS packages the active provider's tooling needs (its
 // CLI, for instance) come from PROVIDER_APT_PACKAGES, keyed by the provider

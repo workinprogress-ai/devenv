@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_kube_chain.bats (4 tests).
 // End-to-end behavior of the pod listing/selection chain with -n <ns> before
 // the name filter. kubectl is a recording stub; no cluster is involved.
 import { beforeEach, describe, expect, it, vi } from "vitest";

@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_git_wip.bats (29 tests).
 // git-wip / git-unwip / git-wip-recover behavior in real temp repos with a
 // bare remote.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

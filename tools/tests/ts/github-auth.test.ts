@@ -1,4 +1,4 @@
-// Port of tools/tests/lib/test_provider_auth.bats (13 tests): contract tests
+// Contract tests
 // for the GitHub credential lifecycle module (auth.bash). The module is the
 // single sanctioned home for gh auth CLI invocations; the import/status impls
 // are verified via the shared gh stub, and the token impl must prefer the

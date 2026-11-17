@@ -1,5 +1,5 @@
 // cs-extract-snupkgs — extract a .snupkg (symbol package) zip.
-// Port of cs-extract-snupkgs.sh: unzip the package into
+// Unzip the package into
 // <output-root>/<name-without-extension>/.
 
 import { spawnSync } from "node:child_process";

@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_kube_guards.bats (18 tests).
 // Guard behavior for kube-pod-delete / kube-pod-scale / kube-pod-restart and
 // the shared selection path. Every destructive branch asserts BOTH the exit
 // status AND that no destructive kubectl call was recorded by the stub.

@@ -1,5 +1,5 @@
 // spec-dependency-check — validate Specifications-*.md dependency graph.
-// Port of spec-dependency-check.sh: unknown deps, cycles (DFS with colors),
+// Unknown deps, cycles (DFS with colors),
 // group-order violations (same-file), and anchor-link warnings.
 
 import { readFileSync, existsSync } from "node:fs";

@@ -1,6 +1,5 @@
-// domain/kube/kube.ts — Kubernetes listing + resolution primitives (the
-// listing half of kube-selection.bash, per the Phase 3 split: listing →
-// domain/kube; interactive pickers → ui flows in the calling tools).
+// domain/kube/kube.ts — Kubernetes listing + resolution primitives (listing
+// lives here; interactive pickers are ui flows in the calling tools).
 //
 // Every function shells to kubectl through spawnSyncCli — no direct kubectl
 // call lives outside this module. All commands are argv arrays (never shell

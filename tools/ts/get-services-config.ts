@@ -1,5 +1,5 @@
 // get-services-config — clone a config repository and extract it into the
-// local config folder. Port of get-services-config.sh.
+// local config folder.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, rmSync, mkdirSync, renameSync, writeFileSync } from "node:fs";

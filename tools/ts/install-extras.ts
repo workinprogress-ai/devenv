@@ -1,5 +1,5 @@
 // install-extras — pick an "extra" from .devcontainer/install-extras and run
-// it. Port of install-extras.sh: fzf picker (clack select on a TTY; numbered
+// it: fzf picker (clack select on a TTY; numbered
 // fallback otherwise), filter with auto-run on a single match, multi via -m.
 
 import { existsSync, readdirSync, statSync } from "node:fs";

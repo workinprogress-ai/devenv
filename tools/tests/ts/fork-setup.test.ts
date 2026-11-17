@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_fork_setup.bats (7 tests).
 // fork-setup: one-time upstream setup. Contract tests over the three-repo
 // fork fixture.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

@@ -1,5 +1,5 @@
 // prepare-commit-msg — give a commit message its Change-Id trailer.
-// Port of tools/internal/prepare-commit-msg.sh. The hook adds a stable
+// The hook adds a stable
 // Change-Id when the message has none, and an empty Devenv-Action
 // placeholder when an editor will open. An existing trailer is never
 // replaced, so amend, rebase and cherry-pick keep their identity.

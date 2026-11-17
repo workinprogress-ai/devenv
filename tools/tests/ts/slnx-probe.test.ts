@@ -1,4 +1,4 @@
-// Tests for the 15.10 .slnx probe extension: the cs-dependency tools'
+// Tests for the .slnx probe extension: the cs-dependency tools'
 // solution probe accepts .slnx alongside .sln, and metrics-count-code-lines
 // counts .slnx files. Black-box through each tool's argv surface on fixture
 // dirs (no dotnet build involved).

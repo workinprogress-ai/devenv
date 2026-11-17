@@ -1,4 +1,3 @@
-// Port of tools/tests/scripts/test_option_values.bats (5 tests).
 // Option parsing in the wrapper scripts: an option that takes a value checks
 // it with require_option_value, so a missing value is a usage error (exit 2,
 // with the option named) instead of "$2: unbound variable", and
@@ -24,7 +23,7 @@ beforeEach(() => {
 });
 
 // arms_missing_check FILE...: file:line of each option arm that reads "$2"
-// without the check (the awk oracle from the bats source).
+// without the check.
 const ARMS_AWK = `
     FNR == 1 { arm = ""; in_arm = 0 }
     /^[[:space:]]*-[^^)[:space:]]*(\\|-[^)[:space:]]*)*\\)/ { arm = $0; start = FNR; in_arm = 1; if ($0 ~ /;;/) check(); next }

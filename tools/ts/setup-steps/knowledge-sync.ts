@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // knowledge-sync.ts — provision step: clone/update the configured Copilot
-// knowledge side-repo and link ~/.copilot/knowledge. Port of provision.bash
-// sync_copilot_knowledge (implementation in side-repo-sync.ts).
+// knowledge side-repo and link ~/.copilot/knowledge. The implementation
+// lives in side-repo-sync.ts.
 //
 // Unconfigured repo: skip (not an error). Missing credentials: warn + skip
 // (never a bootstrap blocker). Missing subpath: ERROR (broken link target).

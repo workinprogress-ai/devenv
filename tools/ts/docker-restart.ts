@@ -1,5 +1,5 @@
 // docker-restart — restart the Docker daemon by killing it and reloading it.
-// Port of docker-restart.sh: stop dockerd by exact name, then the load-docker
+// Stop dockerd by exact name, then the load-docker
 // bootstrap script.
 
 import { spawnSync } from "node:child_process";

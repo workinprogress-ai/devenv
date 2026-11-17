@@ -1,5 +1,4 @@
-// azure/projects.ts — Azure DevOps boards/projects domain (port of
-// azure/projects.bash). Boards are project-wide (the repo argument in verb
+// azure/projects.ts — Azure DevOps boards/projects domain. Boards are project-wide (the repo argument in verb
 // signatures is seam filler); the Status field's options are the boards'
 // Kanban columns. Contract: throw ProviderError; never exit.
 

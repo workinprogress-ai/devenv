@@ -1,18 +1,13 @@
-// Port of tools/tests/devenv/test_bootstrap_functions.bats (140 tests) — the
-// bootstrap family port, kept as ONE suite per the settled 16.5 approach.
-//
-// The subject is the bash bootstrap pair (.devcontainer/bootstrap.sh +
-// bootstrap.bash) plus its stay-bash provisioning libraries (tools/lib/
-// provision.bash, copilot-knowledge.bash, tool-versions.bash): per doctrine
-// these stay bash — the tests move to vitest, the source does not. The bats
-// assertions are the oracle; the port keeps every contract line:
+// Tests for the bash bootstrap pair (.devcontainer/bootstrap.sh +
+// bootstrap.bash) and the libraries it uses (tools/lib/copilot-knowledge.bash,
+// .devcontainer/tool-versions.bash); these stay bash by doctrine. One suite
+// covers:
 //   - structural/source greps (syntax, key functions, wiring, doc locks)
 //   - executed contracts (task runners, entry path, lock, download_verified,
 //     install_yq pins, nvm activation, provider feeds, seed-token flow)
 //   - function-extraction runs (sed-extract a function body, source, run)
-// with the bats harness idioms mapped: TEST_TEMP_DIR → tmp root, `run bash -c`
-// → spawnSync("bash", ["-c", …]), `lines[-1]` → last stdout line, stubbed
-// PATH dirs → tmp bin dirs written per test.
+// Fixtures: a tmp root per test and stubbed PATH dirs written per test;
+// commands run through spawnSync("bash", ["-c", …]).
 //
 // Scratch-dir guard: every fixture path goes through tmpPath(), which refuses
 // to hand out a path unless TMP is an absolute directory under os.tmpdir().
@@ -38,7 +33,7 @@ const TOOL_VERSIONS = join(ROOT, ".devcontainer", "tool-versions.bash");
 const CONTAINER_START = join(ROOT, ".devcontainer", "container-start.sh");
 const STARTUP_SH = join(ROOT, ".devcontainer", "startup.sh");
 const POST_UPDATE = join(ROOT, ".devcontainer", "post-update.bash");
-// 17.2: provision.bash retired — the provisioning steps are TS modules.
+// provision.bash is retired — the provisioning steps are TS modules.
 // The former bash-source pins now target the modules; execution pins spawn
 // the module (runClaudeInstaller/runFeedConfig below run via `node`).
 const PROVISION = join(ROOT, "tools", "ts", "setup-steps");
@@ -80,8 +75,8 @@ function sh(script: string): { status: number; stdout: string; stderr: string; o
 
 // Execute a bash snippet that may contain arbitrary quotes (extracted function
 // bodies): write it to a temp file and run `bash <file>` with the environment
-// composed from the given vars. Immune to the quote-nesting the bats suite
-// sidestepped by double-quoting through `run bash -c`.
+// composed from the given vars. Immune to quote-nesting that would arise from
+// passing the snippet through `bash -c`.
 function runSnippet(script: string, env: Record<string, string> = {}): { status: number; stdout: string; stderr: string; out: string } {
   const f = tmpPath(`snippet-${Math.random().toString(36).slice(2)}.sh`);
   writeFileSync(f, script);
@@ -92,14 +87,13 @@ function runSnippet(script: string, env: Record<string, string> = {}): { status:
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "", out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-// sed-extract a function body from a bash file (the bats helper idiom).
+// sed-extract a function body from a bash file .
 function extractFn(file: string, fn: string): string {
   return sh(`sed -n '/^${fn}()/,/^}/p' '${file}'`).stdout;
 }
 
-// Task names of one runner array in bootstrap.bash, one per line (bats helper).
-// Escape shape matters: the fn-match lines carry \\( to awk (matching the bats
-// bytes); the terminator carries \) — a doubled \\) would never match the
+// Task names of one runner array in bootstrap.bash, one per line.
+// Escape shape matters: the fn-match lines carry \\( to awk; the terminator carries \) — a doubled \\) would never match the
 // array's closing paren and the extraction would run to EOF.
 function runnerTasks(fn: string, arr: string): string[] {
   return sh(
@@ -114,7 +108,7 @@ function runnerTasks(fn: string, arr: string): string[] {
 }
 
 // default_tasks/update_tasks line numbers within the extracted list — used for
-// the ordering assertions the bats suite made with grep -n arithmetic.
+// the ordering assertions.
 function taskIndex(tasks: string[], name: string): number {
   const i = tasks.indexOf(name);
   expect(i, `task ${name} not in list`).toBeGreaterThanOrEqual(0);
@@ -125,7 +119,7 @@ function taskIndex(tasks: string[], name: string): number {
 // convergent update must never do.
 const DESTRUCTIVE_TASKS = ["finish_message", "init_bootstrap_run_time", "reset_bashrc_to_original"];
 
-// ── fixture helpers mirroring the bats setup helpers ────────────────────────
+// ── fixture helpers ────────────────────────────────────
 
 function setupBootstrapEntryFixture(): { entryToolbox: string; entryLog: string } {
   const entryToolbox = tmpPath(`entry-toolbox-${Math.random().toString(36).slice(2)}`);
@@ -158,7 +152,7 @@ function setupClaudeFixture(): { toolbox: string; homeDir: string } {
 }
 
 // Run the claude-integration TS step module in a scratch HOME/toolbox
-// (the bats run_claude_installer shape: one process, real filesystem).
+// (one process, real filesystem).
 function runClaudeInstaller(toolbox: string, homeDir: string): { status: number; out: string } {
   const r = spawnSync("node", [CLAUDE_INT], { encoding: "utf8", env: runEnv({ toolbox_root: toolbox, DEVENV_TOOLBOX_ROOT: toolbox, HOME: homeDir }) });
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
@@ -191,8 +185,8 @@ function requireSetupFilesRun(setupDir: string): { status: number; out: string }
 
 // Run the nuget/npmrc TS step modules against a scratch HOME with the
 // provider seam stubbed by env: PROVIDER_* overrides drive providerDetect's
-// config reads, and a PATH stub owns dotnet (the call log is the oracle —
-// the bats run_feed_config shape). preSeed runs before the module spawns.
+// config reads, and a PATH stub owns dotnet (the call log is the
+// check). preSeed runs before the module spawns.
 function runFeedConfig(
   provider: string,
   stepName: string,
@@ -343,7 +337,7 @@ describe("bootstrap: structural contracts", () => {
   });
 
   it("call_npm returns npm exit status from pipeline", () => {
-    // 17.3: call_npm retired with the bash npm installs; the contract that
+    // call_npm retired with the bash npm installs; the contract that
     // replaced it: the node-globals step spawns npm via execFileSync whose
     // non-zero exit throws (CI=1 for prompt-free runs).
     const ng = src(join(PROVISION, "node-globals.ts"));
@@ -372,7 +366,7 @@ describe("bootstrap: structural contracts", () => {
   });
 
   it("bootstrap.sh uses || true to prevent grep failures from stopping script", () => {
-    // Tolerated skip in the bats suite: grep calls live in conditionals/pipes
+    // Tolerated skip: grep calls live in conditionals/pipes
     // where `|| true` is not needed. Keep the skip honest: the file must not
     // grow a bare top-level grep that could trip `set -e`.
     const r = sh(`grep "grep.*|| true" '${BOOTSTRAP_SH}'`);
@@ -397,7 +391,7 @@ describe("bootstrap: structural contracts", () => {
   });
 
   it("provisioning step bodies never prompt (unattended bootstrap contract)", () => {
-    // 17.2: the steps are TS modules; the unattended contract is a source
+    // The steps are TS modules; the unattended contract is a source
     // scan — no readline/prompt/readSync in any step module, and no bash
     // `read -p`/`read -s` anywhere in the shell chain (bootstrap.bash).
     for (const f of [CLAUDE_INT, COPILOT_INSTR, NUGET, NPMRC, SIDEREPO, ENVVARS, DIRS, CUSTOM]) {
@@ -1515,7 +1509,7 @@ describe("bootstrap: docs, helpers, robustness", () => {
   });
 
   it("key-update-provider reads the provider name with spaces around =, or with CRLF (the bash-functions file keeps the reader)", () => {
-    // 17.2: the key-update shell functions moved verbatim into the
+    // The key-update shell functions moved verbatim into the
     // bash-functions step module's generated file; the reader contract is
     // pinned on that artifact's source (provision.bash's old home).
     const bf = src(join(PROVISION, "bash-functions.ts"));

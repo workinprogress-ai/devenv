@@ -1,5 +1,5 @@
 // lint-skills — deterministic contract checker for the copilot/skills tree.
-// Port of lint-skills.sh: SK001–SK009 with the same finding codes, wording,
+// SK001–SK009 with the same finding codes, wording,
 // and exit contract (0 clean/warnings allowed, 1 any failure; strict mode
 // fails on warnings).
 

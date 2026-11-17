@@ -69,9 +69,10 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
 **Devenv-specific conventions (still in this repo):**
 
 - **[Tooling Standards](./Tooling-Standards.md)**
-  - How to write tools for the `tools/` suite
-  - Required skeleton, library catalog, exit-code contract
-  - Argument parsing, stdin/body handling, repo targeting
+  - How to write tools for the `tools/` suite (TypeScript, `toolCli`, strict argument parsing)
+  - TypeScript standards, library layering and module catalog
+  - The bash that remains (container bootstrap only)
+  - Exit-code contract, CLI contract (`--help`/`--version`, misuse exits 2)
   - Testing requirements and common pitfalls
 - **[Commit Conventions](./Commit-Conventions.md)**
   - The canonical contract for commit messages: types, rebase-merge policy, `WIP:` rules
@@ -80,9 +81,8 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
   - Day-to-day rebase workflow: commit shaping, worked scenarios, costs and mitigations
 
 - **[Function Naming Conventions](./Function-Naming-Conventions.md)**
-  - Bash function naming rules
-  - Verb prefixes and patterns
-  - Migration guidelines
+  - TypeScript naming rules (functions, constants, modules, tools)
+  - The short bash bootstrap section
   - Good vs bad examples
 
 - **[Tooling Standards — Logging & error handling](./Tooling-Standards.md#logging-and-error-handling)**
@@ -90,6 +90,19 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
   - Log function usage
   - Output formatting
   - Best practices
+
+## 🔌 Providers & Tests
+
+Reference material that lives next to the code it describes:
+
+- **[Provider library](../tools/lib/providers/README.md)** — the facade, how a call flows, adding a verb or a provider, the bash bootstrap surface
+  - [Provider contract](../tools/lib/providers/CONTRACT.md) — the verb inventory and the coverage table of both providers
+  - [Facade boundary](../tools/lib/providers/facade/README.md) — the import rule and the facade checklist
+  - [Azure DevOps mapping](../tools/lib/providers/azure/MAPPING.md) — how GitHub concepts map onto Azure DevOps
+- **Live smoke suites** (on demand, never in the regular run):
+  [GitHub](../tools/lib/providers/github/SMOKE.md) and
+  [Azure DevOps](../tools/lib/providers/azure/SMOKE.md)
+- **[Test suite guide](../tools/tests/README.md)** — the hermetic vitest suite, the shared harness, the manual-only live lane
 
 ## 🏗️ Infrastructure & Setup
 
@@ -148,7 +161,7 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
 **...set up logging in my script**
 → [Tooling Standards — Logging & error handling](./Tooling-Standards.md#logging-and-error-handling)
 
-**...name bash functions correctly**
+**...name functions, modules and tools correctly**
 → [Function Naming Conventions](./Function-Naming-Conventions.md)
 
 **...write a new tool for the tools/ suite**
@@ -162,6 +175,12 @@ Complete workflow for managing issues, projects, and sprints (as-built on GitHub
 
 **...save unfinished work safely (WIP commits)**
 → [WIP-commit convention](./Additional-Tooling.md#the-wip-commit-convention) — lifecycle and constraints in the [Rebase Commit Guide](./Rebase-Commit-Guide.md#the-escape-hatch-wip-commits)
+
+**...add or change a provider verb, or add a provider**
+→ [Provider library](../tools/lib/providers/README.md) and [Provider contract](../tools/lib/providers/CONTRACT.md)
+
+**...run the tests, or validate a provider against a real backend**
+→ [Test suite guide](../tools/tests/README.md); smoke suites: [GitHub](../tools/lib/providers/github/SMOKE.md), [Azure DevOps](../tools/lib/providers/azure/SMOKE.md)
 
 **...access remote services**
 → [Port Forwarding](./Port-forwarding.md)

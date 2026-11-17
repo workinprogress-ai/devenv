@@ -1,4 +1,4 @@
-// 15.12: repo-get's isOrgMember mis-flagged every org repo as foreign
+// repo-get's isOrgMember mis-flagged every org repo as foreign
 // because raw origin URLs (HTTPS/SSH/credentials forms) went into
 // providerRepoSplit, which splits on the first "/". The fix normalizes
 // through remoteToSpec first — these tests pin the URL forms the fix

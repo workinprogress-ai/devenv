@@ -1,5 +1,5 @@
 // dependencies-up — start development dependency containers.
-// Port of dependencies-up.sh: a single docker compose pass-through.
+// A single docker compose pass-through.
 
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";

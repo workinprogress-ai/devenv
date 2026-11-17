@@ -1,5 +1,4 @@
-// Port of tools/tests/lib/test_provider_azure_core.bats (13 tests): the azure
-// provider foundation — PAT file lifecycle (auth module), config-driven
+// Tests for the azure provider foundation — PAT file lifecycle (auth module), config-driven
 // provider detection, and key-update-azure. All credential tests run against
 // a temp PAT file (AZURE_PAT_FILE override) — nothing here reads or writes
 // the user's real devenv config area.

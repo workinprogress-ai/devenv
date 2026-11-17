@@ -1,4 +1,4 @@
-// Port of test_container_start.bats (22 tests): container-start.sh locking
+// Tests for container-start.sh locking
 // mechanism and bootstrap coordination, exercised against a mock toolbox.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";

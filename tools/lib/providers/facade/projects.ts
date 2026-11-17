@@ -36,7 +36,7 @@ export interface IssueProjectRow {
   status: string;
 }
 
-/** The neutral projects verb set (the hoisted 15.14 ProjectsOps). */
+/** The neutral projects verb set (the ProjectsOps shape). */
 export interface ProjectsOps {
   idByName(owner: string, name: string): Promise<string>;
   itemIdForIssue(projectId: string, issueNumber: string, owner: string, repo: string): Promise<string>;
@@ -85,7 +85,7 @@ async function load(): Promise<{ provider: string; gh: GithubProjects | undefine
 }
 
 /** The active provider's neutral projects verb set. github's sync verbs are
- * wrapped async so every call site awaits uniformly (the 15.14 contract). */
+ * wrapped async so every call site awaits uniformly (the facade contract). */
 export async function projectsOps(): Promise<ProjectsOps> {
   const m = await load();
   if (m.provider === "azure") {

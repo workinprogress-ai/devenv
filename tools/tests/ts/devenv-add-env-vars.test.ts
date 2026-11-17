@@ -1,4 +1,4 @@
-// devenv-add-env-vars behavioral tests (port of test_devenv_add_env_vars.bats).
+// devenv-add-env-vars behavioral tests.
 // Values must survive being sourced back, exactly: %q quoting keeps spaces,
 // quotes, command substitution, globs and newlines literal; a plain token
 // stays readable and unquoted. The tool writes to

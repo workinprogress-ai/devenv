@@ -1,5 +1,5 @@
 // spec-dependency-check: dependency line forms, numeric group comparison and
-// duplicate ids (the original bats port lives in final-bats-row.test.ts).
+// duplicate ids (further cases live in final-bats-row.test.ts).
 import { afterAll, describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

@@ -1,6 +1,6 @@
 // container-enable-dotnet-debugger — enable debugging support in a Docker
 // container for .NET applications: installs vsdbg into /remote_debugger.
-// Port of container-enable-dotnet-debugger.sh; docker is exec'd so a PATH
+// Docker is exec'd so a PATH
 // stub records the calls (the test contract).
 
 import { spawnSync } from "node:child_process";
@@ -40,7 +40,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
 }
 
 // A bare invocation reaches this message instead of crashing on the missing
-// argument (the bash original guarded ${1:-} for the same reason).
+// argument..
 if (!containerName) {
   console.log("Provide the container name to enable debugging");
   process.exit(1);

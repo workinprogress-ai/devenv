@@ -1,5 +1,5 @@
 // repo-cache-deepen — fetch-only deepening of a cached repository.
-// Port of repo-cache-deepen.sh: extends shallow history and/or fetches
+// Extends shallow history and/or fetches
 // branches as remote refs. Never checks out. Additive and idempotent.
 
 import { spawnSync } from "node:child_process";

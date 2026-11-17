@@ -1,4 +1,4 @@
-// Port of tools/tests/devenv/test_pre_commit_hooks.bats (14 tests) — one vitest `it` per source `@test`.
+// Tests for the git hooks and their husky/commitlint configuration.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -13,9 +13,7 @@ function sh(script: string, cwd?: string): { status: number; out: string } {
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-// Port of tools/tests/devenv/test_pre_commit_hooks.bats — one vitest `it` per source `@test`.
-
-// ── pre-commit hooks (port of test_pre_commit_hooks.bats, 14 tests) ──────
+// ── pre-commit hooks ──────
 
 describe("pre-commit hooks", () => {
   it("commit-msg hook exists", () => {

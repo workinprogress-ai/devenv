@@ -1,5 +1,5 @@
 // config-read — read one value from devenv.config for skills and scripts.
-// Port of config-read.sh over lib/core/config.ts (expansion included).
+// Built over lib/core/config.ts (expansion included).
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";

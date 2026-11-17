@@ -1,5 +1,5 @@
 // cs-dependencies-update-wizard — interactive multi-repo NuGet dependency
-// update wizard. Port of cs-dependencies-update-wizard.sh: walk the reverse
+// update wizard: walks the reverse
 // dependency tree of a target repo (or every cached C# repo with --global)
 // generation by generation, update each dependent repo's NuGet references
 // via the single-repo wizard (cs-references-update-wizard), create PRs and

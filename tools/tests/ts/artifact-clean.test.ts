@@ -1,11 +1,8 @@
-// Tests for artifact-clean.ts — the TypeScript port of the bash tool.
-// Black-box port of tools/tests/scripts/test_artifact_clean.bats: same
-// scenarios, same assertions, TS-tool specifics (node runner, vitest).
-// The bash original's fzf-mocked interactive tests map to non-TTY fallback
-// assertions here: D4 replaced fzf with clack, and clack requires a TTY —
-// the non-TTY contract (never prompt, never delete without -y) is the
-// behavior vitest can assert deterministically. Interactive-picker behavior
-// itself is covered by the ui/ library's own PTY-driven tests.
+// Tests for artifact-clean.ts, run black-box as a node child.
+// The picker is clack, which requires a TTY, so these tests assert the non-TTY
+// contract (never prompt, never delete without -y), which vitest can check
+// deterministically. Interactive-picker behavior itself is covered by the ui/
+// library's own PTY-driven tests.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,8 +15,8 @@ let workDir: string;
 let folder: string;
 
 function runTool(args: string[], opts: { stdin?: string } = {}): { status: number; stdout: string; stderr: string; output: string } {
-  // bats' $output combines stdout+stderr; mirror that so assertions match
-  // the ported suite's semantics regardless of which stream a line uses.
+  // `output` combines stdout+stderr so assertions hold regardless of which
+  // stream a line uses.
   const r = runHarness(TOOL, args, { stdin: opts.stdin });
   return { status: r.status, stdout: r.stdout, stderr: r.stderr, output: r.output };
 }

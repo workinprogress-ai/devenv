@@ -1,5 +1,5 @@
 // explain.ts — Azure DevOps' calling requirements, stated by the provider
-// itself (provider-explain prints this; 15.7). Adding a verb and updating
+// itself (provider-explain prints this). Adding a verb and updating
 // its family's requirements here stay one change.
 
 import type { ProviderExplain } from "../explain.ts";
