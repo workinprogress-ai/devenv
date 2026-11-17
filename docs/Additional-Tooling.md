@@ -950,6 +950,7 @@ pipelines-status --json | jq '.[] | select(.conclusion == "failure") | .url'
 
 - Enumerates repos for the configured org (up to 1000). Org resolves via devenv.config; `DEVENV_REPO` narrows to one repo.
 - Runs per-repo enumeration rather than the `/orgs/{org}/actions/runs` API to avoid requiring the `workflow` token scope.
+- A repository whose run list cannot be read (the provider call fails, or its output is not valid JSON or not a list) does not stop the report: the results of the other repositories are printed, each failed repository is named on stderr with a short reason, and the tool then exits with the API-failure code (4). It exits 0 only when every repository succeeded.
 - With many repos this is sequential; for very large orgs it may be slow.
 
 ---
@@ -1026,7 +1027,8 @@ pipelines-run deploy.yml --repo <org>/my-service \
 
 **Notes:**
 
-- `gh workflow run` does not return a run ID. The run URL is retrieved by polling `gh run list` after a ~2s delay — it may occasionally miss the run URL if the system is very busy.
+- `gh workflow run` does not return a run ID, so the tool identifies the run it queued itself. Before triggering it snapshots the repository's 30 most recent run ids; afterwards it polls the run list immediately and then every 2 s for up to 30 s. A run counts as the queued one only when its id was not in the snapshot, it was created no earlier than the trigger time (with 5 s of clock allowance), it is a `workflow_dispatch` run (GitHub), and it belongs to the triggered workflow (resolved from the WORKFLOW argument by display name, file name or id; when it cannot be resolved the workflow is not used to narrow). A provider that returns the queued run's id directly (Azure) skips the polling and asks for that run's URL.
+- The outcomes are: exactly one matching run prints `Run URL: <url>`; more than one new run prints a warning that none can be attributed, with a `pipelines-status` hint; no matching run within 30 s prints "Run queued but URL not yet available." with the same hint. The exit status stays 0 in all three, because the queue itself succeeded; only a failed trigger exits non-zero.
 - The workflow must be configured with a `workflow_dispatch` trigger.
 - Unknown flags and a malformed `-f` input are rejected by name before anything is triggered.
 - On Azure the reported run URL is the build's browser page, not the REST address.

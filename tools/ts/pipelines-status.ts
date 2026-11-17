@@ -139,17 +139,26 @@ if (repoNames.length === 0) {
 }
 
 const runs: RunRow[] = [];
+// Repositories whose run list could not be read, each with a one-line reason.
+const failures: Array<{ repo: string; reason: string }> = [];
 for (const repo of repoNames) {
-  let raw = "[]";
+  let raw: string;
   try {
     raw = await pipelinesRunList(`${org}/${repo}`, { limit: Number(limit), json: RUN_FIELDS });
-  } catch {
-    raw = "[]";
+  } catch (err) {
+    failures.push({ repo, reason: errorMessage(err).split("\n")[0] ?? "run list failed" });
+    continue;
   }
-  let parsed: Array<Record<string, unknown>> = [];
+  let parsed: Array<Record<string, unknown>>;
   try {
-    parsed = JSON.parse(raw);
+    const value: unknown = JSON.parse(raw);
+    if (!Array.isArray(value)) {
+      failures.push({ repo, reason: "run list output was not a JSON list" });
+      continue;
+    }
+    parsed = value as Array<Record<string, unknown>>;
   } catch {
+    failures.push({ repo, reason: "run list output was not valid JSON" });
     continue;
   }
   if (workflowFilter !== "") {
@@ -188,4 +197,12 @@ if (outputFormat === "json") {
     r.url,
   ]);
   console.log(formatTable(headers, rows.map((cells) => ({ cells }))));
+}
+
+// The results of the repositories that worked are printed above; the ones that
+// failed are named here so a partial result is never mistaken for a full one.
+if (failures.length > 0) {
+  for (const f of failures) logWarn(`${f.repo}: ${f.reason}`);
+  logError(`${failures.length} of ${repoNames.length} repositories failed`);
+  process.exit(EXIT_API_FAILURE);
 }
