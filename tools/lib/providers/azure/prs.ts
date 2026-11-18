@@ -15,7 +15,7 @@
 
 import { ProviderError, unknownOption, needValue } from "../provider-core.ts";
 import { azureHttp } from "./http.ts";
-import { azureRepoParts, azureUri } from "./urls.ts";
+import { azureBranchRef, azureRepoParts, azureUri } from "./urls.ts";
 
 /** The PR list API's server-side page cap. */
 const AZURE_PR_PAGE_SIZE = 100;
@@ -263,10 +263,10 @@ export async function prsList(
   const status = statusFilter(state);
   let api = `${prBase(repo)}/pullrequests?status=${status}`;
   if (opts.head !== undefined && opts.head !== "") {
-    api += `&searchCriteria.sourceRefName=${azureUri(`refs/heads/${opts.head}`)}`;
+    api += `&searchCriteria.sourceRefName=${azureUri(azureBranchRef(opts.head))}`;
   }
   if (opts.base !== undefined && opts.base !== "") {
-    api += `&searchCriteria.targetRefName=${azureUri(`refs/heads/${opts.base}`)}`;
+    api += `&searchCriteria.targetRefName=${azureUri(azureBranchRef(opts.base))}`;
   }
   // The search is applied per page, before the limit is counted, so a match
   // beyond the first --limit PRs is still found.
@@ -433,8 +433,8 @@ export async function prsCreate(
     );
   }
   const payload: Record<string, unknown> = {
-    sourceRefName: `refs/heads/${head}`,
-    targetRefName: `refs/heads/${base}`,
+    sourceRefName: azureBranchRef(head),
+    targetRefName: azureBranchRef(base),
     title,
     description,
     isDraft: opts.draft === true,

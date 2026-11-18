@@ -23,6 +23,12 @@ export function azureUri(value: string): string {
   return encodeURIComponent(value);
 }
 
+/** A branch name as a full git ref: a value that already starts with `refs/`
+ * (a branch ref or a tag ref) is passed through, anything else is a branch. */
+export function azureBranchRef(name: string): string {
+  return name.startsWith("refs/") ? name : `refs/heads/${name}`;
+}
+
 /** A [provider] table value from devenv.config; "" when absent. */
 function configValue(key: string): string {
   return configGetRaw(providerConfigPath(), "provider", key) ?? "";
@@ -131,8 +137,15 @@ export function webUrl(repo: string, path: string): string {
   if (repo === "" || path === "") {
     throw new Error("provider_web_url requires repo (org/project/repo) and path");
   }
-  const encoded = repo.split("/").map(azureUri).join("/");
-  return `https://dev.azure.com/${encoded}/${path}`;
+  const [org = "", project = "", ...rest] = repo.split("/");
+  if (!path.startsWith("_") && rest.length === 0) {
+    throw new Error("provider_web_url: a repository page needs repo as org/project/repo");
+  }
+  const scope = `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}`;
+  // A page whose path starts with "_" (_workitems, _boards) belongs to the
+  // project; the others (pullrequest/N, commit/…) live under the repository.
+  if (path.startsWith("_")) return `${scope}/${path}`;
+  return `${scope}/_git/${rest.map(azureUri).join("/")}/${path}`;
 }
 
 /** Extract the first web URL from provider output, optionally filtered to a

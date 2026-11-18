@@ -25,6 +25,7 @@ import {
   azureOrgProject,
   azureRepoParts,
   azureProjectGet,
+  azureBranchRef,
 } from "./urls.ts";
 
 // ---------------------------------------------------------------------------
@@ -183,9 +184,10 @@ export async function reposView(
   const enriched: Record<string, unknown> = {
     ...rec,
     owner: project?.name ? { login: project.name } : null,
-    defaultBranchRef: raw.defaultBranch
-      ? { name: raw.defaultBranch }
-      : null,
+    defaultBranchRef:
+      typeof raw.defaultBranch === "string" && raw.defaultBranch !== ""
+        ? { name: raw.defaultBranch.replace(/^refs\/heads\//, "") }
+        : null,
   };
   if (opts.json !== undefined || opts.jq !== undefined) {
     return applyListFlags([enriched], opts);
@@ -193,14 +195,15 @@ export async function reposView(
   return JSON.stringify(enriched);
 }
 
-/** Whether a repository exists and is reachable: any provider failure reading
- * the repository (absent, no access) is false. */
+/** Whether a repository exists: only a not-found answer is false. A missing
+ * credential, a refusal or a server error says nothing about the repository,
+ * and reading it as "absent" would let a caller create over it. */
 export async function reposExists(spec: string): Promise<boolean> {
   try {
     await azureHttp("GET", gitRepoUrl(spec));
     return true;
   } catch (err) {
-    if (err instanceof ProviderError) return false;
+    if (err instanceof ProviderError && err.status === 404) return false;
     throw err;
   }
 }
@@ -246,16 +249,22 @@ export async function reposDefaultBranch(spec: string): Promise<string> {
   return branch;
 }
 
-/** Whether a repository has at least one commit (newly created repos may be
- * unready while init completes; the caller polls). */
+/** The number of commits the probe returns (0 or 1): newly created repos may
+ * be unready while init completes, and a not-found probe reads as none yet so
+ * the caller keeps polling. */
 export async function reposCommitsCount(spec: string): Promise<number> {
   const target = spec !== "" ? spec : azureCwdSpec();
   if (target === "") {
     throw new ProviderError("no repo argument and no git context");
   }
-  const url = `${gitRepoUrl(target)}/commits?$top=1`;
-  const r = await azureHttp<{ count?: number }>("GET", url);
-  return r.count ?? 0;
+  const url = `${gitRepoUrl(target)}/commits?searchCriteria.$top=1`;
+  try {
+    const r = await azureHttp<{ count?: number }>("GET", url);
+    return r.count ?? 0;
+  } catch (err) {
+    if (err instanceof ProviderError && err.status === 404) return 0;
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -278,7 +287,9 @@ export async function reposCreate(
   opts: ReposCreateOptions = {},
 ): Promise<{ name: string; id: string; repoSpec: string }> {
   if (name === "") throw new ProviderError("repo name required");
-  const bare = name.includes("/") ? (name.split("/").pop() as string) : name;
+  // The name may carry its project (and org): create where it says.
+  const { org, project, repo: bare } = azureRepoParts(name);
+  if (bare === "") throw new ProviderError("repo name required");
   const body: Record<string, unknown> = { name: bare };
   if (opts.description !== undefined && opts.description !== "") {
     body.description = opts.description;
@@ -287,7 +298,7 @@ export async function reposCreate(
     const tguid = await repoGuidShared(opts.template);
     body.parentRepository = { id: tguid };
   }
-  const base = gitRepoUrl("");
+  const base = `https://dev.azure.com/${uri(org)}/${uri(project)}/_apis/git/repositories`;
   const r = await azureHttp<Record<string, unknown>>("POST", base, {
     body: JSON.stringify(body),
   });
@@ -323,17 +334,21 @@ const REPOS_PATCH_SKIP_KEYS = new Set([
   "description",
 ]);
 
-/** Patch repo settings via the k=v dialect. Unmapped keys go onto the repo
- * update PATCH; the documented-skip keys degrade with a named skip. */
+/** Patch repo settings via the k=v dialect. The seam keys are mapped to the
+ * fields Azure reads (default_branch, archived); the documented-skip keys
+ * degrade with a named skip, and any other key is a named error rather than
+ * a field Azure would silently ignore. */
 export async function reposPatch(
   repo: string,
   patches: Record<string, string>,
 ): Promise<void> {
   const skipped: string[] = [];
-  const body: Record<string, string> = {};
+  const body: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(patches)) {
     if (REPOS_PATCH_SKIP_KEYS.has(k)) skipped.push(k);
-    else body[k] = v;
+    else if (k === "default_branch") body["defaultBranch"] = azureBranchRef(v);
+    else if (k === "archived") body["isDisabled"] = v === "true";
+    else throw new ProviderError(`repos_patch: azure has no repository setting for '${k}'`);
   }
   if (skipped.length > 0) {
     console.error(
@@ -342,6 +357,49 @@ export async function reposPatch(
   }
   if (Object.keys(body).length === 0) return;
   await azureHttp("PATCH", gitRepoUrl(repo), { body: JSON.stringify(body) });
+}
+
+/** A policy configuration as the write paths read it: the id, the policy
+ * type and every scope entry (a policy can scope several repositories). */
+export interface PolicyConfiguration {
+  id: number;
+  type?: { id?: string; displayName?: string };
+  isEnabled?: boolean;
+  settings?: {
+    displayName?: string;
+    scope?: Array<{ repositoryId?: string; refName?: string }>;
+  } & Record<string, unknown>;
+}
+
+/** Whether a policy configuration is scoped to this repository (any entry). */
+export function policyOnRepo(c: PolicyConfiguration, guid: string): boolean {
+  return (c.settings?.scope ?? []).some((e) => e.repositoryId === guid);
+}
+
+/** A policy that covers several scopes (other repositories or refs) cannot be
+ * rewritten here: the write carries this repository and branch only, so the
+ * other scopes would silently lose the policy. */
+export function assertSingleScope(c: PolicyConfiguration): void {
+  if ((c.settings?.scope ?? []).length > 1) {
+    throw new ProviderError(
+      `policy ${c.id} covers several scopes (other repositories or branches); edit it in the Azure DevOps portal instead of rewriting it here`,
+    );
+  }
+}
+
+/** The policy configurations of one repository, all pages, optionally of one
+ * policy type. The filters are sent to the server and applied again here, so a server that ignores them is still read correctly. */
+export async function listPolicyConfigurations(
+  policyBaseUrl: string,
+  guid: string,
+  policyTypeId?: string,
+): Promise<PolicyConfiguration[]> {
+  let url = `${policyBaseUrl}/configurations?repositoryId=${uri(guid)}`;
+  if (policyTypeId !== undefined) url += `&policyType=${uri(policyTypeId)}`;
+  const all = await azureHttpPaginate<PolicyConfiguration>(url);
+  return all.filter(
+    (c) => policyOnRepo(c, guid) && (policyTypeId === undefined || c.type?.id === policyTypeId),
+  );
 }
 
 /** Protect a branch: the seam-shaped protection payload translates to a
@@ -363,22 +421,17 @@ export async function reposProtectBranch(
     isEnabled: true,
     isBlocking: true,
     settings: {
-      scope: [{ repositoryId: guid, matchKind: "exact", refName: `refs/heads/${branch}` }],
+      scope: [{ repositoryId: guid, matchKind: "exact", refName: azureBranchRef(branch) }],
       minimumApproverCount: reviewers,
       creatorVoteCounts: false,
       allowDownvotes: false,
       resetOnSourcePush: false,
     },
   };
-  const existing = await azureHttp<{
-    value?: Array<{ id: number; type: { id: string }; settings: { scope: Array<{ repositoryId: string; refName: string }> } }>;
-  }>("GET", `${base}/configurations`);
-  const hit = (existing.value ?? []).find(
-    (c) =>
-      c.type?.id === typeId &&
-      c.settings?.scope?.[0]?.repositoryId === guid &&
-      c.settings?.scope?.[0]?.refName === `refs/heads/${branch}`,
-  );
+  const existing = await listPolicyConfigurations(base, guid, typeId);
+  const ref = azureBranchRef(branch);
+  const hit = existing.find((c) => (c.settings?.scope ?? []).some((e) => e.repositoryId === guid && e.refName === ref));
+  if (hit !== undefined) assertSingleScope(hit);
   if (hit !== undefined) {
     await azureHttp("PUT", `${base}/configurations/${hit.id}`, {
       body: JSON.stringify(body),

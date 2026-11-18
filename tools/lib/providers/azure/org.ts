@@ -30,7 +30,8 @@ async function releaseTagDate(repoUrl: string, objectId: string): Promise<string
       `${repoUrl}/annotatedtags/${objectId}`,
     );
     if (tag.taggedBy?.date !== undefined) return tag.taggedBy.date;
-  } catch {
+  } catch (err) {
+    rethrowAuth(err);
     // fall through to the commit-date leg
   }
   try {
@@ -39,9 +40,62 @@ async function releaseTagDate(repoUrl: string, objectId: string): Promise<string
       `${repoUrl}/commits/${objectId}`,
     );
     return commit.committer?.date ?? "";
-  } catch {
+  } catch (err) {
+    rethrowAuth(err);
     return "";
   }
+}
+
+/** The date is best-effort metadata, but a missing or refused credential is
+ * not a missing date: it fails the whole listing instead of printing blanks. */
+function rethrowAuth(err: unknown): void {
+  if (!(err instanceof ProviderError)) return;
+  // 203 and a 200 sign-in page are how Azure answers an unauthenticated call;
+  // the transport words them as a rejected credential.
+  if (err.status === 401 || err.status === 403 || err.status === 203 || /did not accept the stored credential/.test(err.message)) {
+    throw err;
+  }
+}
+
+/** A version tag's parts: numeric core and the prerelease identifiers
+ * (null for a release). */
+function versionParts(name: string): { core: number[]; pre: string[] | null } {
+  // Build metadata (+...) never affects precedence.
+  const bare = (name.replace(/^refs\/tags\/v?/, "").split("+")[0] ?? "");
+  const dash = bare.indexOf("-");
+  const core = (dash < 0 ? bare : bare.slice(0, dash)).split(".").map((p) => {
+    const n = Number(p);
+    return Number.isFinite(n) ? n : -1;
+  });
+  return { core, pre: dash < 0 ? null : bare.slice(dash + 1).split(".") };
+}
+
+/** Semver precedence: the core first; a release above its prereleases;
+ * prerelease identifiers left to right, numeric ones numerically (rc.10 above
+ * rc.2) and below alphanumeric ones, a longer list above its own prefix. */
+function compareVersions(a: string, b: string): number {
+  const x = versionParts(a);
+  const y = versionParts(b);
+  for (let i = 0; i < Math.max(x.core.length, y.core.length); i++) {
+    const d = (x.core[i] ?? -1) - (y.core[i] ?? -1);
+    if (d !== 0) return d;
+  }
+  if (x.pre === null || y.pre === null) return x.pre === y.pre ? 0 : x.pre === null ? 1 : -1;
+  for (let i = 0; i < Math.min(x.pre.length, y.pre.length); i++) {
+    const p = x.pre[i] as string;
+    const q = y.pre[i] as string;
+    const pn = /^[0-9]+$/.test(p);
+    const qn = /^[0-9]+$/.test(q);
+    if (pn && qn) {
+      const d = Number(p) - Number(q);
+      if (d !== 0) return d;
+    } else if (pn !== qn) {
+      return pn ? -1 : 1;
+    } else if (p !== q) {
+      return p < q ? -1 : 1;
+    }
+  }
+  return x.pre.length - y.pre.length;
 }
 
 export interface OrgReleasesListOptions {
@@ -67,30 +121,18 @@ export async function orgReleasesList(
     `${repoUrl}/refs?filter=tags/`,
   );
   const wantDates = opts.json === undefined || opts.json.split(",").includes("publishedAt");
-  const semverCore = (name: string): number[] => {
-    const core = name.replace(/^refs\/tags\/v?/, "").split("-")[0] ?? "";
-    return core.split(".").map((p) => {
-      const n = Number(p);
-      return Number.isFinite(n) ? n : -1;
-    });
-  };
   const isVersion = (name: string): boolean =>
-    /^refs\/tags\/v?[0-9]+(\.[0-9]+)*(-|$)/.test(name);
+    /^refs\/tags\/v?[0-9]+(\.[0-9]+)*(-|\+|$)/.test(name);
   const sorted = [...refs]
     .map((r) => ({ ...r, _ver: isVersion(r.name ?? "") }))
     .sort((a, b) => {
       const av = a._ver ? 1 : 0;
       const bv = b._ver ? 1 : 0;
       if (av !== bv) return av - bv;
-      const ac = semverCore(a.name ?? "");
-      const bc = semverCore(b.name ?? "");
-      for (let i = 0; i < Math.max(ac.length, bc.length); i++) {
-        const d = (ac[i] ?? -1) - (bc[i] ?? -1);
+      if (a._ver) {
+        const d = compareVersions(a.name ?? "", b.name ?? "");
         if (d !== 0) return d;
       }
-      const aPre = (a.name ?? "").includes("-") ? 1 : 0;
-      const bPre = (b.name ?? "").includes("-") ? 1 : 0;
-      if (aPre !== bPre) return bPre - aPre; // release above its prereleases
       return (a.name ?? "").localeCompare(b.name ?? "");
     })
     .reverse()
@@ -117,16 +159,33 @@ export async function orgReleasesList(
   return applyListFlags(mapped, opts);
 }
 
-/** List org-level Artifacts feeds (the packaging surface). */
+/** List the Artifacts feeds the project can use: the organization's own feeds
+ * and the project's, each once. */
 export async function orgFeedsList(): Promise<string> {
-  const { org } = azureOrgProject();
-  const r = await azureHttp<{ value?: Array<{ name?: string; id?: string; url?: string }> }>(
-    "GET",
-    `https://feeds.dev.azure.com/${azureUri(org)}/_apis/packaging/feeds?api-version=7.1-preview.1`,
-  );
-  return JSON.stringify(
-    (r.value ?? []).map((f) => ({ name: f.name ?? "", id: f.id ?? "", url: f.url ?? "" })),
-  );
+  const { org, project } = azureOrgProject();
+  const query = "_apis/packaging/feeds?api-version=7.1-preview.1";
+  type Feed = { name?: string; id?: string; url?: string };
+  const orgFeeds = await azureHttp<{ value?: Feed[] }>("GET", `https://feeds.dev.azure.com/${azureUri(org)}/${query}`);
+  // The project endpoint is an addition: a refused or missing one (Artifacts
+  // off for the project, a PAT without the scope) leaves the org feeds.
+  let projectFeeds: { value?: Feed[] } = {};
+  try {
+    projectFeeds = await azureHttp<{ value?: Feed[] }>(
+      "GET",
+      `https://feeds.dev.azure.com/${azureUri(org)}/${azureUri(project)}/${query}`,
+    );
+  } catch (err) {
+    if (!(err instanceof ProviderError) || (err.status !== 403 && err.status !== 404)) throw err;
+  }
+  const seen = new Set<string>();
+  const feeds: Feed[] = [];
+  for (const f of [...(orgFeeds.value ?? []), ...(projectFeeds.value ?? [])]) {
+    const key = f.id ?? f.name ?? "";
+    if (seen.has(key)) continue;
+    seen.add(key);
+    feeds.push(f);
+  }
+  return JSON.stringify(feeds.map((f) => ({ name: f.name ?? "", id: f.id ?? "", url: f.url ?? "" })));
 }
 
 /** List org packages: azure Artifacts is feed-centric — org packages surface

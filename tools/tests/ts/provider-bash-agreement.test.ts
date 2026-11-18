@@ -9,7 +9,7 @@
 // a fixture DEVENV_ROOT), no network, and no provider CLI is ever called.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -250,6 +250,9 @@ const REMOTE_MATRIX: Array<[provider: "github" | "azure", label: string, origin:
   ["azure", "scp-style ssh", "git@ssh.dev.azure.com:v3/acme/proj/repo", "acme"],
   ["azure", "ssh url", "ssh://git@ssh.dev.azure.com/v3/acme/proj/repo", "acme"],
   ["azure", "ssh url with a port", "ssh://git@ssh.dev.azure.com:22/v3/acme/proj/repo", "acme"],
+  ["azure", "visualstudio.com host", "https://acme.visualstudio.com/proj/_git/repo", "acme"],
+  ["azure", "visualstudio.com host with the organization as user", "https://acme@acme.visualstudio.com/proj/_git/repo", "acme"],
+  ["azure", "a host that merely ends in visualstudio.com", "https://acme.notvisualstudio.com/proj/_git/repo", ""],
   ["azure", "a github remote", "https://github.com/acme/widget.git", ""],
   ["azure", "a host that merely ends in dev.azure.com", "https://notdev.azure.com/acme/proj/_git/repo", ""],
   ["azure", "an at-sign dev.azure.com inside a path segment", "https://evil.example/x@dev.azure.com/acme/proj/_git/repo", ""],
@@ -427,6 +430,21 @@ describe("the Azure setup token check classifies the service's answer", () => {
     );
     return Number(r.stdout.trim());
   }
+
+  it("percent-encodes the organization in the connectionData URL", () => {
+    const stubDir = join(TMP, "stub-bin-url");
+    const log = join(TMP, "curl-args.log");
+    mkdirSync(stubDir, { recursive: true });
+    writeFileSync(join(stubDir, "curl"), `#!/bin/sh\nfor a in "$@"; do printf '%s\\n' "$a" >> '${log}'; done\nprintf '200'\n`);
+    chmodSync(join(stubDir, "curl"), 0o755);
+    bash(
+      `source '${AZURE_SETUP_BASH}' 2>/dev/null\nprintf 'tok' | provider_setup_validate_token 'my org/x' >/dev/null 2>&1`,
+      FIXTURE_ROOT,
+      { PATH: `${stubDir}:${process.env["PATH"] ?? "/usr/bin:/bin"}` },
+    );
+    const url = readFileSync(log, "utf8").split("\n").find((l) => l.includes("connectionData")) ?? "";
+    expect(url).toContain("https://dev.azure.com/my%20org%2Fx/_apis/connectionData");
+  });
 
   it.each([
     ["200", 0],

@@ -70,11 +70,64 @@ export function boardNameForType(type: string): string {
   return `${type} Board`;
 }
 
-/** The Kanban column field of a work item (WEF_<guid>_Kanban.Column) — the
- * reference name carries the board's guid, found on the item itself. */
+/** Every Kanban column field on a work item (WEF_<guid>_Kanban.Column): one
+ * per board the item sits on. */
+function kanbanFieldCandidates(item: { fields?: Record<string, unknown> }): string[] {
+  return Object.keys(item.fields ?? {}).filter((k) => /^WEF_.*_Kanban\.Column$/.test(k));
+}
+
+/** The first Kanban column field of a work item, "" when it has none. For an
+ * item on several boards use columnFieldFor, which picks the default team's. */
 export function kanbanField(item: { fields?: Record<string, unknown> }): string {
-  const keys = Object.keys(item.fields ?? {});
-  return keys.find((k) => /^WEF_.*_Kanban\.Column$/.test(k)) ?? "";
+  return kanbanFieldCandidates(item)[0] ?? "";
+}
+
+/** The column field to read or write on a work item: its only one, or, when it
+ * sits on several boards, the one the default team's board for its type uses.
+ * When that cannot be determined the item is refused, naming the candidates,
+ * rather than writing to some other team's board. "" for an item on no board. */
+async function columnFieldFor(
+  item: { fields?: Record<string, unknown> },
+  mode: "write" | "read" = "write",
+): Promise<string> {
+  const candidates = kanbanFieldCandidates(item);
+  if (candidates.length <= 1) return candidates[0] ?? "";
+  // A read has no wrong board to hit: it falls back to the first column.
+  if (mode === "read") {
+    try {
+      return await columnFieldFor(item, "write");
+    } catch (err) {
+      if (err instanceof ProviderError) return candidates[0] as string;
+      throw err;
+    }
+  }
+  const type = String(item.fields?.["System.WorkItemType"] ?? "");
+  const { org, project } = azureOrgProject();
+  const team = await defaultTeamId();
+  let reference = "";
+  try {
+    const board = await azureHttp<{ fields?: { columnField?: { referenceName?: string } } }>(
+      "GET",
+      `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}/${azureUri(team)}/_apis/work/boards/${azureUri(boardNameForType(type))}`,
+    );
+    reference = board.fields?.columnField?.referenceName ?? "";
+  } catch (err) {
+    if (!(err instanceof ProviderError) || err.status !== 404) throw err;
+  }
+  if (candidates.includes(reference)) return reference;
+  throw new ProviderError(
+    `the work item sits on several boards (${candidates.join(", ")}) and the default team's board column field could not be determined — move it on the board instead`,
+  );
+}
+
+/** The state names of a work item type. */
+async function typeStateNames(type: string): Promise<string[]> {
+  const { org, project } = azureOrgProject();
+  const r = await azureHttp<{ value?: Array<{ name?: string }> }>(
+    "GET",
+    `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}/_apis/wit/workitemtypes/${azureUri(type)}/states`,
+  );
+  return (r.value ?? []).map((st) => st.name ?? "").filter((n) => n !== "");
 }
 
 interface Board {
@@ -169,17 +222,8 @@ export interface ProjectsFieldListOptions {
   owner?: string;
 }
 
-/** List the Status field's options: the column names of the project's boards
- * (in board order, each name once), as seam-shaped field/option JSON per
- * line. */
-export async function projectsFieldList(
-  repo: string,
-  projectNumber: string,
-  opts: ProjectsFieldListOptions = {},
-): Promise<string> {
-  void repo;
-  void projectNumber;
-  void opts.owner;
+/** The column names of the project's boards, in board order, each once. */
+async function statusColumnNames(): Promise<string[]> {
   const { org, project } = azureOrgProject();
   const team = await defaultTeamId();
   const boardsUrl = `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}/${azureUri(team)}/_apis/work/boards`;
@@ -196,11 +240,28 @@ export async function projectsFieldList(
       if (n !== "" && !names.includes(n)) names.push(n);
     }
   }
+  return names;
+}
+
+/** List the Status field's options: the column names of the project's boards
+ * (in board order, each name once), as seam-shaped field/option JSON per
+ * line. */
+export async function projectsFieldList(
+  repo: string,
+  projectNumber: string,
+  opts: ProjectsFieldListOptions = {},
+): Promise<string> {
+  void repo;
+  void projectNumber;
+  void opts.owner;
+  const names = await statusColumnNames();
   return names.map((n) => JSON.stringify({ name: "Status", option: n, settable: true })).join("\n");
 }
 
 /** Resolve a Status word to (field_id, option_id): the literal "Status" and
- * the board column the word names (itself, or its config alias). */
+ * the board column the word names (itself, or its config alias). The word is
+ * validated by the write, not here: it may be a process state of an item that
+ * is on no board, which is no column of any board. */
 export async function projectsFieldOptionIds(
   projectId: string,
   field: string,
@@ -214,7 +275,9 @@ export async function projectsFieldOptionIds(
 
 /** Set the Status field: write the work item's Kanban column field. Azure
  * moves System.State by the board's column-to-state mapping. A work item
- * with no column field (its type has no board) takes the word as a state. */
+ * with no column field (its type has no board) takes the word as a process
+ * state of its type — the word itself or its config alias; a word that is no
+ * state of the type is refused before any write. */
 export async function projectsFieldSet(
   projectId: string,
   item: string,
@@ -231,13 +294,15 @@ export async function projectsFieldSet(
     "GET",
     `${base}/workitems/${item}`,
   );
-  const kanban = kanbanField(workItem);
+  const kanban = await columnFieldFor(workItem);
   if (kanban === "") {
     // The type has no board: the word is a state — the same patch
     // issues.ts's patchState makes (add /fields/System.State).
+    const type = String(workItem.fields?.["System.WorkItemType"] ?? "");
+    const state = statusAlias(option, type === "" ? [] : await typeStateNames(type));
     await azureHttp("PATCH", `${base}/workitems/${item}`, {
       body: JSON.stringify([
-        { op: "add", path: "/fields/System.State", from: null, value: option },
+        { op: "add", path: "/fields/System.State", from: null, value: state },
       ]),
       contentType: "application/json-patch+json",
     });
@@ -271,7 +336,7 @@ export async function projectsForIssue(
     "GET",
     `${base}/workitems/${number}`,
   );
-  const kanban = kanbanField(workItem);
+  const kanban = await columnFieldFor(workItem, "read");
   const fields = workItem.fields ?? {};
   const status =
     kanban !== ""
