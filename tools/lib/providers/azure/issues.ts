@@ -245,7 +245,7 @@ export async function workItemTypeFor(type: string): Promise<string> {
   try {
     await azureHttp<{ value?: unknown[] }>(
       "GET",
-      `${base}/_apis/wit/workitemtypes/${azureUri(mapped)}`,
+      `${base}/workitemtypes/${azureUri(mapped)}`,
     );
   } catch (err) {
     // The probe names one type; a failure there means the project does not
@@ -426,12 +426,14 @@ export async function issuesList(
   const query = `SELECT [System.Id] FROM WorkItems WHERE ${clauses.join(" AND ")} ORDER BY [System.Id] DESC`;
 
   const { base } = witBase();
+  const limit = opts.limit ?? 200;
+  // $top bounds the query server-side: past 20,000 matches Azure refuses the
+  // whole query, so a small --limit must not depend on the full id list.
   const idsResponse = await azureHttp<{ workItems?: Array<{ id: number }> }>(
     "POST",
-    `${base}/wiql`,
+    `${base}/wiql?$top=${limit}`,
     { body: JSON.stringify({ query }), idempotent: true },
   );
-  const limit = opts.limit ?? 200;
   const ids = (idsResponse.workItems ?? []).map((w) => w.id).slice(0, limit);
   if (ids.length === 0) {
     const empty: Array<Record<string, unknown>> = [];
@@ -995,8 +997,10 @@ async function labelNames(): Promise<Array<{ name: string }>> {
   } catch {
     // fall through to the WIQL harvest
   }
-  const wiql = { query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project" };
-  const idsResponse = await azureHttp<{ workItems?: Array<{ id: number }> }>("POST", `${base}/wiql`, {
+  const wiql = {
+    query: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.Id] DESC",
+  };
+  const idsResponse = await azureHttp<{ workItems?: Array<{ id: number }> }>("POST", `${base}/wiql?$top=500`, {
     body: JSON.stringify(wiql),
     idempotent: true,
   });
