@@ -2,7 +2,7 @@
 // local config folder.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, rmSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
@@ -19,9 +19,12 @@ function usage(): never {
 
 Clone a configuration repository and extract it into the local config
 folder (CONFIG_FOLDER, default $DEVENV_ROOT/.debug/config). An existing
-config folder is replaced; CONFIG_FOLDER must be an absolute path that is
-not / or the home directory (or an ancestor), and an existing folder must
-be a git working tree, an empty directory or a previously extracted config.
+config folder is replaced. CONFIG_FOLDER must be an absolute path, not a
+symbolic link, and not /, the home directory, DEVENV_ROOT, the current
+directory or an ancestor of any of them. An existing folder must be empty,
+a previously extracted config, or a git working tree with nothing
+local-only: clean, no ignored or untracked files, no unpushed commits and
+no stashes.
 
 Options:
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
@@ -69,16 +72,64 @@ function refuseFolder(reason: string): never {
   process.exit(EXIT_MISUSE);
 }
 
+function canonicalPath(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
+}
+
+function isSameOrAncestor(folder: string, path: string): boolean {
+  return folder === path || path.startsWith(`${folder}/`);
+}
+
+function gitOutput(dir: string, args: string[]): { ok: boolean; text: string } {
+  const r = spawnSync("git", ["-C", dir, ...args], { stdio: "pipe", encoding: "utf8" });
+  return { ok: r.status === 0 && r.error === undefined, text: (r.stdout ?? "").trim() };
+}
+
+// A git working tree (a `.git` directory or file) is only replaced when
+// nothing local can be lost. Returns the kind of local content found, or
+// undefined when the tree is safe to replace. Ignored and untracked files
+// are passed explicitly so a user's status.showUntrackedFiles setting cannot
+// weaken the check, and a git failure counts as not safe.
+function localOnlyContent(folder: string): string | undefined {
+  const status = gitOutput(folder, ["status", "--porcelain", "--ignored", "--untracked-files=all"]);
+  if (!status.ok) return "git could not report its state";
+  if (status.text !== "") return "uncommitted, untracked or ignored files";
+  const unpushed = gitOutput(folder, ["rev-list", "--branches", "--not", "--remotes"]);
+  if (!unpushed.ok) return "git could not report its state";
+  if (unpushed.text !== "") return "commits that exist only locally";
+  const stashes = gitOutput(folder, ["stash", "list"]);
+  if (!stashes.ok) return "git could not report its state";
+  if (stashes.text !== "") return "stashed changes";
+  return undefined;
+}
+
 // The folder is replaced wholesale, so it must be unmistakably a config
-// folder: absolute, not the home directory or any ancestor of it, and — when
-// it exists — a git working tree, an empty directory, or the output of an
-// earlier run of this tool (recognised by the metadata file it writes).
+// folder: absolute, not a symbolic link, not the home directory, the devenv
+// root, the current directory or any ancestor of those, and — when it exists
+// — a git working tree with nothing local-only, an empty directory, or the
+// output of an earlier run of this tool (recognised by the metadata file it
+// writes).
 function validateTargetFolder(): string {
   if (!isAbsolute(configuredFolder)) refuseFolder("it is not an absolute path");
   const folder = resolve(configuredFolder);
   const home = resolve(homedir());
-  if (folder === "/" || home === folder || home.startsWith(`${folder}/`)) {
+  if (folder === "/" || isSameOrAncestor(folder, home)) {
     refuseFolder("it is the home directory or one of its ancestors");
+  }
+  const canonicalFolder = canonicalPath(folder);
+  const protectedRoots = [process.env.DEVENV_ROOT, selfRoot(import.meta.url)]
+    .filter((root): root is string => root !== undefined && root !== "");
+  for (const root of protectedRoots) {
+    if (isSameOrAncestor(folder, resolve(root)) || isSameOrAncestor(canonicalFolder, canonicalPath(root))) {
+      refuseFolder("it is the devenv root or one of its ancestors");
+    }
+  }
+  if (isSameOrAncestor(folder, resolve(process.cwd())) || isSameOrAncestor(canonicalFolder, canonicalPath(process.cwd()))) {
+    refuseFolder("it is the current directory or one of its ancestors; run the tool from another directory");
   }
   let stat;
   try {
@@ -86,8 +137,14 @@ function validateTargetFolder(): string {
   } catch {
     return folder; // does not exist yet: it will be created
   }
+  if (stat.isSymbolicLink()) refuseFolder("it is a symbolic link; point CONFIG_FOLDER at the real directory");
   if (!stat.isDirectory()) refuseFolder("it exists and is not a directory");
-  if (existsSync(join(folder, ".git")) || readdirSync(folder).length === 0) return folder;
+  if (existsSync(join(folder, ".git"))) {
+    const found = localOnlyContent(folder);
+    if (found === undefined) return folder;
+    refuseFolder(`it is a git working tree holding local-only content (${found})`);
+  }
+  if (readdirSync(folder).length === 0) return folder;
   try {
     if (readFileSync(join(folder, "info.txt"), "utf8").startsWith("# Configuration extracted:")) return folder;
   } catch {

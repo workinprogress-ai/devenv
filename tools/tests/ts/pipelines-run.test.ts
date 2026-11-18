@@ -21,7 +21,7 @@ afterEach(() => {
 
 /** A gh stub whose run list is PRE before `workflow run` and POST after it.
  * `workflow run` prints WORKFLOW_RUN_OUT. */
-function installGh(opts: { pre: unknown[]; post: unknown[]; workflowRunOut?: string }): void {
+function installGh(opts: { pre: unknown[]; post: unknown[]; workflowRunOut?: string; runViewFails?: boolean }): void {
   writeFileSync(join(bin, "pre.json"), JSON.stringify(opts.pre));
   writeFileSync(join(bin, "post.json"), JSON.stringify(opts.post));
   const log = join(bin, "calls.log");
@@ -35,7 +35,7 @@ function installGh(opts: { pre: unknown[]; post: unknown[]; workflowRunOut?: str
       '  "workflow run") touch "' + join(bin, "triggered") + '"; printf \'%s\\n\' "' + (opts.workflowRunOut ?? "") + '" ;;',
       '  "workflow list") echo \'[{"id":11,"name":"CI","path":".github/workflows/ci.yml","state":"active"}]\' ;;',
       '  "run list") if [ -e "' + join(bin, "triggered") + '" ]; then cat "' + join(bin, "post.json") + '"; else cat "' + join(bin, "pre.json") + '"; fi ;;',
-      '  "run view") echo https://example.invalid/run/42 ;;',
+      '  "run view") ' + (opts.runViewFails ? "exit 1" : "echo https://example.invalid/run/42") + ' ;;',
       "esac",
       "exit 0",
       "",
@@ -84,5 +84,30 @@ describe("pipelines-run", () => {
     expect(r.status).toBe(0);
     expect(r.output).not.toContain("https://example.invalid/run/1");
     expect(r.output).toContain("Run URL: https://example.invalid/run/2");
+  });
+
+  it("reports an ambiguity, with no URL, when two new runs of the workflow appear", () => {
+    const a = { id: 2, workflowName: "CI", event: "workflow_dispatch", createdAt: future(), url: "https://example.invalid/run/2" };
+    const b = { id: 3, workflowName: "CI", event: "workflow_dispatch", createdAt: future(), url: "https://example.invalid/run/3" };
+    installGh({ pre: [], post: [a, b] });
+    const r = runPipelinesRun();
+    expect(r.status).toBe(0);
+    expect(r.output).not.toContain("Run URL:");
+    expect(r.output).toContain("2 new runs appeared and none can be attributed");
+    expect(r.output).toContain("pipelines-status --repo acme/widgets --workflow ci.yml");
+  });
+
+  it("does not fall back to polling when the direct run view fails", () => {
+    const stray = { id: 2, workflowName: "CI", event: "workflow_dispatch", createdAt: future(), url: "https://example.invalid/run/2" };
+    installGh({ pre: [], post: [stray], workflowRunOut: "42", runViewFails: true });
+    const r = runPipelinesRun();
+    expect(r.status).toBe(0);
+    expect(r.output).not.toContain("Run URL:");
+    expect(r.output).toContain("Run queued but URL not yet available.");
+    expect(r.output).toContain("pipelines-status --repo acme/widgets --workflow ci.yml");
+    const calls = stubCalls(bin, "gh");
+    const viewAt = calls.findIndex((c) => c.startsWith("gh run view"));
+    expect(viewAt).toBeGreaterThanOrEqual(0);
+    expect(calls.slice(viewAt + 1).some((c) => c.startsWith("gh run list"))).toBe(false);
   });
 });

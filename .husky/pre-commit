@@ -15,6 +15,16 @@ fi
 # <<< devenv wip-gate <<<
 #!/bin/sh
 
+# DEVENV_GIT_DISABLE_CHECKS=1|true|yes|on skips every check below (the WIP gate
+# above and the commit-msg hook still run). Unset, empty, 0 and false keep the
+# checks on.
+case "$(printf '%s' "${DEVENV_GIT_DISABLE_CHECKS:-}" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on)
+        echo "DEVENV_GIT_DISABLE_CHECKS is set - skipping pre-commit checks."
+        exit 0
+        ;;
+esac
+
 # Ensure we run from the devenv repository root
 DEVENV_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$DEVENV_ROOT"

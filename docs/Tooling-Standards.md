@@ -480,6 +480,13 @@ changes) and in CI, and all must pass with zero findings:
   add disables without a comment explaining why.
 - The vitest suite (`bash tools/tests/run-devenv-tests.sh`).
 
+To skip all pre-commit checks (markdown lint, the four gates above and
+`lint-skills`) for a commit, set `DEVENV_GIT_DISABLE_CHECKS` to `1`, `true`,
+`yes` or `on` (case-insensitive), for example
+`DEVENV_GIT_DISABLE_CHECKS=1 git commit ...`. Unset, empty, `0` and `false`
+leave the checks on. The WIP gate and the `commit-msg` checks still run, and CI
+runs the gates regardless.
+
 TypeScript tools execute natively under node, so every job that runs a tool
 needs Node 24.18 or newer (`engines` in `package.json`; CI pins `24.18.0`,
 kept in lockstep with `NODE_VERSION` in `.devcontainer/tool-versions.bash`).

@@ -18,6 +18,8 @@ const DEFAULT_INTERVAL_MINUTES = 10;
 const DEFAULT_TOP_COUNT = 10;
 const DEFAULT_MAX_PROCESSES = 250;
 const DEFAULT_RETAIN_DAYS = 7;
+// Largest whole number of minutes whose millisecond value fits Node's timer limit (2^31-1 ms).
+const MAX_INTERVAL_MINUTES = Math.floor((2 ** 31 - 1) / 60_000);
 const SCRIPT_VERSION = "1.0.0";
 
 function usage(): never {
@@ -28,7 +30,7 @@ and writes a compact current-culprits TSV for the latest analysis.
 
 Options:
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
-  -i, --interval-minutes N    Sample every N minutes (default: ${DEFAULT_INTERVAL_MINUTES})
+  -i, --interval-minutes N    Sample every N minutes (default: ${DEFAULT_INTERVAL_MINUTES}, maximum: ${MAX_INTERVAL_MINUTES})
   -t, --top N                Show the top N culprits in the summary TSV (default: ${DEFAULT_TOP_COUNT})
   -s, --state-dir PATH        Directory used to store samples and progress
   -m, --max-processes N       Maximum processes captured per sample (default: ${DEFAULT_MAX_PROCESSES})
@@ -77,6 +79,7 @@ try {
   if (cli.common.help) usage();
   const iv = (cli.values["interval-minutes"] as string | undefined) ?? String(DEFAULT_INTERVAL_MINUTES);
   if (!isPositiveInt(iv)) die("--interval-minutes must be a positive integer");
+  if (Number(iv) > MAX_INTERVAL_MINUTES) die(`--interval-minutes must be at most ${MAX_INTERVAL_MINUTES}`);
   intervalMinutes = Number(iv);
   const tp = (cli.values["top"] as string | undefined) ?? String(DEFAULT_TOP_COUNT);
   if (!isPositiveInt(tp)) die("--top must be a positive integer");
@@ -202,7 +205,7 @@ function readLines(file: string): string[] {
 // Drops samples older than the retention window from both history files together.
 // The newest sample is always kept (a large clock jump must not empty the history),
 // sample ids are never renumbered, and rows that cannot be interpreted (an
-// unparsable timestamp, an unknown row kind) are kept rather than silently deleted.
+// unparsable, empty or whitespace-only timestamp, an unknown row kind) are kept rather than silently deleted.
 // Process rows are dropped with their sample, and when their sample id has no sample row.
 function trimHistory(): void {
   const sampleLines = readLines(samplesFile);
@@ -216,7 +219,8 @@ function trimHistory(): void {
   const keptSamples = sampleLines.filter((line) => {
     const [kind, id, ts] = line.split("\t");
     if (kind !== "S") return true;
-    const t = Number(ts);
+    // Number("") is 0, so a blank field must be ruled out before parsing.
+    const t = ts === undefined || ts.trim() === "" ? Number.NaN : Number(ts);
     const keep = id === newestId || !Number.isFinite(t) || t >= cutoff;
     if (keep) keptIds.add(id as string);
     return keep;
@@ -323,7 +327,10 @@ function renderReport(): void {
 mkdirSync(stateDir, { recursive: true });
 
 const lockResult = acquireInstanceLock(lockFile);
-if (!lockResult.ok) die(`Another memory watch is already running in ${stateDir}`);
+if (!lockResult.ok) {
+  if ("error" in lockResult) die(`cannot create the lock file in ${stateDir}: ${lockResult.error}`);
+  die(`Another memory watch is already running in ${stateDir}`);
+}
 const lock = (lockResult as Extract<typeof lockResult, { ok: true }>).lock;
 process.on("exit", () => lock.release());
 process.on("SIGINT", () => process.exit(130));
