@@ -3,6 +3,11 @@
 // `databaseId` carrying the token pr-thread-reply accepts as --comment-id
 // ('<thread>/<comment>' on Azure). Azure HTTP is the stubbed fetch.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { drainCanary } from "./harness/canary.ts";
+import { rmrf, runTool, tmpDir } from "./harness/index.ts";
 import { azureFixture, azureJson, stubAzureFetch, useAzureEnv } from "./harness/azure-stub.ts";
 import { prsThreadResolve, prsThreadsPage } from "../../lib/providers/azure/prs.ts";
 
@@ -107,5 +112,73 @@ describe("azure prsThreadResolve result", () => {
   ])("reports a PATCH response status of '%s' as %s", async (status, expected) => {
     stubAzureFetch([{ method: "PATCH", url: PATCH_URL, respond: azureJson({ status }) }]);
     expect(await prsThreadResolve("widgets", "11913/62644")).toBe(expected);
+  });
+});
+
+// The tool runs as a child process; the fetch canary records the URL it was
+// refused, which is the observable route (see pr-thread-reply-azure-route).
+describe("pr-threads-get repository targeting on Azure", () => {
+  let root = "";
+  let repoDir = "";
+
+  function threadsUrls(): string[] {
+    return drainCanary()
+      .filter((l) => l.startsWith("fetch "))
+      .map((l) => l.slice("fetch ".length))
+      .filter((u) => u.includes("/threads"));
+  }
+
+  function setupRepo(origin: string): void {
+    repoDir = join(root, "clone");
+    mkdirSync(repoDir, { recursive: true });
+    for (const args of [["init", "-q"], ["remote", "add", "origin", origin]]) {
+      spawnSync("git", args, { cwd: repoDir });
+    }
+  }
+
+  beforeEach(() => {
+    root = tmpDir("threads-get-target");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(
+      join(root, "devenv.config"),
+      ["[provider]", "name=azure", "azure_org=acme", "azure_project=proj", "", "[organization]", "org=acme", ""].join("\n"),
+    );
+    drainCanary();
+  });
+
+  afterEach(() => {
+    rmrf(root);
+  });
+
+  it("keeps the project of a full org/project/repo spec", () => {
+    runTool("pr-threads-get", ["12"], {
+      env: { DEVENV_ROOT: root, DEVENV_REPO: "acme/proj/widgets", AZURE_PAT: "fake-pat" },
+    });
+    const urls = threadsUrls();
+    expect(urls.length).toBeGreaterThan(0);
+    for (const u of urls) expect(u).toContain("/proj/_apis/git/repositories/widgets/pullrequests/12/threads");
+  });
+
+  it("falls back to the Azure origin remote when the target has no owner", () => {
+    setupRepo("https://acme@dev.azure.com/acme/proj/_git/widgets");
+    runTool("pr-threads-get", ["12"], {
+      cwd: repoDir,
+      env: { DEVENV_ROOT: root, DEVENV_REPO: "widgets", AZURE_PAT: "fake-pat" },
+    });
+    const urls = threadsUrls();
+    expect(urls.length).toBeGreaterThan(0);
+    for (const u of urls) expect(u).toContain("/proj/_apis/git/repositories/widgets/pullrequests/12/threads");
+  });
+
+  it("fails with a provider-neutral message when no remote can be resolved", () => {
+    setupRepo("https://example.com/not/azure.git");
+    const r = runTool("pr-threads-get", ["12"], {
+      cwd: repoDir,
+      env: { DEVENV_ROOT: root, DEVENV_REPO: "widgets", AZURE_PAT: "fake-pat" },
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toContain("Cannot determine repository");
+    expect(r.output).not.toContain("owner/name");
+    expect(threadsUrls()).toHaveLength(0);
   });
 });

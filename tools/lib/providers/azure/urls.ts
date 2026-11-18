@@ -169,12 +169,14 @@ export interface AzureRemote {
  * Accepts https and ssh forms (with or without a .git suffix), including the
  * organization-host form:
  *   https://dev.azure.com/org/project/_git/repo
+ *   https://org@dev.azure.com/org/project/_git/repo   (the default clone URL)
  *   https://org.visualstudio.com/project/_git/repo
  *   git@ssh.dev.azure.com:v3/org/project/repo
+ *   ssh://git@ssh.dev.azure.com[:22]/v3/org/project/repo
  * Null when the URL is not a recognized Azure remote. */
 export function azureParseRemote(url: string): AzureRemote | null {
   let m: RegExpExecArray | null;
-  m = /^https:\/\/dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\/(.+?)(?:\.git)?$/.exec(url);
+  m = /^https:\/\/(?:[^/@]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\/(.+?)(?:\.git)?$/.exec(url);
   if (m) {
     return { org: azureUriDecode(m[1] as string), project: azureUriDecode(m[2] as string), repo: azureUriDecode(m[3] as string) };
   }
@@ -186,7 +188,7 @@ export function azureParseRemote(url: string): AzureRemote | null {
   if (m) {
     return { org: azureUriDecode(m[1] as string), project: azureUriDecode(m[2] as string), repo: azureUriDecode(m[3] as string) };
   }
-  m = /^git@ssh\.dev\.azure\.com:v3\/([^/]+)\/([^/]+)\/(.+?)(?:\.git)?$/.exec(url);
+  m = /^(?:ssh:\/\/)?git@ssh\.dev\.azure\.com(?::\d+\/|:|\/)v3\/([^/]+)\/([^/]+)\/(.+?)(?:\.git)?$/.exec(url);
   if (m) {
     return { org: azureUriDecode(m[1] as string), project: azureUriDecode(m[2] as string), repo: azureUriDecode(m[3] as string) };
   }

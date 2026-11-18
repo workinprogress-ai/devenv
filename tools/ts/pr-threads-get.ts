@@ -17,7 +17,7 @@ import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { prsThreadsPage } from "../lib/providers/facade/prs.ts";
 import type { GhThread } from "../lib/providers/facade/prs.ts";
-import { authStatusOk, remoteToWeb } from "../lib/providers/facade/urls.ts";
+import { authStatusOk, remoteToSpec } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
 
@@ -66,28 +66,18 @@ Examples:
   process.exit(0);
 }
 
-async function ownerName(): Promise<{ owner: string; name: string }> {
-  // DEVENV_REPO / cwd spec first; origin remote through the URL seam as the
-  // fallback leg.
+async function repoSpec(): Promise<string> {
+  // DEVENV_REPO / cwd spec first, passed through whole (an Azure spec carries
+  // its project, so it must not be cut to two segments); the origin remote
+  // through the provider's URL seam as the fallback leg.
   const spec = requireRepoTarget(providerRepoTarget(""), "pr-threads-get", "pr");
-  if (spec.includes("/")) {
-    const [owner, name] = spec.split("/");
-    if (owner !== undefined && name !== undefined && owner !== "" && name !== "") {
-      return { owner, name: name.replace(/\.git$/, "") };
-    }
-  }
+  if (spec.includes("/")) return spec.replace(/\.git$/, "");
   const remote = spawnSync("git", ["remote", "get-url", "origin"], { encoding: "utf8" });
   if (remote.status === 0) {
-    const web = await remoteToWeb((remote.stdout ?? "").trim());
-    if (web !== null) {
-      const rest = web.replace("https://github.com/", "");
-      const [owner, nameRaw] = rest.split("/");
-      if (owner !== undefined && nameRaw !== undefined) {
-        return { owner, name: nameRaw.replace(/\.git$/, "") };
-      }
-    }
+    const fromRemote = await remoteToSpec((remote.stdout ?? "").trim());
+    if (fromRemote !== null && fromRemote !== "") return fromRemote.replace(/\.git$/, "");
   }
-  logError("Cannot determine repository owner/name. Set DEVENV_REPO or run inside a git repo.");
+  logError("Cannot determine repository. Set DEVENV_REPO or run inside a git repo.");
   process.exit(EXIT_GENERAL_ERROR);
 }
 
@@ -136,14 +126,14 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_API_FAILURE;
   }
 
-  const { owner, name } = await ownerName();
+  const repo = await repoSpec();
 
   const allThreads: GhThread[] = [];
   let cursor: string | undefined = undefined;
   for (;;) {
     let page: string;
     try {
-      page = (await prsThreadsPage(`${owner}/${name}`, Number.parseInt(prNumber, 10), cursor)).stdout;
+      page = (await prsThreadsPage(repo, Number.parseInt(prNumber, 10), cursor)).stdout;
     } catch (err) {
       logError(`Failed to fetch review threads for PR #${prNumber}`);
       logError(errorMessage(err));

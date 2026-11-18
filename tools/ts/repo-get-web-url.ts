@@ -82,6 +82,6 @@ const repoUrl = await remoteToWeb(remoteUrl);
 if (repoUrl !== null) {
   console.log(repoUrl);
 } else {
-  console.error("Not a GitHub repository.");
+  console.error("The 'origin' remote is not a repository on the configured provider.");
   process.exit(1);
 }
