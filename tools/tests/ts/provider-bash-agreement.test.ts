@@ -234,14 +234,6 @@ function detectOrgTs(provider: "github" | "azure", repo: string): string {
   return out.org;
 }
 
-// The Azure https remote that carries the organization as a user
-// (https://acme@dev.azure.com/...) is parsed by the bash setup default but not by the
-// production azureParseRemote (it handles that user form only for the visualstudio.com
-// host). The divergence is pinned here so a change on either side is noticed.
-const PINNED_TS_DIVERGENCE = new Map<string, string>([
-  ["azure: https with the organization as user", ""],
-]);
-
 const REMOTE_MATRIX: Array<[provider: "github" | "azure", label: string, origin: string | null, expectedOrg: string]> = [
   ["github", "https", "https://github.com/acme/widget.git", "acme"],
   ["github", "https without .git", "https://github.com/acme/widget", "acme"],
@@ -256,6 +248,8 @@ const REMOTE_MATRIX: Array<[provider: "github" | "azure", label: string, origin:
   ["azure", "https", "https://dev.azure.com/acme/proj/_git/repo", "acme"],
   ["azure", "https with the organization as user", "https://acme@dev.azure.com/acme/proj/_git/repo", "acme"],
   ["azure", "scp-style ssh", "git@ssh.dev.azure.com:v3/acme/proj/repo", "acme"],
+  ["azure", "ssh url", "ssh://git@ssh.dev.azure.com/v3/acme/proj/repo", "acme"],
+  ["azure", "ssh url with a port", "ssh://git@ssh.dev.azure.com:22/v3/acme/proj/repo", "acme"],
   ["azure", "a github remote", "https://github.com/acme/widget.git", ""],
   ["azure", "a host that merely ends in dev.azure.com", "https://notdev.azure.com/acme/proj/_git/repo", ""],
   ["azure", "an at-sign dev.azure.com inside a path segment", "https://evil.example/x@dev.azure.com/acme/proj/_git/repo", ""],
@@ -270,12 +264,7 @@ describe("the organization named by a git remote agrees", () => {
       const repo = gitRepoWithOrigin(origin);
       const fromBash = detectOrgBash(provider, repo);
       const fromTs = detectOrgTs(provider, repo);
-      const pinnedTs = PINNED_TS_DIVERGENCE.get(`${provider}: ${label}`);
-      if (pinnedTs === undefined) {
-        expect(fromBash).toBe(fromTs);
-      } else {
-        expect(fromTs).toBe(pinnedTs);
-      }
+      expect(fromBash).toBe(fromTs);
       expect(fromBash).toBe(expected);
     });
   }

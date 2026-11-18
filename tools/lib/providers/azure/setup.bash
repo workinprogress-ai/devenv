@@ -75,10 +75,10 @@ provider_setup_detect_org() {
     # The host must open the authority: after an optional scheme and an optional
     # "user@" that contains no "/" or "@". A host that merely ends in dev.azure.com,
     # or an "@dev.azure.com/" inside a path segment, does not name an organization.
-    local ssh_re='^([A-Za-z][A-Za-z0-9+.-]*://)?([^/@]*@)?ssh\.dev\.azure\.com:v3/([^/]+)/'
+    local ssh_re='^([A-Za-z][A-Za-z0-9+.-]*://)?([^/@]*@)?ssh\.dev\.azure\.com(:[0-9]+/|:|/)v3/([^/]+)/'
     local https_re='^([A-Za-z][A-Za-z0-9+.-]*://)?([^/@]*@)?dev\.azure\.com/([^/]+)/'
     if [[ "$url" =~ $ssh_re ]]; then
-        echo "${BASH_REMATCH[3]}"
+        echo "${BASH_REMATCH[4]}"
     elif [[ "$url" =~ $https_re ]]; then
         echo "${BASH_REMATCH[3]}"
     fi

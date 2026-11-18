@@ -48,7 +48,7 @@ Clone or update a repository from the organization.
                       (excludes already cloned repos)
   --all               Clone all repositories in the organization not already
                       present locally
-  repository-name     Name of the GitHub repository (alphanumeric, hyphens, dots)
+  repository-name     Name of the repository (alphanumeric, hyphens, dots)
   repository-url      Full URL to a foreign repository (https:// or git@);
                       cloned flat into repos/ by its basename
   --run-scripts       Run the repository's .repo/init.sh and .repo/update.sh
@@ -241,7 +241,7 @@ if (selectMode) {
   }
   if (!process.stdout.isTTY) {
     console.error("ERROR: --select requires an interactive terminal (no fzf picker without a TTY).");
-    console.error("List candidates instead with: repo-get --all (dry) or `gh repo list <org>`.");
+    console.error("List candidates instead with: repo-get --all (dry).");
     process.exit(EXIT_GENERAL_ERROR);
   }
   const { multiSelect } = await import("../lib/ui/prompts.ts");
