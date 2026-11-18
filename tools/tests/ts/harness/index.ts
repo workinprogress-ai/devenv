@@ -4,3 +4,5 @@ export { runTool, toolScript, REPO_ROOT, TOOLS } from "./run-tool.ts";
 export type { RunToolOptions, RunToolResult } from "./run-tool.ts";
 export { stubCli, stubGh, stubGit, stubCalls, stubRecordingGit, recordedGitCalls, pathWithStubs, useProviderDown, CALLS_LOG_NAME } from "./stubs.ts";
 export { tmpDir, tmpStubBin, tmpToolboxRoot, rmrf } from "./tmp-repo.ts";
+export { azureFixture, azureJson, stubAzureFetch, useAzureEnv } from "./azure-stub.ts";
+export type { AzureReq, AzureRoute, AzureStub } from "./azure-stub.ts";
