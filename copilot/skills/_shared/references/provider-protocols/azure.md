@@ -21,9 +21,13 @@
 
 The token is a **0600 PAT file** outside every repo tree
 (`~/.keys/azure-devops-pat` by default; `AZURE_PAT_FILE` overrides the
-path) — never in env files, never in remote URLs. Resolution order:
-allowlisted session env token (the neutral seam's `[provider]
-token_env_allowlist`) → the PAT file (mode verified before every read).
+path) — never in env files, never in remote URLs. One reader contract holds
+for every Azure credential reader (the REST transport, `auth.bash`, and the
+git credential helper): the `AZURE_PAT` environment variable first, else the
+PAT file; only the first line counts, trimmed of whitespace and a byte-order
+mark; a PAT file whose mode is not 0600 is never used. The GitHub token
+variable `GH_TOKEN` is not a token source under Azure, even when listed in
+`[provider] token_env_allowlist` (which holds env-var names).
 
 Credential verbs (provider seam — wrappers call these; do not call the
 provider CLI directly; Azure has none):

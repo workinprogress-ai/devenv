@@ -23,7 +23,7 @@ _PROVIDER_AZURE_SETUP_LOADED=1
 # Returns:
 #   0 the organization accepted the token (HTTP 200)
 #   1 the token was rejected, empty, or no organization was given
-#   2 the service could not be reached (no HTTP status); the caller decides
+#   2 the answer could not be determined (no HTTP status, 5xx, 429 or 407); the caller decides
 #     whether an unverifiable token is acceptable (an offline user must not be trapped)
 provider_setup_validate_token() {
     local org="${1:-}" token b64 http_code
@@ -31,10 +31,12 @@ provider_setup_validate_token() {
     [ -n "$token" ] || return 1
     [ -n "$org" ] || return 1
     b64="$(printf ':%s' "$token" | base64 | tr -d '\r\n')"
-    http_code=$(printf 'Authorization: Basic %s\n' "$b64" | curl -s -o /dev/null -w '%{http_code}' -H @- "https://dev.azure.com/${org}/_apis/connectionData?api-version=7.1-preview" 2>/dev/null)
-    if [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
-        return 2
-    fi
+    http_code=$(printf 'Authorization: Basic %s\n' "$b64" | curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w '%{http_code}' -H @- "https://dev.azure.com/${org}/_apis/connectionData?api-version=7.1-preview" 2>/dev/null)
+    # No answer, a server-side failure, throttling or a proxy demanding its own
+    # sign-in say nothing about the token itself: could not be determined.
+    case "$http_code" in
+        ""|000|429|407|5??) return 2 ;;
+    esac
     [ "$http_code" = "200" ]
 }
 

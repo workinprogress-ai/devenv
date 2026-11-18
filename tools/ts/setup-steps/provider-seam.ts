@@ -9,31 +9,33 @@
 // Secrets are never logged.
 //
 // The allowlist carries the bash semantics exactly: [provider]
-// token_env_allowlist in devenv.config; entries are "values" or
-// "value:reason" pairs; matching is on the value before the first colon.
+// token_env_allowlist in devenv.config holds env-var NAMES — "NAME" or
+// "NAME:reason" entries, space-separated; matching is on the name before the
+// first colon. A session token export is honored only when its variable is
+// listed (the list is never compared with the token's value). Under the azure
+// provider the GitHub token variable is not a token source at all, so a GitHub
+// token can never be handed to Azure feeds.
 
 import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { configGetRaw } from "../../lib/core/config.ts";
-import { providerAuthToken } from "../../lib/providers/provider-core.ts";
-import { toolbox } from "./lib.ts";
+import { providerAuthToken, providerConfigPath, providerDetect } from "../../lib/providers/provider-core.ts";
 
-function tokenEnvAllowed(value: string): boolean {
-  const config = join(toolbox(), "devenv.config");
+function tokenEnvAllowed(name: string): boolean {
+  // The same config path provider detection reads.
+  const config = providerConfigPath();
   let allow = process.env.PROVIDER_TOKEN_ENV_ALLOWLIST ?? "";
   if (existsSync(config)) {
     allow = configGetRaw(config, "provider", "token_env_allowlist") ?? "";
   }
   for (const entry of allow.split(/\s+/).filter(Boolean)) {
-    const base = entry.split(":")[0] ?? "";
-    if (value === base) return true;
+    if ((entry.split(":")[0] ?? "") === name) return true;
   }
   return false;
 }
 
 function tokenEnvDeniedWarning(): void {
   console.error(
-    "GH_TOKEN is set but not on the env allowlist (config key [provider] token_env_allowlist) — ignored; resolving via the provider credential store. Add an allowlist entry only with a documented justification.",
+    "GH_TOKEN is set but not on the env allowlist (config key [provider] token_env_allowlist, which lists env-var names such as GH_TOKEN) — ignored; resolving via the provider credential store. Add an allowlist entry only with a documented justification.",
   );
 }
 
@@ -42,9 +44,10 @@ function tokenEnvDeniedWarning(): void {
  * contract of its step). The CLI transport lives in the provider layer
  * (providerAuthToken facade verb — no tool shells to gh/az directly). */
 export function providerSecretToken(): string {
-  const ghToken = process.env.GH_TOKEN ?? "";
+  // GH_TOKEN is a GitHub credential: it is no token source under azure.
+  const ghToken = providerDetect() === "azure" ? "" : (process.env.GH_TOKEN ?? "");
   if (ghToken !== "") {
-    if (tokenEnvAllowed(ghToken)) return ghToken;
+    if (tokenEnvAllowed("GH_TOKEN")) return ghToken;
     tokenEnvDeniedWarning();
   }
   return providerAuthToken();

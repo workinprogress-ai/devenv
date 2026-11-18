@@ -162,7 +162,7 @@ describe("bootstrap auth", () => {
     writeFileSync(
       join(fixtureToolbox, "devenv.config"),
       "[provider]\nname=github\n" +
-        "token_env_allowlist=npm-token-123\n\n" +
+        "token_env_allowlist=GH_TOKEN\n\n" +
         "[organization]\norg=the-org\nuser=the-user\n",
     );
   });
@@ -178,15 +178,9 @@ describe("bootstrap auth", () => {
   }
 
   function runNpmrcSetup(provider: string, npmToken: string): { status: number; out: string } {
-    // Per-call token (the bash stub's shape): the allowlist in the fixture
-    // config carries every synthetic token the tests inject, so each call's
-    // GH_TOKEN is honored under github and ignored under other providers.
-    if (npmToken !== "" && !/^npm-token/.test(npmToken)) {
-      const cfg = readFileSync(join(fixtureToolbox, "devenv.config"), "utf8");
-      if (!cfg.includes("token_env_allowlist=" + npmToken)) {
-        writeFileSync(join(fixtureToolbox, "devenv.config"), cfg.replace("token_env_allowlist=npm-token-123", "token_env_allowlist=npm-token-123 " + npmToken));
-      }
-    }
+    // Per-call token (the bash stub's shape): the fixture allowlist names
+    // GH_TOKEN, so each call's GH_TOKEN is honored under github and is no
+    // token source under other providers.
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
     Object.assign(env, {

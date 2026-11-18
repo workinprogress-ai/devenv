@@ -11,7 +11,8 @@
 // rotation.
 
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { assertNodeFloor } from "../../core/node-floor.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../../core/exit-codes.ts";
@@ -19,6 +20,8 @@ import { logWarn } from "../../core/logging.ts";
 import { toolCli } from "../../core/cli.ts";
 import { selfRoot } from "../../core/self-root.ts";
 import { azureSetupGit } from "./auth.ts";
+import { azureValidateToken } from "./http.ts";
+import { azureOrgGet } from "./urls.ts";
 
 assertNodeFloor();
 
@@ -89,18 +92,36 @@ if (newToken.length < 40) {
   logWarn(`Token is shorter than an Azure PAT typically is (${newToken.length} chars). Proceeding anyway...`);
 }
 
-// 1. Rotate: write the 0600 PAT file (the single durable copy), then wire
-//    the git credential helper — same operations as the auth seam impl.
+// 1. Validate, then rotate: a rejected token never replaces a working one;
+//    the 0600 PAT file (the single durable copy) is replaced atomically, then
+//    the git credential helper is wired — same operations as the auth seam impl.
 console.log("    - Rotating credentials (provider auth seam)...");
-const patFile = process.env.AZURE_PAT_FILE || join(process.env.HOME ?? "", ".keys", "azure-devops-pat");
-mkdirSync(dirname(patFile), { recursive: true });
+const org = azureOrgGet();
+if (org === "") {
+  logWarn("no Azure organization configured ([provider] azure_org or AZURE_DEVOPS_ORG) — the new token was not checked against the service.");
+} else {
+  const verdict = await azureValidateToken(org, newToken);
+  if (verdict === "rejected") {
+    die(`Azure DevOps rejected the new token for organization '${org}' (a wrong token, or a wrong organization name) — nothing was changed; the stored token is kept.`);
+  }
+  if (verdict === "unreachable") {
+    logWarn(`could not verify the new token against organization '${org}' (service unreachable) — storing it anyway.`);
+  }
+}
+const configuredPatFile = process.env.AZURE_PAT_FILE || join(process.env.HOME || homedir(), ".keys", "azure-devops-pat");
+// A PAT file that is a symlink (a dotfiles-managed setup) is rotated in place:
+// the link stays, its target is replaced.
+const patFile = existsSync(configuredPatFile) ? realpathSync(configuredPatFile) : configuredPatFile;
+mkdirSync(dirname(patFile), { recursive: true, mode: 0o700 });
+// Write beside the target and rename over it: a crash or a failed write can
+// never leave the stored token truncated or empty.
+const tmpFile = `${patFile}.tmp-${process.pid}`;
 try {
-  chmodSync(patFile, 0o600);
-} catch { /* not present yet */ }
-try {
-  writeFileSync(patFile, `${newToken}\n`, { mode: 0o600 });
-  chmodSync(patFile, 0o600);
+  writeFileSync(tmpFile, `${newToken}\n`, { mode: 0o600, flag: "wx" });
+  chmodSync(tmpFile, 0o600);
+  renameSync(tmpFile, patFile);
 } catch (err) {
+  rmSync(tmpFile, { force: true });
   die(`failed writing PAT file: ${patFile} (${err instanceof Error ? err.message : String(err)})`);
 }
 const modeProbe = spawnSync("stat", ["-c", "%a", patFile], { encoding: "utf8" });
@@ -115,17 +136,22 @@ if (envPat !== "" && envPat !== newToken) {
   logWarn("AZURE_PAT is set in this environment and differs from the new token; it takes precedence over the PAT file. Unset it (or update it) or API calls keep using the old token.");
 }
 
+// Wiring failures report but do not undo the rotation (the credential store
+// is already updated); they make the run exit non-zero.
+let wiringFailed = false;
+
 // Git credential helper wiring (the auth impl's second half).
 try {
   azureSetupGit();
-} catch {
-  console.error("    ⚠ git credential helper wiring failed — git https to Azure DevOps may fail until re-run.");
+} catch (err) {
+  console.error(
+    `    ⚠ git credential helper wiring failed — git https to Azure DevOps may fail until re-run.${err instanceof Error ? ` (${err.message})` : ""}`,
+  );
+  wiringFailed = true;
 }
 
 // 3. Re-wire the package feeds: a rotated PAT invalidates ~/.npmrc and the
-//    nuget source credentials. Wiring failures report but do not undo the
-//    rotation (the credential store is already updated).
-let wiringFailed = false;
+//    nuget source credentials.
 console.log("    - Refreshing package feed credentials...");
 // Step modules run exactly as the setup orchestrator runs them.
 const toolsRoot = join(selfRoot(import.meta.url), "tools");
@@ -153,7 +179,7 @@ console.log("    The new token is now active for all Azure DevOps REST calls.");
 console.log("    No token is stored in env files; the 0600 PAT file is the only");
 console.log("    durable credential copy.");
 if (wiringFailed) {
-  console.log("    One or more package feed re-wiring steps failed; see above.");
+  console.log("    One or more re-wiring steps (git credential helper or package feeds) failed; see above.");
   process.exit(1);
 }
 console.log("");

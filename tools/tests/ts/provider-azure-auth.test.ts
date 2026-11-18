@@ -5,7 +5,7 @@
 // piped protocol query.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -94,6 +94,39 @@ describe("azure credential helper", () => {
   });
 });
 
+describe("azure credential helper registration value", () => {
+  it("quotes the helper path for git's shell and leaves the operation to git", async () => {
+    const { azureHelperValue } = await import(pathToFileURL(join(TOOLS, "lib/providers/azure/auth.ts")).href);
+    expect(azureHelperValue("/opt/devenv/azure/credential-helper.sh")).toBe("!'/opt/devenv/azure/credential-helper.sh'");
+    expect(azureHelperValue("/a b/h.sh")).toBe("!'/a b/h.sh'");
+    expect(azureHelperValue("/it's/h.sh")).toBe("!'/it'\\''s/h.sh'");
+  });
+
+  it("a helper in a directory with spaces and a quote still answers git", async () => {
+    const { azureHelperValue } = await import(pathToFileURL(join(TOOLS, "lib/providers/azure/auth.ts")).href);
+    const dir = join(TMP, "dir with space and it's");
+    mkdirSync(dir, { recursive: true });
+    const copy = join(dir, "credential-helper.sh");
+    copyFileSync(HELPER, copy);
+    chmodSync(copy, 0o755);
+    const set = spawnSync("git", ["config", "--global", "credential.https://dev.azure.com.helper", azureHelperValue(copy)], {
+      env: ENV(),
+    });
+    expect(set.status).toBe(0);
+    const fill = bash("printf 'protocol=https\\nhost=dev.azure.com\\n\\n' | git credential fill");
+    expect(fill.status).toBe(0);
+    expect(fill.out).toContain(`password=${PAT}`);
+  });
+
+  it("git's store and erase reach the helper as themselves and write nothing", async () => {
+    const { azureHelperValue } = await import(pathToFileURL(join(TOOLS, "lib/providers/azure/auth.ts")).href);
+    spawnSync("git", ["config", "--global", "credential.https://dev.azure.com.helper", azureHelperValue(HELPER)], { env: ENV() });
+    const r = bash("printf 'protocol=https\\nhost=dev.azure.com\\nusername=x\\npassword=y\\n\\n' | git credential approve");
+    expect(r.status).toBe(0);
+    expect(r.out).not.toContain("password=");
+  });
+});
+
 // The git credential-helper wiring exists twice: the bash impl the container
 // bootstrap's token import runs, and the TypeScript azureSetupGit that
 // key-update-azure runs. Both must leave git configured the same way.
@@ -175,7 +208,7 @@ describe.each(["bash", "ts"] as const)("git credential helper wiring (%s)", (imp
     );
     const r = wire(impl, "git config --get-urlmatch credential.helper https://mixed-org.visualstudio.com/");
     expect(r.status).toBe(0);
-    expect(r.out).toContain("azure/credential-helper.sh get");
+    expect(r.out).toContain("azure/credential-helper.sh'");
   });
 
   it("repeated registration preserves unrelated configuration", () => {

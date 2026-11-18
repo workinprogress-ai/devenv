@@ -258,10 +258,9 @@ export async function prsList(
       if (remaining <= 0) break;
       if (remaining < top) top = remaining;
     }
-    const page = await azureHttp<{ value?: AzurePr[] }>(
-      "GET",
-      `${api}&$top=${top}&$skip=${skip}`,
-    );
+    // An empty 2xx body resolves to undefined: that is an empty page.
+    const page =
+      (await azureHttp<{ value?: AzurePr[] }>("GET", `${api}&$top=${top}&$skip=${skip}`)) ?? {};
     let items = page.value ?? [];
     const got = items.length;
     if (state === "closed") items = items.filter((p) => p.status !== "active");

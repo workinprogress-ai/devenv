@@ -17,10 +17,22 @@
 //     decides what is fatal, exactly as the github modules do.
 
 import { statSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { ProviderError } from "../provider-core.ts";
 
 export const AZURE_API_VERSION = "7.1";
 const AZURE_HTTP_MAX_RETRIES = 3;
+/** Per-request limit for JSON calls, and the longer one for artifact downloads. */
+export const AZURE_HTTP_TIMEOUT_MS = 30_000;
+export const AZURE_DOWNLOAD_TIMEOUT_MS = 300_000;
+
+/** A timed-out request reads as a timeout, not as a generic transport error. */
+function transportMessage(e: unknown, limitMs: number): string {
+  if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")) {
+    return `request timed out after ${limitMs / 1000}s`;
+  }
+  return `request failed: ${String(e)}`;
+}
 
 // ---------------------------------------------------------------------------
 // Credential resolution (the auth seam — TS mirror of _azure_pat_ensure)
@@ -29,15 +41,21 @@ const AZURE_HTTP_MAX_RETRIES = 3;
 /** The PAT file path (mirrors azure/auth.bash's azure_pat_file): the
  * AZURE_PAT_FILE env leg, else ~/.keys/azure-devops-pat. */
 function patFile(): string {
-  const home = process.env.HOME ?? "";
-  return process.env.AZURE_PAT_FILE || `${home}/.keys/azure-devops-pat`;
+  return process.env.AZURE_PAT_FILE || `${process.env.HOME || homedir()}/.keys/azure-devops-pat`;
 }
 
-/** Read the stored PAT: the AZURE_PAT env leg first, then the 0600 PAT file
- * (the same two legs the bash seam resolves). The credential store owns the
- * token — TS never writes or moves it. */
+/** The PAT reader contract, shared with auth.bash and credential-helper.sh:
+ * the AZURE_PAT env var first, else the PAT file; only the first line counts,
+ * trimmed of whitespace and a byte-order mark; a file whose mode is not 0600
+ * is never trusted. */
+function cleanPat(raw: string): string {
+  return (raw.split("\n")[0] ?? "").replace(/^\uFEFF/, "").trim();
+}
+
+/** Read the stored PAT under the contract above. The credential store owns
+ * the token — TS never writes or moves it. */
 export function azurePatGet(): string {
-  const env = process.env.AZURE_PAT ?? "";
+  const env = cleanPat(process.env.AZURE_PAT ?? "");
   if (env !== "") return env;
   const file = patFile();
   let mode = "";
@@ -46,20 +64,24 @@ export function azurePatGet(): string {
   } catch {
     return "";
   }
-  // auth.bash parity: a mis-modal file is refused, not trusted.
   if (mode !== "600") return "";
   try {
-    return readFileSync(file, "utf8").split("\n")[0]?.trim() ?? "";
+    return cleanPat(readFileSync(file, "utf8"));
   } catch {
     return "";
   }
 }
 
+/** The base64 Basic credential for a PAT (empty user name). */
+function basicCredential(pat: string): string {
+  return Buffer.from(`:${pat}`).toString("base64");
+}
+
 /** The Authorization header value. Attached on the fetch init object — the
  * PAT is never interpolated into a URL. */
 function authHeader(pat: string): string {
-  // btoa is available globally in Node >= 16.
-  return `Basic ${btoa(`:${pat}`)}`;
+  // Buffer encodes UTF-8; btoa throws on any character beyond Latin-1.
+  return `Basic ${basicCredential(pat)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,8 +96,10 @@ export function azureRedact(text: string): string {
   // (azurePatGet serves the file form, whose value never reaches env, so an
   // env-only redaction would leave file-mode credentials unredacted).
   for (const token of [process.env.AZURE_PAT ?? "", azurePatGet()]) {
-    if (token !== "" && out.includes(token)) {
-      out = out.split(token).join("***REDACTED***");
+    if (token === "") continue;
+    // The raw token and the base64 form the Authorization header carries.
+    for (const form of [token, basicCredential(token)]) {
+      if (out.includes(form)) out = out.split(form).join("***REDACTED***");
     }
   }
   // Defensive: redact base64 Basic credentials if one leaks in.
@@ -141,12 +165,17 @@ export async function azureHttp<T = unknown>(
 
   const fullUrl = withApiVersion(url);
   let lastError = "";
+  // True once an earlier attempt of this call failed in a way that may have
+  // let the server act (lost connection, 5xx). A 429 is rejected before the
+  // server acts, so it does not count.
+  let mayHaveActed = false;
   for (let attempt = 1; attempt <= AZURE_HTTP_MAX_RETRIES; attempt++) {
     const r = await oneAttempt(method, fullUrl, pat, opts);
     if (r.error !== undefined && r.status === 0) {
       // connection-level failure
       lastError = r.error.message;
       if (retryOk && attempt < AZURE_HTTP_MAX_RETRIES) {
+        mayHaveActed = true;
         await sleep(attempt * 2000);
         continue;
       }
@@ -176,12 +205,21 @@ export async function azureHttp<T = unknown>(
         }
         return parsedBody as T;
       }
-      // 2xx with an empty body: some APIs (DELETE) answer 204/empty.
+      // 2xx with an empty body: some APIs (DELETE) answer 204/empty. The
+      // envelope form still carries the headers (a continuation token can
+      // arrive with no body).
+      if (wantHeaders) {
+        return {
+          body: undefined as T,
+          headers: Object.fromEntries(r.headers.entries()),
+        } as AzureHttpEnvelope<T>;
+      }
       return undefined as T;
     }
     if ([429, 500, 502, 503, 504].includes(r.status)) {
       const canRetry = r.status === 429 || retryOk;
       if (canRetry && attempt < AZURE_HTTP_MAX_RETRIES) {
+        if (r.status !== 429) mayHaveActed = true;
         const hinted = r.status === 429 ? retryAfterMs(r.headers.get("Retry-After")) : null;
         await sleep(hinted ?? attempt * 2000);
         continue;
@@ -198,6 +236,17 @@ export async function azureHttp<T = unknown>(
         `azure http ${r.status}: gave up after ${attempt} attempt(s)` +
           buildBodySuffix(r.body),
       );
+    }
+    // A DELETE that was retried and now finds nothing: an earlier attempt
+    // took effect and only its response was lost.
+    if (method === "DELETE" && r.status === 404 && mayHaveActed) {
+      if (wantHeaders) {
+        return {
+          body: undefined as T,
+          headers: Object.fromEntries(r.headers.entries()),
+        } as AzureHttpEnvelope<T>;
+      }
+      return undefined as T;
     }
     // Non-retryable HTTP error (400/403/404...). Surface the Azure error
     // payload when present; redact regardless (server-controlled text).
@@ -222,11 +271,21 @@ export async function azureHttp<T = unknown>(
 export const AZURE_RETRY_AFTER_CAP_MS = 60_000;
 
 /** The delay a Retry-After header asks for, in ms, capped at one minute;
- * null when the header is absent or not a non-negative whole number of
- * seconds (the caller then uses its own backoff). */
+ * null when the header is absent or is neither a non-negative whole number
+ * of seconds nor an HTTP date (the caller then uses its own backoff). */
 export function retryAfterMs(header: string | null): number | null {
-  if (header === null || !/^\d{1,9}$/.test(header.trim())) return null;
-  return Math.min(Number(header.trim()) * 1000, AZURE_RETRY_AFTER_CAP_MS);
+  if (header === null) return null;
+  const text = header.trim();
+  if (/^\d{1,9}$/.test(text)) return Math.min(Number(text) * 1000, AZURE_RETRY_AFTER_CAP_MS);
+  // The other legal form is an HTTP date (IMF-fixdate): wait until then.
+  if (/^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(text)) {
+    const wait = Date.parse(text) - Date.now();
+    // A date already past (or an unparsable one, or clock skew) gives no
+    // delay to honor: the caller's own backoff applies.
+    if (Number.isNaN(wait) || wait <= 0) return null;
+    return Math.min(wait, AZURE_RETRY_AFTER_CAP_MS);
+  }
+  return null;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -259,7 +318,12 @@ async function oneAttempt(
   const headers: Record<string, string> = {
     Authorization: authHeader(pat),
   };
-  const init: RequestInit = { method, headers, redirect: "follow" };
+  const init: RequestInit = {
+    method,
+    headers,
+    redirect: "follow",
+    signal: AbortSignal.timeout(AZURE_HTTP_TIMEOUT_MS),
+  };
   if (opts.body !== undefined) {
     headers["Content-Type"] = opts.contentType ?? "application/json";
     init.body = opts.body;
@@ -273,10 +337,21 @@ async function oneAttempt(
       status: 0,
       body: "",
       headers: new Headers(),
-      error: { error: "transport", message: `request failed: ${String(e)}` },
+      error: { error: "transport", message: azureRedact(transportMessage(e, AZURE_HTTP_TIMEOUT_MS)) },
     };
   }
-  const body = await res.text();
+  let body: string;
+  try {
+    body = await res.text();
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      body: "",
+      headers: new Headers(),
+      error: { error: "transport", message: azureRedact(transportMessage(e, AZURE_HTTP_TIMEOUT_MS)) },
+    };
+  }
   return { ok: res.ok, status: res.status, body, headers: res.headers };
 }
 
@@ -360,17 +435,58 @@ export async function azureHttpPaginate<T = unknown>(
 // ---------------------------------------------------------------------------
 
 /** Whether a URL is one the PAT may be sent to: https on Azure DevOps' own
- * hosts. A download URL comes from a server response, so the host is checked
- * before the credential is attached (http.bash azure_url_is_provider_host). */
+ * hosts, with no userinfo and the default port. A download URL comes from a
+ * server response, so the host is checked before the credential is attached.
+ * The check parses with the same WHATWG URL parser fetch uses, so what is
+ * validated is what is contacted ('?', '#' and a backslash end the authority there
+ * exactly as they do for the request). */
 export function azureUrlIsProviderHost(url: string): boolean {
-  if (!url.startsWith("https://")) return false;
-  const rest = url.slice("https://".length);
-  const host = rest.split("/")[0]?.split("@").pop()?.split(":")[0]?.toLowerCase() ?? "";
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  if (parsed.username !== "" || parsed.password !== "" || parsed.port !== "") return false;
+  const host = parsed.hostname.toLowerCase();
   return (
     host === "dev.azure.com" ||
     host.endsWith(".dev.azure.com") ||
     host.endsWith(".visualstudio.com")
   );
+}
+
+/** What the service said about a token. */
+export type AzureTokenCheck = "valid" | "rejected" | "unreachable";
+
+/** Ask the organization whether TOKEN is accepted (connectionData, the same
+ * probe and the same classification as setup.bash): 200 is "valid"; no answer
+ * (a lost connection, a timeout), a server-side failure (5xx), throttling
+ * (429) or a proxy demanding its own sign-in (407) leave the answer unknown,
+ * so "unreachable" — an offline user is never trapped; anything else (401/403,
+ * a 203 sign-in page, a redirect to sign-in, or a 404 for a mistyped
+ * organization) is "rejected". */
+export async function azureValidateToken(org: string, token: string): Promise<AzureTokenCheck> {
+  if (org === "" || token === "") return "rejected";
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://dev.azure.com/${encodeURIComponent(org)}/_apis/connectionData?api-version=7.1-preview`,
+      {
+        headers: { Authorization: `Basic ${basicCredential(token)}` },
+        redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+  } catch {
+    return "unreachable";
+  }
+  // Only the status matters: release the connection without reading the body.
+  await res.body?.cancel().catch(() => undefined);
+  if (res.status === 200) return "valid";
+  if (res.status === 429 || res.status === 407 || res.status >= 500) return "unreachable";
+  return "rejected";
 }
 
 /** Download a binary resource (a build artifact zip) to a file, with the same
@@ -390,12 +506,17 @@ export async function azureHttpDownload(url: string, dest: string): Promise<void
   }
   const fullUrl = withApiVersion(url);
   const { writeFileSync, rmSync } = await import("node:fs");
+  const signal = AbortSignal.timeout(AZURE_DOWNLOAD_TIMEOUT_MS);
   let res: Response;
   try {
-    res = await fetch(fullUrl, { headers: { Authorization: authHeader(pat) }, redirect: "follow" });
+    res = await fetch(fullUrl, {
+      headers: { Authorization: authHeader(pat) },
+      redirect: "follow",
+      signal,
+    });
   } catch (e) {
     rmSync(dest, { force: true });
-    throw new ProviderError(`artifact download failed: ${String(e)}`);
+    throw new ProviderError(azureRedact(`artifact download ${transportMessage(e, AZURE_DOWNLOAD_TIMEOUT_MS)}`));
   }
   if (res.status === 203 || res.status === 401) {
     rmSync(dest, { force: true });
@@ -405,6 +526,12 @@ export async function azureHttpDownload(url: string, dest: string): Promise<void
     rmSync(dest, { force: true });
     throw new ProviderError(`artifact download failed (HTTP ${res.status})`);
   }
-  const buf = new Uint8Array(await res.arrayBuffer());
+  let buf: Uint8Array;
+  try {
+    buf = new Uint8Array(await res.arrayBuffer());
+  } catch (e) {
+    rmSync(dest, { force: true });
+    throw new ProviderError(azureRedact(`artifact download ${transportMessage(e, AZURE_DOWNLOAD_TIMEOUT_MS)}`));
+  }
   writeFileSync(dest, buf);
 }
