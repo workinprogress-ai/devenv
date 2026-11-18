@@ -310,11 +310,39 @@ The Tier 2 smoke exercises create, comment, merge and the thread verbs against a
 
 ## Pipelines ↔ Pipelines (as-built)
 
-Direct mapping; implemented live (runs list/view with gh
---json/-q semantics, trigger with `--field` dispatch inputs → queue
-`parameters` as stringified JSON, artifacts incl. numeric sizes,
+Direct mapping (runs list/view with gh `--json`/`-q` semantics, artifacts,
 watch with `--exit-status` conclusion mapping, workflow list/run with
-default-branch ref resolution, cancel, rerun, download with `-n`/`-D`).
+default-branch ref resolution, cancel, rerun, download with `-n`/`-D`). The
+behaviors below were verified against live Azure DevOps (research R3):
+
+- **`--field k=v` inputs** are sent as `templateParameters` (strings) and reach
+  the pipeline's declared YAML parameters. They are not sent as `parameters`:
+  that field is for queue-time variables, and Azure rejects a queue whose
+  `parameters` name a declared pipeline parameter (HTTP 400). A name the
+  pipeline does not declare is Azure's own 400 (`Unexpected parameter 'k'`),
+  passed through unchanged. A pipeline name shared by several definitions is
+  refused with the ids; pass the numeric id.
+- **Rerun** is `PATCH builds/{id}?retry=true`: a new attempt of the same
+  build id (the id and URL do not change; the response is already
+  `notStarted`). Retrying a build whose previous attempt did not fail is a 500
+  from Azure, reported as "run N did not fail; there is nothing to rerun".
+- **Watch** polls every 10 s up to 120 times (`AZURE_PIPELINE_WATCH_INTERVAL`
+  and `AZURE_PIPELINE_WATCH_ATTEMPTS` tune them; whole seconds and counts
+  only, anything else falls back to the default), tries a transiently failed
+  poll again (a lost connection, a timeout, a 429 or a 5xx; up to five in a
+  row, while a missing or rejected credential or a missing run stops at once),
+  and writes progress to stderr and the final run record to stdout.
+- **Artifacts**: the size is `resource.properties.artifactsize` (a string);
+  Azure gives no creation date, so `created_at` is empty. A `PipelineArtifact`
+  (the `publish:` step) downloads from its own `artifacts.visualstudio.com`
+  host, whose URL is used exactly as returned (no api-version is added). A
+  download is written to a temporary file and renamed, so a failure never
+  removes an earlier file, and a run without artifacts is an error.
+- **Filters** (not verified live): `in_progress` also asks for builds being
+  cancelled (`statusFilter=inProgress,cancelling`); a run's update time is its
+  finish time, else its start time; with a repository given, the workflow list
+  asks for that repository's definitions (`repositoryId`) and pages through
+  them; a ref that already starts with `refs/` (a tag) is passed through.
 
 ## Org rulesets ↔ Branch policies
 

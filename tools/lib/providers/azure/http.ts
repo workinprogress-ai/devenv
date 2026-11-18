@@ -230,11 +230,13 @@ export async function azureHttp<T = unknown>(
         throw new ProviderError(
           `azure http ${r.status}: not retried (the ${method} request may have taken effect)` +
             buildBodySuffix(r.body),
+          r.status,
         );
       }
       throw new ProviderError(
         `azure http ${r.status}: gave up after ${attempt} attempt(s)` +
           buildBodySuffix(r.body),
+        r.status,
       );
     }
     // A DELETE that was retried and now finds nothing: an earlier attempt
@@ -490,10 +492,11 @@ export async function azureValidateToken(org: string, token: string): Promise<Az
   return "rejected";
 }
 
-/** Download a binary resource (a build artifact zip) to a file, with the same
- * auth and api-version rules as every other call. The JSON transport cannot
- * carry a zip, so this bypasses body validation; the status is still checked,
- * and a failed download leaves no partial file. */
+/** Download a binary resource (a build artifact zip) to a file with the same
+ * auth as every other call, but the URL exactly as the API returned it (no
+ * api-version is added). The JSON transport cannot carry a zip, so this
+ * bypasses body validation; the status is still checked, and a failed download
+ * leaves the destination as it was. */
 export async function azureHttpDownload(url: string, dest: string): Promise<void> {
   if (url === "" || dest === "") {
     throw new ProviderError("azureHttpDownload needs a URL and a destination");
@@ -505,8 +508,13 @@ export async function azureHttpDownload(url: string, dest: string): Promise<void
   if (pat === "") {
     throw new ProviderError("no stored azure credential — run key-update-azure");
   }
-  const fullUrl = withApiVersion(url);
-  const { writeFileSync, rmSync } = await import("node:fs");
+  // The URL is used exactly as the API returned it: a PipelineArtifact's
+  // download URL is on another host that refuses an added api-version.
+  const fullUrl = url;
+  const { writeFileSync, renameSync, rmSync } = await import("node:fs");
+  // Written beside the destination and renamed over it, so a failed download
+  // never deletes or truncates a file that was already there.
+  const tmp = `${dest}.${process.pid}.tmp`;
   const signal = AbortSignal.timeout(AZURE_DOWNLOAD_TIMEOUT_MS);
   let res: Response;
   try {
@@ -516,23 +524,23 @@ export async function azureHttpDownload(url: string, dest: string): Promise<void
       signal,
     });
   } catch (e) {
-    rmSync(dest, { force: true });
     throw new ProviderError(azureRedact(`artifact download ${transportMessage(e, AZURE_DOWNLOAD_TIMEOUT_MS)}`));
   }
-  if (res.status === 203 || res.status === 401) {
-    rmSync(dest, { force: true });
-    authError(res.status);
-  }
+  if (res.status === 203 || res.status === 401) authError(res.status);
   if (!res.ok) {
-    rmSync(dest, { force: true });
-    throw new ProviderError(`artifact download failed (HTTP ${res.status})`);
+    throw new ProviderError(`artifact download failed (HTTP ${res.status})`, res.status);
   }
   let buf: Uint8Array;
   try {
     buf = new Uint8Array(await res.arrayBuffer());
   } catch (e) {
-    rmSync(dest, { force: true });
     throw new ProviderError(azureRedact(`artifact download ${transportMessage(e, AZURE_DOWNLOAD_TIMEOUT_MS)}`));
   }
-  writeFileSync(dest, buf);
+  try {
+    writeFileSync(tmp, buf);
+    renameSync(tmp, dest);
+  } catch (e) {
+    rmSync(tmp, { force: true });
+    throw e;
+  }
 }

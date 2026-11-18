@@ -318,9 +318,10 @@ describe("azure pipelines facade: options are refused, never dropped", () => {
     const { f, calls } = await facade();
     await f.pipelinesWorkflowRun("org/proj/repo", "ci", ["--ref", "dev", "-f", "a=b=c"]);
     const post = calls.find((c) => c.method === "POST") as Req;
-    const body = post.body as { sourceBranch: string; parameters: string };
+    const body = post.body as { sourceBranch: string; templateParameters: Record<string, string>; parameters?: string };
     expect(body.sourceBranch).toBe("refs/heads/dev");
-    expect(JSON.parse(body.parameters)).toEqual({ a: "b=c" });
+    expect(body.templateParameters).toEqual({ a: "b=c" });
+    expect(body.parameters).toBeUndefined();
   });
 
   it("run view maps url to the build's browser page, not the REST address", async () => {
