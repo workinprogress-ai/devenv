@@ -24,8 +24,8 @@ interface WorkItemFixture {
   fields: {
     "System.WorkItemType": string;
     "System.Title": string;
-    "System.AssignedTo": { displayName: string };
-    "System.CreatedBy": { displayName: string };
+    "System.AssignedTo": { displayName: string; uniqueName: string };
+    "System.CreatedBy": { displayName: string; uniqueName: string };
     "System.CreatedDate": string;
     "System.ChangedDate": string;
   };
@@ -152,9 +152,9 @@ describe("azure issuesView baseline", () => {
       state: "OPEN",
       body: "",
       labels: [{ name: "smoke-tag" }, { name: "smoke-tag-2" }],
-      assignees: [{ login: fields["System.AssignedTo"].displayName }],
+      assignees: [{ login: fields["System.AssignedTo"].uniqueName }],
       milestone: "",
-      author: { login: fields["System.CreatedBy"].displayName },
+      author: { login: fields["System.CreatedBy"].uniqueName },
       createdAt: fields["System.CreatedDate"],
       updatedAt: fields["System.ChangedDate"],
       closedAt: "",

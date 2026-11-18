@@ -1,5 +1,5 @@
 // azure/entity-roundtrip.ts — the pure text/field-mapping layer of the
-// azure issues implementation: entity decode/normalize, tag join/split, the
+// azure issues implementation: entity decode, tag join/split, the
 // devenv-type → body-field config mapping, comment-ref parsing, and the
 // artifact-marker survival transform. No I/O beyond config reads; the wire
 // verbs stay in issues.ts.
@@ -8,7 +8,7 @@ import { ProviderError, providerConfigPath } from "../provider-core.ts";
 import { configGetRaw } from "../../core/config.ts";
 
 // ---------------------------------------------------------------------------
-// Text round-trip (entity decode / newline pairing)
+// Text round-trip (entity decode)
 // ---------------------------------------------------------------------------
 
 const ENTITY_SET: Array<[RegExp, string]> = [
@@ -26,12 +26,6 @@ export function azureTextDecode(text: string): string {
   let out = text;
   for (const [re, to] of ENTITY_SET) out = out.replace(re, to);
   return out;
-}
-
-/** Normalize text for storage: drop ONE trailing newline (the store re-adds
- * it), keeping interior formatting untouched. Pairs with the read-side trim. */
-export function azureTextNormalize(text: string): string {
-  return text.endsWith("\n") ? text.slice(0, -1) : text;
 }
 
 // ---------------------------------------------------------------------------

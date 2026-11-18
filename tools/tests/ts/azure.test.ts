@@ -31,7 +31,6 @@ import {
 } from "../../lib/providers/azure/urls.ts";
 import {
   azureTextDecode,
-  azureTextNormalize,
   azureTagsSplit,
   azureTagsJoin,
   splitCommentRef,
@@ -180,11 +179,6 @@ describe("azure issues text round-trip", () => {
   it("entity decode covers the Azure set with &amp; last", () => {
     expect(azureTextDecode("a &quot;b&quot; &amp; c &lt;d&gt;")).toBe('a "b" & c <d>');
     expect(azureTextDecode("&amp;quot;")).toBe("&quot;");
-  });
-
-  it("newline pairing: one trailing newline dropped on write", () => {
-    expect(azureTextNormalize("x\n")).toBe("x");
-    expect(azureTextNormalize("x\n\n")).toBe("x\n");
   });
 
   it("tags split/join round-trip", () => {

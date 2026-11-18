@@ -11,11 +11,10 @@
 // Shape contract: neutral field names; state is OPEN/CLOSED; work items are
 // project-scoped — the repo argument in verb signatures is seam filler
 // (CONTRACT.md: a work item belongs to a project, not a repository).
-// Long-text fields: the store entity-encodes HTML and appends one trailing
-// newline; writes carry the markdown multiline format, reads un-escape over
-// the entity set Azure emits (&amp; last). Command-substitution newline
-// pairing from bash becomes explicit trim here, keeping round trips
-// byte-stable. Contract: throw ProviderError on failure; never process.exit.
+// Long-text fields: the store entity-encodes `"` and `&` and keeps trailing
+// newlines as written; writes carry the markdown multiline format, reads
+// un-escape over the entity set Azure emits (&amp; last), and newlines pass
+// through untouched. Contract: throw ProviderError on failure; never process.exit.
 
 import { ProviderError, unknownOption, needValue } from "../provider-core.ts";
 import { azureHttp } from "./http.ts";
@@ -23,7 +22,6 @@ import { witBase, webItemsBase } from "./wit-urls.ts";
 import { azureUri } from "./urls.ts";
 import {
   azureTextDecode,
-  azureTextNormalize,
   azureTagsSplit,
   azureTagsJoin,
   bodyFieldFor,
@@ -38,7 +36,6 @@ import { errorMessage, logWarn } from "../../core/logging.ts";
 // imports, smoke.ts, azure.test.ts) — one import site, unchanged names.
 export {
   azureTextDecode,
-  azureTextNormalize,
   azureTagsSplit,
   azureTagsJoin,
   bodyFieldFor,
@@ -83,30 +80,40 @@ function strField(item: AzureWorkItem, key: string): string {
  * close target, the seam state projection and the WIQL state filters. */
 const CLOSED_CATEGORIES = ["Completed", "Removed"];
 
-/** The seam state projection: CLOSED for a state in a closed category (see
- * closedStateNames), else OPEN. */
-function seamState(item: AzureWorkItem, closed: ReadonlySet<string>): "OPEN" | "CLOSED" {
-  return closed.has(strField(item, "System.State")) ? "CLOSED" : "OPEN";
+/** Closed state names per work item type. */
+type ClosedStates = ReadonlyMap<string, ReadonlySet<string>>;
+
+/** The seam state projection: CLOSED for a state in a closed category of the
+ * item's own type (see closedStateNames), else OPEN. */
+function seamState(item: AzureWorkItem, closed: ClosedStates): "OPEN" | "CLOSED" {
+  return closed.get(strField(item, "System.WorkItemType"))?.has(strField(item, "System.State")) === true
+    ? "CLOSED"
+    : "OPEN";
 }
 
-/** The names of every state, across the project's work item types, whose
- * category is closed. Process templates name their final states differently
- * (Closed, Done, Resolved, custom names), so the category is the truth. */
-async function closedStateNames(): Promise<Set<string>> {
+/** The names of the states whose category is closed, per work item type.
+ * Process templates name their final states differently (Closed, Done,
+ * Resolved, custom names) and the same name can be open in one type and closed
+ * in another, so the category of the item's own type is the truth. */
+async function closedStateNames(): Promise<ClosedStates> {
   const { base } = witBase();
-  const r = await azureHttp<{ value?: Array<{ states?: Array<{ name?: string; category?: string }> }> }>(
+  const r = await azureHttp<{ value?: Array<{ name?: string; states?: Array<{ name?: string; category?: string }> }> }>(
     "GET",
     `${base}/workitemtypes`,
   );
-  const closed = new Set<string>();
+  const closed = new Map<string, Set<string>>();
+  let any = false;
   for (const type of r.value ?? []) {
+    const names = new Set<string>();
     for (const s of type.states ?? []) {
       if (s.name !== undefined && CLOSED_CATEGORIES.some((c) => c.toLowerCase() === (s.category ?? "").toLowerCase())) {
-        closed.add(s.name);
+        names.add(s.name);
+        any = true;
       }
     }
+    if (type.name !== undefined) closed.set(type.name, names);
   }
-  if (closed.size === 0) {
+  if (!any) {
     throw new ProviderError(`the project's work item types list no state in category ${CLOSED_CATEGORIES.join(" or ")}`);
   }
   return closed;
@@ -116,24 +123,30 @@ function seamTags(item: AzureWorkItem): Array<{ name: string }> {
   return azureTagsSplit(strField(item, "System.Tags")).map((name) => ({ name }));
 }
 
+/** The milestone is the iteration path's leaf; an item at the project root
+ * (a path with no separator) has none. */
 function seamMilestone(item: AzureWorkItem): { title: string } | "" {
-  const it = strField(item, "System.IterationLevel2");
-  return it === "" ? "" : { title: it };
+  const path = strField(item, "System.IterationPath");
+  const leaf = path.includes("\\") ? (path.split("\\").pop() ?? "") : "";
+  return leaf === "" ? "" : { title: leaf };
+}
+
+/** An identity's login: the unique name (stable, no spaces), falling back to
+ * the display name. */
+function identityLogin(who: { displayName?: string; uniqueName?: string } | null | undefined): string {
+  return who?.uniqueName ?? who?.displayName ?? "unknown";
 }
 
 function seamAssignees(item: AzureWorkItem): Array<{ login: string }> {
-  const a = field(item, "System.AssignedTo") as { displayName?: string } | null | undefined;
-  return a == null ? [] : [{ login: a.displayName ?? "unknown" }];
+  const a = field(item, "System.AssignedTo") as { displayName?: string; uniqueName?: string } | null | undefined;
+  return a == null ? [] : [{ login: identityLogin(a) }];
 }
 
-/** Decode a description per its storage format: markdown-held text is raw;
- * HTML-held text is entity-decoded. */
 /** Decode one long-text field honoring its multilineFieldsFormat entry. */
 function decodeLongText(item: AzureWorkItem, field: string): string {
-  const raw = strField(item, field);
-  const isMarkdown =
-    (item.multilineFieldsFormat?.[field] ?? "") === "markdown";
-  return isMarkdown ? raw : azureTextDecode(raw);
+  // The markdown route encodes `"` and `&` too (verified live), so every
+  // long-text read is decoded.
+  return azureTextDecode(strField(item, field));
 }
 
 /** The body for a work item whose devenv type maps to CONFIGURED_FIELD:
@@ -183,7 +196,7 @@ function seamTypeFor(item: AzureWorkItem): string {
   return builtinInverse[wit] ?? wit;
 }
 
-function mapItem(item: AzureWorkItem, closed: ReadonlySet<string>, comments?: Array<{ id: string; url: string; body: string; created_at: string; updated_at: string }>): Record<string, unknown> {
+function mapItem(item: AzureWorkItem, closed: ClosedStates, comments?: Array<{ id: string; url: string; body: string; created_at: string; updated_at: string }>): Record<string, unknown> {
   const number = item.id ?? 0;
   const devenvType = seamTypeFor(item);
   return {
@@ -197,9 +210,7 @@ function mapItem(item: AzureWorkItem, closed: ReadonlySet<string>, comments?: Ar
     assignees: seamAssignees(item),
     milestone: seamMilestone(item),
     author: {
-      login:
-        (field(item, "System.CreatedBy") as { displayName?: string } | undefined)
-          ?.displayName ?? "unknown",
+      login: identityLogin(field(item, "System.CreatedBy") as { displayName?: string; uniqueName?: string } | undefined),
     },
     createdAt: strField(item, "System.CreatedDate"),
     updatedAt: strField(item, "System.ChangedDate"),
@@ -298,7 +309,7 @@ async function workItemCommentsAll(number: number): Promise<Array<Record<string,
 /** Project the raw REST comment shape into the seam record. The id is the
  * opaque comment ref (<issue>/<comment>) — the token the get/edit verbs
  * accept. Azure comment objects carry no html link (verified live): the web
- * URL is constructed. Bodies decode per the comment newline contract. */
+ * URL is constructed. Bodies are decoded; newlines pass through as stored. */
 function mapComment(web: string, c: Record<string, unknown>): {
   id: string;
   url: string;
@@ -310,12 +321,12 @@ function mapComment(web: string, c: Record<string, unknown>): {
   const wi = String(c.workItemId ?? "");
   const cid = String(c.id ?? "");
   const body = typeof c.text === "string" ? c.text : "";
-  const createdBy = c.createdBy as { displayName?: string } | undefined;
+  const createdBy = c.createdBy as { displayName?: string; uniqueName?: string } | undefined;
   return {
     id: `${wi}/${cid}`,
     url: `${web}${wi}?_a=comments`,
-    user: { login: createdBy?.displayName ?? "unknown" },
-    body: azureTextDecode(body.endsWith("\n") ? body.slice(0, -1) : body),
+    user: { login: identityLogin(createdBy) },
+    body: azureTextDecode(body),
     created_at: String(c.createdDate ?? ""),
     updated_at: String(c.modifiedDate ?? c.createdDate ?? ""),
   };
@@ -349,7 +360,9 @@ async function workItemsBatch(base: string, ids: number[]): Promise<AzureWorkIte
   for (let offset = 0; offset < ids.length; offset += AZURE_BATCH_MAX) {
     const chunk = {
       ids: ids.slice(offset, offset + AZURE_BATCH_MAX),
-      $expand: "fields,relations",
+      // "relations" alone: Azure answers 400 when $expand is combined with a
+      // fields list, and returns no relations for "fields,relations".
+      $expand: "relations",
     };
     const r = await azureHttp<{ value?: AzureWorkItem[] }>("POST", `${base}/workitemsbatch`, {
       body: JSON.stringify(chunk),
@@ -357,11 +370,16 @@ async function workItemsBatch(base: string, ids: number[]): Promise<AzureWorkIte
     });
     pages.push(r.value ?? []);
   }
-  return pages.flat();
+  // Azure does not document the batch's order, so restore the caller's.
+  const byId = new Map(pages.flat().map((w) => [w.id, w] as const));
+  return ids.flatMap((id) => {
+    const w = byId.get(id);
+    return w === undefined ? [] : [w];
+  });
 }
 
 /** Project batch details to seam records with decoded bodies. */
-function mapBatch(items: AzureWorkItem[], closed: ReadonlySet<string>): Array<Record<string, unknown>> {
+function mapBatch(items: AzureWorkItem[], closed: ClosedStates): Array<Record<string, unknown>> {
   const web = webItemsBase();
   return items.map((item) => {
     const devenvType = seamTypeFor(item);
@@ -383,9 +401,7 @@ function mapBatch(items: AzureWorkItem[], closed: ReadonlySet<string>): Array<Re
       updatedAt: strField(item, "System.ChangedDate"),
       closedAt: strField(item, "Microsoft.VSTS.Common.ClosedDate"),
       author: {
-        login:
-          (field(item, "System.CreatedBy") as { displayName?: string } | undefined)
-            ?.displayName ?? "unknown",
+        login: identityLogin(field(item, "System.CreatedBy") as { displayName?: string; uniqueName?: string } | undefined),
       },
       assignees: seamAssignees(item),
       milestone: seamMilestone(item),
@@ -415,10 +431,22 @@ export async function issuesList(
   // WIQL single quotes are doubled per the WIQL escape rule: a label
   // containing a quote cannot break out of the literal.
   const wiqlStr = (v: string) => v.replaceAll("'", "''");
-  const closedList = [...closed].map((n) => `'${wiqlStr(n)}'`).join(",");
   const clauses = ["[System.TeamProject] = @project"];
-  if (state === "open") clauses.push(`[System.State] NOT IN (${closedList})`);
-  if (state === "closed") clauses.push(`[System.State] IN (${closedList})`);
+  // Closed states are per type, so the state filter is one group per type.
+  const perType: string[] = [];
+  for (const [typeName, names] of closed) {
+    const list = [...names].map((n) => `'${wiqlStr(n)}'`).join(",");
+    if (state === "open") {
+      perType.push(
+        names.size === 0
+          ? `[System.WorkItemType] = '${wiqlStr(typeName)}'`
+          : `([System.WorkItemType] = '${wiqlStr(typeName)}' AND [System.State] NOT IN (${list}))`,
+      );
+    } else if (state === "closed" && names.size > 0) {
+      perType.push(`([System.WorkItemType] = '${wiqlStr(typeName)}' AND [System.State] IN (${list}))`);
+    }
+  }
+  if (perType.length > 0) clauses.push(`(${perType.join(" OR ")})`);
   if (opts.label !== undefined && opts.label !== "") {
     clauses.push(`[System.Tags] CONTAINS '${wiqlStr(opts.label)}'`);
   }
@@ -604,7 +632,15 @@ interface PatchOp {
  * misorders `…:45Z` and `…:45.5Z`. */
 async function verifyWriteReflected(
   number: number,
-  prior: { rev?: number | undefined; changedDate?: string | undefined } = {},
+  prior: {
+    rev?: number | undefined;
+    changedDate?: string | undefined;
+    /** Azure answers 200 and creates no revision for a patch that sets fields
+     * to the values they already hold. When the revision did not advance,
+     * this names the edited fields and decides whether they already hold the
+     * requested values (a no-op, not a lost write). */
+    alreadyApplied?: { fields: string[]; holds: (item: AzureWorkItem) => boolean };
+  } = {},
 ): Promise<void> {
   const { base } = witBase();
   const r = await azureHttp<AzureWorkItem>(
@@ -616,11 +652,30 @@ async function verifyWriteReflected(
   const revOk = prior.rev === undefined ? rev > 0 : rev > prior.rev;
   const dateOk = prior.changedDate === undefined || prior.changedDate === "" ? changedDate !== "" : Date.parse(changedDate) > Date.parse(prior.changedDate);
   if (!revOk || !dateOk) {
+    if (prior.alreadyApplied !== undefined && rev === prior.rev) {
+      const current = await azureHttp<AzureWorkItem>(
+        "GET",
+        `${base}/workitems/${number}?$fields=${prior.alreadyApplied.fields.join(",")}`,
+      );
+      if (prior.alreadyApplied.holds(current)) return;
+    }
     throw new ProviderError(
       `write to work item ${number} not reflected after PATCH ` +
         `(rev ${prior.rev ?? "?"}->${rev}, ChangedDate '${prior.changedDate ?? "?"}'->'${changedDate}')`,
     );
   }
+}
+
+/** Tags in first-seen order without case-insensitive duplicates (Azure tags
+ * are case-insensitive). */
+function dedupeTags(tags: string[]): string[] {
+  const seen = new Set<string>();
+  return tags.filter((t) => {
+    const key = t.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** Create a work item. Returns the new work item's id. */
@@ -640,7 +695,7 @@ export async function issuesCreate(
       op: "add",
       path: `/fields/${bodyField}`,
       from: null,
-      value: azureTextNormalize(issuesArtifactBodyTransform(opts.body)),
+      value: issuesArtifactBodyTransform(opts.body),
     });
     ops.push({
       op: "add",
@@ -653,7 +708,7 @@ export async function issuesCreate(
       op: "add",
       path: "/fields/System.Tags",
       from: null,
-      value: azureTagsJoin(opts.labels.filter((l) => l !== "")),
+      value: azureTagsJoin(dedupeTags(opts.labels.flatMap((l) => azureTagsSplit(l)))),
     });
   }
   const { base } = witBase();
@@ -714,7 +769,7 @@ export async function issuesComment(
     "POST",
     `${base}/workitems/${number}/comments?format=markdown&api-version=${AZURE_COMMENTS_API_VERSION}`,
     {
-      body: JSON.stringify({ text: azureTextNormalize(issuesArtifactBodyTransform(text)) }),
+      body: JSON.stringify({ text: issuesArtifactBodyTransform(text) }),
     },
   );
   return `${number}/${String(r.id ?? "")}`;
@@ -734,14 +789,12 @@ export async function issuesClose(
 ): Promise<void> {
   void repo;
   void opts.reason;
-  const type = await workItemType(number);
+  const { type, rev } = await workItemType(number);
   const state = await stateByCategory(type, [CLOSED_CATEGORIES[0] as string]);
-  await patchState(number, state);
-  // After the state change: a failed change leaves no orphan comment, and a
-  // retry does not duplicate one. A whitespace-only comment is no comment.
-  if (opts.comment !== undefined && opts.comment.trim() !== "") {
-    await issuesComment(repo, number, { body: opts.comment });
-  }
+  await patchState(number, state, rev);
+  // After the state change: a failed change leaves no orphan comment. A
+  // whitespace-only comment is no comment.
+  await commentAfterStateChange(repo, number, state, opts.comment);
 }
 
 /** Reopen: state moves to the type's first Proposed-category state. */
@@ -751,12 +804,10 @@ export async function issuesReopen(
   opts: { comment?: string } = {},
 ): Promise<void> {
   void repo;
-  const type = await workItemType(number);
+  const { type, rev } = await workItemType(number);
   const state = await stateByCategory(type, ["Proposed", "InProgress"]);
-  await patchState(number, state);
-  if (opts.comment !== undefined && opts.comment.trim() !== "") {
-    await issuesComment(repo, number, { body: opts.comment });
-  }
+  await patchState(number, state, rev);
+  await commentAfterStateChange(repo, number, state, opts.comment);
 }
 
 export interface IssuesEditOptions {
@@ -811,13 +862,13 @@ export async function issuesEdit(
   if (opts.title !== undefined) {
     ops.push({ op: "add", path: "/fields/System.Title", from: null, value: opts.title });
   }
-  if (opts.body !== undefined) {
-    const bodyField = bodyFieldFor(opts.type ?? seamTypeFor(prior));
+  const bodyField = opts.body !== undefined ? bodyFieldFor(opts.type ?? seamTypeFor(prior)) : undefined;
+  if (opts.body !== undefined && bodyField !== undefined) {
     ops.push({
       op: "add",
       path: `/fields/${bodyField}`,
       from: null,
-      value: azureTextNormalize(issuesArtifactBodyTransform(opts.body)),
+      value: issuesArtifactBodyTransform(opts.body),
     });
     ops.push({
       op: "add",
@@ -830,7 +881,34 @@ export async function issuesEdit(
   // concurrent change fails the PATCH instead of being silently overwritten.
   const guard: PatchOp[] = priorRev === undefined ? [] : [{ op: "test", path: "/rev", value: priorRev }];
   await patchRevGuarded(`${base}/workitems/${number}`, [...guard, ...ops], guard.length > 0, number);
-  await verifyWriteReflected(number, { rev: priorRev, changedDate: priorDate });
+  await verifyWriteReflected(number, {
+    rev: priorRev,
+    changedDate: priorDate,
+    alreadyApplied: {
+      fields: [
+        ...(opts.title !== undefined ? ["System.Title"] : []),
+        ...(bodyField !== undefined ? [bodyField] : []),
+        ...(labelsGiven ? ["System.Tags"] : []),
+      ],
+      holds: (item) => {
+        const tags = azureTagsSplit(strField(item, "System.Tags")).map((t) => t.toLowerCase());
+        return (
+          addTags.every((t) => tags.includes(t.toLowerCase())) &&
+          removeTags.every((t) => !tags.includes(t.toLowerCase())) &&
+          (opts.title === undefined || strField(item, "System.Title") === opts.title) &&
+          (bodyField === undefined || storedBodyMatches(strField(item, bodyField), issuesArtifactBodyTransform(opts.body ?? "")))
+        );
+      },
+    },
+  });
+}
+
+/** Whether a stored long-text value is what a write of `requested` leaves:
+ * the text itself, or with `"` and `&` entity-encoded as Azure does. The
+ * comparison is on stored text, so a typed entity is never mistaken for the
+ * character it spells. */
+function storedBodyMatches(stored: string, requested: string): boolean {
+  return stored === requested || stored === requested.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
 }
 
 /** The revision a work item answer carries: the System.Rev field, else the
@@ -910,28 +988,56 @@ async function patchRevGuarded(url: string, ops: PatchOp[], guarded: boolean, nu
   }
 }
 
-/** The work item's own type (System.WorkItemType). */
-async function workItemType(number: number): Promise<string> {
+/** The work item's own type (System.WorkItemType) and the revision it was
+ * read at. */
+async function workItemType(number: number): Promise<{ type: string; rev: number | undefined }> {
   const { base } = witBase();
   const r = await azureHttp<AzureWorkItem>(
     "GET",
-    `${base}/workitems/${number}?$fields=System.WorkItemType`,
+    `${base}/workitems/${number}?$fields=System.WorkItemType,System.Rev`,
   );
   const t = strField(r, "System.WorkItemType");
   if (t === "") throw new ProviderError(`work item ${number} has no readable type`);
-  return t;
+  return { type: t, rev: revOf(r) };
 }
 
-/** Patch the state field (the shared close/reopen path). */
-async function patchState(number: number, state: string): Promise<void> {
+/** Patch the state field (the shared close/reopen path), conditional on the
+ * revision the type was read at so a concurrent change is not overwritten. */
+async function patchState(number: number, state: string, rev: number | undefined): Promise<void> {
   const { base } = witBase();
-  await azureHttp("PATCH", `${base}/workitems/${number}`, {
-    body: JSON.stringify([{ op: "add", path: "/fields/System.State", from: null, value: state }]),
-    contentType: "application/json-patch+json",
-  });
+  const guard: PatchOp[] = rev === undefined ? [] : [{ op: "test", path: "/rev", value: rev }];
+  await patchRevGuarded(
+    `${base}/workitems/${number}`,
+    [...guard, { op: "add", path: "/fields/System.State", from: null, value: state }],
+    guard.length > 0,
+    number,
+  );
 }
 
-/** Set a work item's type. */
+/** Post the close/reopen rationale after the state change succeeded. A failure
+ * here is reported, not thrown: the item is already in its new state, and
+ * throwing would read as if the state change had failed. */
+async function commentAfterStateChange(
+  repo: string,
+  number: number,
+  state: string,
+  comment: string | undefined,
+): Promise<void> {
+  if (comment === undefined || comment.trim() === "") return;
+  try {
+    await issuesComment(repo, number, { body: comment });
+  } catch (err) {
+    logWarn(
+      `work item ${number} is now '${state}', but its comment could not be posted (${errorMessage(err)}); ` +
+        `post the comment separately`,
+    );
+  }
+}
+
+/** Set a work item's type. Only System.WorkItemType is replaced: the current
+ * System.State is not mapped, so a state the new type does not define fails
+ * the PATCH (Azure's message names it). Setting both in one patch has not been
+ * verified against live Azure. */
 export async function issuesSetType(
   repo: string,
   number: number,
@@ -1018,6 +1124,9 @@ export async function issuesLabelList(
   opts: IssuesLabelListOptions = {},
 ): Promise<string> {
   void repo;
+  if (opts.limit !== undefined && (!Number.isInteger(opts.limit) || opts.limit < 1)) {
+    throw new ProviderError(`--limit must be a positive integer, got '${opts.limit}'`);
+  }
   let labels = await labelNames();
   if (opts.limit !== undefined) labels = labels.slice(0, opts.limit);
   const withEmpty = labels.map((l) => ({ ...l, description: "", color: "" }));
