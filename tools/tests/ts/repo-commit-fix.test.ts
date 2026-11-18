@@ -88,6 +88,16 @@ describe("repo-commit --fix", () => {
     expect(r.out).not.toContain("reset --hard");
   });
 
+  it("streams the fixup commit's hook output instead of swallowing it", () => {
+    const second = seedCommit("feat: second", "b4.txt");
+    seedCommit("feat: third", "c4.txt");
+    writeFileSync(join(h.repo, ".git", "hooks", "pre-commit"), "#!/bin/sh\necho HOOK-OUTPUT-MARKER\n", { mode: 0o755 });
+    stageFile("b4.txt", "changed\n");
+    const r = runTool(["--fix", second]);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("HOOK-OUTPUT-MARKER");
+  });
+
   it("refuses nothing-staged before any mutation", () => {
     const second = seedCommit("feat: second", "b3.txt");
     const r = runTool(["--fix", second]);
