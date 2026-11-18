@@ -5,7 +5,7 @@
 
 import { ProviderError, providerDeclareCapability } from "../provider-core.ts";
 import { azureHttp, azureHttpPaginate, azureHttpDownload } from "./http.ts";
-import { azureRepoParts, azureUri } from "./urls.ts";
+import { azureBranchRef, azureRepoParts, azureUri } from "./urls.ts";
 import { repoGuidShared, reposDefaultBranch } from "./repos.ts";
 
 // Azure implements the whole pipelines verb family (builds = runs).
@@ -25,20 +25,16 @@ function webBase(repo: string): string {
 
 /** Resolve a pipeline (build definition) to its numeric id(s): a number is
  * the id already; a name is looked up (exact match). Several definitions may
- * share a name across folders — the ids come back comma-joined, the form the
- * builds filter takes. */
-async function definitionIds(spec: string, nameOrId: string): Promise<string> {
-  if (/^\d+$/.test(nameOrId)) return nameOrId;
+ * share a name across folders, so more than one id can come back. */
+async function definitionIds(spec: string, nameOrId: string): Promise<string[]> {
+  if (/^\d+$/.test(nameOrId)) return [nameOrId];
   const root = buildRoot(spec);
   const r = await azureHttp<{ value?: Array<{ id?: number; name?: string }> }>(
     "GET",
     `${root}/definitions?name=${azureUri(nameOrId)}`,
   );
-  const ids = (r.value ?? [])
-    .filter((d) => d.name === nameOrId)
-    .map((d) => String(d.id))
-    .join(",");
-  if (ids === "") throw new ProviderError(`no pipeline named '${nameOrId}' in this project`);
+  const ids = (r.value ?? []).filter((d) => d.name === nameOrId).map((d) => String(d.id));
+  if (ids.length === 0) throw new ProviderError(`no pipeline named '${nameOrId}' in this project`);
   return ids;
 }
 
@@ -99,7 +95,7 @@ export function mapBuild(
     headBranch: String(build.sourceBranch ?? "").replace(/^refs\/heads\//, ""),
     headSha: build.sourceVersion ?? "",
     createdAt: build.queueTime ?? "",
-    updatedAt: build.finishTime ?? build.queueTime ?? "",
+    updatedAt: build.finishTime ?? build.startTime ?? build.queueTime ?? "",
     // The browser page of the build; the REST address (build.url) is not a link.
     url: webBase !== undefined && build.id !== undefined ? `${webBase}/_build/results?buildId=${String(build.id)}` : (build.url ?? ""),
   };
@@ -136,7 +132,8 @@ export async function pipelinesRunList(
   if (opts.status !== undefined && opts.status !== "") {
     switch (opts.status) {
       case "in_progress":
-        statusFilterQ = "inProgress";
+        // mapBuild reports a cancelling build as in_progress, so the filter does too.
+        statusFilterQ = "inProgress,cancelling";
         break;
       case "queued":
       case "requested":
@@ -177,11 +174,11 @@ export async function pipelinesRunList(
     query += `&repositoryId=${guid}&repositoryType=TfsGit`;
   }
   if (opts.branch !== undefined && opts.branch !== "") {
-    query += `&branchName=${azureUri(`refs/heads/${opts.branch}`)}`;
+    query += `&branchName=${azureUri(azureBranchRef(opts.branch))}`;
   }
   if (opts.workflow !== undefined && opts.workflow !== "") {
     const defIds = await definitionIds(repo, opts.workflow);
-    query += `&definitions=${defIds}`;
+    query += `&definitions=${defIds.join(",")}`;
   }
   if (statusFilterQ !== "") query += `&statusFilter=${statusFilterQ}`;
   if (resultFilterQ !== "") query += `&resultFilter=${resultFilterQ}`;
@@ -244,32 +241,70 @@ export interface PipelinesRunWatchOptions {
   exitStatus?: boolean;
 }
 
-/** Watch a run to completion (10s polls, 120 max — the bash defaults).
- * With exitStatus, a completed run whose conclusion is not success throws —
- * the CI semantic. */
+/** A non-negative integer from the environment; anything else is the default. */
+function envNonNegativeInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || !/^\d+$/.test(raw.trim())) return fallback;
+  return Number(raw.trim());
+}
+
+/** Polls in a row that may fail before the watch gives up. */
+const WATCH_MAX_CONSECUTIVE_ERRORS = 5;
+
+/** Whether a failed poll is worth trying again: a lost connection or timeout,
+ * throttling or a server error. A missing or refused credential, a missing run
+ * or a bad request will fail the same way next time. */
+function isTransientPollError(err: unknown): boolean {
+  if (!(err instanceof ProviderError)) return false;
+  if (err.status !== undefined) return err.status === 429 || err.status >= 500;
+  return /request failed after|timed out/i.test(err.message);
+}
+
+/** Watch a run to completion (10s polls, 120 max by default —
+ * AZURE_PIPELINE_WATCH_ATTEMPTS and AZURE_PIPELINE_WATCH_INTERVAL tune them).
+ * A poll that fails transiently is tried again, up to five in a row; progress
+ * goes to stderr. With exitStatus, a completed run whose conclusion is not
+ * success throws — the CI semantic. */
 export async function pipelinesRunWatch(
   repo: string,
   runId: number,
   opts: PipelinesRunWatchOptions = {},
 ): Promise<string> {
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  for (let poll = 1; poll <= 120; poll++) {
-    const mapped = await pipelinesRunView(repo, runId);
-    console.log(mapped);
-    const status = (JSON.parse(mapped) as { status?: string }).status ?? "";
-    if (status === "completed") {
-      if (opts.exitStatus === true) {
-        const conclusion =
-          (JSON.parse(mapped) as { conclusion?: string | null }).conclusion ?? "";
-        if (conclusion !== "success") {
-          throw new ProviderError(`run ${runId} concluded ${conclusion || "unknown"}`);
-        }
-      }
-      return mapped;
+  const attempts = envNonNegativeInt("AZURE_PIPELINE_WATCH_ATTEMPTS", 120);
+  const interval = envNonNegativeInt("AZURE_PIPELINE_WATCH_INTERVAL", 10);
+  let failures = 0;
+  let lastFailure = "";
+  for (let poll = 1; poll <= attempts; poll++) {
+    let mapped = "";
+    try {
+      mapped = await pipelinesRunView(repo, runId);
+      failures = 0;
+    } catch (err) {
+      failures++;
+      if (!isTransientPollError(err) || failures >= WATCH_MAX_CONSECUTIVE_ERRORS) throw err;
+      lastFailure = err instanceof Error ? err.message : String(err);
+      console.error(`run ${runId}: poll ${poll} failed (${err instanceof Error ? err.message : String(err)}); trying again`);
     }
-    await sleep(10000);
+    if (mapped !== "") {
+      const record = JSON.parse(mapped) as { status?: string; conclusion?: string | null };
+      const status = record.status ?? "";
+      console.error(`run ${runId}: ${status}${record.conclusion ? ` (${record.conclusion})` : ""}`);
+      if (status === "completed") {
+        // The final run record is the verb's stdout, once.
+        console.log(mapped);
+        if (opts.exitStatus === true && record.conclusion !== "success") {
+          throw new ProviderError(`run ${runId} concluded ${record.conclusion ?? "unknown"}`);
+        }
+        return mapped;
+      }
+    }
+    // No sleep after the last poll: the timeout is reported at once.
+    if (poll < attempts) await sleep(interval * 1000);
   }
-  throw new ProviderError(`timed out waiting for run ${runId}`);
+  throw new ProviderError(
+    `timed out waiting for run ${runId}` + (lastFailure !== "" ? ` (the last poll failed: ${lastFailure})` : ""),
+  );
 }
 
 export interface PipelinesWorkflowListOptions {
@@ -284,11 +319,15 @@ export async function pipelinesWorkflowList(
   opts: PipelinesWorkflowListOptions = {},
 ): Promise<string> {
   const root = buildRoot(repo);
-  const r = await azureHttp<{ value?: Array<Record<string, unknown>> }>(
-    "GET",
-    `${root}/definitions`,
-  );
-  const rows: Array<Record<string, unknown>> = (r.value ?? []).map((d) => ({
+  // Only this repository's definitions, every page.
+  let url = `${root}/definitions`;
+  if (repo !== "") {
+    const guid = await repoGuidShared(repo);
+    if (guid === "") throw new ProviderError(`repository '${repo}' not found`);
+    url += `?repositoryId=${guid}&repositoryType=TfsGit`;
+  }
+  const definitions = await azureHttpPaginate<Record<string, unknown>>(url);
+  const rows: Array<Record<string, unknown>> = definitions.map((d) => ({
     id: String(d.id ?? ""),
     name: d.name ?? "",
     path: d.path ?? "",
@@ -315,6 +354,7 @@ export async function pipelinesWorkflowList(
           .filter((v) => v !== null)
           .join("\n");
       }
+      return renderRowsJq(projected, opts.jq);
     }
     return JSON.stringify(projected);
   }
@@ -363,7 +403,8 @@ export async function pipelinesRunArtifacts(
   const rows = (r.value ?? []).map((a) => ({
     id: String(a.id ?? ""),
     name: a.name ?? "",
-    size_in_bytes: Number((a.resource?.properties?.["file Size"] as string) ?? 0) || 0,
+    // Azure reports the size as a string in properties.artifactsize.
+    size_in_bytes: Number(a.resource?.properties?.["artifactsize"] ?? 0) || 0,
     created_at: a.createdDate ?? "",
     url: a.resource?.downloadUrl ?? "",
   }));
@@ -397,9 +438,10 @@ export interface PipelinesWorkflowRunOptions {
 }
 
 /** Queue a run of a workflow (definition id or name). The default ref is the
- * repo's default branch (resolved, not guessed). The REST Build contract
- * types parameters as a STRING holding serialized JSON. Returns the new
- * build's id. */
+ * repo's default branch (resolved, not guessed). Dispatch inputs go to
+ * `templateParameters` as strings; a name the pipeline does not declare is
+ * Azure's own 400 ("Unexpected parameter"), passed through unchanged. A name
+ * shared by several definitions is refused. Returns the new build's id. */
 export async function pipelinesWorkflowRun(
   repo: string,
   workflow: string,
@@ -413,13 +455,21 @@ export async function pipelinesWorkflowRun(
     ref = await reposDefaultBranch(repo);
   }
   const root = buildRoot(repo);
-  const definitionId = await definitionIds(repo, workflow);
+  const ids = await definitionIds(repo, workflow);
+  if (ids.length > 1) {
+    throw new ProviderError(
+      `pipeline name '${workflow}' matches several definitions (${ids.join(", ")}) — pass the numeric id`,
+    );
+  }
   const body: Record<string, unknown> = {
-    definition: { id: Number(definitionId) },
-    sourceBranch: `refs/heads/${ref}`,
+    definition: { id: Number(ids[0]) },
+    sourceBranch: azureBranchRef(ref),
   };
   if (opts.fields !== undefined && Object.keys(opts.fields).length > 0) {
-    body.parameters = JSON.stringify(opts.fields);
+    // YAML runtime parameters travel as templateParameters; the build's
+    // `parameters` field is for queue-time variables and Azure rejects the
+    // names a pipeline declares as parameters (verified live).
+    body.templateParameters = opts.fields;
   }
   const r = await azureHttp<{ id?: number }>("POST", `${root}/builds`, {
     body: JSON.stringify(body),
@@ -427,14 +477,24 @@ export async function pipelinesWorkflowRun(
   return r.id ?? 0;
 }
 
-/** Rerun a run: Azure retries the whole build in place (PATCH ?retry=true) —
- * there is no failed-jobs-only or debug rerun. */
+/** Rerun a run: Azure retries the whole build in place (PATCH ?retry=true),
+ * as a new attempt of the same build id — there is no failed-jobs-only or
+ * debug rerun. */
 export async function pipelinesRunRerun(
   repo: string,
   runId: number,
 ): Promise<void> {
   const root = buildRoot(repo);
-  await azureHttp("PATCH", `${root}/builds/${runId}?retry=true`, { body: "{}" });
+  try {
+    await azureHttp("PATCH", `${root}/builds/${runId}?retry=true`, { body: "{}" });
+  } catch (err) {
+    // Azure answers a retry of a build whose last attempt did not fail with a
+    // 500; the request did not take effect, which the transport cannot know.
+    if (err instanceof ProviderError && /previous attempt did not fail/.test(err.message)) {
+      throw new ProviderError(`run ${runId} did not fail; there is nothing to rerun`, err.status);
+    }
+    throw err;
+  }
 }
 
 /** Cancel a run. */
@@ -456,8 +516,8 @@ export interface PipelinesRunDownloadOptions {
 }
 
 /** Download run artifacts: Azure serves them as zip downloads, fetched to the
- * destination with the artifact's name (the transport's download helper
- * applies the same auth and api-version rules). */
+ * destination with the artifact's name, each from the URL the API returned
+ * (the transport's download helper adds no api-version). */
 export async function pipelinesRunDownload(
   repo: string,
   runId: number,
@@ -472,6 +532,9 @@ export async function pipelinesRunDownload(
     value?: Array<{ name?: string; resource?: { downloadUrl?: string } }>;
   }>("GET", `${root}/builds/${runId}/artifacts`);
   const wanted = opts.name !== undefined && opts.name !== "" ? opts.name : undefined;
+  if ((r.value ?? []).length === 0) {
+    throw new ProviderError(`run ${runId} has no artifacts`);
+  }
   const picked: Array<{ name: string; url: string }> = [];
   for (const a of r.value ?? []) {
     const name = a.name ?? "";
@@ -488,6 +551,9 @@ export async function pipelinesRunDownload(
   }
   if (wanted !== undefined && picked.length === 0) {
     throw new ProviderError(`artifact '${wanted}' not found on run ${runId}`);
+  }
+  if (picked.length === 0) {
+    throw new ProviderError(`run ${runId} has no downloadable artifacts`);
   }
   for (const { name, url } of picked) {
     await azureHttpDownload(url, join(destDir, `${name}.zip`));

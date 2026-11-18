@@ -50,6 +50,9 @@ function stubAzureFetch(build: Record<string, unknown>, artifactNames: string[] 
       );
     }
     if (url.includes("download=true")) return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+    if (url.includes("/_apis/git/repositories")) {
+      return new Response(JSON.stringify({ id: "g1", name: "repo" }), { status: 200 });
+    }
     if (url.includes("/definitions")) {
       return new Response(JSON.stringify({ value: [{ id: 3, name: "ci", path: "\\", enabled: true }] }), { status: 200 });
     }
