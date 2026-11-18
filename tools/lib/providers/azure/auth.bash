@@ -5,8 +5,8 @@
 # Backing store is a 0600 PAT file in the devenv config area (no provider CLI
 # exists for this transport — Azure is served by direct REST). A
 # session-scoped GH_TOKEN export is honored only when allowlisted (the same
-# [provider] token_env_allowlist the core seam enforces); there is no
-# Azure-specific env override.
+# [provider] token_env_allowlist the core seam enforces). The Azure-specific
+# AZURE_PAT env var is read first by every Azure credential reader.
 #
 # Token discipline: the token is written from stdin (never argv), the file is
 # created 0600, and every read verifies the mode is still 0600 before use.
@@ -65,7 +65,8 @@ provider_auth_import_token_impl() {
     pat_file=$(azure_pat_file)
     local pat_dir
     pat_dir=$(dirname "$pat_file")
-    mkdir -p "$pat_dir"
+    # The key directory is private: created 0700 (an existing one is left as is).
+    (umask 077 && mkdir -p "$pat_dir")
 
     # Tighten first (existing-file case), then write, then verify.
     [ -f "$pat_file" ] && chmod 600 "$pat_file"
@@ -76,7 +77,7 @@ provider_auth_import_token_impl() {
     chmod 600 "$pat_file"
 
     local mode
-    mode=$(stat -c '%a' "$pat_file" 2>/dev/null || stat -f '%Lp' "$pat_file" 2>/dev/null)
+    mode=$(stat -L -c '%a' "$pat_file" 2>/dev/null || stat -L -f '%Lp' "$pat_file" 2>/dev/null)
     if [ "$mode" != "600" ]; then
         log_error "PAT file mode is $mode, expected 600 — refusing to keep it"
         return 1
@@ -97,25 +98,37 @@ provider_auth_status_impl() {
     [ -n "$token" ]
 }
 
+# Reduce raw token text on stdin to the token: first line only, trimmed of
+# whitespace (CR included) and a leading byte-order mark. The same contract as
+# http.ts azurePatGet and credential-helper.sh.
+_azure_pat_clean() {
+    head -n1 | LC_ALL=C sed -e $'s/^\xEF\xBB\xBF//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
 # Print the stored PAT for the neutral core's auth seam. Single sanctioned
-# home for the Azure PAT read. The core seam resolves the allowlisted
-# GH_TOKEN env leg before reaching this credential-store leg. Verifies the
-# file mode before trusting the file.
+# home for the Azure PAT read in bash. Contract (shared with http.ts and
+# credential-helper.sh): the AZURE_PAT env var first, else the PAT file; the
+# file must be mode 600 before it is trusted.
 # Usage: provider_auth_token_impl   (prints the token on stdout)
 provider_auth_token_impl() {
+    local token
+    token=$(printf '%s\n' "${AZURE_PAT:-}" | _azure_pat_clean)
+    if [ -n "$token" ]; then
+        printf '%s\n' "$token"
+        return 0
+    fi
     local pat_file
     pat_file=$(azure_pat_file)
     if [ ! -f "$pat_file" ]; then
         return 1
     fi
     local mode
-    mode=$(stat -c '%a' "$pat_file" 2>/dev/null || stat -f '%Lp' "$pat_file" 2>/dev/null)
+    mode=$(stat -L -c '%a' "$pat_file" 2>/dev/null || stat -L -f '%Lp' "$pat_file" 2>/dev/null)
     if [ "$mode" != "600" ]; then
         log_warn "PAT file $pat_file has mode $mode (expected 600) — fix with: chmod 600 $pat_file"
         return 1
     fi
-    local token
-    token=$(head -n1 "$pat_file")
+    token=$(_azure_pat_clean < "$pat_file")
     printf '%s\n' "$token"
 }
 
@@ -130,7 +143,10 @@ provider_auth_setup_git_impl() {
     if [ ! -x "$helper" ]; then
         chmod +x "$helper" 2>/dev/null || true
     fi
-    if ! git config --global "credential.https://dev.azure.com.helper" "$helper get"; then
+    # Git runs a helper through a shell and appends the operation itself: the
+    # path is single-quoted behind "!" and carries no operation of its own.
+    local helper_value="!'${helper//\'/\'\\\'\'}'"
+    if ! git config --global "credential.https://dev.azure.com.helper" "$helper_value"; then
         log_error "failed registering the azure credential helper in git config"
         return 1
     fi
@@ -149,7 +165,7 @@ provider_auth_setup_git_impl() {
         log_warn "invalid organization identity; skipping visualstudio.com host credential helper"
         return 0
     fi
-    if ! git config --global "credential.https://${org}.visualstudio.com.helper" "$helper get"; then
+    if ! git config --global "credential.https://${org}.visualstudio.com.helper" "$helper_value"; then
         log_error "failed registering the visualstudio.com host credential helper in git config"
         return 1
     fi

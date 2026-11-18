@@ -13,6 +13,7 @@
 
 import { spawnSync } from "node:child_process";
 import { accessSync, chmodSync, constants, existsSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { configGetRaw } from "../../core/config.ts";
@@ -25,8 +26,7 @@ export { azurePatGet } from "./http.ts";
 /** The PAT file path (auth.bash azure_pat_file parity): the AZURE_PAT_FILE
  * env leg, else ~/.keys/azure-devops-pat. */
 export function azurePatFile(): string {
-  const home = process.env.HOME ?? "";
-  return process.env.AZURE_PAT_FILE || join(home, ".keys", "azure-devops-pat");
+  return process.env.AZURE_PAT_FILE || join(process.env.HOME || homedir(), ".keys", "azure-devops-pat");
 }
 
 /** The provider's auth status, exit-code form (auth.bash
@@ -71,6 +71,14 @@ export function requireAzureCredential(): string {
   return pat;
 }
 
+/** The git config value that runs the helper at HELPER. Git runs a helper
+ * through a shell and appends the operation (get/store/erase) itself, so the
+ * path is single-quoted behind a leading `!` and carries no operation of its
+ * own. A path with spaces or quotes then still reaches the helper. */
+export function azureHelperValue(helper: string): string {
+  return `!'${helper.replaceAll("'", "'\\''")}'`;
+}
+
 /** Register the PAT-backed git credential helper (credential-helper.sh) for
  * dev.azure.com and for the `<azure_org>.visualstudio.com` host of the
  * configured organization, in the user's global git config (auth.bash
@@ -90,10 +98,14 @@ export function azureSetupGit(): void {
     }
   }
   const register = (host: string, what: string): void => {
-    const r = spawnSync("git", ["config", "--global", `credential.https://${host}.helper`, `${helper} get`], {
-      stdio: "ignore",
+    const r = spawnSync("git", ["config", "--global", `credential.https://${host}.helper`, azureHelperValue(helper)], {
+      encoding: "utf8",
+      stdio: ["ignore", "ignore", "pipe"],
     });
-    if (r.status !== 0) throw new ProviderError(`failed registering the ${what} in git config`);
+    if (r.status !== 0) {
+      const why = (r.stderr ?? "").trim();
+      throw new ProviderError(`failed registering the ${what} in git config${why === "" ? "" : `: ${why}`}`);
+    }
   };
   register("dev.azure.com", "azure credential helper");
 

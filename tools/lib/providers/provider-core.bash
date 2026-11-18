@@ -53,7 +53,8 @@ PROVIDER_NAME="${PROVIDER_NAME:-}"
 export PROVIDER_NAME
 
 # Escape-hatch allowlist for session-scoped GH_TOKEN exports. Ships
-# empty; entries are added via devenv.config [provider] token_env_allowlist
+# empty; entries are env-var names ("GH_TOKEN" or "GH_TOKEN:reason"), added via
+# devenv.config [provider] token_env_allowlist
 # and follow a justification-and-review protocol (see tools/lib/providers/
 # README.md). Tokens outside the allowlist warn at consumer time and are
 # ignored by the seam.
@@ -240,17 +241,18 @@ provider_bootstrap_call() {
 # Auth seam
 # ============================================================================
 
-# Escape-hatch allowlist entry: true when the token is allowlisted for
-# session-scoped env use. Entries may be "values" or "value:reason" pairs;
-# matching is on value prefix before the first colon.
+# Escape-hatch allowlist entry: true when the env variable NAME is allowlisted
+# as a session-scoped token source. Entries are "NAME" or "NAME:reason" pairs;
+# matching is on the name before the first colon. The list is never compared
+# with a token's value.
 provider_token_env_allowed() {
-    local value="$1"
+    local name="$1"
     local entry base
     # Intentional word-splitting: the allowlist is a space-separated entry list.
     # shellcheck disable=SC2086
     for entry in $PROVIDER_TOKEN_ENV_ALLOWLIST; do
         base="${entry%%:*}"
-        [ "$value" = "$base" ] && return 0
+        [ "$name" = "$base" ] && return 0
     done
     return 1
 }
@@ -260,7 +262,7 @@ provider_token_env_allowed() {
 # fallback wording is provider-neutral; the active provider's credential
 # store decides what "keychain" concretely means.
 provider_token_env_denied_warning() {
-    log_warn "GH_TOKEN is set but not on the env allowlist (config key [provider] token_env_allowlist) — ignored; resolving via the ${PROVIDER_NAME:-active} provider credential store. Add an allowlist entry only with a documented justification."
+    log_warn "GH_TOKEN is set but not on the env allowlist (config key [provider] token_env_allowlist, which lists env-var names such as GH_TOKEN) — ignored; resolving via the ${PROVIDER_NAME:-active} provider credential store. Add an allowlist entry only with a documented justification."
 }
 
 # Read a named secret through the seam. Scope: single secret kind today
@@ -276,11 +278,14 @@ provider_secret_get() {
     local kind="${1:-token}"
     case "$kind" in
         token)
-            if [ -n "${GH_TOKEN:-}" ] && provider_token_env_allowed "$GH_TOKEN"; then
-                printf '%s\n' "$GH_TOKEN"
-                return 0
+            # GH_TOKEN is a GitHub credential: it is no token source under azure.
+            if [ "${PROVIDER_NAME:-}" != "azure" ] && [ -n "${GH_TOKEN:-}" ]; then
+                if provider_token_env_allowed "GH_TOKEN"; then
+                    printf '%s\n' "$GH_TOKEN"
+                    return 0
+                fi
+                provider_token_env_denied_warning
             fi
-            [ -n "${GH_TOKEN:-}" ] && provider_token_env_denied_warning
             if declare -F provider_auth_token_impl >/dev/null; then
                 local tok
                 if tok=$(provider_auth_token_impl 2>/dev/null) && [ -n "$tok" ]; then

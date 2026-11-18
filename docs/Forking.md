@@ -48,7 +48,7 @@ name=github
 ```
 
 - **name**: Which module set under `tools/lib/providers/<name>/` answers the facade calls (`prsMerge`, `issuesEdit`, ...). Default `github`; a name that is not shipped is an error, never a silent fallback. Forks adapting to another backend change this key (see [Adapting to Azure DevOps](#adapting-to-azure-devops)).
-- **token_env_allowlist**: Session-scoped token exports are ignored by default — credentials resolve env-if-allowlisted → keychain → error. The allowlist ships empty; add entries only with a documented justification (see the [provider abstraction README](../tools/lib/providers/README.md)).
+- **token_env_allowlist**: Session-scoped token exports are ignored by default — credentials resolve env-if-allowlisted → keychain → error. The allowlist holds env-var **names**, space-separated, each optionally with a reason: `GH_TOKEN` or `GH_TOKEN:ci-feed`. A listed variable is honored; an entry that is not a variable name (for example a token value) never matches. Under `[provider] name=azure` the GitHub token variable `GH_TOKEN` is not a token source at all, listed or not. The allowlist ships empty; add entries only with a documented justification (see the [provider abstraction README](../tools/lib/providers/README.md)).
 
 Tools never call a provider module directly: they import the TypeScript facade (`tools/lib/providers/facade/<family>.ts`), which loads the active provider's modules from a manifest. Adding a provider means adding module files and manifest rows, as listed in [Adding a provider](../tools/lib/providers/README.md#adding-a-provider). Tools and domain code never read token env vars directly; credentials resolve through the provider's auth module, so the credential backing store swaps in behind the seam. Rotation runs through `key-update-provider` (imports through the provider auth layer into the keychain and wires the git credential helper — no token ever lands in env files or remote URLs). The only bash in the provider layer is the container bootstrap surface (auth, setup and bootstrap hooks); the providers README documents it under [Bash bootstrap surface](../tools/lib/providers/README.md#bash-bootstrap-surface).
 
@@ -121,6 +121,10 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
   `tools/lib/providers/azure/key-update.ts`). It prompts (hidden input — the
   token never enters chat, shell history, or argv) and stores the PAT as a
   **0600 file** in the devenv config area; a piped stdin token also works.
+  The new token is checked against the organization first: a refused token
+  changes nothing, and the file is replaced atomically. Every Azure credential
+  reader (REST transport, bash seam, git credential helper) resolves the
+  `AZURE_PAT` environment variable first, then that file.
   Scopes needed: Work Items (Read/Write), Code (Read/Write), Build
   (Read/Execute); **Packaging (Read)** additionally for Artifacts feeds
   listing.

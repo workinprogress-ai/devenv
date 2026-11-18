@@ -214,7 +214,7 @@ function runFeedConfig(
     "[provider]\nname=" + provider + "\n" +
       // Credential seam stub (the bash test overrode provider_secret_get):
       // an allowlisted GH_TOKEN travels the same seam path the real run uses.
-      "token_env_allowlist=feed-token-123\n\n" +
+      "token_env_allowlist=GH_TOKEN\n\n" +
       "[organization]\norg=the-org\nuser=the-user\n\n[nuget]\nfeed_url=https://nuget.pkg.github.com/the-org/index.json\n" + extraConfig,
   );
   const module = stepName === "configure_nuget_sources" ? NUGET : NPMRC;

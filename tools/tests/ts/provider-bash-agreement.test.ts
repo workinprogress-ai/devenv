@@ -9,7 +9,7 @@
 // a fixture DEVENV_ROOT), no network, and no provider CLI is ever called.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -318,6 +318,216 @@ describe("the Azure git credential-helper wiring agrees", () => {
       expect(fromTs.map((l) => l.split("=")[0]).sort()).toEqual(
         hosts.map((h) => `credential.https://${h}.helper`).sort(),
       );
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The Azure PAT reader contract: three readers (TypeScript transport, bash
+// seam, git credential helper) resolve the same token from the same inputs —
+// AZURE_PAT first, else the 0600 PAT file; first line only, trimmed of
+// whitespace and a byte-order mark; a file of any other mode is never used.
+// ---------------------------------------------------------------------------
+
+const AZURE_HTTP_TS = pathToFileURL(join(PROVIDERS, "azure", "http.ts")).href;
+const AZURE_AUTH_BASH = join(PROVIDERS, "azure", "auth.bash");
+const AZURE_HELPER = join(PROVIDERS, "azure", "credential-helper.sh");
+
+interface PatCase {
+  label: string;
+  env: string | undefined;
+  file: string | null;
+  mode?: number;
+  /** Store the file elsewhere and point the PAT path at it with a symlink. */
+  symlink?: boolean;
+  expected: string;
+}
+
+const PAT_CASES: PatCase[] = [
+  { label: "file only", env: undefined, file: "filetok\n", expected: "filetok" },
+  { label: "file with trailing space and CRLF", env: undefined, file: "filetok \r\n", expected: "filetok" },
+  { label: "file with a byte-order mark", env: undefined, file: "\uFEFFfiletok\n", expected: "filetok" },
+  { label: "file with a second line", env: undefined, file: "filetok\nsecond\n", expected: "filetok" },
+  { label: "file with the wrong mode", env: undefined, file: "filetok\n", mode: 0o644, expected: "" },
+  { label: "file reached through a symlink to a 0600 target", env: undefined, file: "filetok\n", symlink: true, expected: "filetok" },
+  { label: "env only", env: "envtok", file: null, expected: "envtok" },
+  { label: "env wins over a file", env: "envtok", file: "filetok\n", expected: "envtok" },
+  { label: "env is trimmed", env: "  envtok  ", file: null, expected: "envtok" },
+  { label: "env is used even when the file mode is wrong", env: "envtok", file: "filetok\n", mode: 0o644, expected: "envtok" },
+  { label: "an empty env falls through to the file", env: "", file: "filetok\n", expected: "filetok" },
+  { label: "nothing at all", env: undefined, file: null, expected: "" },
+];
+
+function patEnv(c: PatCase): Record<string, string> {
+  const patFile = join(TMP, "pat");
+  if (c.file !== null) {
+    if (c.symlink === true) {
+      const real = join(TMP, "pat-target");
+      writeFileSync(real, c.file);
+      chmodSync(real, c.mode ?? 0o600);
+      symlinkSync(real, patFile);
+    } else {
+      writeFileSync(patFile, c.file);
+      chmodSync(patFile, c.mode ?? 0o600);
+    }
+  }
+  const env: Record<string, string> = { AZURE_PAT_FILE: patFile };
+  if (c.env !== undefined) env["AZURE_PAT"] = c.env;
+  return env;
+}
+
+describe("the Azure PAT readers agree", () => {
+  for (const c of PAT_CASES) {
+    it(c.label, () => {
+      const env = patEnv(c);
+      const fromTs = (ts(
+        `const m = await import(${JSON.stringify(AZURE_HTTP_TS)});
+         console.log(JSON.stringify({ token: m.azurePatGet() }));`,
+        FIXTURE_ROOT,
+        env,
+      ) as { token: string }).token;
+      const fromBash = bash(
+        `source '${AZURE_AUTH_BASH}' 2>/dev/null\nprovider_auth_token_impl 2>/dev/null || true`,
+        FIXTURE_ROOT,
+        env,
+      ).stdout.replace(/\n$/, "");
+      const helper = spawnSync("bash", [AZURE_HELPER, "get"], {
+        encoding: "utf8",
+        input: "protocol=https\nhost=dev.azure.com\n\n",
+        env: childEnv(env),
+      });
+      const fromHelper = /^password=(.*)$/m.exec(helper.stdout ?? "")?.[1] ?? "";
+      expect({ ts: fromTs, bash: fromBash, helper: fromHelper }).toEqual({
+        ts: c.expected,
+        bash: c.expected,
+        helper: c.expected,
+      });
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The Azure setup token check: exit 0 accepted, 1 refused, 2 could not be
+// determined (the caller decides whether an unverifiable token is acceptable —
+// an offline user must not be trapped). A stub `curl` answers the HTTP code.
+// ---------------------------------------------------------------------------
+
+describe("the Azure setup token check classifies the service's answer", () => {
+  const AZURE_SETUP_BASH = join(PROVIDERS, "azure", "setup.bash");
+
+  function check(code: string): number {
+    const stubDir = join(TMP, "stub-bin");
+    mkdirSync(stubDir, { recursive: true });
+    writeFileSync(join(stubDir, "curl"), `#!/bin/sh\nprintf '%s' '${code}'\n`);
+    chmodSync(join(stubDir, "curl"), 0o755);
+    const r = bash(
+      `source '${AZURE_SETUP_BASH}' 2>/dev/null\nprintf 'tok' | provider_setup_validate_token acme >/dev/null 2>&1\necho $?`,
+      FIXTURE_ROOT,
+      { PATH: `${stubDir}:${process.env["PATH"] ?? "/usr/bin:/bin"}` },
+    );
+    return Number(r.stdout.trim());
+  }
+
+  it.each([
+    ["200", 0],
+    ["401", 1],
+    ["403", 1],
+    ["404", 1],
+    ["500", 2],
+    ["502", 2],
+    ["503", 2],
+    ["504", 2],
+    ["429", 2],
+    ["407", 2],
+    ["000", 2],
+    ["", 2],
+  ])("HTTP %s exits %i", (code, expected) => {
+    expect(check(code)).toBe(expected);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The token env allowlist: [provider] token_env_allowlist holds env-var NAMES
+// (`GH_TOKEN`, or `GH_TOKEN:reason`). A session token export is honored only
+// when its variable is listed; a list entry that equals the token's value never
+// matches (fail closed); under azure the GitHub token variable is not a token
+// source at all. The TypeScript seam (setup steps) and the bash seam answer the
+// same way from the same config.
+// ---------------------------------------------------------------------------
+
+describe("the token env allowlist matches variable names, in both seams", () => {
+  const SEAM_TS = pathToFileURL(join(TOOLS, "ts", "setup-steps", "provider-seam.ts")).href;
+  const KEYCHAIN = "keychain-token";
+  const AZURE_PAT = "azure-pat-token";
+  const DENIED = "not on the env allowlist";
+
+  // [label, provider, allowlist, GH_TOKEN, expected token, warns about the ignored env token]
+  const CASES: Array<[string, "github" | "azure", string, string, string, boolean]> = [
+    ["github: the variable name is listed", "github", "GH_TOKEN", "ghp_env", "ghp_env", false],
+    ["github: the name with a reason", "github", "GH_TOKEN:ci-feed", "ghp_env", "ghp_env", false],
+    ["github: a different name listed first", "github", "OTHER_VAR GH_TOKEN", "ghp_env", "ghp_env", false],
+    ["github: the token value is listed instead of the name", "github", "ghp_env", "ghp_env", KEYCHAIN, true],
+    ["github: an empty allowlist", "github", "", "ghp_env", KEYCHAIN, true],
+    ["github: only another name is listed", "github", "OTHER_VAR", "ghp_env", KEYCHAIN, true],
+    ["github: listed but the variable is unset", "github", "GH_TOKEN", "", KEYCHAIN, false],
+    ["azure: the GitHub variable is listed and set", "azure", "GH_TOKEN", "ghp_env", AZURE_PAT, false],
+    ["azure: no allowlist and a GitHub token set", "azure", "", "ghp_env", AZURE_PAT, false],
+    ["azure: no GitHub token", "azure", "", "", AZURE_PAT, false],
+  ];
+
+  function seamEnv(provider: string, allow: string, ghToken: string): Record<string, string> {
+    writeConfig(`[provider]\nname=${provider}\ntoken_env_allowlist=${allow}\n`);
+    const stub = join(TMP, "seam-bin");
+    mkdirSync(stub, { recursive: true });
+    writeFileSync(join(stub, "gh"), `#!/bin/sh\nprintf '%s\\n' '${KEYCHAIN}'\n`);
+    chmodSync(join(stub, "gh"), 0o755);
+    mkdirSync(join(TMP, "empty-toolbox"), { recursive: true });
+    const env: Record<string, string> = {
+      PATH: `${stub}:${process.env["PATH"] ?? "/usr/bin:/bin"}`,
+      AZURE_PAT: AZURE_PAT,
+      // The step modules look in the toolbox root; the config lives at DEVENV_ROOT only.
+      DEVENV_TOOLBOX_ROOT: join(TMP, "empty-toolbox"),
+    };
+    if (ghToken !== "") env["GH_TOKEN"] = ghToken;
+    return env;
+  }
+
+  function runTs(env: Record<string, string>): { token: string; stderr: string } {
+    const r = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `const m = await import(${JSON.stringify(SEAM_TS)}); process.stdout.write(m.providerSecretToken());`,
+      ],
+      { encoding: "utf8", cwd: FIXTURE_ROOT, env: childEnv(env) },
+    );
+    return { token: (r.stdout ?? "").trim(), stderr: r.stderr ?? "" };
+  }
+
+  function runBash(provider: string, env: Record<string, string>): { token: string; stderr: string } {
+    const r = spawnSync(
+      "bash",
+      [
+        "-c",
+        `source '${CORE_BASH}' 2>/dev/null\nprovider_detect '${join(FIXTURE_ROOT, "devenv.config")}' 2>/dev/null\nprovider_load auth 2>/dev/null\nprovider_secret_get token`,
+      ],
+      { encoding: "utf8", cwd: FIXTURE_ROOT, env: childEnv(env) },
+    );
+    void provider;
+    return { token: (r.stdout ?? "").trim(), stderr: r.stderr ?? "" };
+  }
+
+  for (const [label, provider, allow, ghToken, expected, warns] of CASES) {
+    it(`${label} (TypeScript seam)`, () => {
+      const out = runTs(seamEnv(provider, allow, ghToken));
+      expect(out.token).toBe(expected);
+      expect(out.stderr.includes(DENIED)).toBe(warns);
+    });
+    it(`${label} (bash seam)`, () => {
+      const out = runBash(provider, seamEnv(provider, allow, ghToken));
+      expect(out.token).toBe(expected);
+      expect(out.stderr.includes(DENIED)).toBe(warns);
     });
   }
 });

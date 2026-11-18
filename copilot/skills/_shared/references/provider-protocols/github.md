@@ -24,7 +24,8 @@
 Tokens live in the gh credential store (keychain) — never in env vars, never
 in remote URLs. Resolution order: keychain (`gh auth token`), with a
 session-scoped env token honored only via the allowlist
-(`devenv.config` `[provider] token_env_allowlist`).
+(`devenv.config` `[provider] token_env_allowlist`, which holds env-var names
+such as `GH_TOKEN`).
 
 Credential verbs (provider seam — wrappers call these; do not call gh directly):
 

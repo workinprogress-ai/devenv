@@ -390,10 +390,11 @@ describe("prsThreadResolve routing on azure", () => {
 });
 
 describe("retryAfterMs", () => {
-  it("an HTTP-date is not a delay (null: the caller backs off itself); '0' is zero", async () => {
+  it("an HTTP-date already past is no delay (null: the caller backs off itself); '0' is zero; text that is neither is null", async () => {
     useConfig("azure");
     const { retryAfterMs } = await import("../../lib/providers/azure/http.ts");
-    expect(retryAfterMs("Wed, 21 Oct 2026 07:28:00 GMT")).toBeNull();
+    expect(retryAfterMs("Wed, 21 Oct 2015 07:28:00 GMT")).toBeNull();
     expect(retryAfterMs("0")).toBe(0);
+    expect(retryAfterMs("next tuesday")).toBeNull();
   });
 });
