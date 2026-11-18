@@ -166,7 +166,13 @@ describe("azure urls", () => {
     );
     expect(gitRemoteBase("org")).toBe("https://dev.azure.com/org");
     expect(webUrl("org/proj/repo", "pullrequest/1")).toBe(
-      "https://dev.azure.com/org/proj/repo/pullrequest/1",
+      "https://dev.azure.com/org/proj/_git/repo/pullrequest/1",
+    );
+    // A spec with no repository cannot name a repository page.
+    expect(() => webUrl("org/proj", "pullrequest/1")).toThrow();
+    // A project-scoped page (work items, boards) is not under the repository.
+    expect(webUrl("org/proj/repo", "_workitems/edit/7")).toBe(
+      "https://dev.azure.com/org/proj/_workitems/edit/7",
     );
   });
 });

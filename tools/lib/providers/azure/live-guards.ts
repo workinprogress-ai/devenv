@@ -3,10 +3,15 @@
 // imported without running.
 import { ProviderError } from "../provider-core.ts";
 
-/** True for the transport's not-found error: a ProviderError carrying HTTP 404.
- * Nothing else (auth, validation, 5xx, a network failure) counts as absent. */
+/** True for the transport's not-found error: a ProviderError carrying HTTP 404
+ * for the item itself. A 404 that says the project or organization does not
+ * exist (a wrong project in the URL) is not "already gone", and neither is
+ * anything else (auth, validation, 5xx, a network failure). */
 export function isNotFound(error: unknown): boolean {
-  return error instanceof ProviderError && error.status === 404;
+  if (!(error instanceof ProviderError) || error.status !== 404) return false;
+  // Anchored on the project-level messages: a work item's own not-found text
+  // also says "or it is in a project that does not exist".
+  return !/TF200016|The following project does not exist/i.test(error.message);
 }
 
 /** Await a delete call; a not-found response means the item is already gone,

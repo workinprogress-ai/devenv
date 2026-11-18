@@ -358,6 +358,7 @@ async function oneAttempt(
 function authError(code: number): never {
   throw new ProviderError(
     `Azure DevOps did not accept the stored credential (HTTP ${code}) — run key-update-azure to store a valid token`,
+    code,
   );
 }
 

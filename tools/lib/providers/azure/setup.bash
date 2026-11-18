@@ -12,6 +12,20 @@ if [ -n "${_PROVIDER_AZURE_SETUP_LOADED:-}" ]; then
 fi
 _PROVIDER_AZURE_SETUP_LOADED=1
 
+# Percent-encode one URL component (everything but unreserved characters).
+_azure_urlencode() {
+    local s="$1" out="" c i
+    local LC_ALL=C
+    for ((i = 0; i < ${#s}; i++)); do
+        c="${s:i:1}"
+        case "$c" in
+            [A-Za-z0-9._~-]) out+="$c" ;;
+            *) out+="$(printf '%%%02X' "'$c")" ;;
+        esac
+    done
+    printf '%s' "$out"
+}
+
 # Validate an Azure DevOps PAT read from stdin with one authenticated call to the
 # organization's connectionData endpoint. The Authorization header travels on
 # curl's stdin (-H @-), so the secret never appears in the process arguments.
@@ -31,6 +45,7 @@ provider_setup_validate_token() {
     [ -n "$token" ] || return 1
     [ -n "$org" ] || return 1
     b64="$(printf ':%s' "$token" | base64 | tr -d '\r\n')"
+    org="$(_azure_urlencode "$org")"
     http_code=$(printf 'Authorization: Basic %s\n' "$b64" | curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w '%{http_code}' -H @- "https://dev.azure.com/${org}/_apis/connectionData?api-version=7.1-preview" 2>/dev/null)
     # No answer, a server-side failure, throttling or a proxy demanding its own
     # sign-in say nothing about the token itself: could not be determined.
@@ -71,6 +86,7 @@ provider_setup_check_token_format() {
 #   https://dev.azure.com/ORG/PROJECT/_git/REPO
 #   https://ORG@dev.azure.com/ORG/PROJECT/_git/REPO
 #   git@ssh.dev.azure.com:v3/ORG/PROJECT/REPO
+#   https://ORG.visualstudio.com/PROJECT/_git/REPO
 provider_setup_detect_org() {
     local url
     url="$(git remote get-url origin 2>/dev/null)" || return 0
@@ -79,9 +95,12 @@ provider_setup_detect_org() {
     # or an "@dev.azure.com/" inside a path segment, does not name an organization.
     local ssh_re='^([A-Za-z][A-Za-z0-9+.-]*://)?([^/@]*@)?ssh\.dev\.azure\.com(:[0-9]+/|:|/)v3/([^/]+)/'
     local https_re='^([A-Za-z][A-Za-z0-9+.-]*://)?([^/@]*@)?dev\.azure\.com/([^/]+)/'
+    local vs_re='^([A-Za-z][A-Za-z0-9+.-]*://)?([^/@]*@)?([A-Za-z0-9-]+)\.visualstudio\.com/'
     if [[ "$url" =~ $ssh_re ]]; then
         echo "${BASH_REMATCH[4]}"
     elif [[ "$url" =~ $https_re ]]; then
+        echo "${BASH_REMATCH[3]}"
+    elif [[ "$url" =~ $vs_re ]]; then
         echo "${BASH_REMATCH[3]}"
     fi
 }

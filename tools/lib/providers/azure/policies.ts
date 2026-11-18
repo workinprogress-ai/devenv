@@ -6,7 +6,14 @@
 import { ProviderError } from "../provider-core.ts";
 import { azureHttp } from "./http.ts";
 import { azureRepoParts, azureUri } from "./urls.ts";
-import { repoGuidShared, reposDefaultBranch } from "./repos.ts";
+import {
+  assertSingleScope,
+  listPolicyConfigurations,
+  policyOnRepo,
+  repoGuidShared,
+  reposDefaultBranch,
+  type PolicyConfiguration,
+} from "./repos.ts";
 
 /** The Minimum number of reviewers policy type id. */
 export const AZURE_POLICY_MIN_REVIEWERS_TYPE = "fa4e907d-c16b-4a4c-9dfa-4906e5d171dd";
@@ -18,9 +25,14 @@ function policyBase(repo: string): string {
 }
 
 interface RulesetPayload {
+  /** active (default) | evaluate | disabled. */
+  enforcement?: string;
   conditions?: { ref_name?: { include?: string[] } };
-  rules?: Array<{ type?: string; parameters?: { required_approving_review_count?: number } }>;
+  rules?: Array<{ type?: string; parameters?: Record<string, unknown> }>;
 }
+
+/** pull_request parameters that become part of the minimum-reviewers policy. */
+const TRANSLATED_PR_PARAMETERS = new Set(["required_approving_review_count", "dismiss_stale_reviews_on_push"]);
 
 /** The error for a ruleset that leaves no branch to protect. */
 function noBranchError(verb: string): never {
@@ -55,8 +67,11 @@ export function rulesetBranches(payload: RulesetPayload, defaultBranch: string):
   return [...new Set(out.filter((b) => b !== ""))];
 }
 
-/** Translate a ruleset payload into azure policy documents. Rules with no
- * azure analog are skipped with a warning; pull_request → minimum reviewers. */
+/** Translate a ruleset payload into azure policy documents. Only
+ * pull_request becomes a policy (minimum reviewers); each other rule type and
+ * each pull_request parameter without an Azure setting is named in one
+ * warning, once. The payload's enforcement sets the policy's enabled and
+ * blocking flags (evaluate is enabled but not blocking). */
 export function translateRuleset(
   payload: RulesetPayload,
   repoGuid: string,
@@ -65,19 +80,35 @@ export function translateRuleset(
   if (repoGuid === "") throw new ProviderError("translate_ruleset: repo guid required");
   if (branch === "") throw new ProviderError("translate_ruleset: target branch required");
   const docs: Array<Record<string, unknown>> = [];
-  const prRule = (payload.rules ?? []).find((r) => r.type === "pull_request");
+  const rules = payload.rules ?? [];
+  const prRule = rules.find((r) => r.type === "pull_request");
+  const untranslated = [...new Set(rules.map((r) => r.type ?? "").filter((t) => t !== "" && t !== "pull_request"))];
+  for (const type of untranslated) {
+    console.error(`WARN: translate_ruleset: rule '${type}' has no Azure policy equivalent — not translated`);
+  }
   if (prRule !== undefined) {
-    const minReviewers = prRule.parameters?.required_approving_review_count ?? 1;
+    const params = prRule.parameters ?? {};
+    for (const name of Object.keys(params)) {
+      if (!TRANSLATED_PR_PARAMETERS.has(name)) {
+        console.error(`WARN: translate_ruleset: pull_request parameter '${name}' has no Azure setting — ignored`);
+      }
+    }
+    const count = params["required_approving_review_count"];
+    let enforcement = payload.enforcement ?? "active";
+    if (!["active", "evaluate", "disabled"].includes(enforcement)) {
+      console.error(`WARN: translate_ruleset: unknown enforcement '${enforcement}' — treated as active`);
+      enforcement = "active";
+    }
     docs.push({
       type: { id: AZURE_POLICY_MIN_REVIEWERS_TYPE },
-      isEnabled: true,
-      isBlocking: true,
+      isEnabled: enforcement !== "disabled",
+      isBlocking: enforcement === "active",
       settings: {
         scope: [{ repositoryId: repoGuid, matchKind: "exact", refName: `refs/heads/${branch}` }],
-        minimumApproverCount: minReviewers,
+        minimumApproverCount: typeof count === "number" ? count : 1,
         creatorVoteCounts: false,
         allowDownvotes: false,
-        resetOnSourcePush: false,
+        resetOnSourcePush: params["dismiss_stale_reviews_on_push"] === true,
       },
     });
   }
@@ -89,34 +120,20 @@ export function translateRuleset(
   return docs;
 }
 
-interface PolicyConfig {
-  id: number;
-  type?: { id?: string; displayName?: string };
-  isEnabled?: boolean;
-  settings?: { displayName?: string; scope?: Array<{ repositoryId?: string }> };
-}
-
 /** List a repo's policy configurations, seam-shaped [{id,name,enforcement}]. */
 export async function orgRulesetsList(repo: string): Promise<string> {
   const guid = await repoGuidShared(repo);
-  const r = await azureHttp<{ value?: PolicyConfig[] }>("GET", `${policyBase(repo)}/configurations`);
-  const rows = (r.value ?? [])
-    .filter((c) => c.settings?.scope?.[0]?.repositoryId === guid)
-    .map((c) => ({
-      id: String(c.id),
-      name: c.type?.displayName ?? c.settings?.displayName ?? "policy",
-      enforcement: c.isEnabled === true ? "active" : "disabled",
-    }));
+  const rows = (await listPolicyConfigurations(policyBase(repo), guid)).map((c) => ({
+    id: String(c.id),
+    name: c.type?.displayName ?? c.settings?.displayName ?? "policy",
+    enforcement: c.isEnabled === true ? "active" : "disabled",
+  }));
   return JSON.stringify(rows);
 }
 
 /** Get one policy configuration (raw JSON). */
 export async function orgRulesetGet(repo: string, policyId: string): Promise<unknown> {
   return azureHttp("GET", `${policyBase(repo)}/configurations/${policyId}`);
-}
-
-interface ExistingConfig extends PolicyConfig {
-  settings: { scope?: Array<{ repositoryId?: string; refName?: string }> } & Record<string, unknown>;
 }
 
 /** Shared write path: for each branch × translated policy, update in place
@@ -132,20 +149,13 @@ async function writeTranslated(
   const defaultBranch = await reposDefaultBranch(repo);
   const branches = rulesetBranches(payload, defaultBranch);
   if (branches.length === 0) noBranchError(verb);
-  const existing = await azureHttp<{ value?: ExistingConfig[] }>(
-    "GET",
-    `${base}/configurations`,
-  );
+  const existing = await listPolicyConfigurations(base, guid, AZURE_POLICY_MIN_REVIEWERS_TYPE);
   let created = 0;
   for (const branch of branches) {
     for (const policy of translateRuleset(payload, guid, branch)) {
       const ref = (policy.settings as { scope: Array<{ refName: string }> }).scope[0]!.refName;
-      const hit = (existing.value ?? []).find(
-        (c) =>
-          c.type?.id === AZURE_POLICY_MIN_REVIEWERS_TYPE &&
-          c.settings?.scope?.[0]?.repositoryId === guid &&
-          c.settings?.scope?.[0]?.refName === ref,
-      );
+      const hit = existing.find((c) => (c.settings?.scope ?? []).some((e) => e.repositoryId === guid && e.refName === ref));
+      if (hit !== undefined) assertSingleScope(hit);
       if (hit !== undefined) {
         await azureHttp("PUT", `${base}/configurations/${hit.id}`, {
           body: JSON.stringify(policy),
@@ -193,17 +203,14 @@ export async function orgRulesetUpdate(
   // check is the state after: a policy still matching the payload's branches
   // was reused, anything else matching the id is retired.
   if (policyId === "") return;
-  const existing = await azureHttp<{ value?: ExistingConfig[] }>(
-    "GET",
-    `${base}/configurations`,
-  );
-  const replaced = (existing.value ?? []).find((c) => String(c.id) === policyId);
-  if (
-    replaced !== undefined &&
-    replaced.type?.id === AZURE_POLICY_MIN_REVIEWERS_TYPE &&
-    replaced.settings?.scope?.[0]?.repositoryId === guid
-  ) {
-    const ref = replaced.settings.scope?.[0]?.refName ?? "";
+  const existing = await listPolicyConfigurations(base, guid, AZURE_POLICY_MIN_REVIEWERS_TYPE);
+  const replaced: PolicyConfiguration | undefined = existing.find((c) => String(c.id) === policyId);
+  // A policy that names no branch (portal-made, prefix match) has nothing the
+  // payload could have moved away from: it is left alone.
+  const ref = replaced?.settings?.scope?.find((e) => e.repositoryId === guid)?.refName ?? "";
+  // A policy shared with other scopes would lose them on deletion: it is left
+  // alone, like one that names no branch.
+  if (replaced !== undefined && policyOnRepo(replaced, guid) && ref !== "" && (replaced.settings?.scope ?? []).length === 1) {
     const defaultBranch = await reposDefaultBranch(repo);
     const payloadBranches = rulesetBranches(payload, defaultBranch).map(
       (b) => `refs/heads/${b}`,

@@ -324,6 +324,17 @@ default-branch ref resolution, cancel, rerun, download with `-n`/`-D`).
 | Ruleset conditions (target branches) | Policy `matchKind`/`pattern` on ref | — |
 | Require PR / reviews / status checks | Minimum reviewers, build validation policies | Policy ids differ per repo — the policy tools name a default set |
 
+Translation: only the `pull_request` rule becomes a policy (minimum
+reviewers, with `dismiss_stale_reviews_on_push` as `resetOnSourcePush`). Every
+other rule type, and every `pull_request` parameter without an Azure setting,
+is named in one warning, once per name. The payload's `enforcement` maps to
+the policy's flags: `active` is enabled and blocking, `evaluate` enabled and
+non-blocking, `disabled` disabled. Configuration reads page through every
+result; the repository and policy-type filters are sent and applied again on
+our side. An existing policy is found through any of its scope entries, but a
+policy that covers several scopes is never rewritten or retired (the portal is
+the place to edit it), and neither is one that names no branch.
+
 Constraint: there is no org-level ruleset API surface; parity means the
 **the repo-create flow and the policy tools apply the standard policy set per repo**.
 the repository-type and policy-export consumers map onto policy-configuration
@@ -341,7 +352,11 @@ releases are git tags; `provider_org_releases_list` reads
 `refs?filter=tags/` and projects the gh release shape (tagName, name,
 publishedAt ← tagger date, isPrerelease ← semver-heuristic,
 isDraft ← false — azure has no draft tags). `--json`/`-q` follow gh list
-semantics. semantic-release's publish step becomes exec-plugin tag+push
+semantics. Tags are ordered by semantic-version precedence (a release above
+its prereleases, prerelease identifiers compared left to right with numeric
+ones numerically, so `rc.10` is above `rc.2`, build metadata ignored). A
+refused credential while reading a tag date fails the listing; a missing date
+is blank. semantic-release's publish step becomes exec-plugin tag+push
 (fork-side concern, outside this provider). The smoke lists releases of a
 real repository; ordering, prerelease detection and dates are asserted by the Azure
 provider suites in `tools/tests/ts/`.
@@ -351,7 +366,8 @@ provider suites in `tools/tests/ts/`.
 The packages reads of the artifact tools ride the domain verbs
 (`provider_org_packages_list` / `provider_org_package_versions`) —
 never raw `provider_api` pagination. Azure implements the list verb
-against org-level Artifacts feeds (`feeds.dev.azure.com/_apis/packaging/feeds`,
+against the organization's and the project's Artifacts feeds, each once
+(`feeds.dev.azure.com/{org}/[{project}/]_apis/packaging/feeds`,
 PAT needs packaging scopes — an environment prerequisite), same source as
 `provider_org_feeds_list`. GH Packages is per-user; azure feeds are
 org-scoped — the shapes differ accordingly (the smoke lists the org's

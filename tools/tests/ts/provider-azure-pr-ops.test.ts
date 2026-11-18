@@ -142,3 +142,21 @@ describe("prsDiff", () => {
     expect(stub.requests).toHaveLength(0);
   });
 });
+
+describe("PR branch refs", () => {
+  it("does not prefix a head or base that is already a full ref", async () => {
+    const stub = stubAzureFetch([
+      { method: "GET", url: /pullrequests\?status=active/, respond: azureJson({ value: [] }) },
+    ]);
+    await prsList("widgets", { head: "refs/heads/topic", base: "refs/heads/main" });
+    const url = stub.requests[0]?.url ?? "";
+    expect(url).toContain("sourceRefName=refs%2Fheads%2Ftopic");
+    expect(url).toContain("targetRefName=refs%2Fheads%2Fmain");
+  });
+
+  it("does the same on create", async () => {
+    const stub = stubAzureFetch([{ method: "POST", url: PRS_URL, respond: azureJson({ pullRequestId: 5 }) }]);
+    await prsCreate("widgets", { title: "t", head: "refs/heads/topic", base: "main" });
+    expect(stub.requests[0]?.body).toMatchObject({ sourceRefName: "refs/heads/topic", targetRefName: "refs/heads/main" });
+  });
+});
