@@ -1185,7 +1185,7 @@ async function checkThreads(
   const a = nodes.filter((n) => n.id.endsWith(`/${thA}`));
   probe("threads_page lists thread under its real id and unresolved", a.length === 1 && a[0]!.isResolved === false);
   const b = nodes.find((n) => n.id.endsWith(`/${thB}`));
-  const db = b?.comments[0]?.id ?? "";
+  const db = b?.comments.nodes[0]?.databaseId ?? "";
   if (db !== "") {
     await prsThreadReply(repo, pr, db, "wrapper-addressed reply");
     const rawAfter = await rawGet(`${prBase}/pullrequests/${pr}/threads/${thB}`);

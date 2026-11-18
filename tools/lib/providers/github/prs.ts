@@ -159,7 +159,9 @@ export async function prsComment(
 // ---------------------------------------------------------------------------
 
 export interface GhComment {
-  id: number;
+  /** The id a reply addresses: GitHub's numeric databaseId, or an Azure
+   * '<thread>/<comment>' token. */
+  id: number | string;
   nodeId: string;
   author?: { login?: string };
   body: string;

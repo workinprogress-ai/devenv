@@ -156,7 +156,7 @@ async function main(argv: string[]): Promise<number> {
           pullRequest?: {
             reviewThreads?: {
               pageInfo: { hasNextPage: boolean; endCursor?: string };
-              nodes: Array<GhThread & { comments: { nodes: Array<GhThread["comments"]["nodes"][number] & { databaseId?: number; id: string }> } }>;
+              nodes: Array<GhThread & { comments: { nodes: Array<GhThread["comments"]["nodes"][number] & { databaseId?: number | string; id: string }> } }>;
             };
           };
         };
@@ -192,7 +192,7 @@ async function main(argv: string[]): Promise<number> {
         comments: {
           ...t.comments,
           nodes: t.comments.nodes.map((c) => {
-            const raw = c as unknown as { id: string; databaseId?: number; author?: { login?: string }; body: string; createdAt?: string; url?: string };
+            const raw = c as unknown as { id: string; databaseId?: number | string; author?: { login?: string }; body: string; createdAt?: string; url?: string };
             return {
               id: raw.databaseId ?? 0,
               nodeId: raw.id,
