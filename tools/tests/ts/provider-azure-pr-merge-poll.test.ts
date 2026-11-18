@@ -8,6 +8,8 @@ import { prsMerge } from "../../lib/providers/azure/prs.ts";
 
 const PR_URL = "https://dev.azure.com/test-org/test-project/_apis/git/repositories/widgets/pullrequests/11912?api-version=7.1";
 
+const REFS_URL = "https://dev.azure.com/test-org/test-project/_apis/git/repositories/widgets/refs?filter=heads%2Ffixture&api-version=7.1";
+
 let restoreEnv: () => void = () => {};
 const saved: Record<string, string | undefined> = {};
 const KEYS = ["AZURE_PR_MERGE_POLL_ATTEMPTS", "AZURE_PR_MERGE_POLL_INTERVAL"] as const;
@@ -32,13 +34,20 @@ afterEach(() => {
  * the initial PR read). */
 async function pollsFor(attempts: string): Promise<number> {
   process.env["AZURE_PR_MERGE_POLL_ATTEMPTS"] = attempts;
-  const pr = { ...azureFixture<Record<string, unknown>>("pullrequest.completed.json"), status: "active" };
+  const pr = {
+    ...azureFixture<Record<string, unknown>>("pullrequest.completed.json"),
+    status: "active",
+    mergeStatus: "succeeded",
+    sourceRefName: "refs/heads/fixture",
+    lastMergeSourceCommit: { commitId: "abc123" },
+  };
   const stub = stubAzureFetch([
     { method: "GET", url: PR_URL, respond: azureJson(pr) },
+    { method: "GET", url: REFS_URL, respond: azureJson({ value: [{ name: "refs/heads/fixture", objectId: "abc123" }] }) },
     { method: "PATCH", url: PR_URL, respond: azureJson(pr) },
   ]);
   await expect(prsMerge("widgets", 11912)).rejects.toThrow(/is not completed after \d+ checks/);
-  return stub.requests.filter((r) => r.method === "GET").length - 1;
+  return stub.requests.filter((r) => r.method === "GET" && r.url === PR_URL).length - 1;
 }
 
 describe("prsMerge poll attempts", () => {

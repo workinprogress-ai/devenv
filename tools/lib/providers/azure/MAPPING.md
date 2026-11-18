@@ -61,10 +61,19 @@ don't re-derive them:
   capture strips the trailing newline on read and writes drop one
   trailing newline first — the pairing keeps round trips
   trailing-newline-insensitive.
-- **PR completion is a three-step**: PATCH `{"mergeStrategy":"rebase"}`
-  → GET the PR → PATCH `{"status":"completed","deleteSourceBranch":true,
-  "lastMergeSourceCommit":{"commitId":...}}`. The echoed commitId is
-  REQUIRED — without it Azure accepts the PATCH but the PR stays active.
+- **PR completion is one PATCH, after a GET**: GET the PR for its
+  `lastMergeSourceCommit`, then PATCH `{"status":"completed",
+  "lastMergeSourceCommit":{"commitId":...},"completionOptions":{
+  "mergeStrategy":"rebase","deleteSourceBranch":true}}`. The echoed commitId
+  is REQUIRED — without it Azure accepts the PATCH but the PR stays active.
+  (`rebase` is the default; `squash` and `noFastForward` are the other
+  requestable values.) The strategy MUST be inside `completionOptions` on the completing PATCH:
+  a top-level `mergeStrategy` (for example in a separate earlier PATCH) is
+  silently ignored and Azure then applies its default, `noFastForward`, a
+  two-parent merge commit. `prsMerge` therefore compares the completed PR's
+  `completionOptions.mergeStrategy` with the requested one and reports a
+  mismatch as an error. This is a detection, not a prevention: the PR is
+  already completed by then, so the error says so.
 - **PR create/merge are repo-scoped**: the org-wide pullrequests endpoint
   is a list endpoint only; create/update verbs must target
   `_apis/git/repositories/{repo}/pullrequests`.
@@ -237,7 +246,8 @@ workflow's column vocabulary, configured in the Azure project by an admin.
 View projection: `provider_prs_view` emits every field in pr-get's
 DEFAULT_FIELDS non-null. Mapping: mergeable/mergeStateStatus derive from
 Azure's `mergeStatus` (conflicts → CONFLICTING/DIRTY, succeeded →
-MERGEABLE/CLEAN, else UNKNOWN); `labels` are the PR's own labels (removed
+MERGEABLE/CLEAN, rejectedByPolicy → UNKNOWN/BLOCKED, failure →
+UNKNOWN/DIRTY, else UNKNOWN); `labels` are the PR's own labels (removed
 ones are inactive and left out); `reviewRequests`, `milestone`,
 `comments`, `reviews` are typed empties — supplementary fetches (threads,
 iterations) wait until a consumer needs real values. `isDraft` falls back
@@ -248,10 +258,18 @@ to false.
 as well. The list pages with `$top`/`$skip` (the API has no continuation
 token) until a short page, and `--limit` stops the paging early.
 
-**Merge.** One completion PATCH carries `lastMergeSourceCommit` (fetched
-first; without it Azure leaves the PR active) and `completionOptions`:
-`mergeStrategy`, `deleteSourceBranch`, `mergeCommitMessage` (subject and
-body) and, for `--admin`, `bypassPolicy`. Completion is asynchronous — right
+**Merge.** The verb first reads the PR and waits while `mergeStatus` is
+`queued` or `notSet` (the same poll limits as below), because
+`lastMergeSourceCommit` is the commit of the last merge simulation and is
+stale right after a push. It then resolves the source branch's real tip
+(`refs?filter=heads/<branch>`) and refuses unless the tip equals that
+commit (and `matchHeadCommit`, when given); a fork PR skips the tip check
+(its branch is in another repository) and a completed or abandoned PR is
+named as such. One completion PATCH carries
+`lastMergeSourceCommit` (without it Azure leaves the PR active) and
+`completionOptions`: `mergeStrategy`, `deleteSourceBranch`,
+`mergeCommitMessage` (subject and body) and, for `--admin`, `bypassPolicy`
+with a `bypassReason`. Completion is asynchronous — right
 after the PATCH the PR is `active` with `mergeStatus: queued` — so the verb
 polls (`AZURE_PR_MERGE_POLL_ATTEMPTS`, default 30, every
 `AZURE_PR_MERGE_POLL_INTERVAL` seconds, default 2) until the PR is
@@ -264,11 +282,13 @@ identities API on the `vssps` host and must match exactly one identity, else
 the reviewer is reported and skipped while the PR stands. Azure pull requests
 have no assignee, so `--assignee` is reported as ignored. A description past
 Azure's 4000-character limit is cut and the full text is posted as the PR's
-first comment.
+first comment; if that comment fails the PR number is still returned and a
+warning is printed.
 
 **Diff.** Azure has no endpoint that returns patch text. `provider_prs_diff`
 lists the changed files of the latest iteration: one path per line with
-`--name-only`, otherwise one `{"path","changeType"}` object per line. A
+`--name-only`, otherwise one `{"path","changeType"}` object per line (a renamed file also
+carries `originalPath`). A
 caller that needs patch text diffs the two commits in a local clone.
 
 **Review threads.** `pr-threads-get` emits thread ids as `<pr>/<thread>` and
