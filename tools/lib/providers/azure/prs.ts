@@ -86,9 +86,12 @@ interface AzurePr {
   creationDate?: string;
   closedDate?: string;
   mergeFailureMessage?: string;
+  completionOptions?: { mergeStrategy?: string };
   createdBy?: { displayName?: string };
   labels?: Array<{ name: string; active?: boolean }>;
   repository?: { webUrl?: string };
+  /** Present when the source branch lives in a fork. */
+  forkSource?: unknown;
 }
 
 function mapListPr(p: AzurePr): Record<string, unknown> {
@@ -137,12 +140,16 @@ function mapViewPr(p: AzurePr): Record<string, unknown> {
         : mergeStatus === "succeeded"
           ? "MERGEABLE"
           : "UNKNOWN",
+    // rejectedByPolicy is a definite block, not "not computed yet"; a failed
+    // merge simulation cannot be merged as is, so it reads as DIRTY.
     mergeStateStatus:
-      mergeStatus === "conflicts"
+      mergeStatus === "conflicts" || mergeStatus === "failure"
         ? "DIRTY"
-        : mergeStatus === "succeeded"
-          ? "CLEAN"
-          : "UNKNOWN",
+        : mergeStatus === "rejectedByPolicy"
+          ? "BLOCKED"
+          : mergeStatus === "succeeded"
+            ? "CLEAN"
+            : "UNKNOWN",
     url: `${p.repository?.webUrl ?? ""}/pullrequest/${String(p.pullRequestId ?? "")}`,
     createdAt: p.creationDate ?? "",
     updatedAt: p.closedDate ?? p.creationDate ?? "",
@@ -234,6 +241,18 @@ export interface PrsListOptions {
   jq?: string;
 }
 
+/** The --search dialect as a predicate on a mapped PR: "head:<branch>" is an
+ * exact source-branch match, anything else is a case-insensitive title match. */
+function searchPredicate(search: string | undefined): ((r: Record<string, unknown>) => boolean) | undefined {
+  if (search === undefined || search === "") return undefined;
+  if (search.startsWith("head:")) {
+    const h = search.slice("head:".length);
+    return (r) => r.headRefName === h;
+  }
+  const t = search.toLowerCase();
+  return (r) => String(r.title ?? "").toLowerCase().includes(t);
+}
+
 /** List PRs. Pages $top/$skip until a short page; state=closed is fetched as
  * all with still-active PRs dropped per page. */
 export async function prsList(
@@ -249,6 +268,9 @@ export async function prsList(
   if (opts.base !== undefined && opts.base !== "") {
     api += `&searchCriteria.targetRefName=${azureUri(`refs/heads/${opts.base}`)}`;
   }
+  // The search is applied per page, before the limit is counted, so a match
+  // beyond the first --limit PRs is still found.
+  const matches = searchPredicate(opts.search);
   const collected: AzurePr[] = [];
   let skip = 0;
   for (;;) {
@@ -256,7 +278,9 @@ export async function prsList(
     if (opts.limit !== undefined) {
       const remaining = opts.limit - collected.length;
       if (remaining <= 0) break;
-      if (remaining < top) top = remaining;
+      // With a search active the page is filtered after it is fetched, so a
+      // page trimmed to the remaining count would crawl one PR per request.
+      if (remaining < top && matches === undefined) top = remaining;
     }
     // An empty 2xx body resolves to undefined: that is an empty page.
     const page =
@@ -264,20 +288,12 @@ export async function prsList(
     let items = page.value ?? [];
     const got = items.length;
     if (state === "closed") items = items.filter((p) => p.status !== "active");
+    if (matches !== undefined) items = items.filter((p) => matches(mapListPr(p)));
     collected.push(...items);
     skip += got;
     if (got < top) break;
   }
-  let mapped = collected.map(mapListPr);
-  if (opts.search !== undefined && opts.search !== "") {
-    if (opts.search.startsWith("head:")) {
-      const h = opts.search.slice("head:".length);
-      mapped = mapped.filter((r) => r.headRefName === h);
-    } else {
-      const t = opts.search;
-      mapped = mapped.filter((r) => (r.title as string ?? "").includes(t));
-    }
-  }
+  const mapped = (opts.limit !== undefined ? collected.slice(0, opts.limit) : collected).map(mapListPr);
   if (opts.json !== undefined || opts.jq !== undefined) {
     return renderListFlags(mapped, opts);
   }
@@ -318,6 +334,9 @@ export async function prsDiff(
   number: number,
   opts: PrsDiffOptions = {},
 ): Promise<string> {
+  if (!Number.isInteger(number)) {
+    throw new ProviderError("prs_diff requires a PR number");
+  }
   const base = prBase(repo);
   const iterations = await azureHttp<{ value?: Array<{ id?: number }> }>(
     "GET",
@@ -325,11 +344,11 @@ export async function prsDiff(
   );
   const ids = (iterations.value ?? []).map((i) => i.id ?? 0);
   const latestIter = ids.length > 0 ? Math.max(...ids) : 1;
-  const changes: Array<{ item?: { path?: string }; changeType?: string }> = [];
+  const changes: Array<{ item?: { path?: string }; originalPath?: string; changeType?: string }> = [];
   let skip = 0;
   for (;;) {
     const page = await azureHttp<{
-      changes?: Array<{ item?: { path?: string }; changeType?: string }>;
+      changes?: Array<{ item?: { path?: string }; originalPath?: string; changeType?: string }>;
       nextSkip?: number;
     }>(
       "GET",
@@ -346,7 +365,13 @@ export async function prsDiff(
     return changes.map((c) => c.item?.path ?? "").join("\n");
   }
   return changes
-    .map((c) => JSON.stringify({ path: c.item?.path ?? "", changeType: c.changeType ?? "" }))
+    .map((c) =>
+      JSON.stringify({
+        path: c.item?.path ?? "",
+        ...(c.originalPath !== undefined && c.originalPath !== "" ? { originalPath: c.originalPath } : {}),
+        changeType: c.changeType ?? "",
+      }),
+    )
     .join("\n");
 }
 
@@ -356,6 +381,9 @@ export async function prsDiff(
 
 /** Resolve a reviewer to the identity id Azure takes: a GUID as-is; an
  * email/account/display name through the identities API, exactly one match. */
+/** The reviewer lookup answered, but not with exactly one identity. */
+class ReviewerUnresolved extends ProviderError {}
+
 async function reviewerId(who: string): Promise<string> {
   if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(who)) {
     return who;
@@ -367,7 +395,7 @@ async function reviewerId(who: string): Promise<string> {
   );
   const list = r.value ?? [];
   if (list.length !== 1) {
-    throw new ProviderError(`reviewer '${who}' did not resolve to exactly one identity`);
+    throw new ReviewerUnresolved(`reviewer '${who}' did not resolve to exactly one identity`);
   }
   return list[0]!.id;
 }
@@ -413,8 +441,17 @@ export async function prsCreate(
   };
   if (opts.reviewers !== undefined && opts.reviewers.length > 0) {
     const ids: string[] = [];
-    for (const r of opts.reviewers) ids.push(await reviewerId(r));
-    payload.reviewers = ids.map((id) => ({ id }));
+    for (const r of opts.reviewers) {
+      try {
+        ids.push(await reviewerId(r));
+      } catch (e) {
+        // An unresolvable reviewer is reported and skipped; the PR still opens.
+        // A failed lookup (auth, network) is not "unresolved" and stays fatal.
+        if (!(e instanceof ReviewerUnresolved)) throw e;
+        console.error(`WARN: prs_create: skipping reviewer '${r}': ${e.message}`);
+      }
+    }
+    if (ids.length > 0) payload.reviewers = ids.map((id) => ({ id }));
   }
   if (opts.labels !== undefined && opts.labels.length > 0) {
     payload.labels = opts.labels.map((name) => ({ name }));
@@ -426,7 +463,14 @@ export async function prsCreate(
   );
   const number = r.pullRequestId ?? 0;
   if (opts.body !== undefined && opts.body.length > AZURE_PR_DESCRIPTION_MAX) {
-    await prsComment(repo, number, { body: opts.body });
+    try {
+      await prsComment(repo, number, { body: opts.body });
+    } catch (e) {
+      // The PR exists: losing its number would invite a duplicate on retry.
+      console.error(
+        `WARN: prs_create: PR ${number} was created, but posting the full description as a comment failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
   }
   return number;
 }
@@ -452,6 +496,22 @@ function envNonNegativeInt(name: string, fallback: number): number {
   return Number(raw.trim());
 }
 
+/** mergeStatus values meaning the merge simulation has not finished. */
+const UNSETTLED_MERGE_STATUS = ["queued", "notSet"];
+
+/** The current commit of a PR's source branch, or undefined when the ref
+ * cannot be resolved (the filter is a prefix match, so the name is compared
+ * exactly). */
+async function sourceBranchTip(repo: string, sourceRefName: string | undefined): Promise<string | undefined> {
+  if (sourceRefName === undefined || !sourceRefName.startsWith("refs/heads/")) return undefined;
+  const r = await azureHttp<{ value?: Array<{ name?: string; objectId?: string }> }>(
+    "GET",
+    `${prBase(repo)}/refs?filter=${azureUri(sourceRefName.slice("refs/".length))}`,
+  );
+  const id = (r?.value ?? []).find((x) => x.name === sourceRefName)?.objectId;
+  return id === undefined || id === "" ? undefined : id;
+}
+
 /** Merge (complete) a PR. Guards with lastMergeSourceCommit (Azure would
  * accept the PATCH but leave the PR active without it), then polls the
  * asynchronous completion to a terminal state. */
@@ -468,16 +528,48 @@ export async function prsMerge(
   }
   const method = opts.method ?? "rebase";
   const prUrl = `${prBase(repo)}/pullrequests/${number}`;
-  const pr = await azureHttp<AzurePr>("GET", prUrl);
+  // Poll limits are shared by the pre-completion settle and the post-completion
+  // wait below (the bash module's env-tunables).
+  const attempts = envNonNegativeInt("AZURE_PR_MERGE_POLL_ATTEMPTS", 30);
+  const interval = envNonNegativeInt("AZURE_PR_MERGE_POLL_INTERVAL", 2);
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  let pr = await azureHttp<AzurePr>("GET", prUrl);
+  // lastMergeSourceCommit is the commit of the last, asynchronous, merge
+  // simulation: right after a push it is stale until mergeStatus settles.
+  for (let settling = 0; UNSETTLED_MERGE_STATUS.includes(pr.mergeStatus ?? ""); settling++) {
+    if (settling >= attempts) {
+      throw new ProviderError(
+        `PR ${number} merge status is still ${pr.mergeStatus} after ${settling} checks — Azure has not finished evaluating the latest push; retry shortly`,
+      );
+    }
+    await sleep(interval * 1000);
+    pr = await azureHttp<AzurePr>("GET", prUrl);
+  }
+  if (pr.status === "completed" || pr.status === "abandoned") {
+    throw new ProviderError(`PR ${number} is ${pr.status}, not active — nothing to complete`);
+  }
   const commitId = pr.lastMergeSourceCommit?.commitId ?? "";
   if (commitId === "") {
     throw new ProviderError(
       `could not resolve lastMergeSourceCommit for PR ${number} — refusing to complete without it (Azure would accept the PATCH but leave the PR active)`,
     );
   }
-  if (opts.matchHeadCommit !== undefined && opts.matchHeadCommit !== "" && opts.matchHeadCommit !== commitId) {
+  // A fork PR's source branch lives in another repository, so the branch-tip
+  // cross-check cannot be made here; the evaluated commit stands in for it.
+  const tip = pr.forkSource !== undefined ? commitId : await sourceBranchTip(repo, pr.sourceRefName);
+  if (tip === undefined) {
     throw new ProviderError(
-      `PR ${number} head ${commitId} does not match the expected head ${opts.matchHeadCommit} — refusing to complete`,
+      `could not resolve the tip of ${pr.sourceRefName ?? "the source branch"} for PR ${number} — refusing to complete`,
+    );
+  }
+  if (tip !== commitId) {
+    throw new ProviderError(
+      `PR ${number} source branch is at ${tip}, but Azure last evaluated ${commitId} — refusing to complete until the merge status catches up`,
+    );
+  }
+  if (opts.matchHeadCommit !== undefined && opts.matchHeadCommit !== "" && opts.matchHeadCommit !== tip) {
+    throw new ProviderError(
+      `PR ${number} head ${tip} does not match the expected head ${opts.matchHeadCommit} — refusing to complete`,
     );
   }
   let message = opts.subject ?? "";
@@ -492,6 +584,7 @@ export async function prsMerge(
   };
   if (opts.admin === true) {
     completionOptions.bypassPolicy = true;
+    completionOptions.bypassReason = "Bypassed by a devenv pr-merge --admin request";
     console.error("INFO: azure merge: admin mapped to completionOptions.bypassPolicy (policy checks bypassed)");
   }
   if (message !== "") completionOptions.mergeCommitMessage = message;
@@ -503,14 +596,21 @@ export async function prsMerge(
     }),
   });
   // Completion is asynchronous: poll until completed, abandoned, or a failure
-  // surface. Defaults: 30 checks, 2s apart (the bash module's env-tunables).
-  const attempts = envNonNegativeInt("AZURE_PR_MERGE_POLL_ATTEMPTS", 30);
-  const interval = envNonNegativeInt("AZURE_PR_MERGE_POLL_INTERVAL", 2);
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // surface. Defaults: 30 checks, 2s apart.
   for (let polled = 0; ; polled++) {
     const prStatus = response.status ?? "";
     const mergeStatus = response.mergeStatus ?? "";
-    if (prStatus === "completed") return response as unknown as Record<string, unknown>;
+    if (prStatus === "completed") {
+      // Azure silently applies its default (noFastForward, a merge commit)
+      // when the strategy was not honored, so verify what it recorded.
+      const recorded = response.completionOptions?.mergeStrategy;
+      if (recorded !== method) {
+        throw new ProviderError(
+          `PR ${number} was completed, but not with the requested merge strategy: requested ${method}, Azure recorded ${recorded ?? "unset"}`,
+        );
+      }
+      return response as unknown as Record<string, unknown>;
+    }
     if (prStatus === "abandoned") {
       throw new ProviderError(`PR ${number} is abandoned, not completed`);
     }

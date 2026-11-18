@@ -51,10 +51,19 @@ function stubAzure(pr: Record<string, unknown> = {}): Req[] {
     const u = String(url);
     const method = init?.method ?? "GET";
     reqs.push({ method, url: u, body: init?.body ? JSON.parse(String(init.body)) : undefined });
-    if (method === "GET") {
-      return new Response(JSON.stringify({ lastMergeSourceCommit: { commitId: "abc123" }, ...pr }), { status: 200 });
+    if (method === "GET" && u.includes("/refs?")) {
+      return new Response(JSON.stringify({ value: [{ name: "refs/heads/feat", objectId: "abc123" }] }), { status: 200 });
     }
-    return new Response(JSON.stringify({ id: 5, status: "completed" }), { status: 200 });
+    if (method === "GET") {
+      return new Response(
+        JSON.stringify({ lastMergeSourceCommit: { commitId: "abc123" }, sourceRefName: "refs/heads/feat", mergeStatus: "succeeded", ...pr }),
+        { status: 200 },
+      );
+    }
+    // A completion PATCH answers with the completion options Azure recorded
+    // (here: the ones requested), as a PR that honored the strategy does.
+    const sent = init?.body ? (JSON.parse(String(init.body)) as { completionOptions?: unknown }) : {};
+    return new Response(JSON.stringify({ id: 5, status: "completed", completionOptions: sent.completionOptions }), { status: 200 });
   }) as unknown as typeof fetch);
   return reqs;
 }
