@@ -157,22 +157,31 @@ function mapViewPr(p: AzurePr): Record<string, unknown> {
 // List-flag rendering (same seam semantics as the issues module)
 // ---------------------------------------------------------------------------
 
+function projectFields(
+  rows: Array<Record<string, unknown>>,
+  json: string | undefined,
+): Array<Record<string, unknown>> {
+  if (json === undefined) return rows;
+  const fields = json.split(",").map((f) => f.trim());
+  return rows.map((rec) => {
+    const proj: Record<string, unknown> = {};
+    for (const f of fields) {
+      if (!(f in rec)) throw new ProviderError(`unsupported --json field '${f}'`);
+      proj[f] = rec[f] ?? null;
+    }
+    return proj;
+  });
+}
+
+function scalarText(v: unknown): string {
+  return v === undefined || v === null ? "" : typeof v === "string" ? v : JSON.stringify(v);
+}
+
 function renderListFlags(
   rows: Array<Record<string, unknown>>,
   opts: { json?: string; jq?: string },
 ): string {
-  let out = rows;
-  if (opts.json !== undefined) {
-    const fields = opts.json.split(",").map((f) => f.trim());
-    out = rows.map((rec) => {
-      const proj: Record<string, unknown> = {};
-      for (const f of fields) {
-        if (!(f in rec)) throw new ProviderError(`unsupported --json field '${f}'`);
-        proj[f] = rec[f] ?? null;
-      }
-      return proj;
-    });
-  }
+  const out = projectFields(rows, opts.json);
   if (opts.jq !== undefined) {
     const each = /^\.\[\]\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(opts.jq.trim());
     const idx = /^\.\[(\d+)\]\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(opts.jq.trim());
@@ -186,15 +195,27 @@ function renderListFlags(
         .join("\n");
     }
     if (idx?.[1] !== undefined && idx[2] !== undefined) {
-      const rec = out[Number(idx[1])];
-      const v = rec?.[idx[2] as string];
-      return v === undefined || v === null ? "" : typeof v === "string" ? v : JSON.stringify(v);
+      return scalarText(out[Number(idx[1])]?.[idx[2] as string]);
     }
     throw new ProviderError(
       `unsupported jq program '${opts.jq}' — azure pr list supports '.[N].field' and '.[].field'`,
     );
   }
   return JSON.stringify(out);
+}
+
+/** Render one record: `--json` projects fields into a single object and `--jq`
+ * evaluates '.', '.field' or '.[0].field' against that record. */
+function renderRecord(rec: Record<string, unknown>, opts: { json?: string; jq?: string }): string {
+  const [projected = {}] = projectFields([rec], opts.json);
+  if (opts.jq === undefined) return JSON.stringify(projected);
+  const program = opts.jq.trim();
+  if (program === ".") return JSON.stringify(projected);
+  const field = /^\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(program) ?? /^\.\[0\]\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(program);
+  if (field?.[1] !== undefined) return scalarText(projected[field[1]]);
+  throw new ProviderError(
+    `unsupported jq program '${opts.jq}' — azure pr view supports '.', '.field' and '.[0].field'`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -282,7 +303,7 @@ export async function prsView(
   const raw = await azureHttp<AzurePr>("GET", `${prBase(repo)}/pullrequests/${number}`);
   const mapped = mapViewPr(raw);
   if (opts.json !== undefined || opts.jq !== undefined) {
-    return renderListFlags([mapped], opts).replace(/^\[/, "").replace(/\]$/, "");
+    return renderRecord(mapped, opts);
   }
   return mapped;
 }
@@ -424,6 +445,14 @@ export interface PrsMergeOptions {
   matchHeadCommit?: string;
 }
 
+/** A non-negative integer from the environment; anything else (unset, empty,
+ * non-numeric, negative, fractional) is the default. */
+function envNonNegativeInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || !/^\d+$/.test(raw.trim())) return fallback;
+  return Number(raw.trim());
+}
+
 /** Merge (complete) a PR. Guards with lastMergeSourceCommit (Azure would
  * accept the PATCH but leave the PR active without it), then polls the
  * asynchronous completion to a terminal state. */
@@ -476,8 +505,8 @@ export async function prsMerge(
   });
   // Completion is asynchronous: poll until completed, abandoned, or a failure
   // surface. Defaults: 30 checks, 2s apart (the bash module's env-tunables).
-  const attempts = Number(process.env.AZURE_PR_MERGE_POLL_ATTEMPTS ?? "30");
-  const interval = Number(process.env.AZURE_PR_MERGE_POLL_INTERVAL ?? "2");
+  const attempts = envNonNegativeInt("AZURE_PR_MERGE_POLL_ATTEMPTS", 30);
+  const interval = envNonNegativeInt("AZURE_PR_MERGE_POLL_INTERVAL", 2);
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   for (let polled = 0; ; polled++) {
     const prStatus = response.status ?? "";
@@ -542,7 +571,9 @@ export interface PrsThread {
   isResolved: boolean;
   path: string | null;
   line: number;
-  comments: Array<{ id: string; nodeId: null; body: string; author: { login: string } }>;
+  comments: {
+    nodes: Array<{ id: string; databaseId: string; body: string; author: { login: string } }>;
+  };
 }
 
 export interface ThreadsPage {
@@ -591,7 +622,7 @@ export async function prsThreadsPage(
   for (const t of response.value ?? []) {
     if (t.isDeleted === true) continue;
     const comments = (t.comments as Array<Record<string, unknown>> | undefined) ?? [];
-    const human = comments.filter((c) => (c.commentType ?? "text") !== "system");
+    const human = comments.filter((c) => (c.commentType ?? "text") !== "system" && c.isDeleted !== true);
     if (human.length === 0) continue;
     const status = (t.status as string | undefined) ?? "unknown";
     const ctx = t.threadContext as Record<string, unknown> | null | undefined;
@@ -604,16 +635,24 @@ export async function prsThreadsPage(
       isResolved: ["fixed", "wontFix", "closed", "byDesign"].includes(status),
       path: (ctx?.filePath as string | undefined) ?? null,
       line: right?.line ?? left?.line ?? 0,
-      comments: human.map((c) => ({
-        id: `${threadId}/${String(c.id ?? "")}`,
-        nodeId: null,
-        body: String(c.content ?? ""),
-        author: {
-          login:
-            (c.author as { displayName?: string } | undefined)?.displayName ??
-            "unknown",
-        },
-      })),
+      comments: {
+        nodes: human.map((c) => {
+          // The reply token pr-thread-reply takes as --comment-id. Azure has no
+          // database/node id split, so the one token fills both id fields the
+          // consumer reads.
+          const token = `${threadId}/${String(c.id ?? "")}`;
+          return {
+            id: token,
+            databaseId: token,
+            body: String(c.content ?? ""),
+            author: {
+              login:
+                (c.author as { displayName?: string } | undefined)?.displayName ??
+                "unknown",
+            },
+          };
+        }),
+      },
     });
   }
   return { data: { repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false, endCursor: null }, nodes } } } } };
@@ -769,7 +808,7 @@ export async function prsThreadResolve(
     { body: JSON.stringify({ status: "fixed" }) },
   );
   const s = r.status ?? "";
-  return s !== "" && s !== "active" && s !== "pending" ? "true" : "unknown";
+  return s !== "" && s !== "active" && s !== "pending" && s !== "unknown" ? "true" : "unknown";
 }
 
 void unknownOption;
