@@ -20,7 +20,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { gitCapture, gitCheck, getDefaultBranch } from "../lib/core/git.ts";
+import { gitCapture, gitCheck, gitInherit, getDefaultBranch } from "../lib/core/git.ts";
 import { toolCli } from "../lib/core/cli.ts";
 import { editorIsNoninteractive } from "../lib/core/editor.ts";
 import { siblingInvocation } from "../lib/core/sibling.ts";
@@ -547,10 +547,12 @@ if (fixLane) {
   console.log(`repo-commit: backup branch ${backup} (recovery: git reset --soft ${backup})`);
 
   // Fixup commit: machine message, hooks run (the commitlint ignores entry
-  // exists precisely so this passes).
-  const fixup = git(["commit", "--fixup=" + targetSha]);
-  if (fixup.status !== 0) {
-    die(`fixup commit failed (hooks?): ${fixup.out.trim()}`, `recovery: the backup branch ${backup} holds the old stack`);
+  // exists precisely so this passes). Hook output must stream live: git
+  // forwards it to stderr, and a slow gate (the full test suite) would
+  // otherwise look like a hang behind a captured, silent spawn.
+  const fixup = gitInherit(null, ["commit", "--fixup=" + targetSha]);
+  if (!fixup.ok) {
+    die("fixup commit failed (hook output above)", `recovery: the backup branch ${backup} holds the old stack`);
   }
 
   // The fold must reproduce the fixup commit's tree exactly: record it first.
