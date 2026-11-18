@@ -153,7 +153,7 @@ describe("azure issuesCreate: post-create verification", () => {
     }) as typeof process.stderr.write);
     stubFetch((r) => {
       if (r.method === "POST" && r.url.includes("/workitems/$")) return json({ id: 77 });
-      if (r.url.includes("/workitemtypes/")) return json({ value: [] });
+      if (/\/test-project\/_apis\/wit\/workitemtypes\//.test(r.url)) return json({ value: [] });
       return json({ message: "TF401232: unavailable" }, 404);
     });
     await expect(issuesCreate("", { title: "t" })).resolves.toBe(77);

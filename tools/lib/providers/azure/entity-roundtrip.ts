@@ -86,7 +86,7 @@ export function bodyFieldFor(type: string): string {
 /** Split an opaque comment ref into work item + comment id. A bare number is
  * rejected with guidance so callers never guess scope. */
 export function splitCommentRef(ref: string): { workItem: string; commentId: string } {
-  if (ref === "" || /[^0-9/]/.test(ref) || ref.split("/").length !== 2) {
+  if (!/^\d+\/\d+$/.test(ref)) {
     throw new ProviderError(
       `azure comment ref '${ref}' is malformed — take the id from issue-comment-list output`,
     );
@@ -111,11 +111,13 @@ export function azureMarkerTransform(body: string): string {
     .split("\n")
     .filter((line) => {
       if (inComment) {
-        if (line.startsWith("-->")) inComment = false;
+        if (line.includes("-->")) inComment = false;
         return false;
       }
       if (line.startsWith("<!--")) {
-        inComment = true;
+        // A comment that closes on its own line is complete: only a comment
+        // left open runs on to a later line.
+        if (!line.includes("-->", 4)) inComment = true;
         return false;
       }
       return true;
@@ -136,19 +138,22 @@ export function azureMarkerTransform(body: string): string {
     "source_file",
     "updated_at_utc",
   ];
-  const lines = body.split("\n");
+  // Only the first marker block names this document; a later block (for
+  // example one quoted as an example in the body) must not add header fields.
   const header: string[] = [];
   let inHeaderComment = false;
-  for (const line of lines) {
-    if (inHeaderComment) {
-      if (line.startsWith("-->")) inHeaderComment = false;
-      const kv = /^([a-z_]+):[ \t]*(.+)$/.exec(line);
-      if (kv && headerKeys.includes(kv[1] as string)) {
-        header.push(`${kv[1]}: ${kv[2]}`);
-      }
+  for (const line of body.split("\n")) {
+    if (!inHeaderComment) {
+      if (line.startsWith("<!-- DEVENV_ARTIFACT_V1")) inHeaderComment = true;
       continue;
     }
-    if (line.startsWith("<!-- DEVENV_ARTIFACT_V1")) inHeaderComment = true;
+    const close = line.indexOf("-->");
+    const content = close === -1 ? line : line.slice(0, close);
+    const kv = /^([a-z_]+):[ \t]*(.+?)[ \t]*$/.exec(content);
+    if (kv && headerKeys.includes(kv[1] as string)) {
+      header.push(`${kv[1]}: ${kv[2]}`);
+    }
+    if (close !== -1) break;
   }
   if (header.length === 0) return `doc_id: ${docId}\n${stripped}`;
   return `${header.join("\n")}\n${stripped}`;
