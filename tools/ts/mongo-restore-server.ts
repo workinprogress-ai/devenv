@@ -93,13 +93,27 @@ if (!existsSync(backupDir)) {
 // forms count as backups: the backup tool's own YYYYMMDD_HHMMSS (local time)
 // and the legacy backup-YYYYMMDD optionally followed by an `_`/`-` separator
 // and up to six more digits of time (a missing time reads as 000000).
-// Anything else returns null.
+// Anything else, including a name whose date or time does not exist on the
+// calendar (month 13, Feb 30, hour 24, a leap second), returns null.
 function backupTimestamp(name: string): string | null {
   const tool = /^(\d{8})_(\d{6})$/.exec(name);
-  if (tool) return `${tool[1]}${tool[2]}`;
+  if (tool) return validTimestamp(`${tool[1]}${tool[2]}`);
   const legacy = /^backup-(\d{8})(?:[_-]?(\d{1,6}))?$/.exec(name);
-  if (legacy) return `${legacy[1]}${(legacy[2] ?? "").padEnd(6, "0")}`;
+  if (legacy) return validTimestamp(`${legacy[1]}${(legacy[2] ?? "").padEnd(6, "0")}`);
   return null;
+}
+
+// Returns the 14-digit key when it is a real calendar date and time of day.
+// A UTC Date built from the parts normalizes overflow (Feb 30 becomes Mar 2),
+// so a mismatch between the parts and the Date's own fields means the input
+// was impossible. Seconds above 59 are rejected outright.
+function validTimestamp(key: string): string | null {
+  const [y, mo, d, h, mi, s] = [key.slice(0, 4), key.slice(4, 6), key.slice(6, 8), key.slice(8, 10), key.slice(10, 12), key.slice(12, 14)].map(Number) as [number, number, number, number, number, number];
+  if (h > 23 || mi > 59 || s > 59) return null;
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  date.setUTCFullYear(y);
+  const real = date.getUTCFullYear() === y && date.getUTCMonth() === mo - 1 && date.getUTCDate() === d;
+  return real ? key : null;
 }
 
 // Pick the latest backup folder. "Latest" means the greatest timestamp parsed

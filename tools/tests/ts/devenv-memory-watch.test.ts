@@ -3,7 +3,7 @@
 import { toolScript } from "./harness/index.ts";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -195,7 +195,7 @@ describe("single-instance lock", () => {
     expect(files.map((f) => readFileSync(join(dir, f), "utf8"))).toEqual(before);
   });
 
-  it("SIGTERM releases the lock, exits promptly and leaves no child process", async () => {
+  it("has no child process to orphan, and SIGTERM releases the lock and exits promptly", async () => {
     const dir = join(TMP, "lock-sigterm");
     const child = await startBackground(dir);
     const kids = spawnSync("pgrep", ["-P", String(child.pid)], { encoding: "utf8" }).stdout.trim();
@@ -206,6 +206,20 @@ describe("single-instance lock", () => {
     expect(existsSync(lockOf(dir))).toBe(false);
   });
 
+  it.skipIf(process.getuid?.() === 0)("an unwritable state directory exits 2 with a clear message", () => {
+    const dir = join(TMP, "lock-unwritable");
+    mkdirSync(dir, { recursive: true });
+    chmodSync(dir, 0o500);
+    try {
+      const r = watch([...ARGS, "--state-dir", dir]);
+      expect(r.status, r.out).toBe(2);
+      expect(r.out).toContain(`cannot create the lock file in ${dir}:`);
+      expect(readdirSync(dir)).toEqual([]);
+    } finally {
+      chmodSync(dir, 0o700);
+    }
+  });
+
   it("an instance never removes a lock that names another live process", async () => {
     const dir = join(TMP, "lock-foreign");
     const child = await startBackground(dir);
@@ -213,6 +227,48 @@ describe("single-instance lock", () => {
     process.kill(child.pid as number, "SIGTERM");
     await exited(child);
     expect(readFileSync(lockOf(dir), "utf8")).toBe(String(process.pid));
+  });
+});
+
+describe("interval cap", () => {
+  const MAX = 35791;
+
+  it("accepts the largest interval whose delay fits the timer limit", () => {
+    const dir = join(TMP, "iv-max");
+    const r = watch(["--once", "--state-dir", dir, "--max-processes", "1", "--interval-minutes", String(MAX)]);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).toContain("Captured sample #1");
+  });
+
+  it("states the maximum in the usage text", () => {
+    expect(watch(["--help"]).out).toContain(`maximum: ${MAX}`);
+  });
+
+  it.each([String(MAX + 1), "99999999999999999999"])("rejects --interval-minutes %s before touching the state directory", (bad) => {
+    const dir = join(TMP, "iv-bad");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "samples.tsv"), "S\t1\t1\t1\tmax\n");
+    const before = [readdirSync(dir).sort(), readFileSync(join(dir, "samples.tsv"), "utf8")];
+    const r = watch(["--once", "--state-dir", dir, "--interval-minutes", bad]);
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain(`at most ${MAX}`);
+    expect([readdirSync(dir).sort(), readFileSync(join(dir, "samples.tsv"), "utf8")]).toEqual(before);
+  });
+});
+
+describe("interval cap with reset", () => {
+  it("rejects an over-cap interval combined with --reset and deletes nothing", () => {
+    const dir = join(TMP, "iv-reset");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "samples.tsv"), "S\t1\t1\t1\tmax\n");
+    writeFileSync(join(dir, "processes.tsv"), "P\t1\t100\tzz | zz\n");
+    const snapshot = (): Array<[string, string]> => readdirSync(dir).sort().map((n) => [n, readFileSync(join(dir, n), "utf8")]);
+    const before = snapshot();
+    const r = watch(["--once", "--reset", "--state-dir", dir, "--interval-minutes", "35792"]);
+    expect(r.status, r.out).toBe(2);
+    expect(r.out).toContain("at most 35791");
+    expect(snapshot()).toEqual(before);
+    expect(before.map(([n]) => n)).toEqual(["processes.tsv", "samples.tsv"]);
   });
 });
 
@@ -285,6 +341,12 @@ describe("retention", () => {
 
   it("keeps rows with an unparsable timestamp", () => {
     const dir = seed("ret-f", [["1", "not-a-time"], ["2", 10], ["3", 1]]);
+    expect(run(dir, []).status).toBe(0);
+    expect(ids(dir, "samples.tsv", "S")).toEqual(["1", "3", "4"]);
+  });
+
+  it.each([["empty", ""], ["whitespace-only", "  "]])("keeps rows with an %s timestamp", (_name, blank) => {
+    const dir = seed("ret-blank", [["1", blank], ["2", 10], ["3", 1]]);
     expect(run(dir, []).status).toBe(0);
     expect(ids(dir, "samples.tsv", "S")).toEqual(["1", "3", "4"]);
   });

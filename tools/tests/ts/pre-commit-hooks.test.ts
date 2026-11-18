@@ -105,7 +105,7 @@ describe("pre-commit hooks", () => {
 
 describe("husky pre-commit type and lint gates", () => {
   /** Stage one file in a fixture repo carrying the real hook and a recording npx stub. */
-  function runHookStaging(file: string): { status: number; npxCalls: string[] } {
+  function runHookStaging(file: string, extraEnv: Record<string, string> = {}): { status: number; npxCalls: string[]; out: string } {
     const dir = mkdtempSync(join(tmpdir(), "husky-gate-"));
     try {
       sh("git init -q", dir);
@@ -119,10 +119,10 @@ describe("husky pre-commit type and lint gates", () => {
       const r = spawnSync("sh", [join(dir, ".husky/pre-commit")], {
         cwd: dir,
         encoding: "utf8",
-        env: { ...process.env, PATH: `${join(dir, "bin")}:${process.env["PATH"] ?? ""}` },
+        env: { ...process.env, PATH: `${join(dir, "bin")}:${process.env["PATH"] ?? ""}`, DEVENV_GIT_DISABLE_CHECKS: "", ...extraEnv },
       });
       const log = existsSync(join(dir, "npx.log")) ? readFileSync(join(dir, "npx.log"), "utf8") : "";
-      return { status: r.status ?? 1, npxCalls: log.split("\n").filter((l) => l !== "") };
+      return { status: r.status ?? 1, npxCalls: log.split("\n").filter((l) => l !== ""), out: (r.stdout ?? "") + (r.stderr ?? "") };
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -130,6 +130,19 @@ describe("husky pre-commit type and lint gates", () => {
 
   it.each(["eslint.config.js", "tsconfig.json", "package.json", "vitest.config.ts", ".github/workflows/test.yml"])("staging %s runs tsc and eslint", (file) => {
     const r = runHookStaging(file);
+    expect(r.status).toBe(0);
+    expect(r.npxCalls).toEqual(["--no-install tsc --noEmit", "--no-install eslint tools"]);
+  });
+
+  it.each(["1", "true", "TRUE", "yes", "on"])("DEVENV_GIT_DISABLE_CHECKS=%s skips the checks", (value) => {
+    const r = runHookStaging("tsconfig.json", { DEVENV_GIT_DISABLE_CHECKS: value });
+    expect(r.status).toBe(0);
+    expect(r.npxCalls).toEqual([]);
+    expect(r.out).toContain("DEVENV_GIT_DISABLE_CHECKS");
+  });
+
+  it.each(["", "0", "false"])("DEVENV_GIT_DISABLE_CHECKS='%s' keeps the checks on", (value) => {
+    const r = runHookStaging("tsconfig.json", { DEVENV_GIT_DISABLE_CHECKS: value });
     expect(r.status).toBe(0);
     expect(r.npxCalls).toEqual(["--no-install tsc --noEmit", "--no-install eslint tools"]);
   });

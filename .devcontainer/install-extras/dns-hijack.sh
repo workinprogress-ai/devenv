@@ -51,10 +51,29 @@ CONF_FILE="${CONF_DIR}/devenv-split.conf"
     printf '%s\n' "$(cat "${CONFIG_FILE}")"
 } | sudo tee "${CONF_FILE}" > /dev/null
 
-# dns-startup.sh prefers devenv-split.conf; flag any other split file left behind.
+# dnsmasq loads every *.conf file in the directory, so an older *-split.conf
+# would stay live next to devenv-split.conf. Retire it by renaming it to
+# <name>.dpkg-old (never deleting it). dnsmasq reads either only *.conf files or,
+# with Debian's CONFIG_DIR exclusion list, every file except those ending in
+# .dpkg-dist, .dpkg-old or .dpkg-new, so .dpkg-old is skipped under both forms.
+# An existing .dpkg-old file is not overwritten: .dpkg-old.1, .dpkg-old.2, ...
+# is used instead.
 for other in "${CONF_DIR}"/*-split.conf; do
     if [[ -f "${other}" && "${other}" != "${CONF_FILE}" ]]; then
-        echo "⚠️  [DNS Install] Another configuration file exists: ${other}; dns-startup.sh uses ${CONF_FILE} first."
+        target="${other}.dpkg-old"
+        n=0
+        while [[ -e "${target}" ]]; do
+            n=$((n + 1))
+            target="${other}.dpkg-old.${n}"
+        done
+        if ! sudo mv -- "${other}" "${target}"; then
+            echo "❌ [DNS Install] ERROR: could not move ${other} to ${target}." >&2
+            echo "   The old configuration ${other} is still live next to ${CONF_FILE}." >&2
+            exit 1
+        fi
+        echo "⚠️  [DNS Install] Moved the old configuration ${other} to ${target}."
+        echo "   dnsmasq loads every *.conf file in ${CONF_DIR}, so both files would have stayed live."
+        echo "   dnsmasq skips the .dpkg-old suffix; ${CONF_FILE} is the active configuration."
     fi
 done
 

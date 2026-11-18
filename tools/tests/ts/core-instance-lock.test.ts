@@ -1,6 +1,6 @@
 // instance-lock: atomic pid lock, liveness-based reclaim, owner-only refresh/release.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync, existsSync } from "node:fs";
+import { chmodSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { acquireInstanceLock } from "../../lib/core/instance-lock.ts";
@@ -113,5 +113,84 @@ describe("instance-lock", () => {
     writeFileSync(LOCK, "111");
     acquireInstanceLock(LOCK, { pid: 222, isAlive: alive });
     expect(readdirSync(DIR)).toEqual([".lock"]);
+  });
+
+  describe("filesystems without hard links", () => {
+    const failing = (code: string) => (): void => { throw Object.assign(new Error(`link: ${code}`), { code }); };
+
+    it.each(["ENOTSUP", "EPERM", "EXDEV", "ENOSYS"])("falls back to a plain exclusive create on %s", (code) => {
+      const r = acquireInstanceLock(LOCK, { pid: 111, isAlive: dead, link: failing(code) });
+      expect(r.ok).toBe(true);
+      expect(readFileSync(LOCK, "utf8")).toBe("111");
+      expect(readdirSync(DIR)).toEqual([".lock"]);
+    });
+
+    it("still reports the owner through the fallback path", () => {
+      writeFileSync(LOCK, "111");
+      const r = acquireInstanceLock(LOCK, { pid: 222, isAlive: alive, link: failing("ENOTSUP") });
+      expect(r).toEqual({ ok: false, ownerPid: 111 });
+      expect(readFileSync(LOCK, "utf8")).toBe("111");
+      expect(readdirSync(DIR)).toEqual([".lock"]);
+    });
+
+    it("returns an error result for a link failure that is not a fallback case", () => {
+      const r = acquireInstanceLock(LOCK, { pid: 111, isAlive: dead, link: failing("EACCES") });
+      expect(r).toEqual({ ok: false, error: expect.stringContaining("EACCES") });
+      expect(readdirSync(DIR)).toEqual([]);
+    });
+
+    // Creates the lock file empty, then fails like a full disk would on the write.
+    const failAfterCreate = (code: string) => (path: string, _data: string, flag: string): void => {
+      if (path !== LOCK) { writeFileSync(path, _data, { flag }); return; }
+      writeFileSync(path, "", { flag });
+      throw Object.assign(new Error(`write: ${code}`), { code });
+    };
+
+    it("removes the lock file it created when the fallback write fails", () => {
+      const r = acquireInstanceLock(LOCK, { pid: 111, isAlive: dead, link: failing("ENOTSUP"), write: failAfterCreate("ENOSPC") });
+      expect(r).toEqual({ ok: false, error: expect.stringContaining("ENOSPC") });
+      expect(existsSync(LOCK)).toBe(false);
+      expect(readdirSync(DIR)).toEqual([]);
+    });
+
+    it("leaves another starter's lock in place when the fallback create reports EEXIST", () => {
+      const write = (path: string, data: string, flag: string): void => {
+        if (path !== LOCK) { writeFileSync(path, data, { flag }); return; }
+        writeFileSync(LOCK, "555");
+        throw Object.assign(new Error("write: EEXIST"), { code: "EEXIST" });
+      };
+      const r = acquireInstanceLock(LOCK, { pid: 111, isAlive: alive, link: failing("ENOTSUP"), write });
+      expect(r).toEqual({ ok: false, ownerPid: 555 });
+      expect(readFileSync(LOCK, "utf8")).toBe("555");
+    });
+
+    it("reclaims a lock whose owner is dead through the fallback path", () => {
+      writeFileSync(LOCK, "333");
+      const probed: number[] = [];
+      const isAlive = (pid: number): boolean => { probed.push(pid); return false; };
+      const r = acquireInstanceLock(LOCK, { pid: 111, isAlive, link: failing("ENOTSUP") });
+      expect(r.ok).toBe(true);
+      expect(probed).toEqual([333]);
+      expect(readFileSync(LOCK, "utf8")).toBe("111");
+      expect(readdirSync(DIR)).toEqual([".lock"]);
+    });
+
+    it.each([["a string", "boom", "boom"], ["null", null, "null"]])("returns an error result when link throws %s", (_label, thrown, message) => {
+      const link = (): void => { throw thrown; };
+      const r = acquireInstanceLock(LOCK, { pid: 111, isAlive: dead, link });
+      expect(r).toEqual({ ok: false, error: message });
+      expect(readdirSync(DIR)).toEqual([]);
+    });
+
+    it.skipIf(process.getuid?.() === 0)("returns an error result when the plain create fails too", () => {
+      chmodSync(DIR, 0o500);
+      try {
+        const r = acquireInstanceLock(LOCK, { pid: 111, isAlive: dead, link: failing("ENOTSUP") });
+        expect(r).toEqual({ ok: false, error: expect.stringContaining("EACCES") });
+      } finally {
+        chmodSync(DIR, 0o700);
+      }
+      expect(readdirSync(DIR)).toEqual([]);
+    });
   });
 });

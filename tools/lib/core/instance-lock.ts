@@ -14,6 +14,10 @@ export interface InstanceLockDeps {
   isAlive?: (pid: number) => boolean;
   /** Clock used when refreshing the lock's modification time. */
   now?: () => Date;
+  /** Hard-link primitive used to publish the lock atomically (default: linkSync). */
+  link?: (existing: string, next: string) => void;
+  /** File-create primitive used for the temp file and the fallback lock (default: exclusive writeFileSync). */
+  write?: (path: string, data: string, flag: string) => void;
 }
 
 export interface InstanceLock {
@@ -25,9 +29,18 @@ export interface InstanceLock {
 
 export type InstanceLockResult =
   | { ok: true; lock: InstanceLock }
-  | { ok: false; ownerPid?: number | undefined };
+  | { ok: false; ownerPid?: number | undefined }
+  | { ok: false; error: string };
 
 const MAX_ATTEMPTS = 3;
+
+// Errors a filesystem without hard-link support raises from link().
+const LINK_UNSUPPORTED = new Set(["EPERM", "ENOTSUP", "EXDEV", "ENOSYS"]);
+
+type CreateOutcome = "created" | "exists" | { error: string };
+
+const codeOf = (err: unknown): string | undefined => (err as NodeJS.ErrnoException | null | undefined)?.code;
+const reasonOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
 export function signalProbe(pid: number): boolean {
   try {
@@ -48,18 +61,45 @@ function readLock(lockPath: string): { text: string; pid: number | undefined } |
   }
 }
 
-/** Creates the lock atomically; returns false when one already exists. */
-function tryCreate(lockPath: string, pid: number): boolean {
+/**
+ * Creates the lock. Normally atomic (temp file + hard link, so the lock never
+ * exists empty or partial). On a filesystem without hard links it falls back to
+ * a plain exclusive create of the lock file itself, written in a single call; that
+ * path loses the never-empty guarantee, so an empty or unparsable lock is still
+ * reclaimed only through the remove-if-unchanged path in acquireInstanceLock.
+ */
+function tryCreate(
+  lockPath: string,
+  pid: number,
+  link: (existing: string, next: string) => void,
+  write: (path: string, data: string, flag: string) => void,
+): CreateOutcome {
   const tmp = join(dirname(lockPath), `.${basename(lockPath)}.${pid}.${randomBytes(6).toString("hex")}.tmp`);
   try {
-    writeFileSync(tmp, String(pid), { flag: "wx" });
-    linkSync(tmp, lockPath);
-    return true;
+    write(tmp, String(pid), "wx");
+    try {
+      link(tmp, lockPath);
+      return "created";
+    } catch (err) {
+      const code = codeOf(err);
+      if (code === "EEXIST") return "exists";
+      if (code === undefined || !LINK_UNSUPPORTED.has(code)) throw err;
+    }
+    try {
+      write(lockPath, String(pid), "wx");
+    } catch (err) {
+      // An EEXIST means the file is another starter's and is left alone; any other
+      // failure may have left behind the empty file this call just created.
+      if (codeOf(err) === "EEXIST") return "exists";
+      try { rmSync(lockPath, { force: true }); } catch { /* best effort */ }
+      return { error: reasonOf(err) };
+    }
+    return "created";
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "EEXIST") return false;
-    throw err;
+    if (codeOf(err) === "EEXIST") return "exists";
+    return { error: reasonOf(err) };
   } finally {
-    rmSync(tmp, { force: true });
+    try { rmSync(tmp, { force: true }); } catch { /* best effort */ }
   }
 }
 
@@ -67,10 +107,14 @@ export function acquireInstanceLock(lockPath: string, deps: InstanceLockDeps = {
   const pid = deps.pid ?? process.pid;
   const isAlive = deps.isAlive ?? signalProbe;
   const now = deps.now ?? (() => new Date());
+  const link = deps.link ?? linkSync;
+  const write = deps.write ?? ((path: string, data: string, flag: string) => writeFileSync(path, data, { flag }));
 
   let ownerPid: number | undefined;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    if (tryCreate(lockPath, pid)) return { ok: true, lock: ownedLock(lockPath, pid, now) };
+    const created = tryCreate(lockPath, pid, link, write);
+    if (created === "created") return { ok: true, lock: ownedLock(lockPath, pid, now) };
+    if (created !== "exists") return { ok: false, error: created.error };
     const seen = readLock(lockPath);
     if (seen === undefined) continue; // removed meanwhile: retry the create
     ownerPid = seen.pid;

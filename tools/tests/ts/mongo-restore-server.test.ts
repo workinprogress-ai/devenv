@@ -175,6 +175,33 @@ describe("scripts/mongo-restore-server", () => {
     expect(restoredDir()).toBe(join(dir, "backup-20260105_130000"));
   });
 
+  it("mongo-restore: ignores directories whose date or time does not exist", () => {
+    const dir = useBackups(["20260105_120000", "99999999_999999", "20261301_000000", "20260230_000000", "20260101_240000", "20260101_236000", "backup-20260230", "20260105_120060", "19000229_120000", "21000229_120000"]);
+    expect(runRestore(["mongodb://localhost:27017", dir, ...YES]).status).toBe(0);
+    expect(restoredDir()).toBe(join(dir, "20260105_120000"));
+  });
+
+  it("mongo-restore: accepts a leap day in a leap century year", () => {
+    const dir = useBackups(["20000229_120000", "20000228_120000"]);
+    expect(runRestore(["mongodb://localhost:27017", dir, ...YES]).status).toBe(0);
+    expect(restoredDir()).toBe(join(dir, "20000229_120000"));
+  });
+
+  it("mongo-restore: accepts a leap day", () => {
+    const dir = useBackups(["20240229_120000", "20240228_120000"]);
+    expect(runRestore(["mongodb://localhost:27017", dir, ...YES]).status).toBe(0);
+    expect(restoredDir()).toBe(join(dir, "20240229_120000"));
+  });
+
+  it("mongo-restore: refuses when every directory has an impossible date, listing them", () => {
+    const dir = useBackups(["99999999_999999", "20261301_000000", "20260230_000000"]);
+    const r = runRestore(["mongodb://localhost:27017", dir, ...YES]);
+    expect(r.status).toBe(4);
+    expect(r.out).toContain(`No backup-named directories found in ${dir}`);
+    expect(r.out).toContain("20260230_000000, 20261301_000000, 99999999_999999");
+    expect(logEmpty()).toBe(true);
+  });
+
   it("mongo-restore: refuses when no directory is backup-named, listing the ignored ones", () => {
     const dir = useBackups(["zzz-notes", "tmp", ".hidden"]);
     const r = runRestore(["mongodb://localhost:27017", dir, ...YES]);
