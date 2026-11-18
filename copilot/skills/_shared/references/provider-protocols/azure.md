@@ -75,14 +75,15 @@ What skills and wrappers must know when the active provider is azure:
   yet apply.
 - **Labels are `System.Tags`** (semicolon-separated flat strings); read
   projections emit gh-shaped `[{name}]` objects.
-- **PR merge is a three-step** (mergeStrategy PATCH → GET the PR →
-  status=completed echoing `lastMergeSourceCommit.commitId`, which is
-  required). Merge, threads list, and thread create are repo-scoped
+- **PR merge is one completion PATCH after a GET** (status=completed
+  echoing `lastMergeSourceCommit.commitId`, which is required, with
+  `completionOptions.mergeStrategy`; a top-level `mergeStrategy` is
+  ignored). Merge, threads list, and thread create are repo-scoped
   (`repositories/{repo}/pullrequests/{pr}/…`); thread resolve works from
   the PR number alone.
-- **Comment text and descriptions come back entity-encoded** with a
-  trailing-newline quirk — the boundary restores markdown; write→read
-  round trips are newline-insensitive.
+- **Comment text and descriptions come back entity-encoded** (`"` and
+  `&`) — the boundary restores markdown; trailing newlines pass through
+  exactly as stored.
 - **Capability degrades:** org rulesets → per-repo branch policies;
   releases → git tags (prerelease heuristic, no drafts); package-version
   reads are unmapped (org-level Artifacts **feeds listing** works;

@@ -55,12 +55,15 @@ don't re-derive them:
   `format: "markdown"` metadata + portal rendering via `renderedText`.
   Without it the portal shows raw markdown as unrendered text. Even on
   the markdown route, comment `.text` and `System.Description` come back
-  entity-encoded (`"` → `&quot;`), and a trailing newline in the input
-  is doubled while a missing one is not added. The provider boundary
-  restores markdown: reads un-escape entities; shell command-substitution
-  capture strips the trailing newline on read and writes drop one
-  trailing newline first — the pairing keeps round trips
-  trailing-newline-insensitive.
+  entity-encoded for `"` (`&quot;`) and `&` (`&amp;`); `<`, `>` and `'` are
+  returned unchanged. A trailing newline is stored exactly as written (one
+  stays one, none is not added; verified live). The provider boundary
+  restores markdown: every long-text read un-escapes the entity set, and
+  writes and reads pass newlines through untouched, so a round trip is exact
+  at any number of trailing newlines. Known limit: the decode is lossy for
+  look-alike input, since a typed `&quot;`, `&amp;` or `&lt;` reads back the
+  same as the encoded form and is decoded, so markdown that legitimately
+  contains those sequences changes on a read-then-write cycle.
 - **PR completion is one PATCH, after a GET**: GET the PR for its
   `lastMergeSourceCommit`, then PATCH `{"status":"completed",
   "lastMergeSourceCommit":{"commitId":...},"completionOptions":{
@@ -126,8 +129,10 @@ would need a different provider shape entirely. Constraint, not bug.
 ## Issues ↔ Work items
 
 View projection (as-built): `provider_issues_view` / list emit every field
-in issue-get's DEFAULT_FIELDS non-null. Mapping: milestone derives from
-`System.IterationLevel2` (iteration path's leaf — typed "" when unset);
+in issue-get's DEFAULT_FIELDS non-null. Batch reads send `$expand: "relations"` and no `fields` list: Azure answers 400 for `$expand` combined with `fields`, and returns no relations for `"fields,relations"`. Mapping: milestone derives from
+`System.IterationPath` (its leaf; "" for an item at the project root);
+assignee and author logins are the identity's `uniqueName` (the display name
+only when there is none); a list returns items in the query's id order;
 closedAt from `Microsoft.VSTS.Common.ClosedDate`. `comments` is the comment
 count: `view` reads it from the comments resource, `list` from the
 `System.CommentCount` field (`0` when the field is absent), so
@@ -137,11 +142,11 @@ count: `view` reads it from the comments resource, `list` from the
 | GitHub shape | Azure shape | Constraint / note |
 |---|---|---|
 | Issue | Work item, on a board-backed type | Born as the Azure type mapped for its devenv type (see [Work item types](#work-item-types)) |
-| Open/closed | A state is closed when its category is Completed or Removed (read from the project's work item types) | `Resolved` is open; `close` moves the item to its type's Completed-category state, `reopen` to its first Proposed (else InProgress) state, both read from the type |
+| Open/closed | A state is closed when its category is Completed or Removed in the item's own work item type (read from the project's work item types) | `Resolved` is open; `close` moves the item to its type's Completed-category state, `reopen` to its first Proposed (else InProgress) state, both read from the type. The state change is conditional on the revision it was read at (a concurrent change is a named error); a `--comment` that fails to post after the state change is a warning on stderr and the exit stays 0 |
 | Close reason | — | Azure has no close reason; `--reason` is accepted and dropped |
 | Labels | `System.Tags` (`a; b`, trimmed on read) | No colors/descriptions — flat strings only; `edit` reads the current tags and writes the surviving set; label list reads the tags endpoint, else the project's work items |
-| Issue types (Bug/Feature/Task/Epic) | Work-item types | Richer than GH types; a type change is a `System.WorkItemType` replace through `provider_issues_set_type`, never through `edit` |
-| Edit flags | `--title`, `--body`, `--add-label`, `--remove-label` | Any other flag (`--milestone`, `--add-assignee`) has no Azure write path and fails rather than being dropped. `--type` is accepted only together with `--body`, where it selects the body field; without a body it fails. Without `--type`, the item's current type (one read) selects the body field, so the edit lands in the field `view` reads (a Bug's `ReproSteps`, not a shadowed `Description`). Title, body and tag changes go in **one** JSON-patch, so a failure leaves the item unchanged. |
+| Issue types (Bug/Feature/Task/Epic) | Work-item types | Richer than GH types; a type change is a `System.WorkItemType` replace through `provider_issues_set_type`, never through `edit`. Known limit: the replace does not touch `System.State`, so a state the new type lacks fails the PATCH, and `--type` with `--body` runs the type change before the edit, so an edit failure leaves the type changed (not yet verified live) |
+| Edit flags | `--title`, `--body`, `--add-label`, `--remove-label` | Any other flag (`--milestone`, `--add-assignee`) has no Azure write path and fails rather than being dropped. `--type` is accepted only together with `--body`, where it selects the body field; without a body it fails. Without `--type`, the item's current type (one read) selects the body field, so the edit lands in the field `view` reads (a Bug's `ReproSteps`, not a shadowed `Description`). Title, body and tag changes go in **one** JSON-patch, so a failure leaves the item unchanged. An edit that sets fields to the values they already hold is accepted: Azure answers 200 and creates no revision, so the verb re-reads the edited fields and treats a stored match as success. |
 | Existence | `GET workitems/N` | Only a not-found answer (HTTP 404, TF401232) is "absent"; auth, network and server failures are errors |
 | Create verification | Read-back of `System.Rev` after the POST | A failed read-back after a successful create returns the new id with a warning, so a retry never duplicates the item |
 | Descriptions | `System.Description` with the markdown multiline format | Items last edited in the portal hold HTML; the read path un-escapes entities for them |
