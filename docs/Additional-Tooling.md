@@ -2327,15 +2327,21 @@ cs-references-update [REPO_DIR] [OPTIONS]
 
 **Options:**
 
-- `--framework TFM`: Rewrite `<TargetFramework>` (and every entry of `<TargetFrameworks>` lists) to `TFM` (e.g. `net10.0`) in all non-`obj/`/`bin/` csproj files before updating packages. A `dotnet restore` gate runs between the rewrite and the package upgrade — if restore fails (invalid TFM, or packages with no assets for the new target), the script exits `10` without touching package versions.
+- `--framework TFM`: Rewrite `<TargetFramework>` (and every entry of `<TargetFrameworks>` lists) to `TFM` (e.g. `net10.0`) in all non-`obj/`/`bin/` csproj files before updating packages. A `dotnet restore` gate runs between the rewrite and the package upgrade — if restore fails (invalid TFM, or packages with no assets for the new target), the script exits `10` without touching package versions. Any existing `global.json` whose `sdk.version` pin has a lower major than `TFM` is raised to `<N>.0.100` (other fields untouched; never created, never lowered). Existing `.vscode/launch.json` files get their `bin/<config>/net<N>.<M>/` build-output paths retargeted to `TFM` so debugging keeps finding the output folder.
 - `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj — updates existing tags and adds the tag where absent. Mutually exclusive with `--lang-default`.
 - `--lang-default`: Remove existing `<LangVersion>` tags (never adds) so the TFM's default language version applies implicitly. Mutually exclusive with `--lang-version`.
+- `--post-update SCRIPT`: Run `SCRIPT` (an executable file) as the **last** step — after the package update and the `.repo/update.sh` boilerplate chain — with the repo root as the working directory. Whatever it edits joins the run's changes (and the wizards' update commit). Use it for repo-specific migrations the tool cannot do generically, such as Dockerfile image tags. A non-zero exit fails the run (exit `12`); it does not run if `dotnet outdated` failed. The script receives:
+  - `CS_UPDATE_REPO_DIR`: the target directory.
+  - `CS_UPDATE_FRAMEWORK`: the `--framework` value, empty when not passed.
+  - `CS_UPDATE_PREVIOUS_FRAMEWORKS`: the TFMs found in the tree before the rewrite, space-separated (e.g. `net8.0`).
+
+  The script must be **idempotent**, because the wizards can re-run a repo. A relative path is resolved against the invocation directory.
 - `-h, --help`: Show help and exit
 
 **LangVersion rules:**
 
 - `--lang-version` given: the explicit version wins; tags are updated or added.
-- `--framework` alone: existing `<LangVersion>` tags are rewritten to the TFM's default language version (`net8.0` → `12.0`, `net9.0` → `13.0`, `net10.0` → `14.0`). An unmapped TFM combined with tags present in the tree is an argument error naming the supported TFMs — pass `--lang-version` or `--lang-default` explicitly instead.
+- `--framework` alone: existing `<LangVersion>` tags are rewritten to the TFM's default language version (`net8.0` → `12.0`, `net9.0` → `13.0`, `net10.0` → `14.0`, `net11.0` → `15.0`). An unmapped TFM combined with tags present in the tree is an argument error naming the supported TFMs — pass `--lang-version` or `--lang-default` explicitly instead.
 - `--lang-default` given: tags are removed; the default applies silently.
 
 **Boilerplate chain:**
@@ -2348,8 +2354,10 @@ If the target repo has an executable `.repo/update.sh`, it is chained after the 
 |------|--------------------|
 | `0` | Success |
 | `2` | Invalid arguments (bad flag values, conflicting flags, unmapped TFM with LangVersion tags present) |
-| `3` | Target directory not found |
+| `3` | Target directory not found, or `--post-update` script not found |
 | `10` | `dotnet restore` failed after a rewrite |
+| `11` | `dotnet outdated` failed for at least one project |
+| `12` | The `--post-update` script exited non-zero |
 
 **Examples:**
 
@@ -2389,6 +2397,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 - `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Passed through to `cs-references-update` (see its section above for LangVersion interaction). A framework change is always treated as a breaking update: the PR is titled `major: update references and target framework` and the bump report includes the framework change (e.g. `net8.0 → net10.0 (FRAMEWORK)`).
 - `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj.
 - `--lang-default`: Remove `<LangVersion>` tags so the TFM default applies.
+- `--post-update SCRIPT`: Forwarded to `cs-references-update` (see its section for the contract). The path is resolved to absolute and validated up front. If the script fails, the update step fails (exit `21`) and the update branch is discarded, so a half-migrated repo is never committed.
 - `-h, --help`: Show help and exit
 - `-v, --version`: Show version and exit
 
@@ -2461,6 +2470,7 @@ cs-dependencies-update-wizard [OPTIONS] --global [N]
 - `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Forwarded to `cs-references-update-wizard` (and through it to `cs-references-update`) for every processed repo. A framework change produces a `major:` PR per repo.
 - `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj.
 - `--lang-default`: Remove `<LangVersion>` tags so the TFM default applies.
+- `--post-update SCRIPT`: Forwarded to `cs-references-update-wizard` (and through it to `cs-references-update`; see that section for the contract) for every processed repo. The path is resolved to absolute and validated once, before any repo is touched. A failing script makes that repo's single-repo wizard exit `21` with its update branch discarded, which triggers this wizard's failure prompt.
 - `-h, --help`: Show help and exit
 - `-v, --version`: Show version and exit
 

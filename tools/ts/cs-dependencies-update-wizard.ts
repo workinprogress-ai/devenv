@@ -13,7 +13,7 @@ import { join, basename, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
-import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { siblingInvocation } from "../lib/core/sibling.ts";
@@ -28,6 +28,7 @@ import { providerOrgGet } from "../lib/providers/provider-core.ts";
 import { pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
 import { csprojPackageReferences } from "../lib/domain/cs/csproj.ts";
 import { repoDefaultBranch } from "../lib/domain/cs/default-branch.ts";
+import { resolvePostUpdateScript } from "../lib/domain/cs/post-update.ts";
 
 assertNodeFloor();
 
@@ -65,6 +66,9 @@ ${usageCommonFlags()}
     --framework TFM         Forwarded to the single-repo wizard
     --lang-version VER      Forwarded to the single-repo wizard
     --lang-default          Forwarded to the single-repo wizard
+    --post-update SCRIPT    Forwarded to the single-repo wizard: executable run
+                            last in every repo, its edits join that repo's
+                            update commit; failure aborts that repo
     --auto                  Process generations without confirmation prompts
     --global [N]            Global mode; optional starting generation N
 
@@ -248,12 +252,13 @@ interface WizardArgs {
   framework: string;
   langVersion: string;
   langDefault: boolean;
+  postUpdate: string;
 }
 
 function parseArgs_main(): WizardArgs {
   const a: WizardArgs = {
     targetDir: "", skipRefresh: false, dryRun: false, globalMode: false,
-    globalStartGen: 0, auto: false, framework: "", langVersion: "", langDefault: false,
+    globalStartGen: 0, auto: false, framework: "", langVersion: "", langDefault: false, postUpdate: "",
   };
   try {
     const cli = toolCli({
@@ -265,6 +270,7 @@ function parseArgs_main(): WizardArgs {
         framework: { type: "string" },
         "lang-version": { type: "string" },
         "lang-default": { type: "boolean", default: false },
+        "post-update": { type: "string" },
         auto: { type: "boolean", default: false },
         "auto-generations": { type: "boolean", default: false },
         global: { type: "boolean", default: false },
@@ -275,6 +281,7 @@ function parseArgs_main(): WizardArgs {
     a.framework = (cli.values["framework"] as string | undefined) ?? "";
     a.langVersion = (cli.values["lang-version"] as string | undefined) ?? "";
     a.langDefault = cli.values["lang-default"] === true;
+    a.postUpdate = (cli.values["post-update"] as string | undefined) ?? "";
     a.dryRun = cli.common.dryRun;
     a.auto = cli.values["auto"] === true || cli.values["auto-generations"] === true;
     a.globalMode = cli.values["global"] === true;
@@ -295,6 +302,15 @@ function parseArgs_main(): WizardArgs {
     logError(errorMessage(err));
     console.error("Use --help for usage information");
     process.exit(EXIT_MISUSE);
+  }
+  if (a.postUpdate !== "") {
+    // Resolved once, here: the wizard visits many repos from other directories.
+    const resolved = resolvePostUpdateScript(a.postUpdate);
+    if (!resolved.ok) {
+      logError(resolved.message);
+      process.exit(resolved.reason === "missing" ? EXIT_CONFLICT : EXIT_MISUSE);
+    }
+    a.postUpdate = resolved.path;
   }
   if (a.globalMode && a.targetDir !== "") {
     logError("--global and TARGET_DIR are mutually exclusive. Use --help for usage information.");
@@ -335,6 +351,7 @@ function runSingleRepoWizard(args: WizardArgs, repoDir: string): number {
   if (args.framework !== "") wizardArgs.push("--framework", args.framework);
   if (args.langVersion !== "") wizardArgs.push("--lang-version", args.langVersion);
   if (args.langDefault) wizardArgs.push("--lang-default");
+  if (args.postUpdate !== "") wizardArgs.push("--post-update", args.postUpdate);
   wizardArgs.push(repoDir);
   const inv = siblingInvocation(SINGLE_REPO_WIZARD, wizardArgs);
   const r = spawnSync(inv.command, inv.args, { stdio: "inherit" });
