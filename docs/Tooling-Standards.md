@@ -91,6 +91,7 @@ workspace modules.
 | `lib/core/config.ts` | devenv.config parsing (raw vs expanding values) |
 | `lib/core/args.ts` | option/argument parsing and requirement checks |
 | `lib/core/change-id.ts` | Change-Id trailer generation/parsing + O_EXCL locking |
+| `lib/core/instance-lock.ts` | single-instance pid lock for long-running tools: atomic acquire, owner-only refresh and release, dead-owner reclaim |
 | `lib/core/editor.ts` | editor selection (PREF_EDITOR → FALLBACK_EDITOR → nano) |
 | `lib/core/git.ts` | git plumbing (state, branches, WIP guards, rewrite detection) + `changedFiles` changed-set enumeration (`-z` porcelain, rename pairs split) |
 | `lib/ui/` | prompts, progress, panels (clack + picocolors) |
@@ -176,6 +177,11 @@ TypeScript — fd numbers do not survive process spawn — so a lock is a
 lockfile protocol. Reference implementation:
 `lib/core/change-id.ts` (`locked()`). Extract a shared `lib/core/lock.ts`
 when a second consumer appears; do not create it speculatively.
+
+A tool that must run as a single long-lived instance (not a short critical
+section) uses `lib/core/instance-lock.ts` instead: the lock names its owner's
+pid, the owner refreshes it and is the only one to release it, and a lock is
+reclaimed only when its owner is no longer running, never by age.
 
 ## Tool skeleton (required structure)
 
