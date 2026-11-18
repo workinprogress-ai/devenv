@@ -8,7 +8,8 @@
 //
 // Exit codes: 0 success · 2 invalid arguments / unknown TFM mapping ·
 // 3 target directory missing · 10 restore gate failed after a rewrite ·
-// 11 'dotnet outdated' failed for at least one project.
+// 11 'dotnet outdated' failed for at least one project · 12 the --post-update
+// script exited non-zero.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -23,13 +24,18 @@ import {
   removeLangVersionLines,
   rewriteTargetFrameworks,
   setLangVersion,
+  targetFrameworksOf,
 } from "../lib/domain/cs/csproj.ts";
+import { raiseSdkPin } from "../lib/domain/cs/global-json.ts";
+import { retargetLaunchPaths } from "../lib/domain/cs/launch-json.ts";
+import { resolvePostUpdateScript } from "../lib/domain/cs/post-update.ts";
 
 assertNodeFloor();
 
 const EXIT_OK = 0;
 const EXIT_RESTORE_FAILED = 10;
 const EXIT_OUTDATED_FAILED = 11;
+const EXIT_POST_UPDATE_FAILED = 12;
 
 // TFM major -> default C# language version for that TFM. When --framework is
 // passed without a language flag, existing <LangVersion> tags are rewritten
@@ -39,6 +45,7 @@ const TFM_DEFAULT_LANG: Record<string, string> = {
   "net8.0": "12.0",
   "net9.0": "13.0",
   "net10.0": "14.0",
+  "net11.0": "15.0",
 };
 
 function showUsage(): never {
@@ -62,12 +69,21 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --lang-default          Remove existing <LangVersion> tags (never adds) so
                             the TFM default language version applies
                             implicitly. Conflicts with --lang-version.
+    --post-update SCRIPT    Run SCRIPT (an executable) as the last step, after
+                            the package update and boilerplate chain, with the
+                            repo root as cwd. Its edits join this run's
+                            changes. A non-zero exit fails the run (exit 12).
+                            Environment: CS_UPDATE_REPO_DIR (target directory),
+                            CS_UPDATE_FRAMEWORK (--framework value or empty),
+                            CS_UPDATE_PREVIOUS_FRAMEWORKS (TFMs found before
+                            the rewrite, space-separated). Must be idempotent.
 
 LangVersion rules:
     * --lang-version given  -> explicit version wins; tags updated or added.
     * --framework only      -> existing <LangVersion> tags are rewritten to the
                                TFM's default language version (net8.0 -> 12.0,
-                               net9.0 -> 13.0, net10.0 -> 14.0). An unmapped
+                               net9.0 -> 13.0, net10.0 -> 14.0,
+                               net11.0 -> 15.0). An unmapped
                                TFM with tags present is an argument error.
     * --lang-default given  -> tags are removed; the default applies silently.
 
@@ -78,11 +94,12 @@ Exits:
     3    target directory not found
     10   'dotnet restore' failed after a rewrite (invalid TFM or packages
          without assets for the new target)
-    11   'dotnet outdated' failed for at least one project`);
+    11   'dotnet outdated' failed for at least one project
+    12   the --post-update script exited non-zero`);
   process.exit(EXIT_OK);
 }
 
-function findCsprojFiles(dir: string): string[] {
+function findFilesNamed(dir: string, matches: (name: string) => boolean): string[] {
   const found: string[] = [];
   const walk = (d: string): void => {
     let entries;
@@ -96,7 +113,7 @@ function findCsprojFiles(dir: string): string[] {
       if (e.isDirectory()) {
         if (e.name === "obj" || e.name === "bin" || e.name === ".git") continue;
         walk(p);
-      } else if (e.name.endsWith(".csproj")) {
+      } else if (matches(e.name)) {
         found.push(p);
       }
     }
@@ -104,6 +121,8 @@ function findCsprojFiles(dir: string): string[] {
   walk(dir);
   return found.sort();
 }
+
+const findCsprojFiles = (dir: string): string[] => findFilesNamed(dir, (n) => n.endsWith(".csproj"));
 
 // "Tags exist in the tree" — checked over the same csproj set the rewrite
 // would touch.
@@ -120,6 +139,7 @@ let targetDir = "";
 let framework = "";
 let langVersion = "";
 let langDefault = false;
+let postUpdateArg = "";
 let positionalCount = 0;
 
 try {
@@ -132,9 +152,11 @@ try {
       framework: { type: "string" },
       "lang-version": { type: "string" },
       "lang-default": { type: "boolean", default: false },
+      "post-update": { type: "string" },
     },
   });
   if (cli.common.help) showUsage();
+  postUpdateArg = (cli.values["post-update"] as string | undefined) ?? "";
   framework = (cli.values["framework"] as string | undefined) ?? "";
   langVersion = (cli.values["lang-version"] as string | undefined) ?? "";
   langDefault = cli.values["lang-default"] === true;
@@ -171,8 +193,19 @@ if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) {
   console.error(`ERROR: Directory not found: ${targetDir}`);
   process.exit(EXIT_CONFLICT);
 }
+let postUpdateScript = "";
+if (postUpdateArg !== "") {
+  const resolved = resolvePostUpdateScript(postUpdateArg);
+  if (!resolved.ok) {
+    console.error(`ERROR: ${resolved.message}`);
+    process.exit(resolved.reason === "missing" ? EXIT_CONFLICT : EXIT_MISUSE);
+  }
+  postUpdateScript = resolved.path;
+}
 
 const csprojs = findCsprojFiles(targetDir);
+// Captured before any rewrite so the --post-update script can tell old from new.
+const previousFrameworks = [...new Set(csprojs.flatMap((p) => targetFrameworksOf(readFileSync(p, "utf8"))))];
 
 // ── Resolve the effective LangVersion mode ───────────────────────────────
 //   explicit : lang_version is the target; tags updated or added.
@@ -252,11 +285,41 @@ function rewriteLang(csproj: string): void {
   }
 }
 
+// An SDK pin below the target's major cannot restore the new TFM, so raise it.
+// Only existing global.json files are touched; none is ever created.
+function rewriteSdkPin(globalJson: string): void {
+  const content = readFileSync(globalJson, "utf8");
+  const updated = raiseSdkPin(content, Number(/^net(\d+)/.exec(framework)?.[1]));
+  if (updated !== content) {
+    writeFileSync(globalJson, updated);
+    rewroteAnything = true;
+    console.log(`  ${globalJson}: sdk.version raised for ${framework}`);
+  }
+}
+
+// Debug launch configs point at bin/<config>/<tfm>/…; a stale TFM folder makes
+// F5 target a directory that no longer exists. Only existing files are touched.
+function rewriteLaunchPaths(launchJson: string): void {
+  const content = readFileSync(launchJson, "utf8");
+  const updated = retargetLaunchPaths(content, framework);
+  if (updated !== content) {
+    writeFileSync(launchJson, updated);
+    rewroteAnything = true;
+    console.log(`  ${launchJson}: build-output paths -> ${framework}`);
+  }
+}
+
 if (framework !== "" || langMode !== "none") {
   console.log("Rewriting target framework / language version declarations...");
   for (const csproj of csprojs) {
     if (framework !== "") rewriteTfm(csproj);
     if (langMode !== "none") rewriteLang(csproj);
+  }
+  if (framework !== "") {
+    for (const g of findFilesNamed(targetDir, (n) => n === "global.json")) rewriteSdkPin(g);
+    for (const l of findFilesNamed(targetDir, (n) => n === "launch.json")) {
+      if (l.includes("/.vscode/")) rewriteLaunchPaths(l);
+    }
   }
 }
 
@@ -344,6 +407,31 @@ if (repoRoot !== "" && existsSync(`${repoRoot}/.repo/update.sh`)) {
       console.error("WARNING: .repo/update.sh failed — output:");
       console.error(output);
     }
+  }
+}
+
+// ── Post-update migration script ─────────────────────────────────────────
+//
+// Last step, after the boilerplate chain, so it has the final word on the tree
+// and its edits are part of the same commit. Fatal on failure: the caller was
+// explicit about wanting it, and the wizards would otherwise commit a
+// half-migrated repo.
+
+if (postUpdateScript !== "") {
+  console.log(`Running post-update script: ${postUpdateScript}`);
+  const r = spawnSync(postUpdateScript, [], {
+    stdio: "inherit",
+    cwd: repoRoot !== "" ? repoRoot : targetDir,
+    env: {
+      ...process.env,
+      CS_UPDATE_REPO_DIR: targetDir,
+      CS_UPDATE_FRAMEWORK: framework,
+      CS_UPDATE_PREVIOUS_FRAMEWORKS: previousFrameworks.join(" "),
+    },
+  });
+  if (r.status !== 0) {
+    console.error(`ERROR: --post-update script failed (exit ${r.status ?? "signal"}): ${postUpdateScript}`);
+    process.exit(EXIT_POST_UPDATE_FAILED);
   }
 }
 

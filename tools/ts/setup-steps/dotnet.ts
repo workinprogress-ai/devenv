@@ -14,7 +14,7 @@ const TOOLBOX = process.env.DEVENV_TOOLBOX_ROOT || "/workspaces/devenv";
 
 // DOTNET_CHANNELS from tool-versions.bash (space-separated; the setup
 // consistency test pins this constant to the bash export).
-const DOTNET_CHANNELS = ["8.0", "9.0", "10.0"];
+const DOTNET_CHANNELS = ["8.0", "9.0", "10.0", "11.0"];
 
 // Pinned sha256 of dotnet-install.sh. Empty means unpinned: the script is run
 // and the step warns. The vendor updates the script in place, so a pin must be

@@ -3,7 +3,7 @@
 // forwarding, dry-run and failure paths.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -407,6 +407,27 @@ describe("scripts/cs-references-update-wizard", () => {
     r = wizard()(["--lang-default", REPO_DIR], { CAPTURE_FILE: captured2 });
     expect(r.status).toBe(10);
     expect(readFileSync(captured2, "utf8")).toContain("--lang-default");
+  });
+
+  it("cs-references-update-wizard.sh forwards --post-update as an absolute path", () => {
+    writeFake("cs-references-update", '#!/usr/bin/env bash\necho "ARGS: $*" > "${CAPTURE_FILE:?}"\nexit 0\n');
+    const script = join(TMP, "migrate.sh");
+    writeFileSync(script, "#!/usr/bin/env bash\nexit 0\n");
+    chmodSync(script, 0o755);
+    const captured = join(TMP, "captured.args");
+    const r = wizard()(["--post-update", script, REPO_DIR], { CAPTURE_FILE: captured });
+    expect(r.status).toBe(10);
+    expect(readFileSync(captured, "utf8")).toContain(`--post-update ${script}`);
+  });
+
+  it("cs-references-update-wizard.sh rejects a missing --post-update script before touching the repo", () => {
+    const r = wizard()(["--post-update", join(TMP, "nope.sh"), REPO_DIR]);
+    expect(r.status).toBe(3);
+    expect(r.out).toContain("--post-update script not found");
+  });
+
+  it("cs-references-update-wizard.sh shows --post-update in usage", () => {
+    expect(runEntry(["--help"]).out).toContain("--post-update");
   });
 
   it("cs-references-update-wizard.sh shows framework flags in usage", () => {

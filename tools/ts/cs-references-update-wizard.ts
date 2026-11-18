@@ -14,7 +14,8 @@ import { join, basename } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { gitCapture, gitCheck } from "../lib/core/git.ts";
-import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { resolvePostUpdateScript } from "../lib/domain/cs/post-update.ts";
+import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { siblingInvocation } from "../lib/core/sibling.ts";
@@ -61,6 +62,8 @@ ${usageCommonFlags({ noDryRunShort: true })}
     --framework TFM     Forwarded to cs-references-update
     --lang-version VER  Forwarded to cs-references-update
     --lang-default      Forwarded to cs-references-update
+    --post-update SCRIPT  Forwarded to cs-references-update: executable run last,
+                        its edits join the update commit; failure aborts (21)
 
 Exit codes:
     0   success
@@ -250,6 +253,7 @@ function main(): void {
   let framework = "";
   let langVersion = "";
   let langDefault = false;
+  let postUpdate = "";
 
   try {
     const cli = toolCli({
@@ -261,6 +265,7 @@ function main(): void {
         framework: { type: "string" },
         "lang-version": { type: "string" },
         "lang-default": { type: "boolean", default: false },
+        "post-update": { type: "string" },
         continue: { type: "boolean", default: false },
       },
     });
@@ -269,6 +274,7 @@ function main(): void {
     framework = (cli.values["framework"] as string | undefined) ?? "";
     langVersion = (cli.values["lang-version"] as string | undefined) ?? "";
     langDefault = cli.values["lang-default"] === true;
+    postUpdate = (cli.values["post-update"] as string | undefined) ?? "";
     dryRun = cli.common.dryRun;
     continueMode = cli.values["continue"] === true;
     const positionals = cli.positionals;
@@ -281,6 +287,16 @@ function main(): void {
     logError(errorMessage(err));
     console.error("Use --help for usage information");
     process.exit(EXIT_MISUSE);
+  }
+
+  // Resolved once, here: the per-repo steps below change directory.
+  if (postUpdate !== "") {
+    const resolved = resolvePostUpdateScript(postUpdate);
+    if (!resolved.ok) {
+      logError(resolved.message);
+      process.exit(resolved.reason === "missing" ? EXIT_CONFLICT : EXIT_MISUSE);
+    }
+    postUpdate = resolved.path;
   }
 
   repoDir = repoDir === "" ? "." : repoDir;
@@ -389,6 +405,7 @@ function main(): void {
     if (framework !== "") updateArgs.push("--framework", framework);
     if (langVersion !== "") updateArgs.push("--lang-version", langVersion);
     if (langDefault) updateArgs.push("--lang-default");
+    if (postUpdate !== "") updateArgs.push("--post-update", postUpdate);
     logInfo(`Updating NuGet references in ${repoName}...`);
     const updInv = siblingInvocation("cs-references-update", updateArgs);
     const upd = spawnSync(updInv.command, updInv.args, { stdio: "inherit" });

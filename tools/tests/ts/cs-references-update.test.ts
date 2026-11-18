@@ -2,7 +2,7 @@
 // no-flags passthrough behavior, plus the .repo/update.sh boilerplate chain.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toolScript } from "./harness/index.ts";
@@ -170,6 +170,47 @@ describe("scripts/cs-references-update", () => {
     expect(csproj()).not.toContain("net8.0");
   });
 
+  it("--framework: raises an existing global.json SDK pin below the target major", () => {
+    const g = join(REPO_DIR, "global.json");
+    writeFileSync(g, '{\n  "sdk": {\n    "version": "8.0.100",\n    "rollForward": "latestFeature"\n  }\n}\n');
+    const r = runUpdate([REPO_DIR, "--framework", "net10.0"]);
+    expect(r.status).toBe(0);
+    expect(readFileSync(g, "utf8")).toBe('{\n  "sdk": {\n    "version": "10.0.100",\n    "rollForward": "latestFeature"\n  }\n}\n');
+  });
+
+  it("--framework: retargets .vscode/launch.json build-output paths; other launch.json files are ignored", () => {
+    mkdirSync(join(REPO_DIR, ".vscode"), { recursive: true });
+    mkdirSync(join(REPO_DIR, "docs"), { recursive: true });
+    const text = '{ "program": "${workspaceFolder}/src/bin/Debug/net8.0/Host.dll" }\n';
+    writeFileSync(join(REPO_DIR, ".vscode", "launch.json"), text);
+    writeFileSync(join(REPO_DIR, "docs", "launch.json"), text);
+    const r = runUpdate([REPO_DIR, "--framework", "net10.0"]);
+    expect(r.status).toBe(0);
+    expect(readFileSync(join(REPO_DIR, ".vscode", "launch.json"), "utf8")).toContain("bin/Debug/net10.0/Host.dll");
+    expect(readFileSync(join(REPO_DIR, "docs", "launch.json"), "utf8")).toBe(text);
+  });
+
+  it("--framework: never creates a global.json", () => {
+    runUpdate([REPO_DIR, "--framework", "net10.0"]);
+    expect(spawnSync("test", ["-e", join(REPO_DIR, "global.json")]).status).toBe(1);
+  });
+
+  it("--framework: a global.json pin at or above the target major is left alone", () => {
+    const g = join(REPO_DIR, "global.json");
+    const text = '{ "sdk": { "version": "10.0.200" } }\n';
+    writeFileSync(g, text);
+    runUpdate([REPO_DIR, "--framework", "net10.0"]);
+    expect(readFileSync(g, "utf8")).toBe(text);
+  });
+
+  it("without --framework, global.json is not touched", () => {
+    const g = join(REPO_DIR, "global.json");
+    const text = '{ "sdk": { "version": "8.0.100" } }\n';
+    writeFileSync(g, text);
+    runUpdate([REPO_DIR]);
+    expect(readFileSync(g, "utf8")).toBe(text);
+  });
+
   it("--framework: a commented-out TargetFramework is left alone", () => {
     sedInPlace(
       join(REPO_DIR, "src", "MyLib.csproj"),
@@ -301,7 +342,7 @@ describe("scripts/cs-references-update", () => {
   });
 
   it("unmapped TFM with LangVersion tags present exits 2 naming supported TFMs", () => {
-    const r = runUpdate([REPO_DIR, "--framework", "net11.0"]);
+    const r = runUpdate([REPO_DIR, "--framework", "net12.0"]);
     expect(r.status).toBe(2);
     expect(r.out).toContain("net8.0");
     expect(r.out).toContain("Supported TFMs");
@@ -309,10 +350,90 @@ describe("scripts/cs-references-update", () => {
 
   it("unmapped TFM without LangVersion tags proceeds (LangVersion untouched)", () => {
     deleteLinesContaining(join(REPO_DIR, "src", "MyLib.csproj"), "<LangVersion>");
+    const r = runUpdate([REPO_DIR, "--framework", "net12.0"]);
+    expect(r.status).toBe(0);
+    expect(csproj()).toContain("<TargetFramework>net12.0</TargetFramework>");
+    expect(csproj()).not.toContain("<LangVersion>");
+  });
+
+  it("--framework net11.0: rewrites TargetFramework and maps LangVersion to 15.0", () => {
     const r = runUpdate([REPO_DIR, "--framework", "net11.0"]);
     expect(r.status).toBe(0);
     expect(csproj()).toContain("<TargetFramework>net11.0</TargetFramework>");
-    expect(csproj()).not.toContain("<LangVersion>");
+    expect(csproj()).toContain("<LangVersion>15.0</LangVersion>");
+  });
+
+  // ── --post-update ────────────────────────────────────────────────────────
+
+  function writePostUpdate(body: string): string {
+    const script = join(TMP, "migrate.sh");
+    writeFileSync(script, `#!/usr/bin/env bash\n${body}\n`);
+    chmodSync(script, 0o755);
+    return script;
+  }
+
+  it("--post-update runs last with env and repo-root cwd; its edits are kept", () => {
+    const { chainLog } = setupChainFixture();
+    const script = writePostUpdate(
+      [
+        'echo "cwd=$(pwd) dir=$CS_UPDATE_REPO_DIR fw=$CS_UPDATE_FRAMEWORK prev=$CS_UPDATE_PREVIOUS_FRAMEWORKS" > "$HOOK_LOG"',
+        'echo "chain-before-hook=$(wc -c < "$CHAIN_LOG")" >> "$HOOK_LOG"',
+        'echo migrated > "$CS_UPDATE_REPO_DIR/migrated.txt"',
+      ].join("\n"),
+    );
+    const hookLog = join(TMP, "hook.log");
+    const r = runUpdate([REPO_DIR, "--framework", "net10.0", "--post-update", script], {
+      HOOK_LOG: hookLog,
+      CHAIN_LOG: chainLog,
+    });
+    expect(r.status).toBe(0);
+    const log = readFileSync(hookLog, "utf8");
+    expect(log).toContain(`cwd=${REPO_DIR}`);
+    expect(log).toContain(`dir=${REPO_DIR}`);
+    expect(log).toContain("fw=net10.0");
+    expect(log).toContain("prev=net8.0");
+    // the boilerplate chain had already written its ARGS line when the hook ran
+    expect(log).not.toContain("chain-before-hook=0");
+    expect(readFileSync(join(REPO_DIR, "migrated.txt"), "utf8")).toBe("migrated\n");
+  });
+
+  it("--post-update without --framework runs with an empty CS_UPDATE_FRAMEWORK", () => {
+    const hookLog = join(TMP, "hook.log");
+    const script = writePostUpdate('echo "fw=[$CS_UPDATE_FRAMEWORK]" > "$HOOK_LOG"');
+    const r = runUpdate([REPO_DIR, "--post-update", script], { HOOK_LOG: hookLog });
+    expect(r.status).toBe(0);
+    expect(readFileSync(hookLog, "utf8")).toContain("fw=[]");
+  });
+
+  it("--post-update failure exits 12", () => {
+    const script = writePostUpdate("exit 7");
+    const r = runUpdate([REPO_DIR, "--post-update", script]);
+    expect(r.status).toBe(12);
+    expect(r.out).toContain("--post-update script failed (exit 7)");
+  });
+
+  it("--post-update does not run when 'dotnet outdated' failed", () => {
+    const hookLog = join(TMP, "hook.log");
+    const script = writePostUpdate('echo ran > "$HOOK_LOG"');
+    const r = runUpdate([REPO_DIR, "--post-update", script], { MOCK_OUTDATED_FAILS: "1", HOOK_LOG: hookLog });
+    expect(r.status).toBe(11);
+    expect(spawnSync("test", ["-e", hookLog]).status).toBe(1);
+  });
+
+  it("--post-update with a missing script exits 3; a non-executable one exits 2", () => {
+    expect(runUpdate([REPO_DIR, "--post-update", join(TMP, "nope.sh")]).status).toBe(3);
+    const plain = join(TMP, "plain.sh");
+    writeFileSync(plain, "#!/usr/bin/env bash\nexit 0\n");
+    chmodSync(plain, 0o644);
+    expect(runUpdate([REPO_DIR, "--post-update", plain]).status).toBe(2);
+  });
+
+  it("--post-update given as a relative path is resolved against the invocation directory", () => {
+    writePostUpdate('echo ok > "$HOOK_LOG"');
+    const hookLog = join(TMP, "hook.log");
+    const r = runUpdate([REPO_DIR, "--post-update", "./migrate.sh"], { HOOK_LOG: hookLog }, TMP);
+    expect(r.status).toBe(0);
+    expect(readFileSync(hookLog, "utf8")).toBe("ok\n");
   });
 
   // ── Help ─────────────────────────────────────────────────────────────────

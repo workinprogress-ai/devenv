@@ -213,6 +213,17 @@ describe("scripts/cs-dependencies-update-wizard", () => {
     expect(r.out).toContain("--lang-default");
   });
 
+  it("cs-dependencies-update-wizard.sh shows --post-update in usage", () => {
+    expect(runWizard(["--help"]).out).toContain("--post-update");
+  });
+
+  it("cs-dependencies-update-wizard.sh rejects a missing --post-update script up front", () => {
+    setupMinimalCache();
+    const r = runWizard(["--global", "--dry-run", "--no-refresh", "--post-update", "/nonexistent/migrate.sh"]);
+    expect(r.status).toBe(3);
+    expect(r.out).toContain("--post-update script not found");
+  });
+
   it("cs-dependencies-update-wizard.sh --framework without value errors", () => {
     const r = runWizard(["--global", "--framework"]);
     expect(r.status).not.toBe(0);
