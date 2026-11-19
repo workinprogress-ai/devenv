@@ -63,6 +63,8 @@ function stubAzureFetch(build: Record<string, unknown>, artifactNames: string[] 
 
 beforeEach(() => {
   vi.spyOn(console, "log").mockImplementation(() => {});
+  // The watch's progress lines go to stderr; every request here is a stub.
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {

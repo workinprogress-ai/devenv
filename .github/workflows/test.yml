@@ -142,11 +142,17 @@ jobs:
 
       - name: Lint documentation (markdown + relative links/anchors)
         if: steps.changed.outputs.files != ''
+        env:
+          CHANGED_FILES: ${{ steps.changed.outputs.files }}
         run: |
           # lint-documentation runs markdownlint AND checks that relative .md
           # links resolve — including in-page anchors (GitHub-style heading
           # fragments), the stale-write failure class.
-          node tools/ts/lint-documentation.ts ${{ steps.changed.outputs.files }}
+          # The list is one path per line: read it into an array so every
+          # path is an argument (pasting it into the script made each line
+          # after the first a command of its own).
+          mapfile -t files <<< "$CHANGED_FILES"
+          node tools/ts/lint-documentation.ts "${files[@]}"
 
       - name: Check links on changed files
         if: steps.changed.outputs.files != ''

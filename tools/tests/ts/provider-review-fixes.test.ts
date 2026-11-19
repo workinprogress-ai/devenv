@@ -276,6 +276,11 @@ describe("azure comment body", () => {
 // ---------------------------------------------------------------------------
 
 describe("azure pipelines facade: options are refused, never dropped", () => {
+  beforeEach(() => {
+    // The watch's progress lines go to stderr; every request here is a stub.
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
   async function facade() {
     useConfig("azure");
     const calls = stubFetch((r) => {

@@ -2,7 +2,7 @@
 // hand-built dependency-index cache.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readdirSync, readFileSync } from "node:fs";
@@ -47,6 +47,12 @@ beforeEach(() => {
   REPO_CACHE_DIR = join(TMP, "cache");
   mkdirSync(join(TMP, "bin"), { recursive: true });
   stubGh(join(TMP, "bin"));
+  // The wizard checks for these before a real run; none of the dry-run paths
+  // under test executes them, and a CI image has no dotnet-outdated.
+  for (const tool of ["dotnet", "dotnet-outdated"]) {
+    writeFileSync(join(TMP, "bin", tool), "#!/bin/sh\nexit 0\n");
+    chmodSync(join(TMP, "bin", tool), 0o755);
+  }
 });
 
 afterEach(() => {
@@ -56,7 +62,9 @@ afterEach(() => {
 const { DEVENV_REPO: _dr, ...procEnv } = process.env;
 
 function runWizard(args: string[], extraEnv: Record<string, string> = {}): { status: number; out: string } {
-  const r = spawnSync("node", [WIZARD, ...args], {
+  // setsid: no controlling terminal. The wizard's prompts read /dev/tty, and a
+  // test run from a terminal (a commit hook) must never wait on it.
+  const r = spawnSync("setsid", ["--wait", "node", WIZARD, ...args], {
     encoding: "utf8",
     env: { ...procEnv, PATH: pathWithStubs(join(TMP, "bin")), REPO_CACHE_DIR, ...extraEnv },
   });

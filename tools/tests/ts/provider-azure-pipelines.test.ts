@@ -28,6 +28,11 @@ let sleeps: number[] = [];
 beforeEach(() => {
   restoreEnv = useAzureEnv("test-org", "test-project");
   sleeps = [];
+  // The watch prints its progress ("run 5: poll 1 failed ...") on stderr. Every
+  // request here is a stub, but those lines read like a live provider failing,
+  // so they stay out of the test output.
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "log").mockImplementation(() => {});
   // Every sleep (the watch interval, the transport's backoff) runs at once.
   vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: () => void, ms?: number) => {
     sleeps.push(ms ?? 0);

@@ -2,6 +2,12 @@
   "ignorePatterns": [
     {
       "pattern": "^https://code.visualstudio.com"
+    },
+    {
+      "pattern": "^repos/(<|%3C)your-service(>|%3E)/"
+    },
+    {
+      "pattern": "^path/to/file$"
     }
   ],
   "retryOn429": true,

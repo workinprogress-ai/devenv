@@ -212,7 +212,13 @@ case "$*" in
         payload='{"data":{"organization":{"projectsV2":{"pageInfo":{"hasNextPage":false,"endCursor":""},"nodes":[{"id":"PVT_test1","number":9,"title":"someproject"}]}}}}'
         ;;
 esac
-printf '%s' "$payload" | jq -r "$prog"
+# No --jq (for example the auth probe): answer the payload as is. An empty jq
+# program is an error in newer jq releases.
+if [ -n "$prog" ]; then
+    printf '%s' "$payload" | jq -r "$prog"
+else
+    echo "$payload"
+fi
 `;
 
 describe("project-update-issue", () => {

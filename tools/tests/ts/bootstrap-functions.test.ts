@@ -16,7 +16,7 @@
 // failure mode impossible instead of silent.)
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, readFileSync, existsSync, rmSync, symlinkSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, chmodSync, readdirSync, readFileSync, existsSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -56,6 +56,33 @@ let TMP = "";
 // absolute path under the OS temp dir. All fixture paths are built through
 // this, so a broken hook can never redirect writes into the repo (or anywhere
 // else outside tmp).
+/** The system tool directories as one PATH entry, minus the named tools.
+ * install_yq returns early when any yq is on PATH, and a CI runner image ships
+ * its own, so a hermetic test must be able to take it out of the PATH. */
+function systemToolsWithout(dirName: string, omit: string[]): string {
+  const dir = tmpPath(dirName);
+  mkdirSync(dir, { recursive: true });
+  const seen = new Set(omit);
+  for (const source of ["/usr/bin", "/bin"]) {
+    let names: string[] = [];
+    try {
+      names = readdirSync(source);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      try {
+        symlinkSync(join(source, name), join(dir, name));
+      } catch {
+        // an entry that cannot be linked is simply absent from this PATH
+      }
+    }
+  }
+  return dir;
+}
+
 function tmpPath(...parts: string[]): string {
   const base = tmpdir();
   if (!TMP || !isAbsolute(TMP) || !TMP.startsWith(base)) {
@@ -1216,7 +1243,7 @@ describe("bootstrap: install_yq and download verification", () => {
     writeFileSync(f, `source '${BOOTSTRAP_BASH}'\ninstall_yq\n`);
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
-    env["PATH"] = `${stubs}:/usr/bin:/bin`;
+    env["PATH"] = `${stubs}:${systemToolsWithout("yq-system-bin", ["yq", "curl", "wget", "sudo"])}`;
     env["DEVENV_ROOT"] = "";
     env["YQ_VERSION"] = pinnedVersion!;
     env["CALLS"] = calls;
@@ -1329,7 +1356,7 @@ describe("bootstrap: install_yq and download verification", () => {
     writeFileSync(f, `source '${BOOTSTRAP_BASH}'\ninstall_yq\n`);
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
-    env["PATH"] = `${stubs}:/usr/bin:/bin`;
+    env["PATH"] = `${stubs}:${systemToolsWithout("yq-system-bin2", ["yq", "curl", "wget", "sudo"])}`;
     env["DEVENV_ROOT"] = "";
     env["YQ_VERSION"] = "v1.2.3";
     env["CALLS"] = calls;
