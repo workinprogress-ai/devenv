@@ -351,7 +351,7 @@ See [docs/Skills.md](./Skills.md) for the full catalog and decision tree.
 
 ### Adding a custom skill
 
-1. **Read the conventions** — `copilot/skills/_conventions.md` defines the required file layout, frontmatter fields, description rules (lint-skills warns over 1200 characters and fails over 2000 — keep it well under), section ordering, and confirmation-flow patterns.
+1. **Read the conventions** — `copilot/skills/_conventions.md` defines the required file layout, frontmatter fields, description rules (lint-skills fails a description over 1024 characters — the Copilot skill loader's limit, so a fork-added skill over it would not load in Copilot either — and frontmatter that does not parse as YAML), section ordering, and confirmation-flow patterns.
 
 2. **Create the skill folder and SKILL.md**:
 
@@ -362,11 +362,13 @@ See [docs/Skills.md](./Skills.md) for the full catalog and decision tree.
 
    The folder name must match the `name:` field in the YAML frontmatter exactly.
 
-3. **Write the description carefully** — it is the only signal Copilot uses to decide whether to auto-load the skill. Include explicit `USE WHEN` and `DO NOT USE FOR` clauses with the exact phrases users will say. Verify the length:
+3. **Write the description carefully** — it is the only signal Copilot uses to decide whether to auto-load the skill. Include explicit `USE WHEN` and `DO NOT USE FOR` clauses with the exact phrases users will say. Keep it within 1024 characters, and single-quote the value (doubling any apostrophe) if it contains a colon followed by a space. Verify both:
 
    ```bash
-   awk '/^description:/ {gsub(/^description: */,""); print length}' copilot/skills/<name>/SKILL.md
+   lint-skills
    ```
+
+   The YAML check (SK011) approximates the Copilot skill loader; the Copilot log (`~/.copilot/logs/`) is the ground truth.
 
 4. **Register the skill for `/devenv-help` discoverability** — append a row to the appropriate category table in `copilot/skills/devenv-help/references/skills-registry.md`. This is the single file the `devenv-help` routing skill reads; without an entry here, the skill won't be surfaced when users ask "which skill should I use".
 

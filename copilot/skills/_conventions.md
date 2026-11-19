@@ -39,7 +39,7 @@ The `description` is the **only** signal the model uses to decide whether to aut
 1. **Open with one sentence** that names what the skill does.
 2. **Include a `USE WHEN` clause** with the exact trigger phrases users will say (in quotes).
 3. **Include a `DO NOT USE FOR` clause** that names sibling skills it should defer to.
-4. Keep the description under 1200 characters (lint-skills warns above that and fails over 2000); brevity is still preferred — trim toward 1000 when possible.
+4. Keep the description to at most 1024 characters — the GitHub Copilot skill loader refuses to register a longer one, and lint-skills fails above that (SK003); trim toward 1000 for margin. The frontmatter must also parse as YAML (SK011): single-quote the `description:` value, doubling any apostrophe, whenever it contains a colon followed by a space.
 5. Avoid markdown formatting in the description — it renders as plain text in skill pickers, so formatting that would leak raw (backticks, bold markers) should not be used. Slash-command names and plain words are fine.
 
 Template:

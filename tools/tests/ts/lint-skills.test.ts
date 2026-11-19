@@ -215,6 +215,49 @@ describe("lint-skills", () => {
     expect(r.out).toContain("SK003");
   });
 
+  it("SK003: the Copilot limit is 1024 characters — 1024 passes, 1025 fails", () => {
+    const skill = (len: number): string =>
+      `---\nname: devenv-alpha\ndescription: ${"y".repeat(len)}\nuser-invocable: true\n---\n`;
+    write("devenv-alpha/SKILL.md", skill(1024));
+    expect(runLint().status).toBe(0);
+    write("devenv-alpha/SKILL.md", skill(1025));
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK003");
+  });
+
+  it("SK003: length is measured on the parsed value, not the raw YAML line", () => {
+    // 12 doubled apostrophes unescape to 12 characters: the raw line is over
+    // 1024 characters, the parsed description is 1012.
+    const value = `${"y".repeat(1000)}${"''".repeat(12)}`;
+    write("devenv-alpha/SKILL.md", `---\nname: devenv-alpha\ndescription: '${value}'\nuser-invocable: true\n---\n`);
+    expect(runLint().status).toBe(0);
+  });
+
+  it("SK011: an unquoted description containing ': ' fails as unparseable YAML", () => {
+    write("devenv-alpha/SKILL.md", "---\nname: devenv-alpha\ndescription: route it: bug to hunt\nuser-invocable: true\n---\n");
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK011");
+    expect(r.out).toContain("devenv-alpha");
+  });
+
+  it("SK011: the same description single-quoted parses and passes", () => {
+    write("devenv-alpha/SKILL.md", "---\nname: devenv-alpha\ndescription: 'route it: bug to hunt'\nuser-invocable: true\n---\n");
+    expect(runLint().status).toBe(0);
+  });
+
+  it("SK011: unparseable frontmatter is reported once — SK003 is skipped for that file", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `---\nname: devenv-alpha\ndescription: route it: ${"y".repeat(1100)}\nuser-invocable: true\n---\n`,
+    );
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK011");
+    expect(r.out).not.toContain("SK003");
+  });
+
   it("SK004: registry ghost (reference with no directory) fails", () => {
     write(
       "devenv-help/references/skills-registry.md",

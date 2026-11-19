@@ -609,7 +609,7 @@ what you want, and the skill's interview will fill in the gaps.
 
 1. Read [`copilot/skills/_conventions.md`](../copilot/skills/_conventions.md) — frontmatter template, description structure, section ordering, reference-file criteria, confirmation flow.
 2. Create `copilot/skills/<name>/SKILL.md` (folder name must match `name:` frontmatter).
-3. Keep `description:` under the lint gate defined in [`_conventions.md`](../copilot/skills/_conventions.md) (lint-skills warns over 1200 chars, fails over 2000 — trim toward 1000 when possible) — verify with `awk '/^description:/ {gsub(/^description: */,""); print length}' SKILL.md`.
+3. Keep `description:` under the lint gate defined in [`_conventions.md`](../copilot/skills/_conventions.md) (lint-skills fails over 1024 chars, the Copilot skill loader's limit, and on frontmatter that does not parse as YAML — single-quote a description containing a colon followed by a space; trim toward 1000 for margin) — verify with `lint-skills`.
 4. Include explicit **USE WHEN** and **DO NOT USE FOR** phrases in the description.
 5. Add a "Sibling skills" section at the bottom with a link back to this catalog.
 6. Use the `agent-customization` Copilot skill for help with frontmatter and configuration.

@@ -6,6 +6,9 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
+
+import { load } from "js-yaml";
+
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
@@ -24,8 +27,9 @@ const RETIRED_NAMES = [
   "devenv-rubber-duck",
 ];
 
-const WARN_LIMIT = 1200;
-const FAIL_LIMIT = 2000;
+// The GitHub Copilot skill loader refuses to register a skill whose parsed
+// description is longer than this many characters.
+const DESCRIPTION_LIMIT = 1024;
 
 let failures = 0;
 let warnings = 0;
@@ -47,7 +51,7 @@ Deterministic contract checker for the copilot/skills tree.
 Checks:
   SK001  SKILL.md frontmatter: name:/description:/user-invocable: present
   SK002  frontmatter name matches directory name
-  SK003  description length (warn > 1200, fail > 2000 chars)
+  SK003  parsed description length (fail > 1024 chars, the Copilot loader limit)
   SK004  /devenv-<name> references resolve; registry ↔ filesystem bidirectional
   SK005  relative ../devenv-*/ links resolve
   SK006  no retired skill names in tracked files
@@ -57,6 +61,8 @@ Checks:
   SK009  every references/ file is linked from somewhere (no orphans)
   SK010  catalog parity: frontmatter USE WHEN triggers and DO-NOT-USE-FOR
          siblings findable (normalized) in the registry row and docs/Skills.md
+  SK011  SKILL.md frontmatter parses as YAML (quote a value containing ': ');
+         approximates the Copilot skill loader — its log is the ground truth
 
 Exit 0 = clean (warnings allowed); exit 1 = any failure.
 
@@ -138,11 +144,24 @@ function frontmatterOf(file: string): string {
   return end === -1 ? "" : lines.slice(1, end).join("\n");
 }
 
-// --- SK001/SK002/SK003: per-skill frontmatter ---------------------------------
+// --- SK001/SK002/SK003/SK011: per-skill frontmatter ---------------------------
 for (const dir of skillDirs()) {
   const skillPath = join(skillsDir, dir, "SKILL.md");
   if (!existsSync(skillPath)) continue;
   const fm = frontmatterOf(skillPath);
+
+  // SK011: Copilot's loader parses the frontmatter as YAML and rejects, for
+  // example, an unquoted description containing ': ' that lenient readers accept.
+  let parsed: unknown;
+  let parseable = true;
+  if (fm) {
+    try {
+      parsed = load(fm);
+    } catch (e) {
+      parseable = false;
+      err(`SK011 ${dir}/SKILL.md: frontmatter is not valid YAML — ${errorMessage(e).split("\n")[0]} (quote values containing ': ')`);
+    }
+  }
 
   const nameLine = fm.split("\n").find((l) => l.startsWith("name: "));
   const descLine = fm.split("\n").find((l) => l.startsWith("description:"));
@@ -157,10 +176,11 @@ for (const dir of skillDirs()) {
     if (fmName !== dir) err(`SK002 ${dir}/SKILL.md: name: '${fmName}' != directory '${dir}'`);
   }
 
-  if (descLine) {
-    const dlen = frontmatterDescription(skillPath).length;
-    if (dlen > FAIL_LIMIT) err(`SK003 ${dir}/SKILL.md: description ${dlen} chars (limit ${FAIL_LIMIT})`);
-    else if (dlen > WARN_LIMIT) warn(`SK003 ${dir}/SKILL.md: description ${dlen} chars (warn at ${WARN_LIMIT})`);
+  // Unparseable frontmatter is already reported by SK011; measuring it too would double-report.
+  if (descLine && parseable) {
+    const value = (parsed as { description?: unknown } | null)?.description;
+    const dlen = (typeof value === "string" ? value : frontmatterDescription(skillPath)).length;
+    if (dlen > DESCRIPTION_LIMIT) err(`SK003 ${dir}/SKILL.md: description ${dlen} chars (limit ${DESCRIPTION_LIMIT})`);
   }
 }
 

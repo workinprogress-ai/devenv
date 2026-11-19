@@ -28,4 +28,10 @@ describe("skill-orient without generated stubs", () => {
     expect(blob.plan).toMatchObject({ done: 1, total: 2, open: 1 });
     expect(blob.todos.length).toBe(1);
   });
+
+  it("accepts and ignores --json", () => {
+    const r = runTool("skill-orient", ["--json", "--scope", dir], { cwd: dir });
+    expect(r.status, r.output).toBe(0);
+    expect(() => JSON.parse(r.stdout)).not.toThrow();
+  });
 });

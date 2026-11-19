@@ -40,6 +40,8 @@ try {
     options: {
       scope: { type: "string", multiple: true },
       plan: { type: "string" },
+      // Output is always JSON; skills sometimes pass --json anyway, so accept and ignore it.
+      json: { type: "boolean" },
     },
   });
   if (cli.common.help) usage();
