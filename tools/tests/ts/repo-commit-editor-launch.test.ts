@@ -146,6 +146,23 @@ describe("failure classification after a passing hook", () => {
     expect(harnessHeadCount(h)).toBe(before);
   });
 
+  it("reports a commit-msg hook rejection after a saved message as a post-editor failure, not a pre-commit rejection", () => {
+    const hook = join(h.repo, ".git", "hooks", "commit-msg");
+    writeFileSync(hook, "#!/bin/sh\necho 'commit-msg: subject rejected' >&2\nexit 1\n");
+    chmodSync(hook, 0o755);
+    harnessSetEditorMode(h, "save");
+    harnessStageFile(h, "a.txt", "a\n");
+    const before = harnessHeadCount(h);
+
+    const r = harnessRunTool(h, ["feat: add a"]);
+
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("commit-msg: subject rejected"); // the hook's own output reached the terminal
+    expect(r.out).toContain("failed after the editor closed");
+    expect(r.out).not.toContain("rejected by a pre-commit hook");
+    expect(harnessHeadCount(h)).toBe(before);
+  });
+
   it("does not depend on git's message language: a translated editor failure is still an editor failure", () => {
     // stub git: runs the real commit machinery up to the editor, then fails
     // with a non-English message that also contains the word "hook"

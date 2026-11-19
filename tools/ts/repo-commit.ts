@@ -16,8 +16,8 @@
 // Requirements: Node >= 23.6 (native type-stripping execution)
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { accessSync, constants as fsConstants, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { gitCapture, gitCheck, gitInherit, getDefaultBranch } from "../lib/core/git.ts";
@@ -50,9 +50,9 @@ function git(args: string[], opts: { cwd?: string } = {}): { status: number; out
 
 // Editor-gated git spawns (amend/commit/fold/reword) stay on raw spawnSync
 // with a named reason: each injects GIT_EDITOR/GIT_SEQUENCE_EDITOR env and
-// needs editor-shaped stdio (full inherit, or stderr-piped to separate a
-// hook rejection from an editor abort) — shapes the shared runners
-// deliberately do not model. Everything else in this file routes through
+// needs editor-shaped stdio (full inherit, so hook output streams live and
+// terminal editors keep the TTY) — a shape the shared runners deliberately do
+// not model. Everything else in this file routes through
 // gitCapture/gitCheck.
 
 // --- The fold-window boundary: master-reachability, not remote-ref presence.
@@ -143,7 +143,10 @@ Commits the existing index only if the editor session yields a non-empty message
 
 Refuses (normal, --amend and --reword lanes):
   - running without a terminal: stdin AND stdout must both be a TTY; an env-supplied
-    GIT_EDITOR/EDITOR/VISUAL is never accepted as proof of a human
+    GIT_EDITOR/EDITOR/VISUAL is never accepted as proof of a human. The one exception
+    is a VS Code tab: git config core.editor exactly "code --wait", a VS Code session
+    attached (VSCODE_IPC_HOOK_CLI) and the real remote-cli under ~/.vscode-server/bin —
+    the tool opens that tab by absolute path (never via PATH) and the save is the gate
   - any option other than --file (there is no -m, no --yes, no non-interactive path)
   - a finally resolved editor that is a non-interactive command (true, :, echo, cat, exit),
     also behind a wrapper (env, nice, timeout, ...) or a shell (sh -c ...)
@@ -154,6 +157,9 @@ inject no-op editors like ':' into terminals; the user's own git config must
 outrank them. Only when the RESOLVED editor is non-interactive is the commit
 refused: the editor save is the permission gate.
 
+git's output is never captured: pre-commit hooks run before the editor opens and
+their output streams live, so a long gate is visible rather than looking like a hang.
+
 Never stages (except via the --wip delegation to git-wip), never runs tests, never
 inspects hooks.
 Only /devenv-commit may invoke this tool.`);
@@ -161,17 +167,86 @@ Only /devenv-commit may invoke this tool.`);
 
 let editor = "";
 
+// The one human gate accepted without a terminal: a VS Code tab. The user's own
+// git config must name exactly this editor, a VS Code session must be attached,
+// and the tab is opened through the real remote-cli found by absolute path
+// under ~/.vscode-server — never through PATH, where a planted `code` could
+// stand in for a human. Environment-supplied editors play no part.
+const GUI_EDITOR_CONFIG = "code --wait";
+
+function refuseWithoutTerminal(reason: string): never {
+  dieUsage(
+    "refusing to open an editor without a terminal: stdin and stdout must both be a TTY — the editor save is the permission gate",
+    `the no-terminal VS Code gate is not available: ${reason}`,
+    "run repo-commit from an interactive terminal (an env-supplied GIT_EDITOR/EDITOR/VISUAL is not accepted as proof of a human)",
+  );
+}
+
+/** The remote-cli of the VS Code server that owns this session: the server
+ * hash VSCODE_CWD names when it has one, else the newest installed server that
+ * does. Only directories under ~/.vscode-server/bin are ever considered. */
+function vscodeRemoteCli(): string | null {
+  const root = join(homedir(), ".vscode-server", "bin");
+  const cliFor = (hash: string): string => join(root, hash, "bin", "remote-cli", "code");
+  const usable = (path: string): boolean => {
+    try {
+      accessSync(path, fsConstants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const named = /\/([0-9a-f]{40})(?:\/|$)/.exec(process.env.VSCODE_CWD ?? "")?.[1];
+  if (named !== undefined && usable(cliFor(named))) return cliFor(named);
+  let hashes: string[];
+  try {
+    hashes = readdirSync(root);
+  } catch {
+    return null;
+  }
+  let best: string | null = null;
+  let bestTime = -1;
+  for (const hash of hashes) {
+    const path = cliFor(hash);
+    if (!usable(path)) continue;
+    const mtime = statSync(path).mtimeMs;
+    if (mtime > bestTime) {
+      best = path;
+      bestTime = mtime;
+    }
+  }
+  return best;
+}
+
+function resolveGuiEditorWithoutTty(): void {
+  const configured = git(["config", "--get", "core.editor"]).out.trim().split(/\s+/).join(" ");
+  if (configured !== GUI_EDITOR_CONFIG) {
+    refuseWithoutTerminal(`git config core.editor must be exactly "${GUI_EDITOR_CONFIG}"`);
+  }
+  if ((process.env.VSCODE_IPC_HOOK_CLI ?? "") === "") {
+    refuseWithoutTerminal("no VS Code session is attached (VSCODE_IPC_HOOK_CLI is unset)");
+  }
+  const cli = vscodeRemoteCli();
+  if (cli === null) {
+    refuseWithoutTerminal("no VS Code remote-cli was found under ~/.vscode-server/bin");
+  }
+  if (spawnSync(cli, ["--version"], { stdio: "ignore", timeout: 10_000 }).status !== 0) {
+    refuseWithoutTerminal(`the VS Code remote-cli at ${cli} does not launch`);
+  }
+  editor = `'${cli.replace(/'/g, `'\\''`)}' --wait`;
+  console.log("repo-commit: no terminal — the VS Code tab is the human gate: close it to commit the message, or empty the message and save to cancel.");
+}
+
 /** Resolve the interactive editor once (shared by the normal and amend
  * lanes): non-interactive values are treated as UNSET — automation hosts
  * inject no-op editors; the user's own config must outrank them. */
 function resolveEditor(): void {
   // An env-supplied editor is no proof of a human: only a terminal on both
-  // stdin and stdout is. The deny-list below stays as an additional layer.
+  // stdin and stdout is — or, without one, the single GUI gate below. The
+  // deny-list further down stays as an additional layer on the terminal path.
   if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) {
-    dieUsage(
-      "refusing to open an editor without a terminal: stdin and stdout must both be a TTY — the editor save is the permission gate",
-      "run repo-commit from an interactive terminal (an env-supplied GIT_EDITOR/EDITOR/VISUAL is not accepted as proof of a human)",
-    );
+    resolveGuiEditorWithoutTty();
+    return;
   }
   const candidates: string[] = [
     process.env.GIT_EDITOR ?? "",
@@ -886,6 +961,17 @@ function vscodeCliLaunches(candidate: string): boolean {
 }
 
 
+// True when the message the editor saved has no content once comment lines and
+// whitespace are stripped — git's own condition for "Aborting commit due to
+// empty commit message". git leaves the edited message in COMMIT_EDITMSG.
+function savedMessageIsEmpty(commentChar: string): boolean {
+  const path = git(["rev-parse", "--git-path", "COMMIT_EDITMSG"]).out.trim();
+  if (path === "" || !existsSync(path)) return false;
+  return readFileSync(path, "utf8")
+    .split("\n")
+    .every((line) => line.startsWith(commentChar) || line.trim() === "");
+}
+
 // --- Wrap the suggested BODY at 72 columns (git-standard width) so the
 // crafter sees the final shape in the editor — nothing to fix after the fact.
 // The header (line 0) is NEVER wrapped: a folded header is not a header — and
@@ -983,44 +1069,46 @@ writeFileSync(msgfile, `${contextBanner}${finalMessage}\n`);
 // path. git's stdout/stderr pass through UNREDIRECTED (stdio inherit): terminal
 // editors draw their UI on the TTY. The one-line notice says which editor is
 // taking over the terminal.
-console.log(`repo-commit: opening editor: ${editor}  (save & close to commit; empty/abort cancels)`);
-console.log("repo-commit: pre-commit hooks run after the editor closes; on this repo the suite takes minutes — wait for the final line, do not assume a hang.");
-// stdin/stdout stay inherited (terminal editors draw their UI there); stderr is
-// piped so a HOOK rejection can be told apart from an editor abort — with full
-// inherit, spawnSync captures nothing and the two failures are indistinguishable.
-// The editor runs through a thin launcher that records the editor's own exit
-// status in a marker file. Whether the editor failed is then an observed fact,
-// independent of git's (translatable) message text and of the user's locale,
-// which is left untouched for the editor, hooks and everything printed. The
-// launcher runs exactly the vetted editor string and adds no other behavior.
+console.log(`repo-commit: opening editor: ${editor}  (after the pre-commit hooks; save & close to commit; empty/abort cancels)`);
+console.log("repo-commit: pre-commit hooks run first and their output streams below; on this repo the suite takes minutes — wait for the editor to open, do not assume a hang.");
+// All three stdio streams are inherited: hook output (git forwards it to
+// stderr) must reach the terminal live, and terminal editors draw their UI on
+// the TTY. Nothing is captured, so the failure class is read from observed
+// facts instead of stderr text: the editor runs through a thin launcher that
+// records the editor's own exit status in a marker file (absent = the editor
+// never ran, so the failure came before it — pre-commit and prepare-commit-msg
+// run first), and the saved message tells an emptied-message cancel from a
+// post-editor failure. These are independent of git's (translatable) message
+// text and of the user's locale, which is left untouched for the editor, hooks
+// and everything printed. The launcher runs exactly the vetted editor string
+// and adds no other behavior.
 const editorStatusFile = join(tmpDir, "editor-status");
 const editorLauncher = join(tmpDir, "editor-launch.sh");
 writeFileSync(editorLauncher, `#!/bin/sh\n${editor} "$@"\ns=$?\nprintf '%s' "$s" > '${editorStatusFile}'\nexit "$s"\n`, { mode: 0o700 });
 const commit = spawnSync("git", ["-c", `core.commentChar=${cc}`, "commit", "--cleanup=strip", "--edit", "-F", msgfile], {
-  stdio: ["inherit", "inherit", "pipe"],
+  stdio: "inherit",
   env: { ...process.env, GIT_EDITOR: `'${editorLauncher}'` },
 });
 const editorStatus = existsSync(editorStatusFile) ? readFileSync(editorStatusFile, "utf8").trim() : "";
-const commitStderr = commit.stderr instanceof Buffer
-  ? commit.stderr.toString()
-  : typeof commit.stderr === "string" ? commit.stderr : "";
-if (commitStderr !== "") process.stderr.write(commitStderr);
 rmSync(tmpDir, { recursive: true, force: true });
 if (commit.status !== 0) {
   // The editor's recorded exit status says it failed to launch or exited
-  // non-zero. Checked first: the hook's captured stderr can contain "hook" on
-  // a PASS, so the hook regex alone mislabels an editor failure as a hook
-  // rejection.
+  // non-zero.
   if (editorStatus !== "" && editorStatus !== "0") {
     die("the editor failed to launch or exited non-zero — no commit exists, index untouched");
   }
-  // Distinguish the two abort classes honestly: a HOOK rejection prints its
-  // own diagnostics (reprinted above from the captured stderr) — naming it
-  // prevents misreading a failed suite as an editor abort.
-  if (/hook|Test suite failed|Tests failed/i.test(commitStderr)) {
-    die("commit rejected by a pre-commit hook — no commit exists, index untouched (the failure's output is above)");
+  // No marker: the editor never ran, so the failure came before it — a
+  // pre-commit (or prepare-commit-msg) hook rejection, whose output streamed
+  // above. Naming it prevents misreading a failed suite as an editor abort.
+  if (editorStatus === "") {
+    die("commit rejected by a pre-commit hook (or failed before the editor opened) — no commit exists, index untouched (the failure's output is above)");
   }
-  die("commit did not complete (editor session aborted or git failed) — index left untouched");
+  // The editor ran and exited cleanly: an emptied message is the user
+  // cancelling; anything else is a commit-msg hook rejection or a git failure.
+  if (savedMessageIsEmpty(cc)) {
+    die("commit did not complete (editor session aborted or git failed) — index left untouched");
+  }
+  die("commit rejected or failed after the editor closed (a commit-msg hook or git) — no commit exists, index untouched (the failure's output is above)");
 }
 
 // --- Confirm outcome honestly.

@@ -5,7 +5,7 @@
 // that spawns the copied tool). New repo-commit suites consume this instead
 // of re-implementing it.
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -187,18 +187,53 @@ export interface RunToolOptions {
   cwd?: string;
 }
 
-/** Spawn the copied repo-commit tool against the harness repo. */
-export function harnessRunTool(
-  h: Harness,
-  args: string[],
-  opts: RunToolOptions = {},
-): { status: number; out: string } {
+function runToolEnv(h: Harness, opts: RunToolOptions): Record<string, string | undefined> {
   // LC_ALL=C by default so message-text assertions do not depend on the host
   // locale; a test that targets locale behavior overrides it through opts.env.
   const env: Record<string, string | undefined> = { ...process.env, LC_ALL: "C", GIT_EDITOR: h.editorScript };
   if (opts.envEditor !== undefined) env.GIT_EDITOR = opts.envEditor;
   if (opts.barePath && h.binDir !== null) env.PATH = h.binDir;
   if (opts.env !== undefined) for (const [k, v] of Object.entries(opts.env)) env[k] = v;
+  return env;
+}
+
+export interface TimedRun {
+  status: number;
+  out: string;
+  /** Output chunks in arrival order; `at` is ms since the spawn. */
+  chunks: Array<{ at: number; text: string }>;
+  /** ms from the spawn to process exit. */
+  endedAt: number;
+}
+
+/** Spawn the copied repo-commit tool asynchronously (under a pty unless
+ * `noTty`) and timestamp every output chunk — the synchronous runner cannot
+ * observe whether output arrived while the tool was still running. */
+export function harnessRunToolTimed(h: Harness, args: string[], opts: RunToolOptions = {}): Promise<TimedRun> {
+  const env = runToolEnv(h, opts);
+  const [cmd, cmdArgs] = opts.noTty === true ? ["node", [h.tool, ...args]] : ttyCommand("node", [h.tool, ...args]);
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const chunks: Array<{ at: number; text: string }> = [];
+    const child = spawn(cmd, cmdArgs, { cwd: opts.cwd ?? h.repo, env: env as NodeJS.ProcessEnv, stdio: ["pipe", "pipe", "pipe"] });
+    const onData = (d: Buffer): void => { chunks.push({ at: Date.now() - started, text: d.toString() }); };
+    child.stdout.on("data", onData);
+    child.stderr.on("data", onData);
+    child.stdin.end(opts.input ?? "");
+    child.on("error", reject);
+    child.on("close", (code) => {
+      resolve({ status: code ?? 1, out: chunks.map((c) => c.text).join(""), chunks, endedAt: Date.now() - started });
+    });
+  });
+}
+
+/** Spawn the copied repo-commit tool against the harness repo. */
+export function harnessRunTool(
+  h: Harness,
+  args: string[],
+  opts: RunToolOptions = {},
+): { status: number; out: string } {
+  const env = runToolEnv(h, opts);
   const [cmd, cmdArgs] = opts.noTty === true ? ["node", [h.tool, ...args]] : ttyCommand("node", [h.tool, ...args]);
   const r = spawnSync(cmd, cmdArgs, {
     encoding: "utf8",
