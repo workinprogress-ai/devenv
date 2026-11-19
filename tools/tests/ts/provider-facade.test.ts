@@ -283,6 +283,13 @@ describe("artifacts domain (byte-faithful header)", () => {
     expect(artifacts.parseHeaderJson("just some body")).toBeNull();
   });
 
+  it("a body with leading key lines but no marker and no doc_id carries no header", () => {
+    const prose = "Status: open\nOwner: someone\n\nBody text.";
+    expect(artifacts.parseHeaderJson(prose)).toBeNull();
+    expect(artifacts.findDocId(prose)).toBe("");
+    expect(artifacts.headerField(prose, "Status")).toBe("");
+  });
+
   it("parseHeaderJson honors the first-1024 window (marker beyond it is absent)", () => {
     const far = "x".repeat(1100) + "\n<!-- DEVENV_ARTIFACT_V1\ndoc_id: late\n-->";
     expect(artifacts.parseHeaderJson(far)).toBeNull();

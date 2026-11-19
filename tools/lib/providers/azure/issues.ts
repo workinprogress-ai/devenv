@@ -22,6 +22,7 @@ import { witBase, webItemsBase } from "./wit-urls.ts";
 import { azureUri } from "./urls.ts";
 import {
   azureTextDecode,
+  azureMarkerRestore,
   azureTagsSplit,
   azureTagsJoin,
   bodyFieldFor,
@@ -41,6 +42,7 @@ export {
   bodyFieldFor,
   splitCommentRef,
   azureMarkerTransform,
+  azureMarkerRestore,
   issuesArtifactBodyTransform,
 } from "./entity-roundtrip.ts";
 
@@ -309,7 +311,8 @@ async function workItemCommentsAll(number: number): Promise<Array<Record<string,
 /** Project the raw REST comment shape into the seam record. The id is the
  * opaque comment ref (<issue>/<comment>) — the token the get/edit verbs
  * accept. Azure comment objects carry no html link (verified live): the web
- * URL is constructed. Bodies are decoded; newlines pass through as stored. */
+ * URL is constructed. Bodies are decoded and an artifact's bare header is
+ * restored to marker form; newlines pass through as stored. */
 function mapComment(web: string, c: Record<string, unknown>): {
   id: string;
   url: string;
@@ -326,7 +329,7 @@ function mapComment(web: string, c: Record<string, unknown>): {
     id: `${wi}/${cid}`,
     url: `${web}${wi}?_a=comments`,
     user: { login: identityLogin(createdBy) },
-    body: azureTextDecode(body),
+    body: azureMarkerRestore(azureTextDecode(body)),
     created_at: String(c.createdDate ?? ""),
     updated_at: String(c.modifiedDate ?? c.createdDate ?? ""),
   };

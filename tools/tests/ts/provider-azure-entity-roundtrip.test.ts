@@ -2,7 +2,7 @@
 // grammar and the artifact-marker transform that lets a doc_id survive Azure's
 // HTML-comment stripping.
 import { describe, expect, it } from "vitest";
-import { azureMarkerTransform, splitCommentRef } from "../../lib/providers/azure/entity-roundtrip.ts";
+import { azureMarkerRestore, azureMarkerTransform, splitCommentRef } from "../../lib/providers/azure/entity-roundtrip.ts";
 
 const HEADER = [
   "<!-- DEVENV_ARTIFACT_V1",
@@ -61,5 +61,51 @@ describe("azureMarkerTransform", () => {
   it("passes a body whose doc_id already survives through unchanged", () => {
     const body = "doc_id: dv1:acme/widgets:1:plan:x\nbody";
     expect(azureMarkerTransform(body)).toBe(body);
+  });
+});
+
+describe("azureMarkerRestore", () => {
+  const FULL_HEADER = [
+    "artifact_type: plan",
+    "artifact_scope: local-file",
+    "doc_id: dv1:acme/widgets:local:plan:x",
+    "issue_number: none",
+    "planning_repo: none",
+    "source_file: .local-artifacts/Plan-001.md",
+    "updated_at_utc: 2026-11-19T00:00:00Z",
+    "commit_alignment: commit-free",
+  ];
+  const full = ["<!-- DEVENV_ARTIFACT_V1", ...FULL_HEADER, "-->", "", "# Title", "", "Body."].join("\n");
+
+  it("returns the marker form with every header key and the body intact", () => {
+    const restored = azureMarkerRestore(azureMarkerTransform(full));
+    expect(restored).toBe(full);
+  });
+
+  it("is an exact inverse: transform of the restored body is the stored body", () => {
+    const stored = azureMarkerTransform(full);
+    expect(azureMarkerTransform(azureMarkerRestore(stored))).toBe(stored);
+  });
+
+  it("restores a header written before every key was kept (six keys)", () => {
+    const stored = ["artifact_type: plan", "doc_id: dv1:a/b:local:plan:x", "issue_number: none", "", "# T"].join("\n");
+    expect(azureMarkerRestore(stored)).toBe(
+      ["<!-- DEVENV_ARTIFACT_V1", "artifact_type: plan", "doc_id: dv1:a/b:local:plan:x", "issue_number: none", "-->", "", "# T"].join("\n"),
+    );
+  });
+
+  it("restores a header stored with CRLF line endings", () => {
+    const restored = azureMarkerRestore("doc_id: dv1:a/b:local:plan:x\r\nissue_number: 1\r\n\r\nbody");
+    expect(restored.startsWith("<!-- DEVENV_ARTIFACT_V1\ndoc_id: dv1:a/b:local:plan:x\nissue_number: 1\n-->\n")).toBe(true);
+  });
+
+  it.each([
+    ["plain text", "no header here"],
+    ["key lines without a doc_id", "Status: open\nowner: someone\n\nBody."],
+    ["a doc_id that is not on the first line", "intro\ndoc_id: dv1:a/b:local:plan:x\n\nBody."],
+    ["a body already in marker form", `${HEADER}\n# Title`],
+    ["an empty body", ""],
+  ])("leaves %s untouched", (_name, body) => {
+    expect(azureMarkerRestore(body)).toBe(body);
   });
 });

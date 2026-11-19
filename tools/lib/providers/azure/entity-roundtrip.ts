@@ -121,17 +121,9 @@ export function azureMarkerTransform(body: string): string {
   if (bareRe.test(stripped)) return body;
   // Preserve every DEVENV_ARTIFACT_V1 field as a bare `key: value` block:
   // Azure storage strips HTML comments, and downstream consumers route on
-  // planning_repo/artifact_type — dropping them (the old doc_id-only form)
-  // silently broke identity. Bare key lines survive Azure storage and are
-  // read back by the artifact tools' headerValue parser.
-  const headerKeys = [
-    "artifact_type",
-    "doc_id",
-    "issue_number",
-    "planning_repo",
-    "source_file",
-    "updated_at_utc",
-  ];
+  // planning_repo/artifact_type/commit_alignment — dropping any key silently
+  // loses it. Bare key lines survive Azure storage and azureMarkerRestore
+  // turns them back into the marker form on read.
   // Only the first marker block names this document; a later block (for
   // example one quoted as an example in the body) must not add header fields.
   const header: string[] = [];
@@ -144,13 +136,32 @@ export function azureMarkerTransform(body: string): string {
     const close = line.indexOf("-->");
     const content = close === -1 ? line : line.slice(0, close);
     const kv = /^([a-z_]+):[ \t]*(.+?)[ \t]*$/.exec(content);
-    if (kv && headerKeys.includes(kv[1] as string)) {
+    if (kv) {
       header.push(`${kv[1]}: ${kv[2]}`);
     }
     if (close !== -1) break;
   }
   if (header.length === 0) return `doc_id: ${docId}\n${stripped}`;
   return `${header.join("\n")}\n${stripped}`;
+}
+
+/** Read-side inverse of azureMarkerTransform: a stored body that opens with
+ * the bare header it wrote — a run of `key: value` lines on the first line
+ * onward that holds a `doc_id` key — is returned in marker form
+ * (`<!-- DEVENV_ARTIFACT_V1`, the run, `-->`, then the rest of the body), so
+ * every consumer above the provider sees one canonical shape. Any other body
+ * is returned unchanged: the run must start on the first line, and prose that
+ * merely opens with `Key: value` lines is not an artifact. */
+export function azureMarkerRestore(body: string): string {
+  const lines = body.split("\n");
+  const run: string[] = [];
+  for (const line of lines) {
+    const bare = line.replace(/\r$/, "");
+    if (!/^[a-z_]+: .+$/.test(bare)) break;
+    run.push(bare);
+  }
+  if (!run.some((line) => line.startsWith("doc_id: "))) return body;
+  return `<!-- DEVENV_ARTIFACT_V1\n${run.join("\n")}\n-->\n${lines.slice(run.length).join("\n")}`;
 }
 
 /** Upsert-hook shape: issue-artifact-upsert calls this around its doc_id

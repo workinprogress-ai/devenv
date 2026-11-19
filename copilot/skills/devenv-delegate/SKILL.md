@@ -131,6 +131,8 @@ Ask if not provided: issue # or path to a plan markdown.
 
 > **Plan-location rule.** A plan known or said to exist is located by direct check of the canonical path (`ls <repo-root>/.local-artifacts/`) or via `skill-orient` — step 0's output already reports the active plan path — never by workspace search alone: `.local-artifacts/` is gitignored and invisible to default search, so an empty search result there is *unknown*, not *absent* (see the one-probe rule in the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts)).
 
+> **Empty artifact lookup is a tooling question, never a user question.** When the plan header, the plan's issue number, or the session log says the plan was already synced, but `issue-artifact-select` or `issue-artifact-list` returns nothing, treat it as a possible tool or provider fault — not as proof the artifact is absent, and never ask the user which repo or tracker the issue lives in. Report the exact command, its output, and the active provider (`provider-explain issues`), then stop for direction. On project-scoped providers (Azure) work-item ids are project-global and artifact reads need no repo target, so a repo choice cannot explain an empty result.
+
 #### issue intake
 
 - **issue**:

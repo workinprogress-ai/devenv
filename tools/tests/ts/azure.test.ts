@@ -214,26 +214,42 @@ describe("azure issues text round-trip", () => {
     const body = [
       "<!-- DEVENV_ARTIFACT_V1",
       "artifact_type: implementation-plan",
+      "artifact_scope: local-file",
       "doc_id: dv1:org/repo:issue-72:plan-1",
       "issue_number: 72",
       "planning_repo: org/planning",
       "source_file: .local-artifacts/Plan-1.md",
       "updated_at_utc: 2026-11-02T00:00:00Z",
+      "commit_alignment: commit-free",
       "-->",
       "body content here",
     ].join("\n");
     const t = azureMarkerTransform(body);
     for (const line of [
       "artifact_type: implementation-plan",
+      "artifact_scope: local-file",
       "doc_id: dv1:org/repo:issue-72:plan-1",
       "issue_number: 72",
       "planning_repo: org/planning",
       "source_file: .local-artifacts/Plan-1.md",
       "updated_at_utc: 2026-11-02T00:00:00Z",
+      "commit_alignment: commit-free",
     ]) {
       expect(t).toContain(line);
     }
-    expect(t).toContain("body content here");
+    expect(t).toBe(
+      [
+        "artifact_type: implementation-plan",
+        "artifact_scope: local-file",
+        "doc_id: dv1:org/repo:issue-72:plan-1",
+        "issue_number: 72",
+        "planning_repo: org/planning",
+        "source_file: .local-artifacts/Plan-1.md",
+        "updated_at_utc: 2026-11-02T00:00:00Z",
+        "commit_alignment: commit-free",
+        "body content here",
+      ].join("\n"),
+    );
     expect(t).not.toContain("<!--");
     expect(azureMarkerTransform(t)).toBe(t); // idempotent
   });

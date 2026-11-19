@@ -64,6 +64,16 @@ don't re-derive them:
   look-alike input, since a typed `&quot;`, `&amp;` or `&lt;` reads back the
   same as the encoded form and is decoded, so markdown that legitimately
   contains those sequences changes on a read-then-write cycle.
+- **HTML comments are stripped, so an artifact's header is stored as bare
+  lines**: a comment published with a `<!-- DEVENV_ARTIFACT_V1 … -->` header
+  loses the block in storage. The write path (`azureMarkerTransform`) keeps
+  every key of the first marker block as `key: value` lines at the top of the
+  body; the read path (`azureMarkerRestore`, applied in the comment mapping
+  behind both comment reads) returns a body that opens with such a run, when
+  it holds a `doc_id` key, in marker form again. Every other comment is
+  returned unchanged, and the artifact readers above the provider only ever
+  see the marker form. A comment stored before every key was kept returns
+  the keys it holds.
 - **PR completion is one PATCH, after a GET**: GET the PR for its
   `lastMergeSourceCommit`, then PATCH `{"status":"completed",
   "lastMergeSourceCommit":{"commitId":...},"completionOptions":{
