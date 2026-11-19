@@ -13,6 +13,7 @@ import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { calculateNextVersion, getLatestVersionTag } from "../lib/domain/release/version.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { EXIT_CONFLICT, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 
 assertNodeFloor();
 
@@ -60,7 +61,7 @@ function main(): void {
   } catch (err) {
     console.error(errorMessage(err));
     console.log("Use --help for usage information");
-    process.exit(2);
+    process.exit(EXIT_MISUSE);
   }
 
   const target = resolve(argv[0] ?? process.cwd());
@@ -92,7 +93,7 @@ function main(): void {
       "No GitHub Packages token available (NUGET_TOKEN unset and `gh auth token` failed). " +
         "Authenticate with gh or export NUGET_TOKEN, then retry."
     );
-    process.exit(3);
+    process.exit(EXIT_CONFLICT);
   }
 
   const name = basename(target).toLowerCase();

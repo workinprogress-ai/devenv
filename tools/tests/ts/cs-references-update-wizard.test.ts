@@ -44,7 +44,11 @@ function git(args: string[]): { status: number; stdout: string } {
 
 function wizard(): (args: string[], extraEnv?: Record<string, string>) => { status: number; out: string } {
   return (args, extraEnv = {}) => {
-    const r = spawnSync("node", [join(FAKE_TOOLS, "ts", "wizard.ts"), ...args], {
+    // setsid: a new session has no controlling terminal. The wizard's prompts
+    // read /dev/tty, so a child that inherits the test runner's terminal (a
+    // developer running the suite from a commit hook) would wait on that
+    // terminal for an answer nobody gives.
+    const r = spawnSync("setsid", ["--wait", "node", join(FAKE_TOOLS, "ts", "wizard.ts"), ...args], {
       cwd: REPO_DIR,
       encoding: "utf8",
       env: { ...GIT_ENV(), PATH: `${BIN}:${GIT_ENV().PATH ?? ""}`, ...extraEnv },

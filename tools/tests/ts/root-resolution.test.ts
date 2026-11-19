@@ -72,6 +72,7 @@ describe("no tool derives its root from the working directory", () => {
     // sit in. Each entry below uses the cwd to choose the repository (or
     // directory) the tool acts ON, never to locate the devenv checkout itself.
     const ALLOWED: Record<string, string> = {
+      "ci-build-local.ts": "defaults the repository to build to the cwd when no argv target is given",
       "cs-nuget-publish-local.ts": "defaults the project to publish to the cwd when no argv target is given",
       "cs-open-coverage.ts": "scans the cwd for coverage reports (the project under test)",
       "cs-references-update.ts": "defaults the target repository to the cwd",

@@ -359,12 +359,13 @@ function runSingleRepoWizard(args: WizardArgs, repoDir: string): number {
 }
 
 async function main(): Promise<void> {
+  // Arguments first: --help, --version and a misused flag must not need the
+  // external tools the run itself uses.
+  const args = parseArgs_main();
   requireCommandOrExit("git", undefined, EXIT_GENERAL_ERROR);
   requireCommandOrExit("jq", undefined, EXIT_GENERAL_ERROR);
   requireCommandOrExit("dotnet", undefined, EXIT_GENERAL_ERROR);
   requireCommandOrExit("dotnet-outdated", undefined, EXIT_GENERAL_ERROR);
-
-  const args = parseArgs_main();
   let rootRepo = "";
 
   // Single-target mode: validate TARGET_DIR.
