@@ -15,9 +15,15 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { ensureProviderAuth, providerDetect } from "../lib/providers/provider-core.ts";
+import { ensureProviderAuth } from "../lib/providers/provider-core.ts";
 import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
-import { pipelinesWorkflowRun, pipelinesRunList, pipelinesRunView, pipelinesWorkflowList } from "../lib/providers/facade/pipelines.ts";
+import {
+  pipelinesQueuedRunStrategy,
+  pipelinesWorkflowRun,
+  pipelinesRunList,
+  pipelinesRunView,
+  pipelinesWorkflowList,
+} from "../lib/providers/facade/pipelines.ts";
 import { findQueuedRun } from "../lib/domain/pipelines/queued-run.ts";
 
 assertNodeFloor();
@@ -106,17 +112,19 @@ for (const input of inputs) {
   triggerFlags.push("-f", input);
 }
 
-// Snapshot the repository's recent runs before triggering: a run id already
-// in it can never be the one this invocation queues.
-const isGithub = providerDetect() === "github";
+const queuedRunStrategy = await pipelinesQueuedRunStrategy();
 const snapshotIds = new Set<string>();
-try {
-  const before = JSON.parse(await pipelinesRunList(repo, { limit: RUN_LIST_LIMIT, json: RUN_LIST_FIELDS })) as unknown;
-  if (Array.isArray(before)) {
-    for (const run of before as Array<{ id?: unknown }>) snapshotIds.add(String(run.id));
+if (queuedRunStrategy.kind === "search") {
+  // A provider without a response id needs a pre-trigger snapshot to identify
+  // which later run belongs to this invocation.
+  try {
+    const before = JSON.parse(await pipelinesRunList(repo, { limit: RUN_LIST_LIMIT, json: RUN_LIST_FIELDS })) as unknown;
+    if (Array.isArray(before)) {
+      for (const run of before as Array<{ id?: unknown }>) snapshotIds.add(String(run.id));
+    }
+  } catch {
+    // An unreadable snapshot leaves the trigger-time check to do the work.
   }
-} catch {
-  // An unreadable snapshot leaves the trigger-time check to do the work.
 }
 
 const triggerTime = Date.now();
@@ -134,13 +142,17 @@ logInfo("Workflow queued. Fetching run URL...");
 let runUrl = "";
 let ambiguousCount = 0;
 const queuedId = queued.stdout.trim();
-if (/^[1-9][0-9]*$/.test(queuedId)) {
+const hasQueuedId = /^[1-9][0-9]*$/.test(queuedId);
+if (queuedRunStrategy.kind === "response-id" && !hasQueuedId) {
+  throw new Error("pipeline trigger response did not contain a run id");
+}
+if (hasQueuedId) {
   try {
     runUrl = (await pipelinesRunView(repo, queuedId, { json: "url", jq: ".url" })).trim();
   } catch {
     runUrl = "";
   }
-} else {
+} else if (queuedRunStrategy.kind === "search") {
   const found = await findQueuedRun(
     {
       listRuns: () => pipelinesRunList(repo, { limit: RUN_LIST_LIMIT, json: RUN_LIST_FIELDS }),
@@ -150,8 +162,10 @@ if (/^[1-9][0-9]*$/.test(queuedId)) {
     {
       triggerTime,
       snapshotIds,
-      workflowName: isGithub ? await resolveWorkflowName() : undefined,
-      requireDispatchEvent: isGithub,
+      workflowName: queuedRunStrategy.workflowMatch === "required"
+        ? await resolveWorkflowName()
+        : undefined,
+      requireDispatchEvent: queuedRunStrategy.dispatchEvent === "required",
     },
   );
   if (found.kind === "found") runUrl = found.url;

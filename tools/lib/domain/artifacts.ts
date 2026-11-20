@@ -16,7 +16,7 @@
 import { readFileSync } from "node:fs";
 import * as configModule from "../core/config.ts";
 import * as coreModule from "../providers/provider-core.ts";
-import { orgPackagesQuery, orgPackageVersionsQuery } from "../providers/facade/org.ts";
+import { orgPackageScope, orgPackagesQuery, orgPackageVersionsQuery } from "../providers/facade/org.ts";
 import { issuesComments } from "../providers/facade/issues.ts";
 import { ProviderError } from "../providers/provider-core.ts";
 
@@ -382,17 +382,6 @@ export interface QueryPackagesOptions {
   repo?: string;
 }
 
-/** Normalize the `--repo` value against the resolved owner: a bare name
- * stays as-is (endpoint uses the owner), `owner/name` splits and overrides
- * the owner (the bash verbs document `owner/repo` for this flag). */
-function splitRepoScope(repo: string, owner: string): { owner: string; repo: string } {
-  const slash = repo.indexOf("/");
-  if (slash > 0 && slash < repo.length - 1) {
-    return { owner: repo.slice(0, slash), repo: repo.slice(slash + 1) };
-  }
-  return { owner, repo };
-}
-
 /** Resolve the org from devenv.config `[organization] org` (the bash verbs'
  * provider_org_get fallback). Throws a defined error when unconfigured. */
 export function resolveOwner(explicit?: string): string {
@@ -441,7 +430,7 @@ export async function queryPackages(opts: QueryPackagesOptions = {}): Promise<st
   const type = opts.type !== undefined ? packageTypeId(opts.type) : undefined;
   let repo: string | undefined;
   if (opts.repo !== undefined && opts.repo !== "") {
-    const scoped = splitRepoScope(opts.repo, owner);
+    const scoped = await orgPackageScope(owner, opts.repo);
     owner = scoped.owner;
     repo = scoped.repo;
   }
@@ -484,7 +473,7 @@ export async function packageVersions(opts: PackageVersionsOptions): Promise<str
   }
   let repo: string | undefined;
   if (opts.repo !== undefined && opts.repo !== "") {
-    const scoped = splitRepoScope(opts.repo, owner);
+    const scoped = await orgPackageScope(owner, opts.repo);
     owner = scoped.owner;
     repo = scoped.repo;
   }

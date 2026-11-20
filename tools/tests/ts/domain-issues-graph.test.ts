@@ -15,7 +15,7 @@ let stubDir = "";
 let repoRoot = "";
 let workDir = "";
 
-function installGhStub(opts: { parentNative?: number | null; body?: string } = {}): void {
+function installGhStub(opts: { parentNative?: number | null; parentFails?: boolean; body?: string } = {}): void {
   const parentVal = opts.parentNative === null || opts.parentNative === undefined ? "null" : String(opts.parentNative);
   // The body is requested as the JSON `body` field (no jq program).
   const bodyOut = JSON.stringify({ body: opts.body ?? "" }).replace(/'/g, "'\\''");
@@ -25,7 +25,7 @@ function installGhStub(opts: { parentNative?: number | null; body?: string } = {
       "#!/usr/bin/env bash",
       'printf \'%s\\n\' "gh $*" >> "__LOG__"',
       'case "$*" in',
-      '  *"parent{number}"*) echo "' + parentVal + '" ;;',
+      '  *"parent{number}"*) ' + (opts.parentFails === true ? "exit 1" : `echo "${parentVal}"`) + ' ;;',
       '  *"{id}}}"*) echo "I_stub" ;;',
       '  *"subIssues"*) echo \'{"data":{"repository":{"issue":{"subIssues":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"number":11},{"number":12}]}}}}}\' ;;',
       '  *"--json body"*) echo \'' + bodyOut + '\';;',
@@ -55,6 +55,7 @@ function ghCalls(): string[] {
 
 interface Opts {
   parentNative?: number | null;
+  parentFails?: boolean;
   body?: string;
   projectRows?: string;
   keepStub?: boolean;
@@ -63,7 +64,11 @@ interface Opts {
 /** Run a snippet inside a node child with the stubs on PATH. */
 function runNode(snippet: string, opts: Opts = {}): { status: number; stdout: string } {
   if (!opts.keepStub) {
-    installGhStub({ parentNative: opts.parentNative ?? null, ...(opts.body !== undefined ? { body: opts.body } : {}) });
+    installGhStub({
+      parentNative: opts.parentNative ?? null,
+      ...(opts.parentFails !== undefined ? { parentFails: opts.parentFails } : {}),
+      ...(opts.body !== undefined ? { body: opts.body } : {}),
+    });
   }
   const script = [
     `const g = await import(${JSON.stringify(GRAPH)});`,
@@ -129,6 +134,15 @@ describe("domain/issues/graph", () => {
     });
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe("99");
+  });
+
+  it("parent falls back to the body when native lookup fails", async () => {
+    const r = runNode(`console.log(await g.parent("org/repo", 7));`, {
+      parentFails: true,
+      body: "Part of #98\n",
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe("98");
   });
 
   it("parent returns null when neither source records one", async () => {

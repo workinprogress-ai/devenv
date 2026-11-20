@@ -1,19 +1,10 @@
-// graph.ts — native sub-issue hierarchy reads + body-text parent resolution.
+// graph.ts — provider-neutral sub-issue hierarchy operations.
 //
 // All I/O lives here (and in the provider facade it calls); the workflow
 // module stays policy-only by calling THESE helpers.
 //
-// API shapes (live-verified against GitHub):
-//   node IDs:  repository(owner,name){ issue(number){ id } }
-//   link:      addSubIssue(input:{issueId, subIssueId})
-//   children:  repository(owner,name){ issue(number){ subIssues(first:50) } }
-//   parent:    repository(owner,name){ issue(number){ parent{ number } } }
-//
-// Parent resolution reads the native sub-issue graph FIRST (Issue.parent is
-// live-verified to reflect addSubIssue linkage); the 'Part of #N' body text
-// is the fallback for issues without native linking. Keep the fallback:
-// existing subtrees may rely on it. Removing the body-text line on such an
-// issue silently stops parent rollup for that subtree.
+// Provider modules own native relation shapes and compatibility fallbacks.
+// Domain callers consume only the neutral edge list and parent result.
 //
 // Headless (D3): returns data, never prompts; the status read goes through
 // the provider facade in-process, and the status write runs the sibling
@@ -32,7 +23,6 @@ import {
   issueGraphParent,
   issueGraphUnlink,
   issueWebUrl,
-  issuesView,
 } from "../../providers/facade/issues.ts";
 import { projectsOps } from "../../providers/facade/projects.ts";
 import { providerRepoTarget } from "../../providers/provider-core.ts";
@@ -62,31 +52,9 @@ function defaultRoot(): string {
   return fileURLToPath(new URL("../../../..", import.meta.url));
 }
 
-/**
- * Resolve an issue's parent: native sub-issue linkage first, 'Part of #N'
- * body text as fallback for issues without native linking. null when no
- * parent is recorded either way.
- */
+/** Resolve an issue's provider-owned parent relation, or null. */
 export async function parent(spec: string | undefined, issue: number): Promise<number | null> {
-  const native = await issueGraphParent(spec, issue).catch(() => null);
-  if (native !== null) return native;
-  // Body-text fallback: the first 'Part of #N' line, if any. View failures
-  // read as "no parent recorded" (same as the bash `|| return 0`).
-  const body = await issueBody(spec, issue);
-  const m = /^Part of #([0-9]+)/m.exec(body);
-  return m?.[1] !== undefined ? Number.parseInt(m[1], 10) : null;
-}
-
-/** An issue's body text via the facade's JSON projection (no provider-
- * specific jq program); view or parse failures read as an empty body. */
-async function issueBody(spec: string | undefined, issue: number): Promise<string> {
-  try {
-    const raw = await issuesView(spec, issue, { json: "body" });
-    const body = (JSON.parse(raw) as { body?: unknown }).body;
-    return typeof body === "string" ? body : "";
-  } catch {
-    return "";
-  }
+  return issueGraphParent(spec, issue).catch(() => null);
 }
 
 export interface ProjectStatusRow {

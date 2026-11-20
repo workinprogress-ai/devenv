@@ -220,6 +220,131 @@ failure is never an empty success. Diagnostics go to stderr.
 | Ruleset create and update | `{ ok, stderr }` |
 | Graph, blocked-by, close/reopen and similar writes | nothing (`void`) or the host's stdout |
 
+## Behavioral capabilities
+
+The family gates in `provider-core.ts` answer whether a provider implements a
+whole tool family, such as pipelines or project boards. Behavioral capabilities
+below answer a narrower question: how a provider represents an operation inside
+an implemented family. They are owned by the family facade so tools and domain
+code never branch on the provider name.
+
+### Repository settings
+
+Repository-setting capabilities live in `facade/repos.ts`. The facade exposes
+provider-neutral setting names and a support record for each:
+
+```ts
+export type RepositoryFeature =
+  | "wiki"
+  | "issues"
+  | "discussions"
+  | "projects"
+  | "autoMerge"
+  | "updateBranch"
+  | "forking"
+  | "squashMergeCommitTitle"
+  | "squashMergeCommitMessage";
+
+export type RepositorySetting =
+  | "templateFlag"
+  | "mergeTypes"
+  | "deleteBranchOnMerge"
+  | RepositoryFeature;
+
+type SettingSupport =
+  | { supported: true }
+  | { supported: false; reason: string };
+
+interface RepoSettingCapabilities {
+  templateFlag: SettingSupport;
+  mergeTypes: SettingSupport;
+  deleteBranchOnMerge: SettingSupport;
+  repositoryFeatures: Record<RepositoryFeature, SettingSupport>;
+}
+```
+
+Callers submit settings in neutral form rather than as provider CLI flags. The
+facade maps supported settings onto the provider and returns:
+
+```ts
+interface RepoSettingsResult {
+  applied: RepositorySetting[];
+  skipped: Array<{ setting: RepositorySetting; reason: string }>;
+  failed: Array<{ setting: RepositorySetting; message: string }>;
+}
+```
+
+An unsupported setting is a successful, explicit skip; it is not a failed
+write. A provider rejection remains a failed item and includes its diagnostic.
+This keeps warnings honest without asking domain code to understand host-shaped
+keys such as `has_discussions` or `allow_forking`.
+
+### Ruleset outcomes
+
+Ruleset capabilities live in `facade/org.ts`. Create and update results keep
+transport details in the provider layer and classify the failure for callers:
+
+```ts
+type RulesetMutationResult =
+  | { ok: true; stderr: "" }
+  | {
+      ok: false;
+      kind: "permission" | "plan-limit" | "unsupported" | "other";
+      message: string;
+      hint?: string;
+      stderr: string;
+    };
+```
+
+Provider code performs any host-specific error parsing and writes the
+provider-specific hint. Domain code renders the message and hint; it does not
+match strings such as `403` or `upgrade to github pro`.
+
+### Queued-run attribution
+
+Pipeline run attribution lives in `facade/pipelines.ts`. It tells
+`pipelines-run` how to identify the run created by a successful trigger:
+
+```ts
+type QueuedRunStrategy =
+  | { kind: "response-id" }
+  | {
+      kind: "search";
+      workflowMatch: "required" | "optional";
+      dispatchEvent: "required" | "ignored";
+    };
+```
+
+`response-id` means a successful trigger result contains the run id.
+`search` means the caller must compare a pre-trigger snapshot with later runs,
+using the provider's declared matching constraints. A provider must not be
+inferred to use one strategy because it is—or is not—GitHub.
+
+### Package feeds
+
+Package-feed capabilities live in the setup provider seam. Npm and NuGet each
+resolve to an explicit configured feed or a named reason not to configure one:
+
+```ts
+type PackageFeedKind = "npm" | "nuget";
+
+type PackageFeedConfig =
+  | {
+      configured: true;
+      kind: PackageFeedKind;
+      url: string;
+      sourceName: string;
+      username?: string;
+      authHost: string;
+    }
+  | { configured: false; kind: PackageFeedKind; reason: string };
+```
+
+Feed resolution is separate from credential resolution: this contract never
+contains a token or password. A missing or unsupported provider/feed
+configuration is returned explicitly; setup steps never fall through to
+GitHub feed defaults for an unknown provider.
+
 **Projections.** A list or view verb that takes `json` returns only those fields; `jq` applies
 a program to the result. Both use the field names below, never the host's own where they
 differ. GitHub forwards both to `gh`; on Azure the facade and provider apply a small jq subset

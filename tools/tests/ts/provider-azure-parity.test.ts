@@ -115,9 +115,16 @@ const EXCEPTIONS: Record<string, Partial<Record<Who, string>>> = {
   provider_issue_blocked_by_remove: { facade: "blockedByRemove", github: "issueBlockedByUnlink", azure: "issueDependencyUnlink" },
 };
 
-/** Facade exports that are containers, not verbs: `projectsOps()` returns
- * the object whose members the `ops:` cells name. */
-const FACADE_CONTAINER_EXPORTS = new Set(["projects.projectsOps"]);
+/** Facade-only capabilities and containers. These are provider-owned
+ * decisions rather than host verbs, so they do not occupy contract table rows. */
+const FACADE_CONTAINER_EXPORTS = new Set([
+  "projects.projectsOps",
+  "repos.reposApplySettings",
+  "repos.reposSettingCapabilities",
+  "org.classifyRulesetMutationFailure",
+  "org.orgPackageScope",
+  "pipelines.pipelinesQueuedRunStrategy",
+]);
 
 /** The known, named gaps: a verb the contract lists that a provider has not
  * implemented. The table's `gap:` cells must equal this list exactly, so a

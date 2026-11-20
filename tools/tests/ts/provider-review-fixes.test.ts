@@ -363,7 +363,7 @@ describe("repos edit on azure", () => {
     const ok = await m.configureTemplateSettingForType("org/proj/repo", "tpl", config);
     const text = logged.join("\n");
     expect(text).not.toContain("marked as template");
-    expect(text).toMatch(/Template setting skipped/);
+    expect(text).toMatch(/templateFlag skipped/);
     expect(ok).toBe(true);
     expect(calls).toHaveLength(0);
   });

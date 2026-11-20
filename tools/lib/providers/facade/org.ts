@@ -5,14 +5,12 @@
 //   - Ruleset verbs: github's are sync (gh shells), azure's async (policies
 //     REST, translating the ruleset payload per its mapping) — every facade
 //     verb is async; github's sync bodies wrap in a resolved promise.
-//   - RulesetMutationResult: github returns {ok, stderr} and never throws for
-//     a rejected write; azure's create/update return void and THROW — the
-//     facade turns a thrown ProviderError into {ok:false, stderr:message} so
-//     callers classify failures (name conflict, 403) the same way on both.
+//   - Ruleset mutation failures are classified here; provider-specific hints
+//     and message parsing stay out of domain code.
 //
 // The module never exits; failures throw ProviderError and callers decide.
 
-import { ProviderError } from "../provider-core.ts";
+import { ProviderError, type ProviderName } from "../provider-core.ts";
 import type { GhResult } from "../github/transport.ts";
 import { loadProviderModules } from "./provider-loader.ts";
 import type * as ghTypes from "../github/org.ts";
@@ -23,7 +21,22 @@ type GithubOrg = typeof ghTypes;
 type AzureOrg = typeof azTypes;
 type AzurePolicies = typeof azPolicyTypes;
 
-export type RulesetMutationResult = ghTypes.RulesetMutationResult;
+export type RulesetMutationFailureKind =
+  | "permission"
+  | "plan-limit"
+  | "unsupported"
+  | "other";
+
+export type RulesetMutationResult =
+  | { ok: true; stderr: "" }
+  | {
+      ok: false;
+      kind: RulesetMutationFailureKind;
+      message: string;
+      hint?: string;
+      /** Compatibility for callers migrated by the following task. */
+      stderr: string;
+    };
 
 async function load(): Promise<{
   provider: string;
@@ -43,15 +56,42 @@ async function load(): Promise<{
   return { provider: "github", gh: loaded.get<GithubOrg>("org.ts"), az: undefined, azPolicies: undefined };
 }
 
-/** Run an Azure policy write and report its outcome in github's result
- * shape. Only a ProviderError (the provider's own failure) is converted;
- * anything else is a defect and propagates. */
+/** Classify a provider's rejected ruleset write without leaking host wording. */
+export function classifyRulesetMutationFailure(
+  provider: ProviderName,
+  message: string,
+): Extract<RulesetMutationResult, { ok: false }> {
+  const normalized = message.toLowerCase();
+  let kind: RulesetMutationFailureKind = "other";
+  let hint: string | undefined;
+  if (
+    provider === "github"
+    && (normalized.includes("upgrade to github pro") || normalized.includes("make this repository public"))
+  ) {
+    kind = "plan-limit";
+    hint = "Rulesets require GitHub Pro or a public repository";
+  } else if (
+    normalized.includes("403")
+    || normalized.includes("permission")
+    || normalized.includes("denied")
+  ) {
+    kind = "permission";
+    hint = provider === "azure"
+      ? "Ensure the Azure credentials can manage repository policies"
+      : "Ensure the GitHub credentials can administer repository rulesets";
+  } else if (normalized.includes("not supported")) {
+    kind = "unsupported";
+  }
+  return { ok: false, kind, message, stderr: message, ...(hint !== undefined ? { hint } : {}) };
+}
+
+/** Run an Azure policy write and classify provider-owned failures. */
 async function azureMutation(write: () => Promise<unknown>): Promise<RulesetMutationResult> {
   try {
     await write();
     return { ok: true, stderr: "" };
   } catch (err) {
-    if (err instanceof ProviderError) return { ok: false, stderr: err.message };
+    if (err instanceof ProviderError) return classifyRulesetMutationFailure("azure", err.message);
     throw err;
   }
 }
@@ -82,7 +122,10 @@ export async function orgRulesetCreate(repo: string, payloadFile: string): Promi
     const payload = JSON.parse(readFileSync(payloadFile, "utf8"));
     return azureMutation(() => m.azPolicies!.orgRulesetCreate(repo, payload));
   }
-  return m.gh!.orgRulesetCreate(repo, payloadFile);
+  const result = m.gh!.orgRulesetCreate(repo, payloadFile);
+  return result.ok
+    ? { ok: true, stderr: "" }
+    : classifyRulesetMutationFailure("github", result.stderr);
 }
 
 /** Update a ruleset from a payload file (same payload bridge as create). */
@@ -93,7 +136,10 @@ export async function orgRulesetUpdate(repo: string, id: string, payloadFile: st
     const payload = JSON.parse(readFileSync(payloadFile, "utf8"));
     return azureMutation(() => m.azPolicies!.orgRulesetUpdate(repo, id, payload));
   }
-  return m.gh!.orgRulesetUpdate(repo, id, payloadFile);
+  const result = m.gh!.orgRulesetUpdate(repo, id, payloadFile);
+  return result.ok
+    ? { ok: true, stderr: "" }
+    : classifyRulesetMutationFailure("github", result.stderr);
 }
 
 /** List the org's releases (JSON text; flags are github's gh-release arg
@@ -138,6 +184,23 @@ export async function orgPackageVersionsQuery(
     return azureUnsupported("org_package_versions_query");
   }
   return m.gh!.orgPackageVersionsQuery(owner, type, name, opts);
+}
+
+/** Resolve provider-owned package repository scoping for domain callers. */
+export async function orgPackageScope(
+  owner: string,
+  repo?: string,
+): Promise<{ owner: string; repo?: string }> {
+  const m = await load();
+  if (repo === undefined || repo === "") return { owner };
+  if (m.provider === "azure") {
+    throw new ProviderError("package repository scoping is not supported on provider 'azure'");
+  }
+  const slash = repo.indexOf("/");
+  if (slash > 0 && slash < repo.length - 1) {
+    return { owner: repo.slice(0, slash), repo: repo.slice(slash + 1) };
+  }
+  return { owner, repo };
 }
 
 /** The error for a verb azure has no equivalent of. */

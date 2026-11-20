@@ -567,27 +567,39 @@ function parseSubIssuesPage(raw: string, parent: number): { numbers: number[]; h
   return { numbers, hasNext, cursor };
 }
 
-/** Resolve an issue's native parent number, or null when unlinked. */
+/** Resolve an issue's parent. Native sub-issue linkage is authoritative;
+ * legacy `Part of #N` body text is a GitHub compatibility fallback. */
 export async function issueGraphParent(spec: string | undefined, issue: number): Promise<number | null> {
   const { owner, name } = ownerName(spec);
-  const r = await ghApi([
-    "api",
-    "graphql",
-    "-f",
-    "query=query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){parent{number}}}}",
-    "-f",
-    `o=${owner}`,
-    "-f",
-    `r=${name}`,
-    "-F",
-    `n=${issue}`,
-    "--jq",
-    ".data.repository.issue.parent.number",
-  ]);
-  const out = r.stdout.trim();
-  if (out === "" || out === "null") return null;
-  const n = Number.parseInt(out, 10);
-  return Number.isNaN(n) ? null : n;
+  let out = "";
+  try {
+    const r = await ghApi([
+      "api",
+      "graphql",
+      "-f",
+      "query=query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){parent{number}}}}",
+      "-f",
+      `o=${owner}`,
+      "-f",
+      `r=${name}`,
+      "-F",
+      `n=${issue}`,
+      "--jq",
+      ".data.repository.issue.parent.number",
+    ]);
+    out = r.stdout.trim();
+  } catch {
+    // Older hosts may not expose the native parent field. Preserve the
+    // body-linked hierarchy fallback for those repositories.
+  }
+  if (out !== "" && out !== "null") {
+    const n = Number.parseInt(out, 10);
+    if (!Number.isNaN(n)) return n;
+  }
+  const view = JSON.parse(await issuesView(spec, issue, { json: "body" })) as { body?: unknown };
+  const body = typeof view.body === "string" ? view.body : "";
+  const match = /^Part of #([0-9]+)/m.exec(body);
+  return match?.[1] !== undefined ? Number.parseInt(match[1], 10) : null;
 }
 
 /** Issue web URL (the contract's display-address verb). */
@@ -651,7 +663,6 @@ export async function issueBlockedByLink(
   issue: number,
   blockers: number[],
 ): Promise<void> {
-  const { blockedByAdd } = await import("../../domain/issues/relations.ts");
   const view = JSON.parse(
     await issuesView(spec, issue, { json: "body" }),
   ) as { body?: string | null };
@@ -668,7 +679,6 @@ export async function issueBlockedByUnlink(
   issue: number,
   blockers: number[],
 ): Promise<void> {
-  const { blockedByRemove } = await import("../../domain/issues/relations.ts");
   const view = JSON.parse(
     await issuesView(spec, issue, { json: "body" }),
   ) as { body?: string | null };
@@ -676,6 +686,79 @@ export async function issueBlockedByUnlink(
   if (updated === (view.body ?? "")) return; // absent = no-op
   await ghApi(["issue", "edit", String(issue), ...repoArgs(spec),
     "--body-file", "-"], { input: updated });
+}
+
+/** Parse blocker numbers from the GitHub body convention. */
+export function blockedByFrom(body: string): number[] {
+  const lines = body.split("\n");
+  const start = lines.findIndex((line) => line.trim() === "## Blocked by");
+  if (start === -1) return [];
+  const seen = new Set<number>();
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (/^#{1,6}\s/.test(line)) break;
+    const match = /^Blocked by #(\d+)\s*$/.exec(line);
+    if (match?.[1] !== undefined) seen.add(Number(match[1]));
+  }
+  return [...seen];
+}
+
+/** Add blockers to GitHub's body convention. */
+export function blockedByAdd(body: string, blockers: number[]): string {
+  const existing = new Set(blockedByFrom(body));
+  const fresh = blockers.filter((blocker) => !existing.has(blocker));
+  if (fresh.length === 0) return body;
+  const lines = body.split("\n");
+  const headingIndex = lines.findIndex((line) => line.trim() === "## Blocked by");
+  if (headingIndex === -1) {
+    const section = ["", "## Blocked by", ...fresh.map((blocker) => `Blocked by #${blocker}`), ""];
+    return `${body.replace(/\n*$/, "\n")}${section.join("\n")}`;
+  }
+  let insertAt = headingIndex + 1;
+  for (let i = headingIndex + 1; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (/^Blocked by #\d+\s*$/.test(line)) insertAt = i + 1;
+    else if (/^#{1,6}\s/.test(line)) break;
+  }
+  lines.splice(insertAt, 0, ...fresh.map((blocker) => `Blocked by #${blocker}`));
+  return lines.join("\n");
+}
+
+/** Remove blockers from GitHub's body convention. */
+export function blockedByRemove(body: string, blockers: number[]): string {
+  const listed = new Set(blockedByFrom(body));
+  if (blockers.every((blocker) => !listed.has(blocker))) return body;
+  const lines = body.split("\n");
+  const headingIndex = lines.findIndex((line) => line.trim() === "## Blocked by");
+  if (headingIndex === -1) return body;
+  const drop = new Set(blockers);
+  const kept: string[] = [];
+  let inSection = false;
+  let sectionBlockers = 0;
+  for (const line of lines) {
+    if (line.trim() === "## Blocked by") {
+      inSection = true;
+      kept.push(line);
+      continue;
+    }
+    if (inSection && /^#{1,6}\s/.test(line)) inSection = false;
+    if (inSection) {
+      const match = /^Blocked by #(\d+)\s*$/.exec(line);
+      if (match?.[1] !== undefined) {
+        sectionBlockers++;
+        if (!drop.has(Number(match[1]))) kept.push(line);
+        continue;
+      }
+    }
+    kept.push(line);
+  }
+  if (sectionBlockers - [...drop].filter((blocker) => listed.has(blocker)).length === 0) {
+    return kept
+      .filter((line, index) => line.trim() !== "## Blocked by" && !(index > 0 && line === "" && kept[index - 1]?.trim() === "## Blocked by"))
+      .join("\n")
+      .replace(/\n{3,}$/, "\n\n");
+  }
+  return kept.join("\n");
 }
 
 // Re-exports for callers that want one import surface for the seam errors.

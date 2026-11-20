@@ -25,12 +25,32 @@ import type * as azTypes from "../azure/pipelines.ts";
 type GithubPipelines = typeof ghTypes;
 type AzurePipelines = typeof azTypes;
 
+export type QueuedRunStrategy =
+  | { kind: "response-id" }
+  | {
+      kind: "search";
+      workflowMatch: "required" | "optional";
+      dispatchEvent: "required" | "ignored";
+    };
+
 async function load(): Promise<{ provider: string; gh: GithubPipelines | undefined; az: AzurePipelines | undefined }> {
   const loaded = await loadProviderModules("pipelines");
   if (loaded.provider === "azure") {
     return { provider: "azure", gh: undefined, az: loaded.get<AzurePipelines>("pipelines.ts") };
   }
   return { provider: "github", gh: loaded.get<GithubPipelines>("pipelines.ts"), az: undefined };
+}
+
+/** How this provider attributes a newly queued run to its trigger. */
+export async function pipelinesQueuedRunStrategy(): Promise<QueuedRunStrategy> {
+  const m = await load();
+  return m.provider === "azure"
+    ? { kind: "response-id" }
+    : {
+        kind: "search",
+        workflowMatch: "required",
+        dispatchEvent: "required",
+      };
 }
 
 /** List pipeline runs (JSON text). */

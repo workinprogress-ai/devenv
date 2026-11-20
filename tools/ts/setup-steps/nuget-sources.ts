@@ -11,10 +11,9 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { configGetRaw } from "../../lib/core/config.ts";
 import { toolbox } from "./lib.ts";
-import { isAzureArtifactsUrl, providerSecretToken } from "./provider-seam.ts";
-import { providerDetect, providerOrgGet, providerUserGet } from "../../lib/providers/provider-core.ts";
+import { packageFeedConfig, providerSecretToken } from "./provider-seam.ts";
+import { providerOrgGet, providerUserGet } from "../../lib/providers/provider-core.ts";
 
 const root = toolbox();
 // dotnet_cmd parity: resolve on PATH first, fall back to /usr/bin/dotnet —
@@ -51,45 +50,22 @@ const localNugetDev = join(root, ".debug", "local-nuget-dev");
 mkdirSync(localNugetDev, { recursive: true });
 addNugetSourceIfNotExists("dev", localNugetDev, "", "");
 
-// Azure Artifacts feed: the PAT is only ever registered for an Azure Artifacts
-// host, with a fixed username (Azure ignores it).
-function configureAzureFeed(): void {
-  const override = process.env.NUGET_FEED_URL ?? "";
-  const feedUrl = override !== "" ? override : (configGetRaw(join(root, "devenv.config"), "nuget", "feed_url") ?? "");
-  if (feedUrl === "") {
-    console.log("Skipping NuGet feed registration (azure provider: [nuget] feed_url not configured)");
-  } else if (!isAzureArtifactsUrl(feedUrl)) {
-    console.log("Skipping NuGet feed registration (azure provider: [nuget] feed_url is not an Azure Artifacts URL)");
-  } else {
-    const azureToken = providerSecretToken();
-    if (azureToken === "") {
-      console.log("Skipping NuGet feed registration (azure provider: credentials unavailable)");
-    } else {
-      addNugetSourceIfNotExists("azure", feedUrl, "azure", azureToken);
-    }
-  }
+const override = process.env.NUGET_FEED_URL ?? "";
+const feed = packageFeedConfig("nuget", override);
+if (!feed.configured) {
+  console.log(`Skipping NuGet feed registration (${feed.reason})`);
   console.log("nuget-sources: ok");
-}
-
-if (providerDetect() === "azure") {
-  configureAzureFeed();
   process.exit(0);
 }
-
-// Provider feed (github scheme): [nuget] feed_url (NUGET_FEED_URL override
-// wins), ${PROVIDER_ORG}/${PROVIDER_USER} templates expanded; the config read
-// already returns expanded templates (the bash config reader expanded on
-// read — here expansion is explicit for the override path).
-const override = process.env.NUGET_FEED_URL ?? "";
-let feedUrl = override !== "" ? override : (configGetRaw(join(root, "devenv.config"), "nuget", "feed_url") ?? "");
 const feedOrg = providerOrgGet();
 const feedUser = providerUserGet();
-feedUrl = feedUrl.replace(/\$\{PROVIDER_ORG\}/g, feedOrg).replace(/\$\{PROVIDER_USER\}/g, feedUser);
+const feedUrl = feed.url.replace(/\$\{PROVIDER_ORG\}/g, feedOrg).replace(/\$\{PROVIDER_USER\}/g, feedUser);
 
 const token = providerSecretToken();
-if (token !== "" && feedUser !== "" && feedOrg !== "" && feedUrl !== "") {
-  addNugetSourceIfNotExists("github", feedUrl, feedUser, token);
+const username = feed.username ?? feedUser;
+if (token !== "" && username !== "" && feedUrl !== "") {
+  addNugetSourceIfNotExists(feed.sourceName, feedUrl, username, token);
 } else {
-  console.log("Skipping GitHub NuGet feed: org/user identity, credentials, or feed_url not fully configured");
+  console.log(`Skipping ${feed.sourceName} NuGet feed: identity, credentials, or feed_url not fully configured`);
 }
 console.log("nuget-sources: ok");

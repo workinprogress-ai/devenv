@@ -10,9 +10,8 @@
 import { existsSync, readFileSync, writeFileSync, chmodSync, unlinkSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { configGetRaw } from "../../lib/core/config.ts";
-import { providerDetect } from "../../lib/providers/provider-core.ts";
 import { home, toolbox } from "./lib.ts";
-import { azureNpmrcLines, isAzureArtifactsUrl, npmrcFeedPrefixes, providerSecretToken } from "./provider-seam.ts";
+import { azureNpmrcLines, npmrcFeedPrefixes, packageFeedConfig, providerSecretToken } from "./provider-seam.ts";
 
 const npmrc = join(home(), ".npmrc");
 
@@ -38,35 +37,28 @@ function writeOwnerOnly(content: string): void {
   renameSync(tmp, npmrc);
 }
 
-const provider = providerDetect();
 const token = providerSecretToken();
+const feed = packageFeedConfig("npm");
 
-if (provider === "azure") {
-  // Azure Artifacts feed: [npm] feed_url (+ optional [npm] scope). The PAT is
-  // only ever written for an Azure Artifacts host, base64-encoded.
-  const feedUrl = configGetRaw(join(toolbox(), "devenv.config"), "npm", "feed_url") ?? "";
-  if (feedUrl === "") {
-    console.log("Skipping npm registry authentication (azure provider: [npm] feed_url not configured)");
-    process.exit(0);
-  }
-  if (!isAzureArtifactsUrl(feedUrl)) {
-    console.log("Skipping npm registry authentication (azure provider: [npm] feed_url is not an Azure Artifacts URL)");
-    process.exit(0);
-  }
+if (!feed.configured) {
+  console.log(`Skipping npm registry authentication (${feed.reason})`);
+  process.exit(0);
+}
+if (feed.username !== undefined) {
   if (token === "") {
-    console.log("Skipping npm registry authentication (azure provider: credentials unavailable)");
+    console.log(`Skipping npm registry authentication (${feed.sourceName} provider: credentials unavailable)`);
     process.exit(0);
   }
   const scope = configGetRaw(join(toolbox(), "devenv.config"), "npm", "scope") ?? "";
   const existing = existsSync(npmrc) ? readFileSync(npmrc, "utf8").split("\n") : [];
   const tokenB64 = Buffer.from(token).toString("base64");
-  writeOwnerOnly(azureNpmrcLines(existing, npmrcFeedPrefixes(feedUrl), tokenB64, scope).join("\n"));
+  writeOwnerOnly(azureNpmrcLines(existing, npmrcFeedPrefixes(feed.url), tokenB64, scope).join("\n"));
   console.log("npmrc: registry authentication configured");
   process.exit(0);
 }
 
 if (token === "") {
-  console.log("Skipping GitHub npm registry authentication (credentials unavailable)");
+  console.log(`Skipping ${feed.displayName} npm registry authentication (credentials unavailable)`);
   process.exit(0);
 }
 
@@ -74,7 +66,10 @@ if (token === "") {
 // npmrc ends up owner-only even if it was wider before (the bash comment's
 // contract). The awk one-pass rewrite becomes a line filter: existing
 // authToken lines are replaced in place; missing, appended at the end.
-const AUTH_LINE = `//npm.pkg.github.com/:_authToken=${token}`;
+const authPrefix = `//${feed.authHost}/`;
+const AUTH_LINE = `${authPrefix}:_authToken=${token}`;
+const escapedHost = feed.authHost.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const authLinePattern = new RegExp(`^[ \\t]*//${escapedHost}/:_authToken[ \\t]*=`);
 let lines: string[];
 if (existsSync(npmrc)) {
   lines = readFileSync(npmrc, "utf8").split("\n");
@@ -83,7 +78,7 @@ if (existsSync(npmrc)) {
 }
 let written = false;
 lines = lines.map((l) => {
-  if (/^[ \t]*\/\/npm[.]pkg[.]github[.]com\/:_authToken[ \t]*=/.test(l)) {
+  if (authLinePattern.test(l)) {
     if (!written) {
       written = true;
       return AUTH_LINE;

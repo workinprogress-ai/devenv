@@ -66,11 +66,11 @@ describe("issue graph on azure", () => {
     expect(await graph.parent("test-project/repo", 6)).toBe(5);
   });
 
-  it("parent falls back to the body's 'Part of #N' line via the JSON body field (no jq program)", async () => {
+  it("parent ignores GitHub's body convention when the provider has no native relation", async () => {
     items["8"] = { id: 8, fields: { "System.Description": "intro\n\nPart of #3\n" }, relations: [] };
     const graph = await import("../../lib/domain/issues/graph.ts");
-    expect(await graph.parent("test-project/repo", 8)).toBe(3);
-    expect(requests.some((r) => r.method === "GET" && /\/workitems\/8/i.test(r.url))).toBe(true);
+    expect(await graph.parent("test-project/repo", 8)).toBeNull();
+    expect(requests.filter((r) => r.method === "GET" && /\/workitems\/8/i.test(r.url))).toHaveLength(1);
   });
 
   it("an issue with neither relation nor body line has no parent", async () => {

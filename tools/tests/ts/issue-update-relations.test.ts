@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { blockedByFrom, blockedByAdd, blockedByRemove } from "../../lib/domain/issues/relations.ts";
+import { blockedByFrom, blockedByAdd, blockedByRemove } from "../../lib/providers/github/issues.ts";
 import { runTool as runHarness, pathWithStubs } from "./harness/index.ts";
 
 const TOOL = "issue-update";

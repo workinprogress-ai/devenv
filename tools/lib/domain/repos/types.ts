@@ -14,13 +14,11 @@ import { logError, logInfo, logWarn } from "../../core/logging.ts";
 import { configGetRaw } from "../../core/config.ts";
 import { orgRulesetsList, orgRulesetCreate, orgRulesetUpdate } from "../../providers/facade/org.ts";
 import {
-  reposPatch,
-  reposPatchWithError,
-  reposEdit,
+  reposApplySettings,
   reposTeamPut,
   reposCollaboratorPut,
 } from "../../providers/facade/repos.ts";
-import { ProviderError, providerDetect } from "../../providers/provider-core.ts";
+import { ProviderError } from "../../providers/provider-core.ts";
 import { errorMessage } from "../../core/logging.ts";
 
 /** A settings verb's boolean outcome, with the provider's own refusal (a
@@ -39,14 +37,14 @@ async function settingOutcome(call: () => Promise<boolean>): Promise<boolean> {
   }
 }
 
-/** reposPatchWithError with a ProviderError folded into {ok:false, error}. */
-async function patchOutcome(fullName: string, flags: string[]): Promise<{ ok: boolean; error: string }> {
-  try {
-    return await reposPatchWithError(fullName, flags);
-  } catch (err) {
-    if (err instanceof ProviderError) return { ok: false, error: err.message };
-    throw err;
-  }
+async function applySettings(
+  fullName: string,
+  input: Parameters<typeof reposApplySettings>[1],
+): ReturnType<typeof reposApplySettings> {
+  const result = await reposApplySettings(fullName, input);
+  for (const skipped of result.skipped) logWarn(`${skipped.setting} skipped: ${skipped.reason}`);
+  for (const failed of result.failed) logWarn(`${failed.setting} failed: ${failed.message}`);
+  return result;
 }
 
 /** The repo-creation readiness decision (the two-stage parity probe):
@@ -528,35 +526,32 @@ export async function configureRulesetsForType(
   try {
     const tmp = join(payloadDir, "payload.json");
     writeFileSync(tmp, payloadJson);
-    const permissionHint = "Rulesets require GitHub Pro or a public repository; the ruleset was NOT applied";
     if (existingId !== "") {
       const updated = await orgRulesetUpdate(fullName, existingId, tmp);
       if (updated.ok) {
         logInfo(`✓ Ruleset '${rulesetName}' updated`);
         return { applied: true, failures };
       }
-      const err = updated.stderr.toLowerCase();
-      if (err.includes("403") || err.includes("upgrade to github pro")) {
-        logWarn(permissionHint);
-        return fail(`ruleset '${rulesetName}' not updated: ${permissionHint}`);
+      if (updated.hint !== undefined) {
+        logWarn(`${updated.hint}; the ruleset was NOT applied`);
+        return fail(`ruleset '${rulesetName}' not updated: ${updated.hint}`);
       }
       logWarn(`Ruleset update failed for '${rulesetName}'`);
-      if (updated.stderr.trim() !== "") logWarn(`API Response: ${updated.stderr.trim()}`);
-      return fail(`ruleset '${rulesetName}' update failed: ${updated.stderr.trim()}`);
+      if (updated.message.trim() !== "") logWarn(`API Response: ${updated.message.trim()}`);
+      return fail(`ruleset '${rulesetName}' update failed: ${updated.message.trim()}`);
     }
     const created = await orgRulesetCreate(fullName, tmp);
-    const err = created.stderr.toLowerCase();
     if (created.ok) {
       logInfo(`✓ Ruleset '${rulesetName}' configured`);
       return { applied: true, failures };
     }
-    if (err.includes("403") || err.includes("upgrade to github pro") || err.includes("make this repository public")) {
-      logWarn(permissionHint);
-      return fail(`ruleset '${rulesetName}' not created: ${permissionHint}`);
+    if (created.hint !== undefined) {
+      logWarn(`${created.hint}; the ruleset was NOT applied`);
+      return fail(`ruleset '${rulesetName}' not created: ${created.hint}`);
     }
     logWarn(`Ruleset configuration failed for '${rulesetName}'`);
-    if (created.stderr.trim() !== "") logWarn(`API Response: ${created.stderr.trim()}`);
-    return fail(`ruleset '${rulesetName}' creation failed: ${created.stderr.trim()}`);
+    if (created.message.trim() !== "") logWarn(`API Response: ${created.message.trim()}`);
+    return fail(`ruleset '${rulesetName}' creation failed: ${created.message.trim()}`);
   } finally {
     rmSync(payloadDir, { recursive: true, force: true });
   }
@@ -592,14 +587,13 @@ export async function configureMergeTypesForType(fullName: string, repoType: str
     logInfo(`[dry-run] would set merge types on ${fullName} (merge: ${allowMerge}, squash: ${allowSquash}, rebase: ${allowRebase})`);
     return true;
   }
-  const ok = await settingOutcome(() =>
-    reposPatch(fullName, [
-      "-F", `allow_merge_commit=${allowMerge}`,
-      "-F", `allow_squash_merge=${allowSquash}`,
-      "-F", `allow_rebase_merge=${allowRebase}`,
-    ]),
-  );
-  if (ok) {
+  const result = await applySettings(fullName, {
+    mergeTypes: { merge: allowMerge, squash: allowSquash, rebase: allowRebase },
+  });
+  if (result.skipped.some(({ setting }) => setting === "mergeTypes")) {
+    return true;
+  }
+  if (result.failed.length === 0) {
     logInfo(`✓ Merge types configured (merge: ${allowMerge}, squash: ${allowSquash}, rebase: ${allowRebase})`);
     return true;
   }
@@ -621,14 +615,12 @@ export async function configureTemplateSettingForType(
       logInfo(`[dry-run] would mark ${fullName} as a template`);
       return true;
     }
-    if (providerDetect() === "azure") {
-      // Azure repositories have no template flag: nothing is changed, and the
-      // log must not claim otherwise. Not a failure of the step.
-      logWarn(`Template setting skipped: provider 'azure' has no repository template flag (${fullName} unchanged)`);
+    const result = await applySettings(fullName, { templateFlag: true });
+    if (result.skipped.some(({ setting }) => setting === "templateFlag")) {
       return true;
     }
     logInfo("Marking repository as a template...");
-    if (await settingOutcome(() => reposEdit(fullName, ["--template"]))) {
+    if (result.failed.length === 0) {
       logInfo("✓ Repository marked as template");
       return true;
     }
@@ -657,7 +649,11 @@ export async function configurePrBranchDeletionForType(
     return true;
   }
   logInfo("Configuring PR branch deletion on merge...");
-  if (await settingOutcome(() => reposPatch(fullName, ["-F", `delete_branch_on_merge=${deletePrBranch}`]))) {
+  const result = await applySettings(fullName, { deleteBranchOnMerge: deletePrBranch });
+  if (result.skipped.some(({ setting }) => setting === "deleteBranchOnMerge")) {
+    return true;
+  }
+  if (result.failed.length === 0) {
     logInfo(`✓ PR branch deletion on merge configured (enabled: ${deletePrBranch})`);
     return true;
   }
@@ -679,17 +675,17 @@ export async function configureRepositoryFeaturesForType(
     return false;
   }
   logInfo("Configuring repository features...");
-  const baseFlags = [
-    "-F", `has_wiki=${getTypeHasWiki(type)}`,
-    "-F", `has_issues=${getTypeHasIssues(type)}`,
-    "-F", `has_discussions=${getTypeHasDiscussions(type)}`,
-    "-F", `has_projects=${getTypeHasProjects(type)}`,
-    "-F", `allow_auto_merge=${getTypeAllowAutoMerge(type)}`,
-    "-F", `allow_update_branch=${getTypeAllowUpdateBranch(type)}`,
-    "-F", `allow_forking=${getTypeAllowForking(type)}`,
-    "-f", `squash_merge_commit_title=${getTypeSquashMergeCommitTitle(type)}`,
-    "-f", `squash_merge_commit_message=${getTypeSquashMergeCommitMessage(type)}`,
-  ];
+  const repositoryFeatures = {
+    wiki: getTypeHasWiki(type),
+    issues: getTypeHasIssues(type),
+    discussions: getTypeHasDiscussions(type),
+    projects: getTypeHasProjects(type),
+    autoMerge: getTypeAllowAutoMerge(type),
+    updateBranch: getTypeAllowUpdateBranch(type),
+    forking: getTypeAllowForking(type),
+    squashMergeCommitTitle: getTypeSquashMergeCommitTitle(type),
+    squashMergeCommitMessage: getTypeSquashMergeCommitMessage(type),
+  };
   if (opts.dryRun === true) {
     logInfo(
       `[dry-run] would set features on ${fullName}: wiki=${getTypeHasWiki(type)}, issues=${getTypeHasIssues(type)}, ` +
@@ -700,41 +696,27 @@ export async function configureRepositoryFeaturesForType(
     );
     return true;
   }
-  // One rejected field kills the whole PATCH, and GitHub rejects
-  // allow_forking on org-owned PUBLIC repositories. Probe with the full
-  // set; on failure retry without allow_forking so the other flags still
-  // land, and report exactly what was skipped (and why, quoting the API).
-  let result = await patchOutcome(fullName, baseFlags);
-  let forkSkipped = false;
-  if (!result.ok) {
-    // baseFlags is a flat [flag, value, ...] array: dropping only the value
-    // would orphan its -F and corrupt the argv (gh: "accepts 1 arg(s),
-    // received 2"). Drop the flag token and its value as a pair.
-    const withoutFork = baseFlags.filter((f, i) => {
-      if (f === "-F" && baseFlags[i + 1]?.startsWith("allow_forking=")) return false;
-      return !f.startsWith("allow_forking=");
-    });
-    const retry = await patchOutcome(fullName, withoutFork);
-    if (retry.ok) {
-      forkSkipped = true;
-      result = retry;
-    } else {
-      result = retry.error !== "" ? retry : result;
-    }
-  }
-  if (result.ok) {
+  const result = await applySettings(fullName, { repositoryFeatures });
+  if (result.failed.length === 0 && result.applied.length === 0 && result.skipped.length > 0) return true;
+  if (result.failed.length === 0) {
     logInfo("✓ Repository features configured:");
     logInfo(`  - Wiki: ${getTypeHasWiki(type)}, Issues: ${getTypeHasIssues(type)}, Discussions: ${getTypeHasDiscussions(type)}, Projects: ${getTypeHasProjects(type)}`);
-    if (forkSkipped) {
-      logWarn(`  - Forking: NOT applied — allow_forking cannot be set on this repository (org-owned public repos reject it)`);
-    } else {
-      logInfo(`  - Auto-merge: ${getTypeAllowAutoMerge(type)}, Update branch: ${getTypeAllowUpdateBranch(type)}, Forking: ${getTypeAllowForking(type)}`);
-    }
+    logInfo(`  - Auto-merge: ${getTypeAllowAutoMerge(type)}, Update branch: ${getTypeAllowUpdateBranch(type)}, Forking: ${getTypeAllowForking(type)}`);
     logInfo(`  - Squash merge: title=${getTypeSquashMergeCommitTitle(type)}, message=${getTypeSquashMergeCommitMessage(type)}`);
     return true;
   }
-  const why = result.error !== "" ? ` The provider said: ${result.error}` : "";
-  logWarn(`Could not configure repository features${why}`);
+  for (const failed of result.failed) {
+    if (failed.setting === "forking") {
+      logWarn(`  - Forking: NOT applied — ${failed.message}`);
+    } else {
+      logWarn(`  - ${failed.setting}: NOT applied — ${failed.message}`);
+    }
+  }
+  if (result.applied.length > 0) {
+    logInfo(`Repository features partially configured (${result.applied.length} applied)`);
+    return true;
+  }
+  logWarn("Could not configure repository features");
   return false;
 }
 

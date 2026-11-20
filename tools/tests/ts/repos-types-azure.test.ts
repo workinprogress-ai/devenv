@@ -81,11 +81,10 @@ describe("repo type appliers on azure", () => {
     expect(stubCalls(stubDir, "gh")).toEqual([]);
   });
 
-  it("a settings patch reports the named not-supported failure and never runs gh", async () => {
+  it("unsupported settings skip explicitly and never run gh", async () => {
     const { m, config } = await load();
-    const ok = await m.configureMergeTypesForType("test-project/repo", "service", config);
-    expect(ok).toBe(false);
-    expect(await m.configureRepositoryFeaturesForType("test-project/repo", "service", config)).toBe(false);
+    expect(await m.configureMergeTypesForType("test-project/repo", "service", config)).toBe(true);
+    expect(await m.configureRepositoryFeaturesForType("test-project/repo", "service", config)).toBe(true);
     expect(requests).toEqual([]);
     expect(stubCalls(stubDir, "gh")).toEqual([]);
   });

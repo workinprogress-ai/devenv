@@ -20,6 +20,80 @@ import { existsSync } from "node:fs";
 import { configGetRaw } from "../../lib/core/config.ts";
 import { providerAuthToken, providerConfigPath, providerDetect } from "../../lib/providers/provider-core.ts";
 
+export type PackageFeedKind = "npm" | "nuget";
+
+export type PackageFeedConfig =
+  | {
+      configured: true;
+      kind: PackageFeedKind;
+      url: string;
+      sourceName: string;
+      displayName: string;
+      username?: string;
+      authHost: string;
+    }
+  | {
+      configured: false;
+      kind: PackageFeedKind;
+      reason: string;
+    };
+
+function feedAuthHost(url: string): string | undefined {
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Resolve provider-owned feed configuration without reading credentials. */
+export function packageFeedConfig(kind: PackageFeedKind, configuredOverride = ""): PackageFeedConfig {
+  const provider = providerDetect();
+  const configuredUrl = configGetRaw(providerConfigPath(), kind, "feed_url")?.trim() ?? "";
+  const requestedUrl = configuredOverride.trim() !== "" ? configuredOverride.trim() : configuredUrl;
+  const url = kind === "npm" && provider === "github" && requestedUrl === ""
+    ? "https://npm.pkg.github.com"
+    : requestedUrl;
+  if (url === "") {
+    return {
+      configured: false,
+      kind,
+      reason: `[${kind}] feed_url is not configured for provider '${provider}'`,
+    };
+  }
+  if (kind === "npm" && provider === "github" && feedAuthHost(url) !== "npm.pkg.github.com") {
+    return {
+      configured: false,
+      kind,
+      reason: "[npm] feed_url is outside GitHub Packages",
+    };
+  }
+  if (provider === "azure" && !isAzureArtifactsUrl(url)) {
+    return {
+      configured: false,
+      kind,
+      reason: `[${kind}] feed_url is not an Azure Artifacts URL`,
+    };
+  }
+  const authHost = feedAuthHost(url);
+  if (authHost === undefined) {
+    return {
+      configured: false,
+      kind,
+      reason: `[${kind}] feed_url is not a valid URL`,
+    };
+  }
+  return {
+    configured: true,
+    kind,
+    url,
+    sourceName: provider,
+    displayName: provider === "github" ? "GitHub" : "Azure",
+    ...(provider === "azure" ? { username: "azure" } : {}),
+    authHost,
+  };
+}
+
 function tokenEnvAllowed(name: string): boolean {
   // The same config path provider detection reads.
   const config = providerConfigPath();

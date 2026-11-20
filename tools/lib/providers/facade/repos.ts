@@ -23,12 +23,191 @@ import type * as azTypes from "../azure/repos.ts";
 type GithubRepos = typeof ghTypes;
 type AzureRepos = typeof azTypes;
 
+export type RepositoryFeature =
+  | "wiki"
+  | "issues"
+  | "discussions"
+  | "projects"
+  | "autoMerge"
+  | "updateBranch"
+  | "forking"
+  | "squashMergeCommitTitle"
+  | "squashMergeCommitMessage";
+
+export type RepositorySetting =
+  | "templateFlag"
+  | "mergeTypes"
+  | "deleteBranchOnMerge"
+  | RepositoryFeature;
+
+export type SettingSupport =
+  | { supported: true }
+  | { supported: false; reason: string };
+
+export interface RepoSettingCapabilities {
+  templateFlag: SettingSupport;
+  mergeTypes: SettingSupport;
+  deleteBranchOnMerge: SettingSupport;
+  repositoryFeatures: Record<RepositoryFeature, SettingSupport>;
+}
+
+export interface RepoSettingsResult {
+  applied: RepositorySetting[];
+  skipped: Array<{ setting: RepositorySetting; reason: string }>;
+  failed: Array<{ setting: RepositorySetting; message: string }>;
+}
+
+export interface RepoSettingsInput {
+  templateFlag?: boolean;
+  mergeTypes?: { merge: boolean; squash: boolean; rebase: boolean };
+  deleteBranchOnMerge?: boolean;
+  repositoryFeatures?: Partial<{
+    wiki: boolean;
+    issues: boolean;
+    discussions: boolean;
+    projects: boolean;
+    autoMerge: boolean;
+    updateBranch: boolean;
+    forking: boolean;
+    squashMergeCommitTitle: string;
+    squashMergeCommitMessage: string;
+  }>;
+}
+
 async function load(): Promise<{ provider: string; gh: GithubRepos | undefined; az: AzureRepos | undefined }> {
   const loaded = await loadProviderModules("repos");
   if (loaded.provider === "azure") {
     return { provider: "azure", gh: undefined, az: loaded.get<AzureRepos>("repos.ts") };
   }
   return { provider: "github", gh: loaded.get<GithubRepos>("repos.ts"), az: undefined };
+}
+
+const REPOSITORY_FEATURES: RepositoryFeature[] = [
+  "wiki",
+  "issues",
+  "discussions",
+  "projects",
+  "autoMerge",
+  "updateBranch",
+  "forking",
+  "squashMergeCommitTitle",
+  "squashMergeCommitMessage",
+];
+
+/** Provider-owned support decisions for repository settings. */
+export async function reposSettingCapabilities(): Promise<RepoSettingCapabilities> {
+  const m = await load();
+  const supported: SettingSupport = { supported: true };
+  const unsupported = (reason: string): SettingSupport => ({ supported: false, reason });
+  if (m.provider === "azure") {
+    const noRepoSetting = unsupported("Azure exposes this as project policy or does not provide a repository setting");
+    return {
+      templateFlag: unsupported("Azure repository templates are create-time parent links, not a repository flag"),
+      mergeTypes: noRepoSetting,
+      deleteBranchOnMerge: noRepoSetting,
+      repositoryFeatures: Object.fromEntries(
+        REPOSITORY_FEATURES.map((setting) => [setting, noRepoSetting]),
+      ) as Record<RepositoryFeature, SettingSupport>,
+    };
+  }
+  return {
+    templateFlag: supported,
+    mergeTypes: supported,
+    deleteBranchOnMerge: supported,
+    repositoryFeatures: Object.fromEntries(
+      REPOSITORY_FEATURES.map((setting) => [setting, supported]),
+    ) as Record<RepositoryFeature, SettingSupport>,
+  };
+}
+
+/** Apply provider-neutral repository settings and report each outcome. */
+export async function reposApplySettings(repo: string, input: RepoSettingsInput): Promise<RepoSettingsResult> {
+  const capabilities = await reposSettingCapabilities();
+  const result: RepoSettingsResult = { applied: [], skipped: [], failed: [] };
+  const apply = async (
+    setting: RepositorySetting,
+    support: SettingSupport,
+    call: () => Promise<boolean>,
+  ): Promise<void> => {
+    if (!support.supported) {
+      result.skipped.push({ setting, reason: support.reason });
+      return;
+    }
+    if (await call()) result.applied.push(setting);
+    else result.failed.push({ setting, message: `${setting} was rejected by the provider` });
+  };
+
+  if (input.templateFlag === true) {
+    await apply("templateFlag", capabilities.templateFlag, () => reposEdit(repo, ["--template"]));
+  }
+  if (input.mergeTypes !== undefined) {
+    const merges = input.mergeTypes;
+    await apply("mergeTypes", capabilities.mergeTypes, () => reposPatch(repo, [
+      "-F", `allow_merge_commit=${merges.merge}`,
+      "-F", `allow_squash_merge=${merges.squash}`,
+      "-F", `allow_rebase_merge=${merges.rebase}`,
+    ]));
+  }
+  if (input.deleteBranchOnMerge !== undefined) {
+    await apply(
+      "deleteBranchOnMerge",
+      capabilities.deleteBranchOnMerge,
+      () => reposPatch(repo, ["-F", `delete_branch_on_merge=${input.deleteBranchOnMerge}`]),
+    );
+  }
+
+  const features = input.repositoryFeatures;
+  if (features === undefined) return result;
+  const names: Array<[RepositoryFeature, string]> = [
+    ["wiki", "has_wiki"],
+    ["issues", "has_issues"],
+    ["discussions", "has_discussions"],
+    ["projects", "has_projects"],
+    ["autoMerge", "allow_auto_merge"],
+    ["updateBranch", "allow_update_branch"],
+    ["forking", "allow_forking"],
+    ["squashMergeCommitTitle", "squash_merge_commit_title"],
+    ["squashMergeCommitMessage", "squash_merge_commit_message"],
+  ];
+  const supported: Array<{ setting: RepositoryFeature; flag: "-f" | "-F"; value: string }> = [];
+  for (const [setting, key] of names) {
+    const value = features[setting];
+    if (value === undefined) continue;
+    const support = capabilities.repositoryFeatures[setting];
+    if (!support.supported) {
+      result.skipped.push({ setting, reason: support.reason });
+      continue;
+    }
+    supported.push({
+      setting,
+      flag: typeof value === "string" ? "-f" : "-F",
+      value: `${key}=${value}`,
+    });
+  }
+  if (supported.length === 0) return result;
+
+  const flags = supported.flatMap(({ flag, value }) => [flag, value]);
+  let patch = await reposPatchWithError(repo, flags);
+  if (!patch.ok && supported.some(({ setting }) => setting === "forking")) {
+    const withoutFork = supported.filter(({ setting }) => setting !== "forking");
+    const retry = await reposPatchWithError(
+      repo,
+      withoutFork.flatMap(({ flag, value }) => [flag, value]),
+    );
+    if (retry.ok) {
+      result.failed.push({ setting: "forking", message: patch.error });
+      patch = retry;
+      for (const { setting } of withoutFork) result.applied.push(setting);
+      return result;
+    }
+    patch = retry.error !== "" ? retry : patch;
+  }
+  if (patch.ok) {
+    for (const { setting } of supported) result.applied.push(setting);
+  } else {
+    for (const { setting } of supported) result.failed.push({ setting, message: patch.error });
+  }
+  return result;
 }
 
 /** List the org's repositories (JSON text). */
