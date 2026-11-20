@@ -24,7 +24,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "pr-get-review-link.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} [REPO_DIR]
 
-Get the GitHub URL for an open "REVIEW:" pull request in the repository.
+Get the provider URL for an open "REVIEW:" pull request in the repository.
 Falls back to any open PR with a head branch under review/.
 
 Arguments:

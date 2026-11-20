@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-comment-list.ts - List all comments on a GitHub issue with their IDs
+// issue-comment-list.ts - List all comments on an issue with their IDs
 // Version: 1.0.0
 // Description: Returns each comment's numeric ID, author, timestamps, URL, and a body preview.
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -29,7 +29,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "issue-comment-list.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} ISSUE_NUMBER [OPTIONS]
 
-List all comments on a GitHub issue, including each comment's numeric ID and a
+List all comments on an issue, including each comment's numeric ID and a
 body preview. The numeric IDs can be passed to issue-comment-update to replace
 a comment's body.
 

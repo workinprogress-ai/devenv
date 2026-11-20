@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-create.ts - Create a new GitHub issue with labels, assignees, and
+// issue-create.ts - Create a new issue with labels, assignees, and
 // project assignment.
 // Version: 1.1.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -13,7 +13,7 @@
 // The interactive editor/template picker surface needs a TTY and is refused
 // with named errors under automation.
 
-import { basename, join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 
@@ -24,9 +24,11 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageEnvBlock } from "../lib/core/cli.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { openInEditor } from "../lib/core/editor.ts";
+import { getOriginUrl, getRepoRoot } from "../lib/core/git.ts";
+import { configGetRaw } from "../lib/core/config.ts";
 import { isInteractive } from "../lib/ui/prompts.ts";
-import { checkTargetRepo, requireRepoTarget, providerRepoSplit, providerRepoTarget } from "../lib/providers/provider-core.ts";
-import { authStatusOk } from "../lib/providers/facade/urls.ts";
+import { checkTargetRepo, requireRepoTarget, providerConfigPath, providerRepoSplit, providerRepoTarget } from "../lib/providers/provider-core.ts";
+import { authStatusOk, remoteToSpec } from "../lib/providers/facade/urls.ts";
 import { reposExists } from "../lib/providers/facade/repos.ts";
 import { projectsAddIssue } from "../lib/providers/facade/projects.ts";
 import { issuesCreate, issuesExists, issuesSetType, issueGraphLink, issuesView, issueWebUrl } from "../lib/providers/facade/issues.ts";
@@ -43,7 +45,7 @@ function showUsage(): never {
   const s = SCRIPT_NAME;
   console.log(`Usage: ${s} [OPTIONS]
 
-Create a new GitHub issue with labels, assignees, and project assignment.
+Create a new issue with labels, assignees, and project assignment.
 
 Options:
     -h, --help                  Show this help message and exit
@@ -69,8 +71,8 @@ Optional:
     --blocked-by ISSUE_NUM      Mark as blocked by prerequisite issue (repeatable)
     --template FILE             Opt in to a specific template file (opens in editor;
                                 without it, no template is used)
-    --select-template           Opt in to interactive template selection (fzf over
-                                .github/ISSUE_TEMPLATE/)
+    --select-template           Opt in to interactive template selection from the
+                                configured [issues] template_dir
     --no-template               Accepted no-op - issues are created without a
                                 template by default
     --no-interactive            Skip the editor (requires --title; template body
@@ -161,7 +163,7 @@ function templateBody(content: string): string {
 function selectTemplateInteractive(dir: string): string | null {
   const templates = findTemplates(dir);
   if (templates.length === 0) {
-    logWarn("No templates found in .github/ISSUE_TEMPLATE/");
+    logWarn(`No templates found in ${dir}`);
     return null;
   }
   if (!isInteractive()) {
@@ -171,6 +173,36 @@ function selectTemplateInteractive(dir: string): string | null {
   }
   logError("fzf-based template selection is not available in this build; use --template FILE");
   return null;
+}
+
+async function targetRepoRoot(): Promise<string | null> {
+  const spec = providerRepoTarget("");
+  const repoName = spec.split("/").pop() ?? "";
+  const cwdRoot = getRepoRoot(process.cwd());
+  if (cwdRoot !== null) {
+    const origin = getOriginUrl(cwdRoot);
+    if (origin !== null && await remoteToSpec(origin) === spec) return cwdRoot;
+  }
+  const devenvRoot = process.env.DEVENV_ROOT ?? "";
+  if (devenvRoot === "" || repoName === "") return null;
+  const candidate = join(devenvRoot, "repos", repoName);
+  if (!existsSync(candidate)) return null;
+  const origin = getOriginUrl(candidate);
+  return origin !== null && await remoteToSpec(origin) === spec ? candidate : null;
+}
+
+async function templateDirectory(): Promise<string | null> {
+  const root = await targetRepoRoot();
+  if (root === null) return null;
+  const configured = configGetRaw(providerConfigPath(), "issues", "template_dir")?.trim()
+    ?? ".github/ISSUE_TEMPLATE";
+  return isAbsolute(configured) ? configured : join(root, configured);
+}
+
+async function resolveTemplateFile(file: string): Promise<string | null> {
+  if (isAbsolute(file)) return file;
+  const root = await targetRepoRoot();
+  return root === null ? null : join(root, file);
 }
 
 // --- Creation flow ---------------------------------------------------------
@@ -217,9 +249,8 @@ function parseParentRef(raw: string): ParentRef | null {
   return null;
 }
 
-/** Fail fast when the active provider has no usable credential — through
- * the facade's provider-neutral authStatusOk (gh path scrubs env tokens;
- * azure path checks the PAT file) rather than a gh-only probe. */
+/** Fail fast when the active provider has no usable credential through the
+ * provider-neutral authStatusOk; each provider owns credential resolution. */
 async function checkAuth(): Promise<void> {
   if (!(await authStatusOk())) {
     logError("Not authenticated with the active provider");
@@ -543,7 +574,19 @@ async function main(argv: string[]): Promise<number> {
   if (useTemplate) {
     let templateFile = ((values["template"] as string | undefined) ?? "");
     if (templateFile === "") {
-      templateFile = selectTemplateInteractive(join(process.cwd(), ".github", "ISSUE_TEMPLATE")) ?? "";
+      const templateDir = await templateDirectory();
+      if (templateDir === null) {
+        logError("Cannot resolve the target repository root for template selection");
+        return EXIT_GENERAL_ERROR;
+      }
+      templateFile = selectTemplateInteractive(templateDir) ?? "";
+    } else {
+      const resolvedTemplate = await resolveTemplateFile(templateFile);
+      if (resolvedTemplate === null) {
+        logError("Cannot resolve the target repository root for the template file");
+        return EXIT_GENERAL_ERROR;
+      }
+      templateFile = resolvedTemplate;
     }
     if (templateFile !== "") {
       if (!existsSync(templateFile)) {

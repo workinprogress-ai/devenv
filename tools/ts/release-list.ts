@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// release-list.ts - List GitHub releases for the target repository
+// release-list.ts - List releases for the target repository
 // Version: 1.1.0
 // Description: Lists releases (tag, name, published date, prerelease/draft
 //              flags, URL). Read-only.
@@ -22,7 +22,7 @@ let devenvOverride = false;
 function usage(): never {
   console.log(`Usage: release-list [OPTIONS]
 
-List GitHub releases (tag, name, published date, prerelease/draft flags, URL)
+List releases (tag, name, published date, prerelease/draft flags, URL)
 for the target repository. Read-only.
 
 Options:

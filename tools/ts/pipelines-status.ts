@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pipelines-status.ts - Report GitHub Actions workflow run status across the org
+// pipelines-status.ts - Report pipeline run status across the org
 // Version: 1.0.0
 // Description: Defaults to the latest run per repo; enumerates repositories
 //              for the configured org (devenv.config [organization] org).
@@ -41,7 +41,7 @@ const RUN_FIELDS = "workflowName,status,conclusion,headBranch,updatedAt,url,id";
 function usage(): never {
   console.log(`Usage: pipelines-status [OPTIONS]
 
-Report GitHub Actions workflow run status across the org.
+Report pipeline run status across the org.
 Defaults to the latest run per repo.
 
 Options:

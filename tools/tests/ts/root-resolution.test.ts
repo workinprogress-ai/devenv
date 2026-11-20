@@ -79,7 +79,7 @@ describe("no tool derives its root from the working directory", () => {
       "devenv-marker-check.ts": "prints scanned paths relative to the cwd",
       "get-services-config.ts": "refuses a config folder that is the cwd or one of its ancestors, so the shell's own directory is never replaced",
       "issue-artifact-upsert.ts": "walks up from the cwd to find the target repository's artifact folder",
-      "issue-create.ts": "looks for the target repository's ISSUE_TEMPLATE folder under the cwd",
+      "issue-create.ts": "uses cwd only to identify the target repository root for template lookup",
       "pr-cleanup-review-branches.ts": "defaults the target repository to the cwd",
       "pr-create-for-review.ts": "defaults the target repository to the cwd",
       "pr-create.ts": "defaults the target repository to the cwd",

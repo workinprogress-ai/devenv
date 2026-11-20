@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-artifact-upsert.ts - Create or update a GitHub issue comment by stable doc_id marker.
+// issue-artifact-upsert.ts - Create or update an issue comment by stable doc_id marker.
 // Version: 1.0.0
 // Description: Create or update an issue comment artifact matched by its doc_id header line.
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -36,7 +36,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "issue-artifact-upsert.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} [OPTIONS]
 
-Create or update a GitHub issue comment by stable doc_id marker.
+Create or update an issue comment by stable doc_id marker.
 
 Issue Target:
     --issue, --issue-number N     Issue number override (optional if body contains issue_number metadata or a doc_id with issue-<N>)

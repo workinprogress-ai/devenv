@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pr-create.ts - Create a GitHub pull request from the current branch.
+// pr-create.ts - Create a pull request from the current branch.
 // Version: 1.0.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
 //

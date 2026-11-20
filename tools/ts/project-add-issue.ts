@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// project-add-issue.ts - Add issues to a GitHub Project (v2)
+// project-add-issue.ts - Add issues to a project
 // Version: 1.1.0
 // Description: Adds one or more issues to a named organization project,
 //              optionally setting single-select field values on the new
@@ -26,7 +26,7 @@ let dryRun = false;
 function usage(): never {
   console.log(`Usage: project-add-issue PROJECT_NAME ISSUE_NUMBER... [OPTIONS]
 
-Add issues to a GitHub Project (v2).
+Add issues to a project.
 
 Arguments:
   PROJECT_NAME            Project name (title) or number
@@ -164,7 +164,7 @@ async function addIssueToProject(issueNum: string): Promise<void> {
     return;
   }
 
-  // `gh project item-add` takes the project NUMBER, not its title —
+  // The provider item-add seam takes the project NUMBER, not its title —
   // resolve once here so both <title> and <number> inputs behave the same.
   let projectNumber = "";
   try {

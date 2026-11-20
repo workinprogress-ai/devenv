@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // pipelines-list.ts - List workflow definitions across the org
 // Version: 1.0.0
-// Description: Lists GitHub Actions workflow definitions (name, file, state)
+// Description: Lists pipeline definitions (name, file, state)
 //              across org repositories. Shows what workflows exist, not their
 //              run history. Use pipelines-status for that.
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -34,7 +34,7 @@ let outputFormat: "table" | "json" | "pretty" = "table";
 function usage(): never {
   console.log(`Usage: pipelines-list [OPTIONS]
 
-List GitHub Actions workflow definitions across org repositories.
+List pipeline definitions across organization repositories.
 Shows what workflows exist, not their run history. Use pipelines-status for that.
 
 Options:

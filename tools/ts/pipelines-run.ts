@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// pipelines-run.ts - Trigger a GitHub Actions workflow_dispatch event
+// pipelines-run.ts - Trigger a provider pipeline run
 // Version: 1.0.0
-// Description: After queuing, prints the queued run's URL. 'gh workflow run'
+// Description: After queuing, prints the queued run's URL. A provider may not
 //              does not return a run ID, so the run is found in the run list:
 //              it must be absent from a snapshot taken before the trigger, be
 //              created at or after the trigger time, and match the workflow
@@ -39,7 +39,7 @@ const inputs: string[] = [];
 function usage(): never {
   console.log(`Usage: pipelines-run WORKFLOW --repo OWNER/REPO [OPTIONS]
 
-Trigger a GitHub Actions workflow_dispatch event. After queuing, finds the
+Trigger a pipeline run. After queuing, finds the
 queued run and prints its URL.
 
 Arguments:
@@ -107,8 +107,8 @@ ensureProviderAuth();
 const triggerFlags: string[] = [];
 if (ref !== "") triggerFlags.push("--ref", ref);
 for (const input of inputs) {
-  // -f is gh's --raw-field: the value is always a literal string. -F would read
-  // "@file" from the local disk into the workflow input.
+  // Fields are literal strings; the facade maps them to the provider's
+  // trigger contract without reading file references from disk.
   triggerFlags.push("-f", input);
 }
 

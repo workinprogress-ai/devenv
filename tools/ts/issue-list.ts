@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// issue-list.ts - List and filter GitHub issues
+// issue-list.ts - List and filter issues
 // Version: 1.0.0
-// Description: Query and filter GitHub issues with support for labels, assignees,
+// Description: Query and filter issues with support for labels, assignees,
 //              milestones, state, and custom formatting.
 // Requirements: Node >= 23.6 (native type-stripping execution)
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
 //
-// Output contract: table = gh's own pretty format (pass-through); json =
+// Output contract: table = provider-neutral presentation; json =
 // a fixed field set; simple = `#N - Title` lines. --web opens the browser
 // (no listing).
 
@@ -31,7 +31,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "issue-list.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} [OPTIONS]
 
-List and filter GitHub issues.
+List and filter issues.
 
 Filters:
     -s, --state STATE           Filter by state: open, closed, or all (default: open)

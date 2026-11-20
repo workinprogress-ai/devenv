@@ -60,6 +60,10 @@ export const FAMILY_MANIFEST: Record<
     github: ["pipelines.ts"],
     azure: ["pipelines.ts"],
   },
+  explain: {
+    github: ["explain.ts"],
+    azure: ["explain.ts"],
+  },
 };
 
 /** A loaded family: the active provider plus typed access to its modules. */

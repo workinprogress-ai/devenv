@@ -6,7 +6,12 @@
 # Fields per label:
 #   name        (required)  Label name
 #   color       (optional)  6-digit hex, no '#'
-#   description (optional)  Shown in GitHub label pickers
+#   description (optional)  Provider label description
+#
+# Provider support:
+#   - GitHub honors name/color/description and supports global seeding.
+#   - Azure DevOps has no global label registry; names become work-item tags
+#     when attached through the issue facade, while color/description are ignored.
 
 labels:
   # Triage workflow

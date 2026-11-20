@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pr-comment.ts - Add a top-level conversation comment to a GitHub pull
+// pr-comment.ts - Add a top-level conversation comment to a pull
 // request. For inline review comments use pr-review-comment (new thread) or
 // pr-thread-reply (existing thread).
 // Version: 1.1.0
@@ -32,7 +32,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "pr-comment.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} PR_NUMBER [OPTIONS]
 
-Add a top-level conversation comment to a GitHub pull request.
+Add a top-level conversation comment to a pull request.
 For inline review comments tied to a specific line, use pr-review-comment
 (new thread) or pr-thread-reply (existing thread); this tool handles
 conversation comments only.

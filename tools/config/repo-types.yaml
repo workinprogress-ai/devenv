@@ -2,12 +2,20 @@
 # This configuration defines naming patterns, templates, and branch protection rules
 # for different repository types in your organization.
 #
+# Provider support:
+#   - GitHub: all repository settings below are honored subject to host
+#     permissions and repository policy.
+#   - Azure DevOps: template, ruleset translation, access, naming and local
+#     post-creation keys are honored. Repository-level template flags, merge
+#     buttons, PR-branch deletion and feature toggles are reported as explicit
+#     skips because Azure has no equivalent repository setting.
+#
 # Each type specifies:
 #   - description: What this type is used for
-#   - template: Optional GitHub template repo to use (use --no-template to skip)
+#   - template: Optional provider template repo to use (use --no-template to skip)
 #   - naming_pattern: Regex pattern that repo names must match
 #   - naming_example: Examples of valid repo names
-#   - isTemplate: Mark this repository as a GitHub template (default: false)
+#   - isTemplate: Mark this repository as a provider template (GitHub only; Azure skips)
 #   - rulesetConfigFile: Path to JSON ruleset file in config/ (null = no ruleset)
 #   - post_creation_script: Script within repo to run after creation (relative path from repo root)
 #   - delete_post_creation_script: Whether to delete the script after running (default: true)
@@ -21,7 +29,7 @@
 #   - deletePRBranchOnMerge: Whether to delete PR branches after merge (default: true)
 #   - hasWiki: Enable/disable Wiki feature (default: false)
 #   - hasIssues: Enable/disable Issues tab (default: true, false for templates)
-#   - hasDiscussions: Enable GitHub Discussions (default: false)
+#   - hasDiscussions: Enable the repository discussions surface (GitHub only; Azure skips)
 #   - hasProjects: Enable Projects tab (default: false)
 #   - allowAutoMerge: Allow auto-merge on PRs for automation (default: true)
 #   - allowUpdateBranch: Show "Update branch" button on PRs (default: true)
@@ -36,7 +44,7 @@
 #       - COMMIT_MESSAGES: Use all commit messages from the PR
 #       - BLANK: No commit message body
 #
-#   GitHub UI Mapping:
+#   GitHub-specific squash UI mapping:
 #     - "Use PR title": title=PR_TITLE, message=BLANK
 #     - "Use PR title and commit details": title=PR_TITLE, message=COMMIT_MESSAGES
 #     - "Use PR title and description": title=PR_TITLE, message=PR_BODY

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pipelines-rerun.ts - Re-run a GitHub Actions workflow run
+// pipelines-rerun.ts - Re-run a pipeline run
 // Version: 1.0.0
 // Description: Re-runs a whole workflow run, or only its failed jobs
 //              (--failed), optionally with debug logging (--debug).
@@ -24,7 +24,7 @@ let debugMode = false;
 function usage(): never {
   console.log(`Usage: pipelines-rerun RUN_ID --repo OWNER/REPO [OPTIONS]
 
-Re-run a GitHub Actions workflow run.
+Re-run a pipeline run.
 
 Arguments:
     RUN_ID                      The workflow run ID to re-run

@@ -3,7 +3,7 @@
 // dependency tree of a target repo (or every cached C# repo with --global)
 // generation by generation, update each dependent repo's NuGet references
 // via the single-repo wizard (cs-references-update-wizard), create PRs and
-// merge them, wait for GitHub Actions between generations (through the
+// merge them, wait for pipeline runs between generations (through the
 // facade's pipelines verbs), and refresh the repo cache.
 
 import { spawnSync } from "node:child_process";
@@ -53,7 +53,7 @@ GLOBAL MODE (--global):
   Updates ALL cached C# repositories in topological generation order.
   Every repo gets cs-references-update run against it, changes are committed
   to the ${UPDATE_BRANCH} branch, merged, and published. After each
-  generation, wait for GitHub Actions to complete.
+  generation, wait for pipeline runs to complete.
 
 Failure handling:
   If cs-references-update-wizard exits with a non-zero, non-10 code the wizard
@@ -164,10 +164,10 @@ function getUsedVersion(repoDir: string, pkgName: string): string {
   return walk(repoDir);
 }
 
-/** Wait for GitHub Actions runs on a repo/branch to complete (the
+/** Wait for pipeline runs on a repo/branch to complete (the
  * wait_for_workflow_runs contract: unknown states are retried, a failed or
  * cancelled latest run fails the wait). Goes through the facade's
- * pipelines verbs — no direct gh anywhere. */
+ * pipelines verbs — no direct provider CLI anywhere. */
 async function waitForWorkflowRuns(repo: string, branch: string, interval: number, timeout: number): Promise<boolean> {
   let elapsed = 0;
   let queryFailures = 0;
@@ -602,7 +602,7 @@ async function main(): Promise<void> {
     if (idx < depths.length - 1) {
       const nextDepth = depths[idx + 1];
       if (processed > 0) {
-        logInfo(`Waiting for GitHub Actions to complete before processing generation ${nextDepth}...`);
+        logInfo(`Waiting for pipeline runs to complete before processing generation ${nextDepth}...`);
         let workflowFailed = false;
         for (const repoFull of mergedRepos) {
           try {
@@ -615,7 +615,7 @@ async function main(): Promise<void> {
         }
         if (workflowFailed) {
           logWarn("Some workflow runs failed or timed out.");
-          promptUser("Please verify GitHub Actions manually, then press Enter to continue.");
+          promptUser("Please verify the pipeline runs manually, then press Enter to continue.");
         }
       }
       // --no-refresh and --dry-run both mean the cache is not touched.

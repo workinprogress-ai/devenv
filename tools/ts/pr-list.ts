@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pr-list.ts - List GitHub pull requests with filters (JSON by default).
+// pr-list.ts - List pull requests with filters (JSON by default).
 // Version: 1.0.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
 //
@@ -26,7 +26,7 @@ const DEFAULT_FIELDS = "number,title,state,isDraft,headRefName,baseRefName,autho
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} [OPTIONS]
 
-List and filter GitHub pull requests. Output is JSON by default.
+List and filter pull requests. Output is JSON by default.
 
 Options:
 ${usageCommonFlags({ noDryRun: true })}
@@ -119,7 +119,7 @@ async function main(argv: string[]): Promise<number> {
   checkTargetRepo(devenv);
 
   // The repo travels in prsList's own first slot only; repeating it here
-  // forwarded a second bare positional, which `gh pr list` rejects.
+  // forwarded a second bare positional, which the provider contract rejects.
   const opts = {
     state,
     limit: Number.parseInt(limit, 10),

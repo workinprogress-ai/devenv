@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// project-update-issue.ts - Update a GitHub Project (v2) card's fields
+// project-update-issue.ts - Update a project card's fields
 // Version: 1.1.0
 // Description: Sets the Status field (validated against devenv.config's
 //              [workflows] status_workflow) or arbitrary single-select fields
@@ -33,7 +33,7 @@ function usage(): never {
   console.log(`Usage: project-update-issue PROJECT_NAME ISSUE_NUMBER [OPTIONS]
        project-update-issue --all-projects ISSUE_NUMBER --status STATUS
 
-Update fields on a GitHub Project (v2) card for an issue already in the project.
+Update fields on a project card for an issue already in the project.
 
 Options:
     --status STATUS           Set the Status field (validated against the

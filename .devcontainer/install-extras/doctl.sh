@@ -6,6 +6,10 @@ set -euo pipefail
 
 echo "Installing doctl (DigitalOcean CLI)..."
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../tool-versions.bash"
+
 # Add DigitalOcean GPG key
 if ! curl -fsSL https://repos.insights.digitalocean.com/sonar-agent.asc 2>/dev/null | gpg --dearmor 2>/dev/null | sudo tee /usr/share/keyrings/digitalocean.gpg > /dev/null 2>&1; then
   echo "ERROR: Failed to fetch and import DigitalOcean GPG key"
@@ -15,14 +19,6 @@ fi
 # Add DigitalOcean repository
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/digitalocean.gpg] https://repos.insights.digitalocean.com/apt/do-agent main main" | sudo tee /etc/apt/sources.list.d/digitalocean.list > /dev/null
 
-# Alternative: Install from GitHub releases (more reliable)
-DOCTL_VERSION=$(curl -s https://api.github.com/repos/digitalocean/doctl/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-
-if [ -z "$DOCTL_VERSION" ]; then
-  echo "ERROR: Could not determine latest doctl version"
-  exit 1
-fi
-
 echo "Downloading doctl v${DOCTL_VERSION}..."
 
 # Detect architecture
@@ -30,9 +26,11 @@ ARCH=$(uname -m)
 case "$ARCH" in
   x86_64)
     ARCH_SUFFIX="amd64"
+    EXPECTED_SHA256="$DOCTL_SHA256_AMD64"
     ;;
   aarch64|arm64)
     ARCH_SUFFIX="arm64"
+    EXPECTED_SHA256="$DOCTL_SHA256_ARM64"
     ;;
   *)
     echo "ERROR: Unsupported architecture: $ARCH"
@@ -42,20 +40,24 @@ esac
 
 # Download and install doctl
 DOWNLOAD_URL="https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-${ARCH_SUFFIX}.tar.gz"
+ARCHIVE="/tmp/doctl-${DOCTL_VERSION}-${ARCH_SUFFIX}.tar.gz"
+trap 'rm -f "$ARCHIVE"' EXIT
 
-if ! curl -fsSL "$DOWNLOAD_URL" -o /tmp/doctl.tar.gz; then
+if ! curl -fsSL "$DOWNLOAD_URL" -o "$ARCHIVE"; then
   echo "ERROR: Failed to download doctl from $DOWNLOAD_URL"
   exit 1
 fi
 
-# Extract and install
-if ! sudo tar xf /tmp/doctl.tar.gz -C /usr/local/bin; then
-  echo "ERROR: Failed to extract doctl"
-  rm -f /tmp/doctl.tar.gz
+if ! printf '%s  %s\n' "$EXPECTED_SHA256" "$ARCHIVE" | sha256sum -c - >/dev/null; then
+  echo "ERROR: doctl archive checksum mismatch"
   exit 1
 fi
 
-rm -f /tmp/doctl.tar.gz
+# Extract and install
+if ! sudo tar xf "$ARCHIVE" -C /usr/local/bin; then
+  echo "ERROR: Failed to extract doctl"
+  exit 1
+fi
 
 # Verify installation
 if ! command -v doctl &> /dev/null; then

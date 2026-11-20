@@ -20,7 +20,7 @@ import { logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { siblingInvocation } from "../lib/core/sibling.ts";
 import { providerOrgGet } from "../lib/providers/provider-core.ts";
-import { authStatusOk } from "../lib/providers/facade/urls.ts";
+import { authStatusOk, gitTransportUrl } from "../lib/providers/facade/urls.ts";
 import { reposView, reposCreate, reposCommitsCount, reposTreeCount } from "../lib/providers/facade/repos.ts";
 import {
   loadRepoTypesConfig,
@@ -264,9 +264,8 @@ async function createRepo(
     process.exit(1);
   }
 
-  // Host literal sanctioned: user-facing next-step message (display only,
-  // not transport); fork rewrites with its provider's host.
-  logInfo(`✓ Repository created: git@github.com:${fullName}.git`);
+  const cloneUrl = await gitTransportUrl(org, repoName);
+  logInfo(`✓ Repository created: ${cloneUrl}`);
 
   if (template !== "") {
     if (!(await waitForRepoReady(fullName, `${org}/${template}`))) {
@@ -311,7 +310,7 @@ async function createRepo(
   logInfo("");
   logInfo("Next steps:");
   if (skipClone) {
-    logInfo(`  1. Clone the repo: git clone git@github.com:${fullName}.git`);
+    logInfo(`  1. Clone the repo: git clone ${cloneUrl}`);
     logInfo("  2. Make your changes and commit");
   } else {
     logInfo(`  1. Navigate to repo: cd ${reposDir}/${repoName}`);

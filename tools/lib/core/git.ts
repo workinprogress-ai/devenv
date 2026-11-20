@@ -109,6 +109,12 @@ export function getRepoRoot(repo?: string): string | null {
   return status === 0 ? out.trim() : null;
 }
 
+/** The URL of a repository's origin remote, or null when unavailable. */
+export function getOriginUrl(repo?: string): string | null {
+  const { status, out } = git(repo ?? null, ["remote", "get-url", "origin"]);
+  return status === 0 && out.trim() !== "" ? out.trim() : null;
+}
+
 /** The repo's default branch as HEAD of the remote (origin/HEAD), or null. */
 export function getDefaultBranch(repo?: string): string | null {
   const { status, out } = git(repo ?? null, ["symbolic-ref", "refs/remotes/origin/HEAD"]);

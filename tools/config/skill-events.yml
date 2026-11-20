@@ -1,5 +1,8 @@
 # Skill Event Configuration
-# Maps skill lifecycle events to GitHub Project Status transitions.
+# Maps skill lifecycle events to provider project/board Status transitions.
+# GitHub writes Project v2 Status; Azure DevOps writes the configured board
+# column (through the provider's project facade). The event/status binding is
+# provider-neutral, while each backend owns the status-write mechanics.
 # Consumed by the _on_* event scripts (tools/internal/_on_event_dispatch.ts, execed via the _on_*.sh entry stubs);
 # skills call the events and never read this file or know Status vocabulary.
 #

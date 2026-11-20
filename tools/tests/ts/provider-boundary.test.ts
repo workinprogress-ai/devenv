@@ -140,7 +140,7 @@ describe("provider boundary contract", () => {
     expect(stale, `satisfied domain allowlist entries to remove:\n${stale.join("\n")}`).toEqual([]);
   });
 
-  it("no tools/ts file imports a provider module except provider-explain.ts and the phase ratchet allowlist", () => {
+  it("no tools/ts file imports a provider module except the phase ratchet allowlist", () => {
     const violations: string[] = [];
     if (ratchetAllowlist.length > RATCHET_CAP) {
       violations.push(
@@ -154,7 +154,6 @@ describe("provider boundary contract", () => {
       // future subdirectory must not inherit an exemption.
       const relTs = relative(join(toolsDir, "ts"), file);
       // Sanctioned exception: the introspection tool explains providers.
-      if (relTs === "provider-explain.ts") continue;
       const src = readFileSync(file, "utf8");
       for (const m of src.matchAll(providerModuleImport)) {
         if (allowed.has(relTs)) continue; // ratcheted debt, removed in a later phase

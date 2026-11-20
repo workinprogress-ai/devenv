@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-close.ts - Close or reopen GitHub issues
+// issue-close.ts - Close or reopen issues
 // Version: 1.0.0
 // Description: Close or reopen one or more issues, with optional reason/comment and dry-run.
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -31,7 +31,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "issue-close.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} [close|reopen] ISSUE_NUMBER... [OPTIONS]
 
-Close or reopen one or more GitHub issues. The action defaults to close.
+Close or reopen one or more issues. The action defaults to close.
 
 Arguments:
     close|reopen                Action (optional leading word; default close)

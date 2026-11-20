@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// pipelines-watch.ts - Stream live output from a GitHub Actions workflow run
+// pipelines-watch.ts - Stream live output from a pipeline run
 // Version: 1.0.0
-// Description: Streams gh run watch output; if RUN_ID is omitted,
+// Description: Streams pipeline run output; if RUN_ID is omitted,
 //              auto-detects the latest in-progress run in the repo.
 //              --exit-status exits non-zero when the watched run fails.
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -24,7 +24,7 @@ let exitStatus = false;
 function usage(): never {
   console.log(`Usage: pipelines-watch [RUN_ID] --repo OWNER/REPO [OPTIONS]
 
-Stream live output from a GitHub Actions workflow run.
+Stream live output from a pipeline run.
 If RUN_ID is omitted, auto-detects the latest in-progress run in the repo.
 
 Arguments:

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pr-threads-get.ts - Fetch review threads (inline comments) for a GitHub
+// pr-threads-get.ts - Fetch review threads (inline comments) for a
 // pull request, preserving thread structure via GraphQL pagination.
 // Version: 1.0.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -27,7 +27,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "pr-threads-get.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} PR_NUMBER [OPTIONS]
 
-Fetch review threads (inline comments) for a GitHub pull request.
+Fetch review threads (inline comments) for a pull request.
 Uses GraphQL to preserve thread structure — the REST API loses parent/reply
 relationships and cannot filter by resolution status.
 
@@ -55,7 +55,7 @@ Output:
             author      {login}
             body        Comment text (markdown)
             createdAt   ISO 8601 timestamp
-            url         Link to the comment on GitHub
+            url         Link to the comment on the provider
 
 Examples:
     ${SCRIPT_NAME} 123

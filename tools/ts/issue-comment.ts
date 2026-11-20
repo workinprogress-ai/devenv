@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// issue-comment.ts - Add a comment to a GitHub issue
+// issue-comment.ts - Add a comment to an issue
 // Version: 1.1.0
-// Description: Posts a comment to a GitHub issue from text, file, or interactive editor
+// Description: Posts a comment to an issue from text, file, or interactive editor
 // Requirements: Node >= 23.6 (native type-stripping execution)
 //
 // Run via the depth-1 bash stub: `exec node "<resolved-src>.ts" "$@"`
@@ -33,7 +33,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "issue-comment.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} ISSUE_NUMBER [OPTIONS]
 
-Add a comment to a GitHub issue.
+Add a comment to an issue.
 
 Arguments:
     ISSUE_NUMBER                Issue number to comment on

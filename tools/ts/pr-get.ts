@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pr-get.ts - Retrieve a GitHub pull request's details as structured JSON.
+// pr-get.ts - Retrieve a pull request's details as structured JSON.
 // Version: 1.0.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
 //
@@ -27,7 +27,7 @@ const DEFAULT_FIELDS =
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} PR_NUMBER [OPTIONS]
 
-Retrieve a GitHub pull request's details as structured JSON.
+Retrieve a pull request's details as structured JSON.
 
 Arguments:
     PR_NUMBER                   PR number to retrieve

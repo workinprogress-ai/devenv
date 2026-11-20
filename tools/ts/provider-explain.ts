@@ -19,19 +19,12 @@ import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { logError } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { providerDetect } from "../lib/providers/provider-core.ts";
 import type { ProviderExplain, FamilyExplain } from "../lib/providers/explain.ts";
-import { githubExplain } from "../lib/providers/github/explain.ts";
-import { azureExplain } from "../lib/providers/azure/explain.ts";
+import { providerExplain } from "../lib/providers/facade/explain.ts";
 
 assertNodeFloor();
 
 const SCRIPT_NAME = basename(process.argv[1] ?? "provider-explain");
-
-const REGISTRY: Record<string, () => ProviderExplain> = {
-  github: githubExplain,
-  azure: azureExplain,
-};
 
 function showUsage(): void {
   console.log(`Usage: ${SCRIPT_NAME} [FAMILY]
@@ -91,13 +84,7 @@ async function main(): Promise<void> {
 
   let explain: ProviderExplain;
   try {
-    const provider = providerDetect();
-    const factory = REGISTRY[provider];
-    if (factory === undefined) {
-      logError(`provider '${provider}' ships no explain data (shipped: ${Object.keys(REGISTRY).join(", ")})`);
-      process.exit(EXIT_MISUSE);
-    }
-    explain = factory();
+    explain = await providerExplain();
   } catch (err) {
     // providerDetect's named errors (missing config, unshipped name) are
     // exactly what this tool exists to surface — print them as-is.

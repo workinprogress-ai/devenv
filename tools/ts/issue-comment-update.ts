@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-comment-update.ts - Replace the body of an existing GitHub issue comment
+// issue-comment-update.ts - Replace the body of an existing issue comment
 // Version: 1.1.0
 // Description: Updates a comment identified by its numeric ID (as returned by issue-comment-list).
 // Requirements: Node >= 23.6 (native type-stripping execution)

@@ -23,7 +23,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "pr-get-merge-link.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} [REPO_DIR]
 
-Get the GitHub URL for the open pull request whose head branch is the
+Get the provider URL for the open pull request whose head branch is the
 current branch.
 
 Arguments:

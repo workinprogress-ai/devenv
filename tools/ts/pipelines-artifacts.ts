@@ -35,7 +35,7 @@ let dryRun = false;
 function usage(): never {
   console.log(`Usage: pipelines-artifacts RUN_ID --repo OWNER/REPO [OPTIONS]
 
-List or download artifacts from a GitHub Actions workflow run.
+List or download artifacts from a pipeline run.
 Default mode is list (no files are downloaded).
 
 Arguments:

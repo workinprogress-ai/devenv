@@ -28,7 +28,7 @@ function showUsage(): never {
 Fetch a unified diff for a pull request, or for the difference between two
 refs in the current local repository.
 
-PR mode (remote, via gh):
+PR mode (remote, through the provider):
     PR_NUMBER                   Pull request number to diff
 
 Ref mode (local, via git):

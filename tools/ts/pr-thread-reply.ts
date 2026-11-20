@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // pr-thread-reply.ts - Reply to an existing inline review comment on a
-// GitHub pull request. Distinct from pr-comment (top-level conversation).
+// pull request. Distinct from pr-comment (top-level conversation).
 // Version: 1.1.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
 //
@@ -31,7 +31,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "pr-thread-reply.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} PR_NUMBER --comment-id COMMENT_ID [OPTIONS]
 
-Reply to an existing inline review comment on a GitHub pull request.
+Reply to an existing inline review comment on a pull request.
 The COMMENT_ID is the comment id from the review thread, exactly as
 \`pr-threads-get\` prints it (a number, or <thread>/<comment> where the host
 needs the thread to place a reply).

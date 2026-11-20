@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-update.ts - Update GitHub issue fields (title, body, type, labels,
+// issue-update.ts - Update issue fields (title, body, type, labels,
 // assignees, milestone, state) in one edit.
 // Version: 1.0.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -40,7 +40,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "issue-update.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} ISSUE_NUMBER [OPTIONS]
 
-Update GitHub issue fields in a single edit.
+Update issue fields in a single edit.
 
 Options:
     -t, --title TEXT            New title
@@ -55,7 +55,7 @@ Options:
     -m, --milestone NAME        Set milestone ("none" clears)
     -s, --state STATE           close|closed closes; open|reopen reopens
     --add-blocked-by N          Record N as blocking this issue (repeatable;
-                                idempotent). GitHub: the blocked-by body
+                                idempotent). Provider relation behavior is
                                 section; Azure: predecessor links.
     --remove-blocked-by N       Un-record N (repeatable; removing an absent
                                 link is a no-op)
@@ -239,7 +239,7 @@ async function main(argv: string[]): Promise<number> {
   }
   if (addLabels.length > 0 || removeLabels.length > 0) hasUpdates = true;
   if (addAssignees.length > 0 || removeAssignees.length > 0) hasUpdates = true;
-  // "none" is the documented clear token: it translates to gh's empty-string
+  // "none" is the documented clear token: providers map it to their own
   // removal form and counts as an update; a plain value sets the milestone.
   const milestoneGiven = newMilestone !== "";
   if (newMilestone === "none") newMilestone = "";

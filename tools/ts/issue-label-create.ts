@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-label-create.ts - Create a GitHub issue label (idempotent; --seed
+// issue-label-create.ts - Create an issue label (idempotent; --seed
 // bootstraps the triage vocabulary from tools/config/labels-config.yml).
 // Version: 1.0.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -34,7 +34,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "issue-label-create.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} NAME [--color HEX] [--description TEXT] [OPTIONS]
        ${SCRIPT_NAME} --seed [OPTIONS]
-Create a GitHub issue label. Idempotent: when the label already exists the
+Create an issue label. Idempotent: when the label already exists the
 command skips it (exit 0) unless --update is given, in which case color and
 description are updated.
 Arguments:

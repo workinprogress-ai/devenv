@@ -43,6 +43,9 @@ export NVM_VERSION="v0.39.5"
 # turbo (npm package version)
 export TURBO_VERSION="2.0.6"
 
+# doctl (DigitalOcean CLI), pinned GitHub release
+export DOCTL_VERSION="2.7.0"
+
 # .NET SDK channels installed side by side (space-separated, passed to
 # dotnet-install.sh one at a time)
 export DOTNET_CHANNELS="8.0 9.0 10.0 11.0"
@@ -72,6 +75,11 @@ export YQ_SHA256_ARM64="189088da0c6429ec5178dfaab1a114805f6cab0b61b165ab236efedf
 # the hash from an independent mirror
 # (https://cdn.jsdelivr.net/gh/nvm-sh/nvm@v0.39.5/install.sh).
 export NVM_INSTALL_SHA256="69da4f89f430cd5d6e591c2ccfa2e9e3ad55564ba60f651f00da85e04010c640"
+
+# doctl ${DOCTL_VERSION} linux tarballs. Source: release asset digests from
+# https://github.com/digitalocean/doctl/releases/download/v2.7.0/doctl-2.7.0-checksums.sha256
+export DOCTL_SHA256_AMD64="1033caac941fe6238aa3b3170ac2651117ab259f2eaaa87a252164ed4df405ee"
+export DOCTL_SHA256_ARM64="11d5a025183a64a415b1b72a97dc6356c3f8decaa402f61e5f769175cf7cd616"
 
 # .devcontainer/git-completion.bash is vendored, not downloaded: it is the
 # unmodified contrib/completion/git-completion.bash from the git v2.55.0 tag

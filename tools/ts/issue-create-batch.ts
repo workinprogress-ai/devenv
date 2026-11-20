@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-create-batch.ts - Create multiple GitHub issues in one command.
+// issue-create-batch.ts - Create multiple issues in one command.
 // Version: 1.1.0
 // Requirements: Node >= 23.6 (native type-stripping execution); issue-create
 // on PATH (the workspace depth-1 tool) for --create.
@@ -41,7 +41,7 @@ function showUsage(): never {
         ${s} --issue "TITLE" [--issue "TITLE|key=value|..."] [OPTIONS]
         ${s} --file MANIFEST [OPTIONS]
 
-Create multiple GitHub issues in one pass.
+Create multiple issues in one pass.
 
 Input (choose one):
         -i, --issue ENTRY           Add issue entry (repeatable)

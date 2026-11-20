@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// policy-export.ts - Export a GitHub repository ruleset as JSON
+// policy-export.ts - Export a repository ruleset as JSON
 // Version: 1.1.0
 // Description: With no RULESET_ID, lists the repository's rulesets
 //              (id, name, enforcement) instead. Read-only.
@@ -22,7 +22,7 @@ let outputFile = "";
 function usage(): never {
   console.log(`Usage: policy-export [RULESET_ID] [OPTIONS]
 
-Export a GitHub repository ruleset as JSON. With no RULESET_ID, lists the
+Export a repository ruleset as JSON. With no RULESET_ID, lists the
 repository's rulesets (id, name, enforcement) instead. Read-only.
 
 Options:

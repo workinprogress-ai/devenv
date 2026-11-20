@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-types.ts - List the GitHub organization's issue types
+// issue-types.ts - List the organization's issue types
 // Version: 1.0.0
 // Description: Queries the organization's configured issue types (ID + name) via GraphQL.
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -29,7 +29,7 @@ const SCRIPT_NAME = basename(process.argv[1] ?? "issue-types.ts");
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} [OPTIONS]
 
-List the GitHub organization's configured issue types (ID + name) via GraphQL.
+List the organization's configured issue types (ID + name).
 Read-only — used when setting up or verifying the native issue-type vocabulary
 (mirrors tools/config/issues-config.yml: Bug, Feature, Task, Epic).
 
@@ -95,7 +95,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (types.length === 0) {
-    logError("No issue types returned — is the org configured with issue types? (GitHub org setting: Organization settings → Features → Issue types)");
+    logError("No issue types returned — is the organization configured with issue types?");
     return 1;
   }
 

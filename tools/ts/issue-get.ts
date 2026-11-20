@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-get.ts - Retrieve a GitHub issue's details as structured JSON
+// issue-get.ts - Retrieve an issue's details as structured JSON
 // Version: 1.0.0
 // Requirements: Node >= 23.6 (native type-stripping execution)
 //
@@ -25,7 +25,7 @@ const DEFAULT_FIELDS = "number,title,parent,issueType,body,state,labels,assignee
 
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} ISSUE_NUMBER [OPTIONS]
-Retrieve a GitHub issue's details as structured JSON.
+Retrieve an issue's details as structured JSON.
 Arguments:
     ISSUE_NUMBER                Issue number to retrieve
 Options:

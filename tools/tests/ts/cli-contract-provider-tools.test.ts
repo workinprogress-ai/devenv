@@ -96,6 +96,11 @@ describe.each(TOOLS)("%s house flags", (tool) => {
     expect(stubCalls(stubDir)).toEqual([]);
   });
 
+  it("--help does not advertise a provider-specific user surface", () => {
+    const r = run(tool, ["--help"]);
+    expect(r.stdout).not.toMatch(/\bGitHub(?: Actions| Project \(v2\)| pull request| issue| Issues)?\b/i);
+  });
+
   it("--version exits 0 on stdout and never contacts the provider", () => {
     const r = run(tool, ["--version"]);
     expect(r.status).toBe(EXIT_SUCCESS);

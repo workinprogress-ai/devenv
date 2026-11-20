@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// issue-search.ts - Search GitHub issues by keyword
+// issue-search.ts - Search issues by keyword
 // Version: 1.0.0
 // Description: Fetch title+body per scope filters, match any term case-insensitively
 //              (substring), rank by distinct-term hit count.
@@ -38,7 +38,7 @@ interface SearchHit {
 function showUsage(): never {
   console.log(`Usage: ${SCRIPT_NAME} [OPTIONS] TERM...
 
-Search GitHub issues by keyword: any term matching (case-insensitive substring)
+Search issues by keyword: any term matching (case-insensitive substring)
 in the title or body counts as a hit; results rank by distinct-term match count.
 
 Filters:
