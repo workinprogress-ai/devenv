@@ -511,7 +511,9 @@ export async function azureHttpDownload(url: string, dest: string): Promise<void
   // The URL is used exactly as the API returned it: a PipelineArtifact's
   // download URL is on another host that refuses an added api-version.
   const fullUrl = url;
-  const { writeFileSync, renameSync, rmSync } = await import("node:fs");
+  const { createWriteStream, renameSync, rmSync } = await import("node:fs");
+  const { Readable } = await import("node:stream");
+  const { pipeline } = await import("node:stream/promises");
   // Written beside the destination and renamed over it, so a failed download
   // never deletes or truncates a file that was already there.
   const tmp = `${dest}.${process.pid}.tmp`;
@@ -530,14 +532,20 @@ export async function azureHttpDownload(url: string, dest: string): Promise<void
   if (!res.ok) {
     throw new ProviderError(`artifact download failed (HTTP ${res.status})`, res.status);
   }
-  let buf: Uint8Array;
   try {
-    buf = new Uint8Array(await res.arrayBuffer());
+    if (res.body === null) {
+      throw new ProviderError("artifact download returned no body");
+    }
+    await pipeline(
+      Readable.fromWeb(res.body),
+      createWriteStream(tmp),
+    );
   } catch (e) {
+    rmSync(tmp, { force: true });
+    if (e instanceof ProviderError) throw e;
     throw new ProviderError(azureRedact(`artifact download ${transportMessage(e, AZURE_DOWNLOAD_TIMEOUT_MS)}`));
   }
   try {
-    writeFileSync(tmp, buf);
     renameSync(tmp, dest);
   } catch (e) {
     rmSync(tmp, { force: true });

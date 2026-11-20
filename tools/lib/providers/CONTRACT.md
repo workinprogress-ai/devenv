@@ -334,6 +334,7 @@ type PackageFeedConfig =
       kind: PackageFeedKind;
       url: string;
       sourceName: string;
+      displayName: string;
       username?: string;
       authHost: string;
     }
@@ -344,6 +345,22 @@ Feed resolution is separate from credential resolution: this contract never
 contains a token or password. A missing or unsupported provider/feed
 configuration is returned explicitly; setup steps never fall through to
 GitHub feed defaults for an unknown provider.
+
+### Provider explanation
+
+Provider-calling requirements are data owned by each provider's
+`explain.ts`. The `explain` family is loaded through
+`FAMILY_MANIFEST`, and `provider-explain` imports only the facade. A tool or
+skill therefore cannot grow a second provider registry that drifts from the
+loader.
+
+### Issue templates
+
+Issue templates are repository content rather than provider API state.
+`issue-create` reads `[issues] template_dir` (default
+`.github/ISSUE_TEMPLATE`) relative to the verified target repository. It
+accepts an alternate directory for Azure-oriented forks without assuming the
+GitHub convention is present.
 
 **Projections.** A list or view verb that takes `json` returns only those fields; `jq` applies
 a program to the result. Both use the field names below, never the host's own where they

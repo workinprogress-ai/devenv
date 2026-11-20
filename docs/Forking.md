@@ -54,7 +54,14 @@ Tools never call a provider module directly: they import the TypeScript facade (
 
 ### Capability flags
 
-Providers differ in what they support. GH-only surfaces — rulesets, project boards, native issue types, releases, CI pipelines — are declared capabilities. Tools gate those code paths with `requireFamilyCapability` (which ends in `providerRequireCapability`), and a provider that lacks the capability fails with a defined "provider does not support this" error instead of failing mid-command. A fork's provider module declares the capabilities it honors with `providerDeclareCapability` (the canonical list is `PROVIDER_CAPABILITY_CANONICAL` in `provider-core.ts`); scripts degrade or substitute accordingly (labels-based typing instead of native types, for example).
+Providers differ in what they support. Whole-family surfaces are declared
+with `providerDeclareCapability` and gated through `requireFamilyCapability`.
+Narrow behavioral decisions—repository settings, ruleset failure
+classification, queued-run attribution and package-feed configuration—are
+owned by the relevant facade or setup seam. A provider returns explicit
+support/skip/rejection data; tools and domain code never infer a behavior from
+the provider name or default an unknown provider into GitHub. The canonical
+capability list is `PROVIDER_CAPABILITY_CANONICAL` in `provider-core.ts`.
 
 ## Adapting to Azure DevOps
 
@@ -110,6 +117,12 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
     characters. The value must agree with your git remotes (`_git` URLs) and
     drives web links.
 
+Issue templates use `[issues] template_dir` (default
+`.github/ISSUE_TEMPLATE`). Relative values resolve from the target repository
+after its origin is matched to `DEVENV_REPO`; this also works for renamed
+clones and worktrees. The selected provider's clone URL comes from the URL
+facade, and provider help is loaded through the `explain` family manifest.
+
   ```ini
   [provider]
   name=azure
@@ -131,9 +144,9 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
 - **What differs from GitHub**: work-item states map to the seam's OPEN/CLOSED
   dialect (every stock process template provides those states — no board
   configuration required); labels map to `System.Tags` (semicolon-separated);
-  PR rebase-merge is the Azure three-step (mergeStrategy PATCH → GET the PR →
-  status=completed + deleteSourceBranch + the echoed
-  `lastMergeSourceCommit.commitId`, which is required); pagination is
+  PR rebase-merge is a preflight GET followed by one completion PATCH carrying
+  `completionOptions.mergeStrategy=rebase`, `deleteSourceBranch`, and the
+  echoed `lastMergeSourceCommit.commitId` (required); pagination is
   ContinuationToken; issue lists are project-scoped (per-repo scoping via
   area paths is a provisioning-only convention — see MAPPING.md); releases
   map to git tags; org rulesets map to per-repo branch policies.

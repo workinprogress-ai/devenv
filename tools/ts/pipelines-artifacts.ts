@@ -179,7 +179,13 @@ const ghArgs: string[] = [];
 if (artifactName !== "") ghArgs.push("-n", artifactName);
 ghArgs.push("-D", destDir);
 
-const downloaded = await pipelinesRunDownload(repo, runId, ghArgs);
+let downloaded: Awaited<ReturnType<typeof pipelinesRunDownload>>;
+try {
+  downloaded = await pipelinesRunDownload(repo, runId, ghArgs);
+} catch (err) {
+  logError(`Failed to download artifacts for run ${runId}: ${errorMessage(err)}`);
+  process.exit(EXIT_API_FAILURE);
+}
 if (downloaded.status !== 0) {
   logError(`Failed to download artifacts for run ${runId}`);
   process.exit(EXIT_API_FAILURE);

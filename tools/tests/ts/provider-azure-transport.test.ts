@@ -485,6 +485,31 @@ describe("azure request timeouts", () => {
     expect(AZURE_DOWNLOAD_TIMEOUT_MS).toBe(300_000);
   });
 
+  it("streams a download without buffering the whole response", async () => {
+    const arrayBuffer = vi.spyOn(Response.prototype, "arrayBuffer");
+    vi.stubGlobal("fetch", async () => new Response("streamed zip", { status: 200 }));
+    const { azureHttpDownload } = await import("../../lib/providers/azure/http.ts");
+    const dest = join(root, "streamed.zip");
+    await azureHttpDownload("https://dev.azure.com/o/p/_apis/x", dest);
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(readFileSync(dest, "utf8")).toBe("streamed zip");
+  });
+
+  it("wraps response stream errors and removes the partial file", async () => {
+    vi.stubGlobal("fetch", async () => new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("partial"));
+        controller.error(new Error("stream boom"));
+      },
+    }), { status: 200 }));
+    const { azureHttpDownload } = await import("../../lib/providers/azure/http.ts");
+    const dest = join(root, "broken.zip");
+    await expect(
+      azureHttpDownload("https://dev.azure.com/o/p/_apis/x", dest),
+    ).rejects.toMatchObject({ name: "ProviderError" });
+    expect(existsSync(`${dest}.${process.pid}.tmp`)).toBe(false);
+  });
+
   it("bounds the setup token check's curl", () => {
     const text = readFileSync(join(LIB, "providers/azure/setup.bash"), "utf8");
     expect(text).toMatch(/curl[^\n]*--connect-timeout 5 --max-time 15/);

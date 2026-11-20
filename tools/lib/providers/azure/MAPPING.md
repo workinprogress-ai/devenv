@@ -11,7 +11,7 @@
 > code it describes, versions with it, and is the reference for the
 > provider implementation (`tools/lib/providers/azure/`) and full-parity
 > planning.
-> Live API facts recorded here (merge three-step, preview api-versions)
+> Live API facts recorded here (merge completion PATCH, preview api-versions)
 > are empirically verified, not aspirational. Rows marked **as-built**
 > were reconciled against the shipped code at plan close (2026-09-30).
 
@@ -39,6 +39,11 @@ don't re-derive them:
   settings and authentication entries, removes the exact `Skipping npmrc auth token (gh not authenticated)` line, and writes skip
   status to the console rather than the configuration file. Only
   `pkgs.dev.azure.com` and `*.pkgs.visualstudio.com` hosts ever receive the PAT.
+- **Package-feed configuration is provider-owned**: setup resolves npm and
+  NuGet into an explicit configured record or a named skip. Unknown providers
+  fail closed; a configured host is validated before any credential is
+  written. GitHub defaults npm only to `npm.pkg.github.com`, while Azure requires
+  an Azure Artifacts URL and supplies the fixed `azure` username.
 - **Two api-version regimes**: most endpoints take `api-version=7.1`;
   work-item **comments** are a preview resource requiring a
   `-preview` version pinned on the URL (plain 7.1 → 400; the code pins
@@ -106,6 +111,13 @@ don't re-derive them:
   graphql graph.
 - **Boards are native** — no separate board API family to emulate;
   board position/column is work-item state + team board configuration.
+- **Issue templates are target-repository content**: `[issues] template_dir`
+  is interpreted from the target clone whose origin matches `DEVENV_REPO`.
+  Azure forks can select a directory other than `.github/ISSUE_TEMPLATE`
+  without changing `issue-create`.
+- **Provider explanation is loader-owned**: the `explain` family is loaded
+  from the provider manifest. Adding behavior to the provider explanation does
+  not require a second registry in the tool.
 
 ## Why this mapping exists
 

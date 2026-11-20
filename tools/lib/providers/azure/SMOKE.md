@@ -68,6 +68,11 @@ first repository the list returns for the repository reads (`prs_list`, `repos_v
 | pipelines | lists pipeline definitions (expected empty); dispatch, cancel and download are not exercised because the disposable repository has no pipeline definition |
 | org | creates a ruleset (a minimum-reviewers policy), updates it, and lists rulesets; a rejected duplicate counts as success only when an equivalent policy is verifiably present |
 
+The regular test suite covers provider-explain output/routing, provider feed
+host rejection, URL helpers, and provider facade contracts with offline
+fixtures. These are not duplicated as live smoke mutations because they do
+not require an Azure write to establish their mapped behavior.
+
 ## Safety model
 
 - **Test project only.** Every destructive probe runs inside the named project; the organisation
