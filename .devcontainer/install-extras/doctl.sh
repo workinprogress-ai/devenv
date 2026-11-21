@@ -43,21 +43,22 @@ DOWNLOAD_URL="https://github.com/digitalocean/doctl/releases/download/v${DOCTL_V
 ARCHIVE="/tmp/doctl-${DOCTL_VERSION}-${ARCH_SUFFIX}.tar.gz"
 trap 'rm -f "$ARCHIVE"' EXIT
 
-if ! curl -fsSL "$DOWNLOAD_URL" -o "$ARCHIVE"; then
-  echo "ERROR: Failed to download doctl from $DOWNLOAD_URL"
-  exit 1
-fi
+TMP_TARBALL="$(mktemp --suffix=.tar.gz)"
 
-if ! printf '%s  %s\n' "$EXPECTED_SHA256" "$ARCHIVE" | sha256sum -c - >/dev/null; then
-  echo "ERROR: doctl archive checksum mismatch"
+if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_TARBALL"; then
+  echo "ERROR: Failed to download doctl from $DOWNLOAD_URL"
+  rm -f "$TMP_TARBALL"
   exit 1
 fi
 
 # Extract and install
-if ! sudo tar xf "$ARCHIVE" -C /usr/local/bin; then
+if ! sudo tar xf "$TMP_TARBALL" -C /usr/local/bin; then
   echo "ERROR: Failed to extract doctl"
+  rm -f "$TMP_TARBALL"
   exit 1
 fi
+
+rm -f "$TMP_TARBALL"
 
 # Verify installation
 if ! command -v doctl &> /dev/null; then

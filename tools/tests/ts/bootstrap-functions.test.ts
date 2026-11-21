@@ -1269,7 +1269,7 @@ describe("bootstrap: install_yq and download verification", () => {
   it("tool-versions.bash documents the mutable downloads left unverified", () => {
     const s = src(TOOL_VERSIONS);
     expect(s.toLowerCase()).toContain("accepted exceptions");
-    for (const site of ["tailscale", "get.docker.com", "dotnet-install", "getvsdbg", "minikube"]) {
+    for (const site of ["tailscale", "get.docker.com", "dotnet-install", "getvsdbg"]) {
       expect(s).toContain(site);
     }
   });
@@ -1657,11 +1657,11 @@ describe("bootstrap: docs, helpers, robustness", () => {
     expect(sh(`[ -L '${join(homeDir, ".copilot", "copilot-instructions.md")}' ] && echo sym`).stdout.trim()).toBe("sym");
   });
 
-  it("the generated devenvrc puts tools before repo scripts and does not grow PATH when sourced twice", () => {
+  it("the generated devenvrc puts tools before repo .devenv/bin dirs and does not grow PATH when sourced twice", () => {
     const toolbox = tmpPath("tbpath");
     const homeDir = tmpPath("hmpath");
     mkdirSync(join(toolbox, "tools"), { recursive: true });
-    mkdirSync(join(toolbox, "repos", "r1", "scripts"), { recursive: true });
+    mkdirSync(join(toolbox, "repos", "r1", ".devenv", "bin"), { recursive: true });
     mkdirSync(homeDir, { recursive: true });
     const r = spawnSync("node", [join(PROVISION, "devenvrc.ts")], {
       encoding: "utf8",
@@ -1674,7 +1674,7 @@ describe("bootstrap: docs, helpers, robustness", () => {
         `. '${rcFile}' 2>/dev/null\nfirst="$PATH"\n` +
         `. '${rcFile}' 2>/dev/null\n` +
         `[ "$PATH" = "$first" ] || { echo 'PATH grew'; exit 11; }\n` +
-        `case "$PATH" in *'${toolbox}/tools:'*'${toolbox}/repos/r1/scripts'*) ;; *) echo "order: $PATH"; exit 12 ;; esac\n`,
+        `case "$PATH" in *'${toolbox}/tools:'*'${toolbox}/repos/r1/.devenv/bin'*) ;; *) echo "order: $PATH"; exit 12 ;; esac\n`,
       { HOME: homeDir },
     );
     expect(r2.status).toBe(0);

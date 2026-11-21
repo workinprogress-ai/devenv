@@ -2661,7 +2661,10 @@ install-extras mongo
 
 - `dns-hijack.sh` - DNS split horizon setup with dnsmasq
 - `helm.sh` - Helm package manager for Kubernetes
-- `minikube.sh` - Minikube for local Kubernetes
+- `k3d.sh` - k3d, the k3s cluster factory for the local environment
+- `k9s.sh` - k9s terminal dashboard for Kubernetes clusters
+- `telepresence.sh` - telepresence (OSS v2.20.3) for traffic interception via `kube-intercept`
+- `kubernetes-tools.sh` - meta-installer: k3d + k9s + telepresence in one fail-fast run
 - `mongo-tools.sh` - MongoDB CLI tools
 - `mongo-compass.sh` - MongoDB Compass GUI
 - `chromium.sh`, `firefox.sh` - Web browsers

@@ -98,8 +98,6 @@ export DOCTL_SHA256_ARM64="11d5a025183a64a415b1b72a97dc6356c3f8decaa402f61e5f769
 #   - dotnet-install: https://dot.net/v1/dotnet-install.sh, updated in place
 #   - getvsdbg: https://aka.ms/getvsdbgsh (download-csharp-debugger.sh), a
 #     redirect to the current debugger installer
-#   - minikube: the `releases/latest` .deb (extras/minikube.sh), a moving
-#     "latest" target; verifiable only once it is version-pinned
 # Revisit an exception when its publisher offers a versioned URL or a
 # published checksum.
 

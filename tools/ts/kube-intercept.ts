@@ -1,33 +1,55 @@
 // kube-intercept — intercept cluster traffic into local services via
-// telepresence. Mappings come from a file and/or argv
-// (DEPLOYMENT=PORT[,PORT...] — commas for multiple ports), each deployment
-// resolved to a pod via the namespace's pod listing; a watchdog keeps the
-// telepresence daemon connected; SIGINT/SIGTERM stops intercepts and the
-// daemon.
+// telepresence. Mappings come from a file and/or argv, each
+// DEPLOYMENT=<port-spec> resolved against the namespace's deployments and
+// intercepted at the deployment level (telepresence intercept semantics:
+// port-spec names a declared container port; numeric specs keep the legacy
+// number-form). A native watchdog (when this run starts the daemons)
+// reconnects on drop and re-establishes the intercepts; SIGINT/SIGTERM
+// leaves only what this run started.
+//
+// Mapping forms:
+//   DEPLOY=LOCAL:PORTNAME   intercept DEPLOY's port named PORTNAME → local LOCAL
+//   DEPLOY=PORTNAME         same, local port resolved from the named port
+//   DEPLOY=LOCAL:NUMBER     legacy numeric pod port
+//   DEPLOY=NUMBER           legacy bare numeric port
+// Named ports are the primary form: telepresence matches declared container
+// port names; unnamed ports are not interceptable.
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import { EXIT_CONFLICT, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
-import { errorMessage } from "../lib/core/logging.ts";
-import { logError } from "../lib/core/logging.ts";
+import { errorMessage, logError } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR } from "../lib/core/exit-codes.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
-import { listPods, resolveNamespace, spawnKubectl } from "../lib/domain/kube/kube.ts";
+import { listDeployments, resolveNamespace, spawnKubectl } from "../lib/domain/kube/kube.ts";
 
 assertNodeFloor();
 
 const WATCHDOG_INTERVAL_MS = 5000;
-const PREFIX = "[telepresence-watchdog]";
-const SCRIPT_VERSION = "1.0.0";
+const SCRIPT_VERSION = "2.0.0";
 
 function usage(status = 0): never {
-  (status === 0 ? console.log : console.error)(`Usage: kube-intercept [-n|--namespace <ns>] [mapping_file] DEPLOYMENT=PORT[,PORT...] [DEPLOYMENT=PORT ...]
+  (status === 0 ? console.log : console.error)(`Usage: kube-intercept [-n|--namespace <ns>] [mapping_file] DEPLOYMENT=<port-spec> [DEPLOYMENT=<port-spec> ...]
 
-Intercept cluster traffic into local services via telepresence. Mappings
-come from a mapping file (one DEPLOYMENT=PORT per line, # comments allowed)
-and/or argv; comma-separate multiple ports. Each deployment resolves to a
-pod in the namespace. A watchdog reconnects the daemon while intercepts run.
+Intercept cluster traffic into local services via telepresence. Each mapping
+targets a deployment; the port-spec names a declared container port (primary)
+or gives a legacy numeric port. Comma-separate multiple port-specs per
+deployment; mappings also load from a file (one per line, # comments).
+
+Port-spec forms:
+  LOCAL:PORTNAME   named port (e.g. api=5678:http) — telepresence matches
+                   declared container port names; unnamed ports are not
+                   interceptable
+  PORTNAME         named port, local port = the named port's containerPort
+  LOCAL:NUMBER     legacy numeric pod port
+  NUMBER           legacy bare numeric port
+
+Lifecycle: when the wrapper starts the telepresence daemons it keeps running
+with a watchdog (reconnect re-establishes intercepts) — stop it with Ctrl-C
+(interactive) or SIGINT/SIGTERM (exit 130, daemons stop). When attaching to
+already-running daemons, interactive runs stay foreground; non-interactive
+runs exit 0 after starting intercepts (the daemons hold them).
 
 Options:
   -n, --namespace NS   Namespace
@@ -58,6 +80,18 @@ try {
 const resolution = resolveNamespace(nsInput);
 if (resolution.kind === "unreachable") {
   console.error(resolution.message);
+  // Split the two causes the umbrella message conflates: a missing kubectl
+  // binary vs a present-but-broken kubectl vs a reachable-binary/unreachable
+  // cluster. The probe bypasses kube.ts's single-seam rule deliberately: the
+  // desired semantics here is the spawn's own not-found result.
+  const probe = spawnSync("kubectl", ["version", "--client"], { encoding: "utf8" });
+  if (probe.error !== undefined) {
+    console.error("kubectl not found on PATH — it is preinstalled in the dev container; outside it, install kubectl first");
+  } else if (probe.status !== 0) {
+    console.error("kubectl exists but fails to run (broken install or shim) — reinstall kubectl");
+  } else {
+    console.error("kubectl is present but cannot reach the cluster — check the current context (kube-set-context) and that the cluster is up");
+  }
   process.exit(EXIT_GENERAL_ERROR);
 }
 if (resolution.kind === "ambiguous") {
@@ -83,8 +117,11 @@ if (args.length > 0 && statSync(args[0] as string, { throwIfNoEntry: false })?.i
     process.exit(EXIT_GENERAL_ERROR);
   }
   for (const line of content.split("\n")) {
-    if (line === "" || line.startsWith("#")) continue;
-    mappings.push(line);
+    // CR-tolerant: a CRLF mapping file's trailing CR otherwise fails port
+    // validation invisibly (the CR renders nowhere in the error message).
+    const trimmed = line.replace(/\r$/, "");
+    if (trimmed === "" || trimmed.startsWith("#")) continue;
+    mappings.push(trimmed);
   }
 }
 mappings.push(...args);
@@ -93,9 +130,67 @@ if (mappings.length === 0) {
   usage(EXIT_MISUSE);
 }
 
+const isPortName = (value: string): boolean => /^[a-z][a-z0-9-]*$/i.test(value) && !/^[0-9]+$/.test(value);
+
+/** Resolve a named container port's containerPort for DEPLOYMENT via
+ * kubectl. Exits misuse when the deployment declares no such port — the
+ * named-port form is only valid against a declared name. */
+function resolveContainerPort(deployment: string, portName: string, mapping: string): string {
+  let stdout = "";
+  try {
+    const r = spawnKubectl(["get", "deployment", deployment, "-n", ns, "-o", "json"]);
+    if (r.status !== 0) {
+      console.error(`Cannot read deployment ${deployment} to resolve port '${portName}': ${mapping}`);
+      process.exit(EXIT_GENERAL_ERROR);
+    }
+    stdout = r.stdout;
+  } catch (err) {
+    console.error(errorMessage(err));
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+  // Parse failure is an environment problem (polluted output), not a mapping
+  // problem — diagnose it as such instead of claiming the port is undeclared.
+  let spec: {
+    spec?: { template?: { spec?: { containers?: Array<{ ports?: Array<{ name?: string; containerPort?: number }> }> } } };
+  };
+  try {
+    spec = JSON.parse(stdout) as typeof spec;  } catch {
+    console.error(`kubectl returned unparseable output reading deployment ${deployment} (port '${portName}'): ${mapping}`);
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+  for (const c of spec.spec?.template?.spec?.containers ?? []) {
+    for (const p of c.ports ?? []) {
+      if (p.name === portName && p.containerPort !== undefined) return String(p.containerPort);
+    }
+  }
+  console.error(`Deployment ${deployment} declares no port named '${portName}' in mapping: ${mapping}`);
+  process.exit(EXIT_MISUSE);
+}
+
+/** Whether DEPLOYMENT declares a port named PORTNAME (validation for the
+ * LOCAL:PORTNAME pair form — the same check resolveContainerPort applies to
+ * the bare form). */
+function portNameDeclared(deployment: string, portName: string): boolean {
+  try {
+    const r = spawnKubectl(["get", "deployment", deployment, "-n", ns, "-o", "json"]);
+    if (r.status !== 0) return false;
+    const spec = JSON.parse(r.stdout) as {
+      spec?: { template?: { spec?: { containers?: Array<{ ports?: Array<{ name?: string }> }> } } };
+    }
+    for (const c of spec.spec?.template?.spec?.containers ?? []) {
+      for (const p of c.ports ?? []) {
+        if (p.name === portName) return true;
+      }
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 interface Intercept {
-  pod: string;
-  /** "--port local:remote" segments, one per port pair. */
+  deployment: string;
+  /** "--port local:target" segments, one per port pair. */
   portArgs: string[];
 }
 
@@ -103,56 +198,97 @@ const intercepts: Intercept[] = [];
 for (const mapping of mappings) {
   const eq = mapping.indexOf("=");
   const depId = eq === -1 ? "" : mapping.slice(0, eq);
-  const portMapping = eq === -1 ? "" : mapping.slice(eq + 1);
-  if (depId === "" || portMapping === "") {
+  const portSpecRaw = eq === -1 ? "" : mapping.slice(eq + 1);
+  if (depId === "" || portSpecRaw === "") {
     console.error(`Invalid mapping format: ${mapping}`);
     process.exit(EXIT_MISUSE);
   }
-  // Resolve the deployment's pod (the listing contract is first matching pod,
-  // failing loud).
-  let pods: string[];
+  // Resolve the deployment (unique match required; several matches are a
+  // wrong-target hazard and refuse, mirroring the pod contract).
+  let deployments: string[];
   try {
-    pods = listPods({ namespace: ns, filter: depId });
+    // Exact match first: the listing filter is a regex, and a regex-
+    // metacharactered exact name (api.foo) could otherwise single-match a
+    // different deployment (api-foo). An exact hit bypasses the filter.
+    deployments = listDeployments({ namespace: ns });
+    if (deployments.includes(depId)) {
+      deployments = [depId];
+    } else {
+      try {
+        const re = new RegExp(depId, "i");
+        deployments = deployments.filter((d) => re.test(d));
+      } catch {
+        console.error(`invalid deployment name pattern: ${depId}`);
+        process.exit(EXIT_MISUSE);
+      }
+    }
   } catch (err) {
     console.error(errorMessage(err));
     process.exit(EXIT_GENERAL_ERROR);
   }
-  if (pods.length === 0) {
-    console.error(`Failed to select pod for deployment: ${depId}`);
+  if (deployments.length === 0) {
+    console.error(`Failed to select deployment for intercept: ${depId}`);
     process.exit(EXIT_GENERAL_ERROR);
   }
-  if (pods.length > 1) {
-    // Same contract as kube-forward-ports: an intercept replacing the wrong
-    // pod among several matches is a silent wrong-target action — refuse,
-    // even under KUBE_NO_INTERACTIVE=1 (blind picking is not safe here).
+  if (deployments.length > 1) {
+    // An intercept replacing the wrong deployment among several matches is a
+    // silent wrong-target action — refuse, even under KUBE_NO_INTERACTIVE=1
+    // (blind picking is not safe here).
     if (process.env.KUBE_NO_INTERACTIVE === "1") {
-      console.error(`KUBE_NO_INTERACTIVE=1 cannot pick among ${pods.length} pods matching '${depId}' — pin the exact pod name.`);
+      console.error(`KUBE_NO_INTERACTIVE=1 cannot pick among ${deployments.length} deployments matching '${depId}' — pin the exact deployment name.`);
       process.exit(EXIT_CONFLICT);
     }
-    console.error(`Multiple pods match '${depId}' (${pods.length} found) — be more specific.`);
+    console.error(`Multiple deployments match '${depId}' (${deployments.length} found) — be more specific.`);
     process.exit(EXIT_CONFLICT);
   }
-  const pod = pods[0] as string;
+  const deployment = deployments[0] as string;
 
   const portArgs: string[] = [];
-  for (const pair of portMapping.split(",")) {
+  for (const pair of portSpecRaw.split(",")) {
     let localPort: string;
-    let podPort: string;
+    let targetPort: string;
     if (pair.includes(":")) {
-      const parts = pair.split(":", 2);
-      localPort = parts[0] ?? "";
-      podPort = parts[1] ?? "";
-    } else {
+      // JS split-with-limit truncates: a third segment would vanish
+      // silently (api=8080:http:grpc parsed as 8080:http). Refuse instead.
+      const segments = pair.split(":");
+      if (segments.length > 2) {
+        console.error(`Port pair has too many ':' segments in mapping: ${mapping}`);
+        process.exit(EXIT_MISUSE);
+      }
+      localPort = segments[0] ?? "";
+      targetPort = segments[1] ?? "";
+    } else if (/^[0-9]+$/.test(pair)) {
+      // Legacy bare numeric: local = pod port.
       localPort = pair;
-      podPort = pair;
-    }
-    if (!/^[0-9]+$/.test(localPort) || !/^[0-9]+$/.test(podPort)) {
-      console.error(`Ports must be numeric in mapping: ${mapping}`);
+      targetPort = pair;
+    } else if (isPortName(pair)) {
+      // DEPLOY=PORTNAME: resolve the named port's containerPort for the
+      // local side so telepresence receives a numeric local port.
+      localPort = resolveContainerPort(deployment, pair, mapping);
+      targetPort = pair;
+    } else {
+      console.error(`Port must be a name or numeric in mapping: ${mapping}`);
       process.exit(EXIT_MISUSE);
     }
-    portArgs.push("--port", `${localPort}:${podPort}`);
+    if (localPort === "" || !/^[0-9]+$/.test(localPort)) {
+      console.error(`Local port must be numeric in mapping: ${mapping}`);
+      process.exit(EXIT_MISUSE);
+    }
+    // Target: numeric (legacy) or a declared port name (primary form).
+    if (!/^[0-9]+$/.test(targetPort) && !isPortName(targetPort)) {
+      console.error(`Port target must be a port name or numeric in mapping: ${mapping}`);
+      process.exit(EXIT_MISUSE);
+    }
+    // Pair form validates the declared name too — the bare form refuses
+    // eagerly; asymmetry would push the failure into telepresence's generic
+    // error after side effects have run.
+    if (isPortName(targetPort) && !portNameDeclared(deployment, targetPort)) {
+      console.error(`Deployment ${deployment} declares no port named '${targetPort}' in mapping: ${mapping}`);
+      process.exit(EXIT_MISUSE);
+    }
+    portArgs.push("--port", `${localPort}:${targetPort}`);
   }
-  intercepts.push({ pod, portArgs });
+  intercepts.push({ deployment, portArgs });
 }
 
 function telepresenceConnected(): boolean {
@@ -165,79 +301,125 @@ function telepresenceConnected(): boolean {
   }
 }
 
-let watchdog: ReturnType<typeof spawn> | undefined;
+function ensureOssClient(): void {
+  // The OSS line is the only wall-free client; an enterprise client on PATH
+  // walls connect behind an Ambassador Cloud account. Fail loud rather than
+  // hang so the fix (install the pinned OSS client) is discoverable.
+  const v = spawnSync("telepresence", ["version"], { encoding: "utf8" });
+  const out = (v.stdout ?? "") + (v.stderr ?? "");
+  if (v.status !== 0 || /enterprise/i.test(out)) {
+    console.error("telepresence client is missing or enterprise-walled — install it with: install-extras telepresence (or the kubernetes-tools set)");
+    process.exit(EXIT_GENERAL_ERROR);
+  }
+}
 
-function watchdogLoop(): void {
-  // A detached background loop (bash ran it with &); keep it as a child so
-  // cleanup can kill it. It polls until killed.
-  const child = spawn(
-    "bash",
-    [
-      "-c",
-      `while true; do
-  if ! telepresence status --output json 2>/dev/null | grep -q '"Connected"'; then
-    echo "${PREFIX} [$(date)] Telepresence is not connected. Attempting to reconnect..."
-    if telepresence connect >/dev/null 2>&1; then
-      sleep ${WATCHDOG_INTERVAL_MS / 1000}
-    else
-      echo "${PREFIX} [$(date)] Failed to connect to telepresence. Attempting to remove hung socket..."
-      sudo rm -f /var/run/telepresence-daemon.socket >/dev/null 2>&1
-      sleep 1
-      if telepresence connect >/dev/null 2>&1; then
-        sleep ${WATCHDOG_INTERVAL_MS / 1000}
-      else
-        echo "${PREFIX} [$(date)] Failed to connect to telepresence. Exiting..."
-        exit 1
-      fi
-    fi
-  fi
-  sleep ${WATCHDOG_INTERVAL_MS / 1000}
-done`,
-    ],
-    { stdio: "ignore", detached: false },
-  );
-  watchdog = child;
+let watchdogTimer: ReturnType<typeof setInterval> | undefined;
+/** True when this run started the telepresence daemons (vs attaching to a
+ * user's pre-existing session) — cleanup only stops what we started. */
+let ownsDaemons = false;
+
+function runIntercepts(): void {
+  for (const it of intercepts) {
+    const r = spawnSync("telepresence", ["intercept", it.deployment, ...it.portArgs], { stdio: "inherit" });
+    if (r.status !== 0) {
+      if (r.status === null && r.signal === "SIGINT") cleanup(130);
+      console.error(`telepresence intercept failed for deployment ${it.deployment}`);
+      cleanup(EXIT_GENERAL_ERROR);
+    }
+  }
+}
+
+function startWatchdog(): void {
+  // Native loop: poll the JSON status; reconnect when the daemon drops, and
+  // re-establish the intercepts — a reconnect alone leaves zero intercepts
+  // while the wrapper would keep claiming they are active.
+  watchdogTimer = setInterval(() => {
+    if (telepresenceConnected()) return;
+    console.error("[telepresence-watchdog] not connected — reconnecting...");
+    const r = spawnSync("telepresence", ["connect"], { stdio: "inherit" });
+    if (r.status !== 0) {
+      if (r.status === null && r.signal === "SIGINT") cleanup(130);
+      console.error("[telepresence-watchdog] reconnect failed; will retry");
+      return;
+    }
+    console.error("[telepresence-watchdog] reconnected — re-establishing intercepts...");
+    runIntercepts();
+  }, WATCHDOG_INTERVAL_MS);
+  watchdogTimer.unref();
 }
 
 function cleanup(exitCode = 0): never {
   console.error("\nStopping all intercepts...");
-  if (watchdog !== undefined) watchdog.kill("SIGTERM");
-  spawnSync("telepresence", ["quit", "--stop-daemons"], { stdio: "ignore" });
+  if (watchdogTimer !== undefined) clearInterval(watchdogTimer);
+  if (ownsDaemons) {
+    spawnSync("telepresence", ["quit", "--stop-daemons"], { stdio: "ignore" });
+  } else {
+    // Leave the user's session alone; drop only this run's intercepts.
+    for (const it of intercepts) spawnSync("telepresence", ["leave", it.deployment], { stdio: "ignore" });
+  }
   process.exit(exitCode);
 }
 
-process.on("SIGINT", () => cleanup());
-process.on("SIGTERM", () => cleanup());
+process.on("SIGINT", () => cleanup(130));
+process.on("SIGTERM", () => cleanup(130));
 
-// Ensure traffic-manager exists (install when missing).
-const tm = spawnKubectl(["get", "deployment", "traffic-manager", "-n", "ambassador", "--no-headers"]);
+ensureOssClient();
+
+// Ensure the OSS traffic-manager exists (install when missing). The OSS
+// client does not auto-install on connect (enterprise clients do), so this
+// must run before the first connect attempt. The check targets the OSS
+// default manager namespace (ambassador); a manager installed elsewhere
+// needs telepresence's own --manager-namespace — not expressible here yet.
+let tm: { status: number };
+try {
+  tm = spawnKubectl(["get", "deployment", "traffic-manager", "-n", "ambassador", "--no-headers"]);
+} catch (err) {
+  console.error(errorMessage(err));
+  process.exit(EXIT_GENERAL_ERROR);
+}
 if (tm.status !== 0) {
-  console.log("Installing traffic-manager on cluster...");
-  spawnSync("telepresence", ["helm", "install"], { stdio: "inherit" });
-}
-
-if (!telepresenceConnected()) {
-  console.log("Starting telepresence...");
-  watchdogLoop();
-  spawnSync("sleep", ["3"]);
-}
-
-console.log("Starting intercepts...");
-for (const it of intercepts) {
-  const r = spawnSync("telepresence", ["replace", it.pod, ...it.portArgs], { stdio: "inherit" });
-  if (r.status !== 0) {
-    console.error(`telepresence replace failed for pod ${it.pod}`);
+  console.log("Installing OSS traffic-manager on cluster...");
+  const helm = spawnSync("telepresence", ["helm", "install"], { stdio: "inherit" });
+  if (helm.status === null && helm.signal === "SIGINT") cleanup(130);
+  if (helm.status !== 0) {
+    console.error("telepresence helm install failed — cannot intercept without a traffic-manager");
     cleanup(EXIT_GENERAL_ERROR);
   }
 }
 
-if (watchdog === undefined) {
-  // Reachable only when telepresence was already connected (no watchdog was
-  // started). The old bash wording claimed a watchdog was running — it was not.
-  console.log("Telepresence already connected; no connection watchdog needed.");
-  console.log("Intercepts are active.  To exit the intercept, run telepresence leave (or quit the daemon).");
-  process.exit(0);
+if (!telepresenceConnected()) {
+  console.log("Starting telepresence...");
+  const c = spawnSync("telepresence", ["connect"], { stdio: "inherit" });
+  if (c.status === null && c.signal === "SIGINT") cleanup(130);
+  if (c.status !== 0) {
+    console.error("telepresence connect failed");
+    cleanup(EXIT_GENERAL_ERROR);
+  }
+  ownsDaemons = true;
+  startWatchdog();
+} else {
+  console.log("Telepresence already connected (attaching; daemons are left running on exit).");
 }
 
-// Watchdog active: stay alive while intercepts run.
-setInterval(() => undefined, 1 << 30);
+console.log("Starting intercepts...");
+runIntercepts();
+
+if (watchdogTimer !== undefined) {
+  if (process.stdin.isTTY) {
+    console.log("Intercepts are active with a connection watchdog (reconnect re-establishes intercepts). To exit, press Ctrl-C.");
+  } else {
+    console.log("Intercepts are active with a connection watchdog (reconnect re-establishes intercepts). Non-interactive run: stop with SIGINT/SIGTERM (exit 130); the daemons stop with it.");
+  }
+  // Keep the process alive while the watchdog runs — in scripts as well: the
+  // watchdog is the durability guarantee (a dropped daemon is reconnected and
+  // the intercepts re-established). Killing the process ends that.
+  setInterval(() => undefined, 1 << 30);
+} else if (process.stdin.isTTY) {
+  console.log("Intercepts are active (attached; no watchdog on this path). To exit, press Ctrl-C — intercepts are left, daemons untouched.");
+  setInterval(() => undefined, 1 << 30);
+} else {
+  // Non-interactive attach: the intercepts live in the user's pre-existing
+  // daemons, which outlive this process; exit clean.
+  console.log("Intercepts are active (non-interactive attach; the running daemons hold them).");
+  process.exit(0);
+}
