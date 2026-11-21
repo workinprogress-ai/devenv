@@ -48,4 +48,18 @@ describe("devenv-commit skill: no-terminal handling", () => {
     expect(SKILL).toMatch(/empty the message and save/i);
     expect(SKILL).toMatch(/closing an unchanged tab commits/i);
   });
+
+  it("treats a tracked timeout during the editor wait as still in progress", () => {
+    expect(SKILL).toMatch(/without an arbitrary caller deadline/i);
+    expect(SKILL).toMatch(/tracked.*still in progress|still tracked\/backgrounded/i);
+    expect(SKILL).toMatch(/tracked completion notification/);
+    expect(SKILL).toMatch(/do not ask the editor-abort interview/i);
+  });
+
+  it("requires repository-specific message contracts before the hook run", () => {
+    expect(SKILL).toMatch(/Repository-specific commit contracts/);
+    expect(SKILL).toMatch(/Devenv-Action/);
+    expect(SKILL).toMatch(/commit-action-check --message-file <message-file>/);
+    expect(SKILL).toMatch(/before opening the editor/i);
+  });
 });
