@@ -61,7 +61,7 @@ For issue-backed plan refinement, follow the shared [issue-backed artifact edit 
 
 ### Event signal
 
-After a refinement that unblocks implementation (approvals gained, decisions recorded), signal `_on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
+After a refinement that unblocks implementation (approvals gained, decisions recorded), signal `workflow-signal _on_end_planning <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
 
 ### 0. Mode dispatch
 
@@ -182,8 +182,8 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 
   Surface this to the user before writing: *"Phase 3 is fully complete — I'll add the new work in a new Phase 5 rather than appending to Phase 3. The existing Cleanup (Phase 4) is also done, so I'll add a new Phase 6 for cleanup of the new scope. Does that structure work for you?"*
 - **Prefer rewrite/addition over removal.** If the work still matters but the original task is misleading, keep the number and reword it, or add a follow-on task.
-- **Cancelled tasks are deleted clean** — remove the task line entirely, no strikethrough, no tombstone annotation. Gaps in task numbering are expected and harmless; git history and (for significant supersessions) an ADR hold the why. Update any `depends on` references pointing at the removed task.
-- **Material scope expansions may warrant an ADR** naming what grew and why (opt-in per the existing materiality bar — same judgment as any significant supersession). Progress reporting later cites that ADR as the narrative when a detected scope delta needs explanation; without it, expansions are just totals that grew.
+- **Cancelled tasks are deleted clean** — remove the task line entirely, no strikethrough, no tombstone annotation. Gaps in task numbering are expected and harmless; git history holds what was there; when the cancellation reflects a significant decision, state the reason as current-state text in the phase decisions or `## Appendix` (plans never produce ADRs — ADRs are for specifications only). Update any `depends on` references pointing at the removed task.
+- **Material scope expansions state their reason in the plan** — what grew and why, as current-state text in the affected phase's watch-outs/decisions or `## Appendix` (same materiality bar as any significant supersession). Progress reporting later cites that text as the narrative when a detected scope delta needs explanation; without it, expansions are just totals that grew.
 - **Reworded tasks** keep their number and reflect the latest agreed intent.
 - **Pending questions**: task- or phase-specific questions live inline under the relevant task/phase as `[QUESTION] ...`; general plan-level questions live in `## Pending Questions` immediately above `## Reference Information`. Resolved minor questions may be folded directly into the plan and removed.
 - **Decision/pending-question placement:** unresolved decisions that matter to execution must be represented in both places:
@@ -210,7 +210,7 @@ Before applying edits, offer an optional pressure-test pass using [pressure-test
 - **Significant change** (scope, acceptance conditions, or observable outcome changes meaningfully):
   1. Delete the old criterion entirely — no strikethrough, no tombstone
   2. Add a new criterion: `- [ ] **AC-M** replacement text *(inferred)*` (next available AC-N number)
-  3. If the supersession is significant (a future implementer would ask why), write an ADR; the plan never carries prior-state narrative
+  3. If the supersession is significant (a future implementer would ask why), state the reason as current-state text in the phase decisions or `## Appendix`; the plan never carries prior-state narrative and never produces an ADR
 - **AC ticking is done by the execution skills** (pair-programming / delegation) during the AC Review phase — do not tick ACs here unless the user explicitly confirms a criterion is already met.
 
 ### 3a. Material-change completeness reconciliation (required)
@@ -283,7 +283,7 @@ Summarise inline:
 - **Using alphabetic task suffixes** — invalid (for example `7.1a`). Use numeric hierarchical subtasks (`7.1.1`) or reflow numbering.
 - **Renumbering existing AC-N identifiers** — same principle. AC-3 stays AC-3; append new ACs at the next available number.
 - **Silently unchecking `[x]`** — discards user progress. If completed work needs to be redone, add a new task.
-- **Keeping cancelled tasks as strikethrough or tombstone text** — the plan is current-state only; delete cancelled tasks clean. Git history holds what was there; an ADR holds the why when it matters.
+- **Keeping cancelled tasks as strikethrough or tombstone text** — the plan is current-state only; delete cancelled tasks clean. Git history holds what was there; the plan's current decisions and `## Appendix` hold the why when it matters.
 - **Writing plan changelog entries** — plans are current-state artifacts; do not append revision-history logs during refinement.
 - **Writing prior-state narrative in plan body** — keep the plan focused on current target state only.
 - **Writing refinement-era wording in plan body** — phrases such as "in this refinement" or "during this update" are not allowed in plan content.

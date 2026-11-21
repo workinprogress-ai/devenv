@@ -13,7 +13,7 @@ user-invocable: true
 
 Revise an existing blueprint based on new information — architectural decisions that changed, specifications that arrived after the original blueprint, or implementation discovery that exposed gaps. Preserve section numbering and cross-references; supersede structure deliberately.
 
-Write the blueprint body as the current target architecture. Keep historical change narrative out of the document entirely — the document is target state, period. Rationale for significant changes lives in ADRs (`docs/Decisions/`, see the shared [ADR template](../common/references/adr-template.md)); git records when. If a `## Revision History` section exists, migrate its still-relevant entries into ADRs and delete the section.
+Write the blueprint body as the current target architecture. Keep historical change narrative out of the document entirely — the document is target state, period. The rationale for the current shape is stated inline, as current-state text, in the section a decision shapes (`We use X; Y was rejected because …`); the blueprint never produces ADRs — ADRs are for specifications only (see the shared [ADR template](../common/references/adr-template.md)). Git records what changed and when. If a `## Revision History` section exists, fold any still-relevant rationale into the owning sections as current-state text and delete the section.
 
 ## When to Use
 
@@ -77,11 +77,11 @@ Use `vscode_askQuestions` to gather:
 - **What's new** — components, operations, events, patterns to add
 - **What's wrong** — sections whose descriptions are now misleading
 - **What changed status** — services moving from `new` → `existing`, deltas now obsolete because the change shipped
-- **What's no longer relevant** — sections to delete clean (the why, if significant, goes in an ADR)
+- **What's no longer relevant** — sections to delete clean (git holds what was there; a replacement states its rationale inline)
 - **New specifications docs** — "In a multi-epic project, has a new `Specifications-<epic>-NNN.md` been added that this blueprint should now cover? Or has an existing one been split or refined?"
 - **Source material** — "Are there meeting transcripts, email threads, design discussions, or other communications records behind these changes? If so, where are they?"
 
-If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on architectural decisions, components/services mentioned, trade-offs raised, and open questions. Surface each summary back for confirmation, then use the approved summaries to drive the change list. Cite the source in the ADR when one is written so the rationale can be re-traced.
+If the user provides communications artifacts, summarise each one separately (prefer the `Explore` subagent, one invocation per artifact, in parallel where possible) with a prompt focused on architectural decisions, components/services mentioned, trade-offs raised, and open questions. Surface each summary back for confirmation, then use the approved summaries to drive the change list. Cite the source in the inline rationale when one is written so it can be re-traced.
 
 If the user points at a new (or refined) specifications doc, read it and summarise back the actors/scenarios/constraints/new specification items that this blueprint should now reflect. Cross-doc dependency edges from the specifications (`Depends on: AUTH-003 (Specifications-auth-001.md)`) may translate into new cross-service dependencies — surface these explicitly. If a separate sibling blueprint covers the upstream epic, reference it (`<see Blueprint-auth-001.md §3.2>`) rather than duplicating its content here.
 
@@ -99,7 +99,7 @@ If the single-file blueprint has grown past comfortable reading length (~1,500 l
    - A hybrid when only one section is oversized
 2. **Create the subfolder** `docs/Architecture/Blueprint-<system>-NNN/` and move the part files into it. The original `Blueprint-<system>-NNN.md` is replaced by this folder — leave a stub file at the old path containing only a redirect (`> **Moved to [Blueprint-<system>-NNN/Index.md](Blueprint-<system>-NNN/Index.md)**`) so existing links don't 404.
 3. **Preserve section numbering across files.** §3.2.5 stays §3.2.5 wherever it lives. Cross-file references use the form `<see 02-architecture.md §3.2.5>`.
-4. **The decision log line in each part file's header** points at `docs/Decisions/`; ADRs are system-wide, not per-part-file.
+4. **Decision rationale stays inline** in the part file that owns the decision; the blueprint has no separate decision log.
 5. **Create `Index.md`** in the new subfolder with the structure documented in [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md) §*Index.md for multi-file artifacts*.
 6. **Walk cross-blueprint references** and roadmap step `Blueprint sections:` lines to update them to the new file paths.
 7. Surface roadmap impact — the roadmap's `Blueprint sections:` references on each STEP-NN are now stale; suggest [`/devenv-refine-roadmap`](../devenv-refine-roadmap/SKILL.md) to refresh them.
@@ -130,17 +130,17 @@ Present the confirmation via the structured interview per the shared [direct que
 **Hard rules:**
 
 - **Never reflow numbering.** Section `3.2.5` stays `3.2.5` for its lifetime. Append new entries with the next sequential number. Gaps from deleted sections are expected and harmless.
-- **Superseded sections are deleted clean** — no tombstone text, no "replaced by" blockquotes in the body. If the supersession is significant (a future implementer would ask why), write an ADR naming the section and its replacement; otherwise delete silently.
+- **Superseded sections are deleted clean** — no tombstone text, no "replaced by" blockquotes in the body. If the supersession is significant (a future implementer would ask why), state the rationale inline in the replacement section as current-state text; otherwise delete silently.
 - **New components are appended** to the end of `## 4. Per-Component Changes` with the next sub-number.
-- **Reworded sections** keep their number and are rewritten in place as current truth. Prior wording lives in git history and, when significant, an ADR.
+- **Reworded sections** keep their number and are rewritten in place as current truth. Prior wording lives in git history.
 
 ### 5. Write the result
 
 Overwrite the file in place. The user can `git diff` to review and revert.
 
-### 6. Record significant decisions as ADRs
+### 6. Record significant decisions inline
 
-For any change where a future implementer would ask *why* (a superseded component or section, a structural pattern swap, a split, a cascade decision), write an ADR using the shared [ADR template](../common/references/adr-template.md) into `docs/Decisions/`. Trivial edits need no ADR — git records them. The blueprint itself never carries change history.
+For any change where a future implementer would ask *why* (a superseded component or section, a structural pattern swap, a split), state the rationale and any rejected alternative inline in the owning section, as current-state text. The blueprint never produces ADRs; when the change also alters the specifications (cascade mode), the single ADR is written from the specifications side per the [cross-artifact cascade protocol](../common/references/cross-artifact-cascade.md). Trivial edits need no rationale — git records them. The blueprint itself never carries change history.
 
 ### 7. Surface downstream impacts
 
@@ -159,7 +159,7 @@ After writing, list what may need follow-up:
 - Rewriting the blueprint from scratch — that's [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md), not refine
 - Forcing non-surgical architecture discovery through this skill instead of escalating to [`/devenv-design`](../devenv-design/SKILL.md) or [`/devenv-create-blueprint`](../devenv-create-blueprint/SKILL.md)
 - Forgetting to surface roadmap and plan impact after the edit
-- Keeping superseded sections as tombstone text — delete them clean; an ADR holds the why when it matters
+- Keeping superseded sections as tombstone text — delete them clean; git holds what was there and inline rationale holds the why
 - Parking future ideas in the blueprint — the blueprint is a technical description of the system; uncommitted concepts belong in the tracker as issues labeled `future-idea`
 
 ## Sibling skills

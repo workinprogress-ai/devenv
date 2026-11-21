@@ -20,6 +20,20 @@ import { accessSync, constants as fsConstants, existsSync, mkdtempSync, readdirS
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import {
+  claimCommitApprovalRequest,
+  commitApprovalDigest,
+  commitApprovalNeedsBroker,
+  commitApprovalRequestPath,
+  createCommitApprovalRequest,
+  parseCommitApprovalResponse,
+  readCommitApprovalRequest,
+  verifyCommitApproval,
+  writeCommitApprovalRequest,
+  type CommitApprovalIdentity,
+  type CommitApprovalLane,
+  type CommitApprovalRequest,
+} from "../lib/core/commit-approval.ts";
 import { gitCapture, gitCheck, gitInherit, getDefaultBranch } from "../lib/core/git.ts";
 import { toolCli } from "../lib/core/cli.ts";
 import { editorIsNoninteractive } from "../lib/core/editor.ts";
@@ -46,6 +60,10 @@ function git(args: string[], opts: { cwd?: string } = {}): { status: number; out
   // to stderr, so an out.trim() built from stdout alone reports an empty
   // diagnostic.
   return gitCapture(opts.cwd ?? null, args);
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 // Editor-gated git spawns (amend/commit/fold/reword) stay on raw spawnSync
@@ -111,6 +129,8 @@ function usage(): void {
        repo-commit --wip ["<wip message words...>"] [--file <message-file>] [--staged-only]
        repo-commit --fold-window
        repo-commit --reword <ref> [--dry-run]
+       repo-commit --approval-session <id> <normal|--amend|--reword args>
+       repo-commit --approval-session <id> --approval-request <path> --approval-response <path>
 
 Opens the user's configured git editor pre-loaded with the suggested message.
 Commits the existing index only if the editor session yields a non-empty message.
@@ -140,9 +160,15 @@ Commits the existing index only if the editor session yields a non-empty message
                   --staged-only, hooks bypassed, "WIP: " prefix added by git-wip,
                   pushes, records refs/wip/last). No editor step — the invocation is
                   the confirmation.
+  --approval-session <id>
+                  Opaque AI-session binding for a no-TTY approval broker request.
+  --approval-request <path> / --approval-response <path>
+                  Resume a pending broker request with the structured human
+                  decision returned by the invoking AI skill.
 
 Refuses (normal, --amend and --reword lanes):
-  - running without a terminal: stdin AND stdout must both be a TTY; an env-supplied
+  - running without a terminal unless the AI skill resumes a valid approval
+    broker request: stdin AND stdout must both be a TTY; an env-supplied
     GIT_EDITOR/EDITOR/VISUAL is never accepted as proof of a human. The one exception
     is a VS Code tab: git config core.editor exactly "code --wait", a VS Code session
     attached (VSCODE_IPC_HOOK_CLI) and the real remote-cli under ~/.vscode-server/bin —
@@ -166,6 +192,11 @@ Only /devenv-commit may invoke this tool.`);
 }
 
 let editor = "";
+let approvalSessionId = "";
+let approvalRequestArg = "";
+let approvalResponseArg = "";
+let brokerApprovedMessage: string | null = null;
+let brokerEditorTmp = "";
 
 // The one human gate accepted without a terminal: a VS Code tab. The user's own
 // git config must name exactly this editor, a VS Code session must be attached,
@@ -322,6 +353,9 @@ try {
       "fold-window": { type: "boolean", default: false },
       reword: { type: "boolean", default: false },
       "staged-only": { type: "boolean", default: false },
+      "approval-session": { type: "string" },
+      "approval-request": { type: "string" },
+      "approval-response": { type: "string" },
     },
   });
   if (cli.common.help) {
@@ -338,6 +372,15 @@ try {
   foldWindowLane = cli.values["fold-window"] === true;
   rewordLane = cli.values["reword"] === true;
   dryRun = cli.common.dryRun; // context validated below (order-free)
+  if (typeof cli.values["approval-session"] === "string") {
+    approvalSessionId = cli.values["approval-session"];
+  }
+  if (typeof cli.values["approval-request"] === "string") {
+    approvalRequestArg = cli.values["approval-request"];
+  }
+  if (typeof cli.values["approval-response"] === "string") {
+    approvalResponseArg = cli.values["approval-response"];
+  }
   const positionals = [...cli.positionals];
   if (cli.values["staged-only"] === true) {
     if (!wipLane) dieUsage("options are refused by design ('--staged-only' outside --wip); there is no non-interactive path");
@@ -372,6 +415,152 @@ try {
   if (fixLane && (msgfileArg !== "" || rest.length > 0)) {
     dieUsage("--fix takes no message (its fixup! subject is machine-written and consumed by the fold)");
   }
+  const approvalResume = approvalRequestArg !== "" || approvalResponseArg !== "";
+  if (approvalResume && (approvalRequestArg === "" || approvalResponseArg === "")) {
+    dieUsage("--approval-request and --approval-response must be supplied together");
+  }
+  if (approvalResume && (approvalSessionId === "" || dryRun || msgfileArg !== "" || rest.length > 0
+    || wipLane || amendLane || fixLane || foldWindowLane || rewordLane)) {
+    dieUsage("approval resume takes only --approval-session, --approval-request, and --approval-response");
+  }
+  if (!approvalResume && approvalSessionId === "" && (approvalRequestArg !== "" || approvalResponseArg !== "")) {
+    dieUsage("--approval-session is required for approval broker use");
+  }
+  if (!approvalResume && approvalSessionId !== "" && (wipLane || fixLane || foldWindowLane || dryRun)) {
+    dieUsage("--approval-session is not valid for --wip, --fix, --fold-window, or --dry-run");
+  }
+}
+
+function approvalRepositoryIdentity(sessionId: string, proposedMessage: string): CommitApprovalIdentity {
+  const repositoryRoot = git(["rev-parse", "--path-format=absolute", "--show-toplevel"]).out.trim();
+  const gitCommonDir = git(["rev-parse", "--path-format=absolute", "--git-common-dir"]).out.trim();
+  const head = git(["rev-parse", "HEAD"]).out.trim();
+  const staged = git(["diff", "--cached", "--binary"]);
+  if (repositoryRoot === "" || gitCommonDir === "" || head === "" || staged.status !== 0) {
+    die("cannot derive approval request identity from the current repository");
+  }
+  return {
+    repositoryRoot,
+    gitCommonDir,
+    head,
+    stagedDigest: commitApprovalDigest(staged.out),
+    proposedMessageDigest: commitApprovalDigest(proposedMessage),
+    sessionId,
+  };
+}
+
+function requestCommitApproval(lane: CommitApprovalLane, message: string, target: string): never {
+  if (approvalSessionId === "") {
+    dieUsage("--approval-session is required to create a no-TTY approval request");
+  }
+  const identity = approvalRepositoryIdentity(approvalSessionId, message);
+  const request = createCommitApprovalRequest({
+    ...identity,
+    lane,
+    target,
+    proposedMessage: message,
+  });
+  const path = writeCommitApprovalRequest(identity.gitCommonDir, request);
+  console.log("repo-commit: human approval required");
+  console.log(`repo-commit: approval-request=${path}`);
+  console.log(`repo-commit: approval-session=${approvalSessionId}`);
+  console.log("repo-commit: no commit exists; the invoking AI skill must present the request to the human and resume it");
+  process.exit(EXIT_CONFLICT);
+}
+
+function noTtyBrokerRequested(): boolean {
+  return brokerApprovedMessage === null
+    && commitApprovalNeedsBroker(approvalSessionId, process.stdin.isTTY, process.stdout.isTTY);
+}
+
+function installBrokerEditor(message: string, request: CommitApprovalRequest): void {
+  if (brokerEditorTmp === "") {
+    brokerEditorTmp = mkdtempSync(join(tmpdir(), "repo-commit-approval-editor-"));
+    process.once("exit", () => rmSync(brokerEditorTmp, { recursive: true, force: true }));
+  }
+  const approved = join(brokerEditorTmp, "approved-message");
+  const script = join(brokerEditorTmp, "editor.mjs");
+  writeFileSync(approved, message, { mode: 0o600 });
+  writeFileSync(
+    script,
+    [
+      'import { createHash } from "node:crypto";',
+      'import { existsSync, readFileSync, writeFileSync } from "node:fs";',
+      'import { spawnSync } from "node:child_process";',
+      `const request = ${JSON.stringify(request)};`,
+      'const git = (args) => {',
+      '  const result = spawnSync("git", args, { encoding: "buffer" });',
+      '  if (result.status !== 0) {',
+      '    process.stderr.write(result.stderr ?? "");',
+      '    process.exit(1);',
+      '  }',
+      '  return result.stdout ?? Buffer.alloc(0);',
+      '};',
+      'const text = (args) => git(args).toString().trim();',
+      'const repo = text(["rev-parse", "--path-format=absolute", "--show-toplevel"]);',
+      'const common = text(["rev-parse", "--path-format=absolute", "--git-common-dir"]);',
+      'const staged = git(["diff", "--cached", "--binary"]);',
+      'const stagedDigest = createHash("sha256").update(staged).digest("hex");',
+      'const expectedHead = request.lane === "reword" ? undefined : text(["rev-parse", "HEAD"]);',
+      'if (repo !== request.repositoryRoot || common !== request.gitCommonDir) {',
+      '  console.error("repo-commit: broker state changed: repository-mismatch");',
+      '  process.exit(1);',
+      '}',
+      'if (expectedHead !== undefined && expectedHead !== request.head) {',
+      '  console.error("repo-commit: broker state changed: head-mismatch");',
+      '  process.exit(1);',
+      '}',
+      'if (stagedDigest !== request.stagedDigest) {',
+      '  console.error("repo-commit: broker state changed: staged-mismatch");',
+      '  process.exit(1);',
+      '}',
+      'if (request.lane === "reword") {',
+      '  const rebaseMerge = text(["rev-parse", "--git-path", "rebase-merge"]);',
+      '  const rebaseApply = text(["rev-parse", "--git-path", "rebase-apply"]);',
+      '  if (!existsSync(rebaseMerge) && !existsSync(rebaseApply)) {',
+      '    console.error("repo-commit: broker state changed: reword-lane-mismatch");',
+      '    process.exit(1);',
+      '  }',
+      '}',
+      `writeFileSync(process.argv[2], readFileSync(${JSON.stringify(approved)}));`,
+      "",
+    ].join("\n"),
+  );
+  editor = `${shellQuote(process.execPath)} ${shellQuote(script)}`;
+}
+
+function consumeCommitApproval(): void {
+  if (approvalRequestArg === "" || approvalResponseArg === "" || approvalSessionId === "") return;
+  const request = readCommitApprovalRequest(approvalRequestArg);
+  if (request === null) die("approval request is missing or malformed");
+  const currentIdentity = approvalRepositoryIdentity(approvalSessionId, request.proposedMessage);
+  if (approvalRequestArg !== commitApprovalRequestPath(currentIdentity.gitCommonDir, request.requestId)) {
+    die("approval request is not the pending request for this repository");
+  }
+  const claim = claimCommitApprovalRequest(approvalRequestArg);
+  if (!claim.ok) die(`approval request cannot be claimed: ${claim.reason}`);
+  let responseText: string;
+  try {
+    responseText = readFileSync(approvalResponseArg, "utf8");
+  } catch (err) {
+    rmSync(claim.path, { force: true });
+    die(`approval response cannot be read: ${errorMessage(err)}`);
+  }
+  const response = parseCommitApprovalResponse(responseText);
+  const verification = verifyCommitApproval(request, response, currentIdentity);
+  rmSync(claim.path, { force: true });
+  if (!verification.ok) die(`approval rejected: ${verification.reason}`);
+  if (verification.outcome === "cancel") {
+    console.log("repo-commit: human cancelled the approval request — no commit exists, index untouched");
+    process.exit(EXIT_CONFLICT);
+  }
+  brokerApprovedMessage = verification.finalMessage;
+  if (request.lane === "amend") amendLane = true;
+  else if (request.lane === "reword") {
+    rewordLane = true;
+    rewordRef = request.target;
+  }
+  installBrokerEditor(verification.finalMessage, request);
 }
 
 // --- Scratchpad refusal: repo-commit is blocked while a scratchpad is active in
@@ -389,6 +578,8 @@ if (git(["rev-parse", "--is-inside-work-tree"]).status === 0) {
     process.exit(EXIT_CONFLICT);
   }
 }
+
+consumeCommitApproval();
 
 // --- Fold-window report: read-only map of the branch's foldable commits.
 if (foldWindowLane) {
@@ -477,7 +668,10 @@ if (amendLane) {
     console.log(`  staged: ${stagedStat()}`);
     process.exit(0);
   }
-  resolveEditor();
+  if (noTtyBrokerRequested()) {
+    requestCommitApproval("amend", headMsg, git(["rev-parse", "HEAD"]).out.trim());
+  }
+  if (brokerApprovedMessage === null) resolveEditor();
   const headSha = git(["log", "-1", "--format=%h %s"]).out.trim();
   console.log(`repo-commit: staged: ${stagedStat()}${hasStaged ? "" : "  (index clean: this amend rewrites HEAD's message only)"}`);
   console.log(`repo-commit: opening editor: ${editor}  (amend: save & close to fold staged content into HEAD; empty/abort cancels)`);
@@ -760,7 +954,10 @@ if (rewordLane) {
 
   // Editor resolution FIRST (before any mutation): the editor save is the
   // permission gate, so a non-interactive editor must refuse pre-backup.
-  resolveEditor();
+  if (noTtyBrokerRequested()) {
+    requestCommitApproval("reword", targetMessage, targetSha);
+  }
+  if (brokerApprovedMessage === null) resolveEditor();
 
   // Force-create: same rationale as the fix lane — a same-named backup can
   // only come from a previous attempt at this same HEAD (the name encodes
@@ -799,7 +996,6 @@ if (rewordLane) {
       "",
     ].join("\n"),
   );
-  const shq = (v: string): string => `'${v.replace(/'/g, `'\\''`)}'`;
   const reword = spawnSync(
     "git",
     // updateRefs=false: keeps the backup branch on the old tip (see the fix lane).
@@ -809,7 +1005,7 @@ if (rewordLane) {
       env: {
         ...process.env,
         GIT_EDITOR: editor,
-        GIT_SEQUENCE_EDITOR: `${shq(process.execPath)} ${shq(seqEditor)}`,
+        GIT_SEQUENCE_EDITOR: `${shellQuote(process.execPath)} ${shellQuote(seqEditor)}`,
         REPO_COMMIT_REWORD_SHA: todoSha,
       },
     },
@@ -895,7 +1091,9 @@ function escapeGrep(s: string): string {
 
 // --- Resolve the suggested message.
 let suggested: string;
-if (msgfileArg !== "") {
+if (brokerApprovedMessage !== null) {
+  suggested = brokerApprovedMessage;
+} else if (msgfileArg !== "") {
   if (rest.length > 0) dieUsage("--file and a positional message are mutually exclusive");
   if (!existsSync(msgfileArg)) die(`message file not found: ${msgfileArg}`);
   suggested = readFileSync(msgfileArg, "utf8");
@@ -916,7 +1114,7 @@ if (git(["diff", "--cached", "--quiet"]).status === 0) {
 
 // User-authored via --file: validated below, never rewritten (the wrap at the
 // write site applies only to the tool-crafted argv message).
-const wrapEligible = msgfileArg === "";
+const wrapEligible = brokerApprovedMessage === null && msgfileArg === "";
 
 // --- Resolve the editor: VS Code first, nano fallback (user ruling).
 // Non-interactive values are treated as UNSET: automation hosts inject no-op
@@ -1022,9 +1220,6 @@ function validateWithCommitlint(message: string): void {
   }
 }
 
-// --- Launch the editor with the suggested message; commit only on save.
-resolveEditor();
-console.log(`repo-commit: staged: ${stagedStat()}`);
 // A suggested message identical to HEAD's is almost never intended for a NEW
 // commit — it is the signature of a stale suggestion (the previous commit's
 // message reused verbatim). The editor save is the permission gate — a
@@ -1051,6 +1246,11 @@ const msgfile = join(tmpDir, "message");
 // (body-max-line-length fired before the wrap could run).
 const finalMessage = wrapEligible ? wrapBodyAt72(suggested) : suggested;
 validateWithCommitlint(finalMessage);
+if (noTtyBrokerRequested()) {
+  requestCommitApproval("commit", finalMessage, git(["rev-parse", "HEAD"]).out.trim());
+}
+if (brokerApprovedMessage === null) resolveEditor();
+console.log(`repo-commit: staged: ${stagedStat()}`);
 // Context banner: what this commit lands on, so a stale prefill is visible
 // against its neighbor. Comment lines are stripped by --cleanup=strip.
 const cc = pickCommentChar(finalMessage);
@@ -1069,8 +1269,12 @@ writeFileSync(msgfile, `${contextBanner}${finalMessage}\n`);
 // path. git's stdout/stderr pass through UNREDIRECTED (stdio inherit): terminal
 // editors draw their UI on the TTY. The one-line notice says which editor is
 // taking over the terminal.
-console.log(`repo-commit: opening editor: ${editor}  (after the pre-commit hooks; save & close to commit; empty/abort cancels)`);
-console.log("repo-commit: pre-commit hooks run first and their output streams below; on this repo the suite takes minutes — wait for the editor to open, do not assume a hang.");
+if (brokerApprovedMessage === null) {
+  console.log(`repo-commit: opening editor: ${editor}  (after the pre-commit hooks; save & close to commit; empty/abort cancels)`);
+  console.log("repo-commit: pre-commit hooks run first and their output streams below; on this repo the suite takes minutes — wait for the editor to open, do not assume a hang.");
+} else {
+  console.log("repo-commit: human approval verified; applying the approved message and running normal Git hooks");
+}
 // All three stdio streams are inherited: hook output (git forwards it to
 // stderr) must reach the terminal live, and terminal editors draw their UI on
 // the TTY. Nothing is captured, so the failure class is read from observed

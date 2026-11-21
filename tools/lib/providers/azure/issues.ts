@@ -231,7 +231,8 @@ function mapItem(item: AzureWorkItem, closed: ClosedStates, comments?: Array<{ i
  * parity), then the built-in map. */
 function mappedWorkItemType(type: string): string {
   const key = type.toLowerCase();
-  const override = key === "" ? "" : issueTypesConfig(key);
+  // An untyped issue is configured under the "untyped" key.
+  const override = issueTypesConfig(key === "" ? "untyped" : key);
   if (override !== "") return override;
   const builtin: Record<string, string> = {
     epic: "Epic",
@@ -251,25 +252,32 @@ function mappedWorkItemType(type: string): string {
  * project actually offers that type — a create against a disabled type
  * (forks routinely disable User Story) fails server-side with a message
  * that never reaches the caller. Failing here names the mapped type and
- * the [azure_issue_types] key to adjust instead. */
-export async function workItemTypeFor(type: string): Promise<string> {
+ * the [azure_issue_types] key to adjust instead. A disabled type is refused
+ * only for writes: it still holds existing items, so reads ("read") accept
+ * it, while an absent type fails either way. */
+export async function workItemTypeFor(type: string, use: "write" | "read" = "write"): Promise<string> {
   const mapped = mappedWorkItemType(type);
   const { base } = witBase();
+  const unavailable = (detail: string): ProviderError =>
+    new ProviderError(
+      `work item type '${mapped}' (mapped from '${type || "untyped"}') is not available in this project (${detail}) — ` +
+        `set '${type.toLowerCase() || "untyped"}=<enabled Azure type>' under [azure_issue_types] in devenv.config`,
+    );
+  let probed: { isDisabled?: boolean } | undefined;
   try {
-    await azureHttp<{ value?: unknown[] }>(
+    probed = await azureHttp<{ isDisabled?: boolean }>(
       "GET",
       `${base}/workitemtypes/${azureUri(mapped)}`,
     );
   } catch (err) {
     // The probe names one type; a failure there means the project does not
-    // offer it (absent or disabled — the create would die server-side with
-    // a message callers could not act on). Fail here with the remediation.
-    const detail = errorMessage(err);
-    throw new ProviderError(
-      `work item type '${mapped}' (mapped from '${type || "untyped"}') is not available in this project (${detail}) — ` +
-        `set '${type.toLowerCase() || "untyped"}=<enabled Azure type>' under [azure_issue_types] in devenv.config`,
-    );
+    // offer it. Fail here with the remediation instead of letting the
+    // create die server-side with a message callers could not act on.
+    throw unavailable(errorMessage(err));
   }
+  // A disabled type still answers the probe; only its isDisabled flag says
+  // that a create against it will be refused.
+  if (use === "write" && probed?.isDisabled === true) throw unavailable("the type is disabled");
   return mapped;
 }
 
@@ -429,7 +437,7 @@ export async function issuesList(
     throw new ProviderError(`--limit must be a positive integer, got '${opts.limit}'`);
   }
   let type = "";
-  if (opts.type !== undefined && opts.type !== "") type = await workItemTypeFor(opts.type);
+  if (opts.type !== undefined && opts.type !== "") type = await workItemTypeFor(opts.type, "read");
   const closed = await closedStateNames();
   // WIQL single quotes are doubled per the WIQL escape rule: a label
   // containing a quote cannot break out of the literal.

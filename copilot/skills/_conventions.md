@@ -83,15 +83,15 @@ When a skill removes content it previously preserved (a specification item, road
 
 History lives in its dedicated homes (the three-home rule):
 
-- **Living documents** (specifications, blueprints, roadmaps) — target state only. Superseded content is deleted clean; IDs never reflow, so gaps in numbering are expected and harmless.
-- **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md` in the target repo) — the *why* for every significant supersession. If a future implementer would ask why content was removed, write an ADR naming the removed item and its replacement; otherwise delete silently. See [adr-template.md](./common/references/adr-template.md).
+- **Living documents** (specifications, blueprints, roadmaps, plans) — target state only. Superseded content is deleted clean; IDs never reflow, so gaps in numbering are expected and harmless. Blueprints, roadmaps, and plans state the rationale for their current shape inline, as current-state text (`We use X; Y was rejected because …`).
+- **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md` in the **planning repo**) — **specifications only**: the *why* for every significant specification decision or supersession. If a future implementer would ask why a specification item was removed, write an ADR naming the removed item and its replacement; otherwise delete silently. Blueprints, roadmaps, grooming documents, and plans never produce ADRs, and code repos never hold them. See [adr-template.md](./common/references/adr-template.md).
 - **Git** — the *when*: what the removed content said and exactly when it disappeared.
 
 Skills that follow this convention: `devenv-refine-specifications`, `devenv-refine-roadmap`, `devenv-refine-blueprint`, `devenv-refine-plan`. Grooming documents are the exception: they keep their own `## Revision History` convention.
 
 ## Artifact brevity rules
 
-- **Log only material decisions.** ADRs are for significant decisions a future implementer would ask about. Skip ADRs for wording polish, checkbox ticks, and other mechanical churn — git records those.
+- **Log only material decisions.** ADRs (specifications only) are for significant decisions a future implementer would ask about. Skip ADRs for wording polish, checkbox ticks, and other mechanical churn — git records those.
 - **Batch related edits.** If one pass makes several small changes of the same kind, cover them in one ADR instead of one ADR per tweak.
 - **Keep one home for detail.** If a fact already lives in a phase summary, appendix, or task context, do not restate it in an ADR unless the decision itself is what matters.
 - **Keep appendices bounded.** Appendix sections should be short, source-backed, and only include context not already captured in the main body. Push repetitive rationale into links or upstream artifacts.
@@ -595,7 +595,7 @@ Also add a one-liner to each `SKILL.md` — usually in the Sibling skills sectio
 Skills maintain GitHub Project issue status as a side effect of their lifecycle by invoking deterministic **event-signal scripts**. This is a tooling class distinct from the CRUD wrappers:
 
 - **Skills know only the event name and the issue number.** Never read `tools/config/skill-events.yml`, never name projects, never contain Status vocabulary (hyphenated tokens like `To-Groom` live only in config and the wrappers). Skill PROSE that names states (board's grooming-candidate logic and similar) illustrates the default `[workflows]` vocabulary — after a rename, read those names as the corresponding states; the skill bodies stay concrete on purpose.
-- **Invocation:** `bash tools/internal/_on_<event>.sh <issue-number>` — thin exec shims over the TS dispatcher. Underscore-prefixed and machinery-invoked: no depth-1 stub, so the bare event name is not on PATH — invoke by path (or via `workflow-signal` for interactive/batch firing).
+- **Invocation:** `workflow-signal _on_<event> <issue-number>` — the PATH tool resolves its own root, so it works from any directory. The `_on_<event>` entry points are thin exec shims (`tools/internal/_on_<event>.sh`, note the `.sh`) over the TS dispatcher with no depth-1 stub: the bare event name is not a command and must never be run as one, and never guess a workspace root for the shim path.
 - **Events** (begin/end pairs per lifecycle phase, plus deploy and intake events): `_on_begin_grooming`, `_on_end_grooming`, `_on_begin_planning`, `_on_end_planning`, `_on_begin_implementation`, `_on_end_implementation`, `_on_begin_review`, `_on_end_review`, `_on_merge`, `_on_staging_deploy`, `_on_production_deploy`, `_on_triage_complete`.
 - **Best-effort guarantee:** event scripts always exit 0 for skill flows; failures print warnings and never block skill work. Transitions are idempotent — a later signal repairs drift.
 - **Visible, not gated:** the event signal is a side effect of a boundary the user already approved (opening the PR, completing the merge, closing the plan) — it never prompts for its own permission. But it is not silent: skills state the signal in their normal output (one line, e.g. `→ signalled _on_begin_review for #43`).

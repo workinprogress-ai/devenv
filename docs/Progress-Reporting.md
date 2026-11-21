@@ -47,7 +47,7 @@ Progress: <done>/<total> tasks (<pct>%), phase <n> of <N> — <YYYY-MM-DD>
 
 **Reading a trend:** grep the `Progress:` prefix in the issue thread. With ≥2 snapshots, report deltas between consecutive ones.
 
-**Reading a scope delta:** diff consecutive snapshots' totals. `12/18` → `14/22` reads as "scope grew from 18 to 22 tasks since the last snapshot; 2 of 4 new tasks already done." The snapshot line is a scope witness — expansions are derived from totals, not stored as events. When an ADR exists for a material expansion (see `/devenv-refine-plan` revision mode), it supplies the narrative for the growth.
+**Reading a scope delta:** diff consecutive snapshots' totals. `12/18` → `14/22` reads as "scope grew from 18 to 22 tasks since the last snapshot; 2 of 4 new tasks already done." The snapshot line is a scope witness — expansions are derived from totals, not stored as events. When the plan states the reason for a material expansion (see `/devenv-refine-plan` revision mode), that text supplies the narrative for the growth.
 
 ## Attribution model
 

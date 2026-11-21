@@ -116,11 +116,16 @@ describe("git-wip argument contract", () => {
     expect(r.status).toBe(EXIT_MISUSE);
   });
 
-  it("--file with an empty value, or an empty message, is misuse (exit 2) before any mutation", () => {
+  it("empty --file values are misuse, while an absent or empty positional message is legal", () => {
     writeFileSync(join(REPO, "new.txt"), "x\n");
-    for (const args of [["--file", ""], ["--file="], [""], []]) {
+    for (const args of [["--file", ""], ["--file="]]) {
       const r = run("git-wip", ["--allow-non-tty", ...args]);
       expect(r.status, `git-wip ${JSON.stringify(args)}`).toBe(EXIT_MISUSE);
+    }
+    for (const args of [[""], []]) {
+      const r = run("git-wip", ["--allow-non-tty", "--dry-run", ...args]);
+      expect(r.status, `git-wip ${JSON.stringify(args)}`).toBe(EXIT_SUCCESS);
+      expect(r.stdout).toContain("Would commit: WIP:");
     }
     expect(git(["log", "-1", "--format=%s"]).trim()).toBe("initial");
     expect(git(["status", "--porcelain"])).toContain("?? new.txt");

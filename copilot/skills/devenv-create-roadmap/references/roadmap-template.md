@@ -20,7 +20,6 @@ updated_at_utc: <ISO-8601>
 **Blueprint**: [Blueprint-<system>-NNN.md](<link>)
 **Source specifications** (optional): [Specifications-<topic>-NNN.md](<link>)
 **Epic**: this issue (`#<epic-number>`) — the roadmap is an artifact comment here; the epic body holds the child-issue task list
-**Decision log**: <link to docs/Decisions/ — ADRs hold the why; this roadmap holds target state only>
 
 ## Status Legend
 

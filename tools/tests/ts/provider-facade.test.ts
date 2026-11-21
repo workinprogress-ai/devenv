@@ -150,6 +150,24 @@ describe("provider-core (TS facade core)", () => {
     expect(r.stdout).toContain("cannot resolve the target repository");
   });
 
+  it("providerRepoTarget refuses a URL from every outside leg and keeps specs as given", async () => {
+    const { core } = await loadFacade();
+    const savedGhRepo = process.env.GH_REPO;
+    try {
+      expect(core.providerRepoTarget("owner/repo")).toBe("owner/repo");
+      expect(core.providerRepoTarget("org/project/repo")).toBe("org/project/repo");
+      expect(() => core.providerRepoTarget("git@github.com:owner/repo")).toThrow(/'git@github\.com:owner\/repo' is a URL/);
+      expect(() => core.providerRepoTarget("https://github.com/owner/repo")).toThrow(/repository target 'https:\/\/github\.com\/owner\/repo' is a URL/);
+      process.env.DEVENV_REPO = "https://dev.azure.com/org/project/_git/repo";
+      expect(() => core.providerRepoTarget("")).toThrow(/DEVENV_REPO .* is a URL.*project\/repo \(Azure DevOps\)/);
+      delete process.env.DEVENV_REPO;
+      process.env.GH_REPO = "https://github.com/owner/repo";
+      expect(() => core.providerRepoTarget("")).toThrow(/GH_REPO .* is a URL/);
+    } finally {
+      if (savedGhRepo === undefined) delete process.env.GH_REPO; else process.env.GH_REPO = savedGhRepo;
+    }
+  });
+
   it("unknownOption throws the contract's exact wording", async () => {
     const { core } = await loadFacade();
     expect(() => core.unknownOption("provider_issues_list", "--bogus")).toThrow(

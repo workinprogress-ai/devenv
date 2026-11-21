@@ -113,6 +113,21 @@ describe("scripts/git-wip", () => {
     expect(head()).toMatch(/^WIP:/);
   });
 
+  it("git-wip without a message commits a bare WIP: snapshot", () => {
+    writeFileSync(join(TEST_REPO, "work.txt"), "work\n");
+    const r = wipRaw(["--allow-non-tty"]);
+    expect(r.status).toBe(0);
+    expect(head()).toBe("WIP:");
+    expect(rev("refs/wip/last")).toBe(rev("HEAD"));
+  });
+
+  it("git-wip with a whitespace-only message commits a bare WIP: snapshot", () => {
+    writeFileSync(join(TEST_REPO, "work.txt"), "work\n");
+    const r = wipRaw(["--allow-non-tty", "   "]);
+    expect(r.status).toBe(0);
+    expect(head()).toBe("WIP:");
+  });
+
   it("git-wip stages all untracked files", () => {
     writeFileSync(join(TEST_REPO, "new_file.txt"), "untracked\n");
     const r = wip("untracked snapshot");

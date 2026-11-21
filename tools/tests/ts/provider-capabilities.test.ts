@@ -44,6 +44,7 @@ const CORE = pathToFileURL(join(REPO_ROOT, "tools/lib/providers/provider-core.ts
 const LOADER = pathToFileURL(join(REPO_ROOT, "tools/lib/providers/facade/provider-loader.ts")).href;
 const REPOS_FACADE = pathToFileURL(join(REPO_ROOT, "tools/lib/providers/facade/repos.ts")).href;
 const ORG_FACADE = pathToFileURL(join(REPO_ROOT, "tools/lib/providers/facade/org.ts")).href;
+const ISSUES_FACADE = pathToFileURL(join(REPO_ROOT, "tools/lib/providers/facade/issues.ts")).href;
 const PIPELINES_FACADE = pathToFileURL(join(REPO_ROOT, "tools/lib/providers/facade/pipelines.ts")).href;
 const PROVIDER_SEAM = pathToFileURL(join(REPO_ROOT, "tools/ts/setup-steps/provider-seam.ts")).href;
 
@@ -105,9 +106,11 @@ function behavioralCapabilities(
       const repos = await import(${JSON.stringify(REPOS_FACADE)});
       const org = await import(${JSON.stringify(ORG_FACADE)});
       const pipelines = await import(${JSON.stringify(PIPELINES_FACADE)});
+      const issues = await import(${JSON.stringify(ISSUES_FACADE)});
       const setup = await import(${JSON.stringify(PROVIDER_SEAM)});
       process.stdout.write(JSON.stringify({
         repos: await repos.reposSettingCapabilities(),
+        issuesCreate: await issues.issuesCreateCapabilities(),
         pipeline: await pipelines.pipelinesQueuedRunStrategy(),
         npm: setup.packageFeedConfig("npm"),
         nuget: setup.packageFeedConfig("nuget"),
@@ -155,6 +158,7 @@ describe("provider behavioral capabilities", () => {
         squashMergeCommitTitle: { supported: true },
         squashMergeCommitMessage: { supported: true },
       });
+    expect(capabilities.issuesCreate).toEqual({ typeOnCreate: false });
     expect(capabilities.pipeline).toEqual({
       kind: "search",
       workflowMatch: "required",
@@ -176,6 +180,7 @@ describe("provider behavioral capabilities", () => {
       "azure",
       "\n[nuget]\nfeed_url=https://pkgs.dev.azure.com/fixture/_packaging/feed/nuget/v3/index.json\n",
     );
+    expect(capabilities.issuesCreate).toEqual({ typeOnCreate: true });
     expect(capabilities.repos).toMatchObject({
       templateFlag: { supported: false },
       mergeTypes: { supported: false },

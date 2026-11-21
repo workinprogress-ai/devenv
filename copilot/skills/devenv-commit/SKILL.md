@@ -1,6 +1,6 @@
 ---
 name: devenv-commit
-description: 'Create a commit — the only skill that commits, and only through the repo-commit tool. USE WHEN the user says "commit this", "let''s commit", "craft a commit message", "wip this", or is ready to land the current work. Runs a light staged-glance (obvious hazards + the DEVENV marker gate), evaluates atomicity and master-worthiness (suggests the WIP lane for low-value work), crafts a convention-aware suggested message (commitlint config as oracle), warns on ephemeral plan references, then commits via repo-commit — which always opens the git editor (the save is the permission gate) — or takes the WIP lane on the user''s choice. Deep pre-commit code review lives in /devenv-review ("review uncommitted"). Never stages (WIP lane excepted), never runs tests, never checks hooks. DO NOT USE FOR running quality gates without committing (say "run pre-commit checks" — the checks-only flow applies, still no commit unless you confirm), opening a PR (use /devenv-open-pr), or code review (use /devenv-review).'
+description: 'Create a commit — the only skill that commits, and only through the repo-commit tool. USE WHEN the user says "commit this", "let''s commit", "craft a commit message", "wip this", or is ready to land the current work. Runs a light staged-glance (obvious hazards + the DEVENV marker gate), evaluates atomicity and master-worthiness (suggests the WIP lane for low-value work), crafts a convention-aware suggested message (commitlint config as oracle), warns on ephemeral plan references, then commits via repo-commit using the terminal editor, native VS Code editor, or no-TTY approval broker — or takes the WIP lane on the user''s choice. Deep pre-commit code review lives in /devenv-review ("review uncommitted"). Never stages (WIP lane excepted), never runs tests, never checks hooks. DO NOT USE FOR running quality gates without committing (say "run pre-commit checks" — the checks-only flow applies, still no commit unless you confirm), opening a PR (use /devenv-open-pr), or code review (use /devenv-review).'
 argument-hint: 'Optional: "--all" quality-gate scope, or a hint like "WIP" / "split this"'
 user-invocable: true
 ---
@@ -11,7 +11,7 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
-This is the only skill in the workspace permitted to create a commit — and it does so exclusively through the `repo-commit` tool, which always opens the user's configured git editor with the suggested message. **The editor save is the permission gate**: if the user empties the message or aborts the editor, no commit exists. The skill never commits directly with `git commit`. A `--wip` lane exists for low-value snapshots: on the user's explicit choice, `repo-commit --wip` delegates to `git-wip` (stage-all, hooks bypassed, `WIP:` prefix, push) — WIP commit shape lives in `git-wip` alone.
+This is the only skill in the workspace permitted to create a commit — and it does so exclusively through `repo-commit`. The human gate is the terminal/native editor save or, on a no-TTY AI host, the authenticated structured approval-broker result. If the user empties, cancels, or aborts the gate, no commit exists. The skill never commits directly with `git commit`. A `--wip` lane exists for low-value snapshots: on the user's explicit choice, `repo-commit --wip` delegates to `git-wip` (stage-all, hooks bypassed, `WIP:` prefix, push) — WIP commit shape lives in `git-wip` alone.
 
 ## The two lanes
 
@@ -114,7 +114,10 @@ Before proposing the message, scan the draft for ephemeral workflow vocabulary: 
 
 ## Executing the commit — `repo-commit` only
 
-When the craft is done, present the suggested message in chat, then invoke `repo-commit` directly — **no pre-run confirmation interview**: the git editor opens pre-loaded with the suggestion, and the editor save is the permission gate. The user can edit the message freely there, empty it to decline, or abort — a confirm step would only duplicate the choice the editor already provides.
+When the craft is done, choose the host path from the actual session:
+
+- **TTY session:** present the suggested message in chat, then invoke `repo-commit` directly — **no pre-run confirmation interview**. The git editor opens pre-loaded with the suggestion, and the editor save is the permission gate. The user can edit the message freely there, empty it to decline, or abort.
+- **No-TTY AI session:** use the approval broker flow below. The structured host prompt, not a chat acknowledgement, is the human gate. The first `repo-commit` invocation creates a pending request and does not commit.
 
 ```bash
 repo-commit --file <message-file>   # preferred: write the message to a temp file, pass the path
@@ -123,17 +126,62 @@ repo-commit "<message>"             # short messages only — long argv strings 
 
 **`--file` is the default shape for anything longer than a one-line subject**: write the suggested message to a temp file and pass the path — the file content becomes the editor's pre-load verbatim, immune to quoting/terminal mangling.
 
-**Running in an AI session (no terminal).** The tool still gates on a human: without a terminal it accepts only a VS Code tab — git config `core.editor` exactly `code --wait`, a VS Code session attached, and the real remote-cli found under `~/.vscode-server`. **Before invoking, tell the user in chat what is about to happen** — the person watching the tab does not see the tool's terminal output: *"A VS Code tab will open with the message. Close it to commit; to cancel, empty the message and save (closing an unchanged tab commits it)."* Then invoke and wait — the call blocks until the tab closes, and pre-commit hook output streams while it runs.
+**No-TTY AI broker flow.** Generate an opaque approval-session token for this commit and keep it in this skill invocation. Invoke the normal or amend/reword lane with `--approval-session <token>` (for a new commit, use the normal `--file` or positional-message shape):
+
+```bash
+repo-commit --approval-session <token> --file <message-file>
+repo-commit --approval-session <token> --amend
+repo-commit --approval-session <token> --reword <ref>
+```
+
+The tool exits without committing and prints `approval-request=<path>`. Read that JSON request and verify its `protocolVersion`, `requestId`, `sessionId`, `lane`, `target`, repository identity, HEAD, staged digest, proposed message digest, proposed message, and expiry. Do not infer a request from output fragments or synthesize missing fields.
+
+Present one structured host prompt with:
+
+- repository root and the request's lane/target;
+- the staged stat from the staged-glance;
+- the exact proposed message in full;
+- the request ID and expiry;
+- choices: **approve as shown**, **edit and approve**, or **cancel**.
+
+Only the structured prompt result is approval. Ordinary chat acknowledgement is not approval: a plain "yes", "looks good", editor-like chat acknowledgement, or message shown earlier in the conversation is never enough. When the user chooses edit-and-approve, collect the complete replacement message through the host prompt before continuing.
+
+Write exactly one response JSON under `.local-artifacts/commit-approval-response-<requestId>.json`:
+
+```json
+{
+  "protocolVersion": 1,
+  "requestId": "<request requestId>",
+  "sessionId": "<same opaque token>",
+  "outcome": "approve",
+  "finalMessage": "<exact user-approved message>",
+  "finalMessageDigest": "<sha256 of finalMessage bytes>"
+}
+```
+
+For cancel, write the same `protocolVersion`, `requestId`, and `sessionId` with `"outcome": "cancel"` and no message fields. The cancel path is terminal for this request: report no commit and do not retry.
+
+Resume only the matching request:
+
+```bash
+repo-commit --approval-session <token> \
+  --approval-request <request-path> \
+  --approval-response <response-path>
+```
+
+The tool atomically consumes the pending request, rechecks repository/HEAD/staged/message identity, expires stale requests, and runs the normal Git hooks. A replay, mismatch, malformed response, timeout, transport failure, cancellation, or hook rejection is a stop — no retry with the same request. If implementation work changes the staged state, create a new approval request and ask again.
+
+**VS Code-integrated shell fallback (no TTY).** The native VS Code-tab exception remains available when git config `core.editor` is exactly `code --wait`, a VS Code session is attached, and the real remote-cli is found under `~/.vscode-server`. The skill should prefer the broker flow for AI sessions; use the native tab only when the broker path is unavailable and the VS Code prerequisites are proven. Before invoking that native path, tell the user: *"A VS Code tab will open with the message. Close it to commit; to cancel, empty the message and save (closing an unchanged tab commits it)."*
 
 **WIP lane** (`repo-commit --wip [--file <file>] [--staged-only] [--message-words…]`): chosen explicitly by the user — their own words (`wip this`), the WIP-predecessor interview, or an accepted low-value-verdict suggestion. It delegates to `git-wip` — stages everything (unless `--staged-only`), bypasses hooks (the documented WIP exception), prefixes `WIP:`, pushes, and records `refs/wip/last`. The message produced has no conventional-commit prefix by design. There is no editor step on this lane — the user's explicit choice of the WIP lane IS the confirmation, so make sure the choice is unambiguous before invoking.
 
 Contract of the tool (enforced by the tool, not just this skill):
 
-- The suggested message is pre-loaded into the **git editor, which always opens** (normal lane) — with a terminal, `repo-commit` uses the first usable editor from this chain: `GIT_EDITOR` → `core.editor` → `code --wait` → `nano` → `VISUAL` → `EDITOR` (without a terminal the chain does not apply: only the VS Code tab described above is accepted). A non-interactive value (`true`, `:`, `echo`, `cat`, … — automation hosts inject these) is treated as unset and the chain falls through; the tool refuses only when every source resolves non-interactive. It has no non-interactive path and refuses `-m`, `--yes`, and option-shaped arguments.
+- The suggested message is pre-loaded into the **git editor** on terminal/native-VS-Code paths. With a terminal, `repo-commit` uses the first usable editor from `GIT_EDITOR` → `core.editor` → `code --wait` → `nano` → `VISUAL` → `EDITOR`. On no-TTY AI-host paths, the one-use approval broker replaces editor launch; the final user-approved message is fed to the exact normal/amend/reword lane after response verification. A non-interactive editor value is treated as unset on terminal paths. The tool refuses `-m`, `--yes`, and option-shaped bypasses.
 - The commit is created from the **existing index only**; unstaged work is never swept in (the `--wip` lane's stage-all is git-wip's documented behavior, chosen explicitly by the user).
 - The user may edit the message freely in the editor; **their saved text is the commit message** — the suggestion is a starting point.
 - Editor emptied or aborted → no commit, staged state untouched. **This is the user declining — do not retry, do not hand back a paste-command.** One structured ask: *"Editor closed without a save — the commit didn't happen. Re-open the editor with the same message?"* (yes, retry / no, stop / edit the message first). Only a yes re-invokes `repo-commit`.
-- **No-terminal refusal = stop and hand the command over.** When `repo-commit` exits refusing to open an editor *without a terminal*, no commit exists. Surface the reason the tool printed (`core.editor` is not exactly `code --wait`, no VS Code session attached, or no remote-cli found), write the message to a file under `.local-artifacts/`, and give the user the exact command to run in their own terminal — `repo-commit --file <message-file>` — then stop. This is the one case where a paste-command is the right answer (unlike a decline, which is never handed back). Never fake a terminal (no `script`, pty or expect wrapper), never supply or override an editor through `GIT_EDITOR`, `VISUAL`, `EDITOR` or git config, and never retry in a loop: the refusal is the gate working.
+- **No-terminal broker refusal = stop or hand off explicitly.** When a broker request is unavailable because the host cannot collect structured user input, or `repo-commit` cannot validate the host path, no commit exists. Surface the exact reason. If the user chooses to continue in an interactive terminal, give `repo-commit --file <message-file>`; otherwise stop. Never fake a terminal (no `script`, pty or expect wrapper), never supply or override an editor through `GIT_EDITOR`, `VISUAL`, `EDITOR`, or git config, and never convert refusal into approval.
 - **Hook rejection = no commit = stop and surface.** A failing pre-commit hook makes `git commit` (and therefore `repo-commit`) exit non-zero — the tool reports "commit did not complete" and **no commit exists**, even though the editor opened and was saved. When that output (or any hook error text) appears: stop the flow, surface the hook error verbatim to the user, and let them fix it and re-invoke. Never continue narrating the commit as landed, never describe the editor as merely awaiting verification once this output exists, never bypass or work around the hook, never retry without the user's go-ahead.
 - **Gate-fix proposal lane (the one sanctioned follow-on to a hook rejection).** Making the failing content genuinely pass is not a workaround — silently editing it is. After surfacing the error, if the fix is **mechanical** — exactly one right shape, single file, glanceable in chat (a stale link, a malformed marker, a lint-rule typo) — the skill may draft the fix and propose it: show the exact diff in chat, then one structured interview — *apply + stage + re-commit* / *I'll fix it myself* / *stop here*. Only an explicit yes applies it: `repo-stage` path mode (the yes is the direct request) staging exactly the shown file, then a fresh `repo-commit` — the editor gate applies to the retry exactly as to the first attempt. Never touch hook configs or anything that weakens a gate; anything judgment-shaped, multi-file, or arguable is not mechanical — hand it to the user or `/devenv-pair`.
 - Hooks run normally on the normal lane — the tool never bypasses them (`--no-verify` appears nowhere in its vocabulary; the `--wip` lane's `-n` is git-wip's documented exception, not a flag this skill passes).

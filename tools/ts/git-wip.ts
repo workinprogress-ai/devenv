@@ -7,7 +7,8 @@
 //              snapshots to pass commitlint would defeat their purpose; normal
 //              commits must always go through hooks).
 //
-//              Message input: positional args (joined with spaces) or
+//              Message input (optional — none gives a bare "WIP:" subject):
+//              positional args (joined with spaces) or
 //              --file <path> for a pre-written message (used verbatim after
 //              the WIP: prefix). --file and positional args are mutually
 //              exclusive.
@@ -76,7 +77,8 @@ function usage(): never {
   console.log(`Usage: git-wip [--staged-only] [-n, --dry-run] [--file <path>] ["<message words...>"]
 
 Stage everything (or --staged-only to skip staging) and push a WIP snapshot
-commit prefixed with "WIP: ".
+commit prefixed with "WIP: ". The message is optional; without one the
+subject is a bare "WIP:".
 
   --staged-only   Do not run \`git add -A\`; commit the existing index.
   -n, --dry-run   Print what would happen (stage set, commit, push) and exit
@@ -182,10 +184,9 @@ if (msgFile !== "") {
 } else {
   msg = words.join(" ");
 }
-if (msg.trim() === "") {
-  console.error("Error: git-wip needs a non-empty message (words, or a non-empty --file); nothing was staged, committed or pushed.");
-  process.exit(EXIT_MISUSE);
-}
+// The message is optional: with no words, the subject is a bare "WIP:" (git-unwip
+// matches on the "WIP:" prefix alone).
+const subject = msg.trim() === "" ? "WIP:" : `WIP: ${msg}`;
 
 // --- refusals before any mutation ---
 
@@ -236,7 +237,7 @@ if (!dryRun && !allowNonTty && !process.stdin.isTTY) {
 if (dryRun) {
   console.log("DRY RUN — nothing was staged, committed, or pushed.");
   console.log(`  Would ${stagedOnly ? "skip staging (commit the existing index)" : "run: git add -A"}`);
-  console.log(`  Would commit: WIP: ${msg}`);
+  console.log(`  Would commit: ${subject}`);
   const tracked = git(["ls-files", "--others", "--modified", "--exclude-standard"]);
   const count = tracked.out.split("\n").filter((l) => l.trim() !== "").length;
   console.log(`  Files the snapshot would include (tracked + untracked, modified or new): ${count}`);
@@ -254,7 +255,7 @@ if (!stagedOnly) {
   }
 }
 
-const commit = gitInherit(null, ["commit", "-m", `WIP: ${msg}`, "-n"]);
+const commit = gitInherit(null, ["commit", "-m", subject, "-n"]);
 if (!commit.ok) {
   console.error("git-wip: commit failed (nothing to commit?) — no WIP snapshot was saved.");
   process.exit(EXIT_GENERAL_ERROR);

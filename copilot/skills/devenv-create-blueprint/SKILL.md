@@ -125,7 +125,7 @@ Apply the shared [Component context loading](../_conventions.md#component-contex
 #### Step 3 (brownfield only): Survey the existing system
 
 1. Run `repo-cache-update` to get the repo cache path.
-2. Read `/workspaces/devenv/tools/config/repo-types.yaml` for repo naming conventions (`service.*`, `<your-library-glob>`, etc.).
+2. Read `tools/config/repo-types.yaml` for repo naming conventions (`service.*`, `<your-library-glob>`, etc.).
 3. Propose a candidate repo list to the user; confirm before surveying.
 4. Survey only the confirmed list (read-only): purpose, public API, events emitted/consumed, key dependencies.
 
@@ -330,11 +330,11 @@ Do not proceed without explicit approval.
 
 Do not mark it approved without explicit confirmation. The file is already on disk; no separate write step is needed.
 
-### Phase 3 closeout: seed ADRs
+### Phase 3 closeout: inline rationale check
 
-On approval, seed the project's decision log. For every major decision made during the interview where a future implementer would ask *why* (patterns chosen, boundaries drawn, sync-vs-async calls, buy-vs-build, decomposition strategy), write an ADR into `docs/Decisions/` using the shared [ADR template](../common/references/adr-template.md), numbered from `ADR-0001` (e.g. `ADR-0001-use-postgres-for-event-store.md`). Use the ADR's *Cross-artifact impact* field to name the blueprint sections the decision shaped.
+Before marking the blueprint approved, check that every major decision made during the interview where a future implementer would ask *why* (patterns chosen, boundaries drawn, sync-vs-async calls, buy-vs-build, decomposition strategy) states its rationale — and any real alternative the interview rejected — inline in the section it shaped, as current-state text (`We use X; Y was rejected because …`). Add anything missing and point it out in the final read.
 
-This is the seeding pass only — small in number (typically 3–7 ADRs for the decisions that genuinely shaped the architecture, not one per section). Later changes to those decisions go through [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md), which supersedes ADRs rather than editing them.
+The blueprint never produces ADRs — ADRs are for specifications only (see the shared [ADR template](../common/references/adr-template.md)). Later changes to those decisions go through [`/devenv-refine-blueprint`](../devenv-refine-blueprint/SKILL.md), which rewrites the inline rationale in place.
 
 ---
 

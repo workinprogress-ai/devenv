@@ -20,6 +20,11 @@ wrapper takes one) → `DEVENV_REPO` env (`owner/repo`; the only repo-targeting
 env var) → provider-specific repo env (if the provider defines one) → org
 identity + current repo basename → cwd git context.
 
+A target is always a spec — `owner/repo` (GitHub) or `project/repo` (Azure
+DevOps) — never a URL or a `git@host:path` remote: such an explicit argument,
+`DEVENV_REPO`, or provider repo env is refused before any provider request is
+made.
+
 **Skill sessions must not rely on the lower legs.** Every repo-targeted call
 carries an explicit target: `DEVENV_REPO=<owner>/<repo>` env-prefixed on the
 call — per call, or once per command block when the whole block targets one
@@ -1093,12 +1098,13 @@ phase, plus `_on_triage_complete`, `_on_merge`, `_on_staging_deploy`,
 `project-update-issue --all-projects --safe`.
 
 Underscore-prefixed scripts are internal: no depth-1 `tools/` entries and no
-PATH presence — invoke by path, or through `workflow-signal` (interactive/
-batch firing).
+PATH presence — the bare event name is not a command. Fire events through
+`workflow-signal` (on PATH, root-independent); the shim path is the
+workspace-relative `.sh` file, never a guessed absolute root.
 
 ```bash
-bash tools/internal/_on_<event>.sh ISSUE_NUMBER   # shim -> TS dispatcher
-bash tools/internal/_on_begin_grooming.sh 43
+workflow-signal _on_begin_grooming 43             # preferred: PATH tool
+bash tools/internal/_on_begin_grooming.sh 43      # shim -> TS dispatcher (note the .sh)
 ```
 
 Key facts:

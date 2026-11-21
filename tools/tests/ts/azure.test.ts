@@ -312,6 +312,58 @@ describe("azure issues text round-trip", () => {
     }
   });
 
+  it("a mapped type that answers the probe but is disabled fails naming the config key", async () => {
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+    // A disabled type still exists in the project, so the probe answers 200;
+    // only its isDisabled flag says a create against it will be refused.
+    let disabled = true;
+    vi.stubGlobal("fetch", (async () =>
+      new Response(JSON.stringify({ name: "User Story", isDisabled: disabled }), { status: 200 })) as unknown as typeof fetch);
+    try {
+      await expect(workItemTypeFor("")).rejects.toThrow(/User Story.*disabled.*untyped=<enabled Azure type>.*azure_issue_types/);
+      await expect(workItemTypeFor("Task")).rejects.toThrow(/'task=<enabled Azure type>'/);
+      // Reads accept a disabled type: it still holds existing items.
+      await expect(workItemTypeFor("", "read")).resolves.toBe("User Story");
+      disabled = false;
+      await expect(workItemTypeFor("")).resolves.toBe("User Story");
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.AZURE_DEVOPS_ORG;
+      delete process.env.AZURE_DEVOPS_PROJECT;
+      delete process.env.AZURE_PAT;
+    }
+  });
+
+  it("the untyped key in [azure_issue_types] overrides the untyped default", async () => {
+    const root = mkdtempSync(join(tmpdir(), "azit-"));
+    writeFileSync(join(root, "devenv.config"), "[azure_issue_types]\nuntyped=Task\n");
+    const prev = process.env.DEVENV_ROOT;
+    process.env.DEVENV_ROOT = root;
+    process.env.AZURE_DEVOPS_ORG = "test-org";
+    process.env.AZURE_DEVOPS_PROJECT = "test-project";
+    process.env.AZURE_PAT = "test-pat";
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", (async (url: string | URL | Request) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({ name: "Task" }), { status: 200 });
+    }) as unknown as typeof fetch);
+    try {
+      await expect(workItemTypeFor("")).resolves.toBe("Task");
+      // The override applies to the untyped key only; task keeps the built-in map.
+      await expect(workItemTypeFor("task")).resolves.toBe("User Story");
+      expect(urls[0]).toMatch(/\/workitemtypes\/Task\?/);
+    } finally {
+      vi.unstubAllGlobals();
+      if (prev === undefined) delete process.env.DEVENV_ROOT; else process.env.DEVENV_ROOT = prev;
+      delete process.env.AZURE_DEVOPS_ORG;
+      delete process.env.AZURE_DEVOPS_PROJECT;
+      delete process.env.AZURE_PAT;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("issuesCreate carries the mapped type on the create URL", async () => {
     process.env.AZURE_DEVOPS_ORG = "test-org";
     process.env.AZURE_DEVOPS_PROJECT = "test-project";

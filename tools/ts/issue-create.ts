@@ -31,7 +31,7 @@ import { checkTargetRepo, requireRepoTarget, providerConfigPath, providerRepoSpl
 import { authStatusOk, remoteToSpec } from "../lib/providers/facade/urls.ts";
 import { reposExists } from "../lib/providers/facade/repos.ts";
 import { projectsAddIssue } from "../lib/providers/facade/projects.ts";
-import { issuesCreate, issuesExists, issuesSetType, issueGraphLink, issuesView, issueWebUrl } from "../lib/providers/facade/issues.ts";
+import { issuesCreate, issuesCreateCapabilities, issuesExists, issuesSetType, issueGraphLink, issuesView, issueWebUrl } from "../lib/providers/facade/issues.ts";
 import { issueNumberFromRef } from "../lib/domain/issues/refs.ts";
 import { childOfMap, issueTypeNames, resolveIssueType } from "../lib/domain/issues/types.ts";
 import { writeStatus } from "../lib/domain/issues/graph.ts";
@@ -335,10 +335,12 @@ async function createIssue(st: CreateState): Promise<number> {
     return 0;
   }
 
+  const { typeOnCreate } = await issuesCreateCapabilities();
   const issueUrl = (
     await issuesCreate(spec, {
       title: st.title,
       body: finalBody,
+      ...(typeOnCreate ? { type: st.type } : {}),
       label: st.labels,
       assignee: st.assignees,
       ...(st.milestone !== "" ? { milestone: st.milestone } : {}),
@@ -358,15 +360,18 @@ async function createIssue(st: CreateState): Promise<number> {
 
   let enrichFailed = 0;
 
-  // Native type-set. Owner/name come from the same spec the create used —
-  // never re-derived from the cwd, so create and type-set cannot disagree.
-  try {
-    await issuesSetType(spec, issueNumber, st.type);
-  } catch (err) {
-    logError("Issue created but type could not be set");
-    logError(`Remediation: issue-update ${issueNumber} --type ${st.type}`);
-    logDebug(errorMessage(err));
-    enrichFailed = 1;
+  // Native type-set, unless the provider's create already applied the type.
+  // Owner/name come from the same spec the create used — never re-derived
+  // from the cwd, so create and type-set cannot disagree.
+  if (!typeOnCreate) {
+    try {
+      await issuesSetType(spec, issueNumber, st.type);
+    } catch (err) {
+      logError("Issue created but type could not be set");
+      logError(`Remediation: issue-update ${issueNumber} --type ${st.type}`);
+      logDebug(errorMessage(err));
+      enrichFailed = 1;
+    }
   }
 
   if (st.project !== "") {

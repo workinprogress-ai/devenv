@@ -1,8 +1,6 @@
-// /devenv-commit must say what to do when repo-commit still refuses for lack of
-// a terminal: stop, never fake a terminal, and hand the user the exact command
-// for their own terminal. It must also tell the user, before the VS Code tab
-// opens, how to commit and how to cancel — the person watching the tab does not
-// see the tool's terminal output.
+// /devenv-commit must route no-TTY AI sessions through the structured
+// approval broker, keep the native VS Code path truthful, and never treat chat
+// acknowledgement or an environment-supplied editor as human approval.
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -14,11 +12,29 @@ const SKILL = readFileSync(
 );
 
 describe("devenv-commit skill: no-terminal handling", () => {
-  it("documents the no-terminal refusal as a stop that hands the command to the user's terminal", () => {
-    expect(SKILL).toMatch(/No-terminal refusal/);
-    expect(SKILL).toMatch(/without a terminal/);
+  it("documents the broker request, structured prompt, and exact resume", () => {
+    expect(SKILL).toMatch(/No-TTY AI broker flow/);
+    expect(SKILL).toMatch(/--approval-session <token>/);
+    expect(SKILL).toMatch(/--approval-request <request-path>/);
+    expect(SKILL).toMatch(/--approval-response <response-path>/);
+    expect(SKILL).toMatch(/approval-request=<path>/);
+    expect(SKILL).toMatch(/structured host prompt/);
+  });
+
+  it("requires an explicit typed decision and rejects plain chat acknowledgement", () => {
+    expect(SKILL).toMatch(/approve as shown/);
+    expect(SKILL).toMatch(/edit and approve/);
+    expect(SKILL).toMatch(/cancel/);
+    expect(SKILL).toMatch(/plain "yes"/);
+    expect(SKILL).toMatch(/looks good/);
+    expect(SKILL).toMatch(/ordinary chat acknowledgement is not approval/i);
+  });
+
+  it("keeps terminal handoff as an explicit unsupported-host fallback", () => {
+    expect(SKILL).toMatch(/No-terminal broker refusal/);
+    expect(SKILL).toMatch(/host cannot collect structured user input/);
     expect(SKILL).toMatch(/repo-commit --file <message-file>/);
-    expect(SKILL).toMatch(/own terminal/);
+    expect(SKILL).toMatch(/interactive terminal/);
   });
 
   it("forbids faking a terminal or supplying an editor to get past the refusal", () => {

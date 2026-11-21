@@ -4,13 +4,13 @@ Loaded by `/devenv-refine-specifications` and `/devenv-refine-blueprint` in casc
 
 ## Scope
 
-- **In scope:** symmetric co-maintenance of `Specifications-*.md` and `Blueprint-*.md` (planning-repo living documents) in one session, with decision recording in ADRs.
+- **In scope:** symmetric co-maintenance of `Specifications-*.md` and `Blueprint-*.md` (planning-repo living documents) in one session, with significant decisions recorded in a specification ADR.
 - **Out of scope:** downstream propagation to grooming documents and plans (handled by freshness-based staleness checks at plan-start and grooming-start), and non-surgical re-architectures (route to `/devenv-design` or `/devenv-create-blueprint` per the refine skills' existing rules).
 
 ## The three-home rule
 
-1. **Living documents** (specifications, blueprints, roadmaps) carry target state only — what the system *is*, with no embedded history, no change logs, no Revision History sections. Superseded content is **deleted clean**; IDs never reflow, so gaps in numbering are expected and harmless.
-2. **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md`) carry the *why* — context, decision, consequences, rejected alternatives — for every significant decision. See [adr-template.md](./adr-template.md).
+1. **Living documents** (specifications, blueprints, roadmaps) carry target state only — what the system *is* (blueprints and roadmaps including the inline rationale for their current shape), with no embedded history, no change logs, no Revision History sections. Superseded content is **deleted clean**; IDs never reflow, so gaps in numbering are expected and harmless.
+2. **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md`, planning repo) carry the *why* — context, decision, consequences, rejected alternatives — for every significant **specification** decision. A cascade decision that reshapes both documents gets one ADR, written from the specifications side; the blueprint states its resulting rationale inline. See [adr-template.md](./adr-template.md).
 3. **Git** carries the *when* — who changed what, when. That is what it is for.
 
 ## Span detection (at intake)
@@ -50,7 +50,7 @@ The disciplines stay separate; the session doesn't.
 
 ## ADR writing (significant decisions only)
 
-Write an ADR when the decision clears the significance bar: *would a future implementer, working downstream, need to know why this is shaped this way?* Triggers:
+ADRs are for specifications only: a blueprint-only decision (no specification change) gets no ADR — state its rationale inline in the owning blueprint section. Write an ADR when a decision changes the specifications and clears the significance bar: *would a future implementer, working downstream, need to know why this is shaped this way?* Triggers:
 
 - Bounded-context or ownership moves
 - Contract / schema / public-surface changes
@@ -64,7 +64,7 @@ Cross-issue batching: when several queued discoveries (see intake, below) stem f
 
 ## Issue intake (the upstream-impact queue)
 
-Skills that discover upstream-material changes from below — grooming, execution closeouts, research, plan refinement — file an `upstream-impact` labeled issue in the planning repo rather than editing the living documents themselves. Each issue is a work order: what changed, why, affected sections, and enough context/alternatives that the executor can later write the ADR faithfully.
+Skills that discover upstream-material changes from below — grooming, execution closeouts, research, plan refinement — file an `upstream-impact` labeled issue in the planning repo rather than editing the living documents themselves. Each issue is a work order: what changed, why, affected sections, and enough context/alternatives that the executor can later write the specification ADR or the inline blueprint rationale faithfully.
 
 Either refine skill can be invoked with:
 

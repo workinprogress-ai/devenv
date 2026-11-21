@@ -92,17 +92,30 @@ export function providerDetect(force = false): ProviderName {
   return detected;
 }
 
+/** A repository target is a spec, never a URL: split on '/', a URL's scheme
+ * (or an SCP-style remote's user@host: prefix) becomes a path segment that
+ * reaches provider request paths. Refused wherever a target enters from
+ * outside. */
+function refuseUrlTarget(spec: string, source: string): string {
+  if (spec.includes("://") || /^[^/\s]+@[^/\s]+:/.test(spec)) {
+    throw new ProviderError(
+      `${source} '${spec}' is a URL, not a repository spec — use owner/repo (GitHub) or project/repo (Azure DevOps)`,
+    );
+  }
+  return spec;
+}
+
 /** The one repository resolver: explicit argument, then DEVENV_REPO. The
  * provider env/cwd fallbacks of the bash seam are host-specific; the TS
  * facade resolves cwd via git when asked to. Empty result is "" (callers
  * decide whether an empty target is fatal — GitHub verbs need a spec). */
 export function providerRepoTarget(spec?: string): string {
-  if (spec !== undefined && spec !== "") return spec;
-  if (process.env.DEVENV_REPO) return process.env.DEVENV_REPO;
+  if (spec !== undefined && spec !== "") return refuseUrlTarget(spec, "repository target");
+  if (process.env.DEVENV_REPO) return refuseUrlTarget(process.env.DEVENV_REPO, "DEVENV_REPO");
   // Provider-internal env leg: GH's own variable, full owner/repo forms only —
   // a basename is invalid for -R and reads as absent.
   const ghRepo = process.env.GH_REPO ?? "";
-  if (ghRepo.includes("/")) return ghRepo;
+  if (ghRepo.includes("/")) return refuseUrlTarget(ghRepo, "GH_REPO");
   // Cwd leg: configured org identity + the git working tree's basename; both
   // legs must resolve. A cwd without a git root reads as unresolved, never as
   // a crash.

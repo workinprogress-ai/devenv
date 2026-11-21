@@ -77,7 +77,7 @@ Use the full protocol in [guided-user-drive-mode.md](./references/guided-user-dr
 
 ## Event signal
 
-At phase kickoff of the first implementation phase, signal `_on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `_on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
+At phase kickoff of the first implementation phase, signal `workflow-signal _on_begin_implementation <issue-number>`; at PR open (or equivalent review handoff), signal `workflow-signal _on_begin_review <issue-number>` — a visible side effect of this already-approved boundary; state the signal in your normal output (one line). See the [event-signal convention](../_conventions.md#skill-event-signals).
 
 ## Personality
 

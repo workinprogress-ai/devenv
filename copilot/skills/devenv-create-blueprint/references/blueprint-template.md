@@ -22,7 +22,7 @@ that will already appear in later sections.>
 **Status**: Draft | Approved | Superseded
 **Source specifications**: <link to Specifications-*.md or issue, if any>
 **Type**: Greenfield | Brownfield
-**Decision log**: <link to docs/Decisions/ — ADRs hold the why; this blueprint holds target state only>
+**Decision rationale**: inline — each significant decision states its rationale and rejected alternatives where it is made; this blueprint holds target state only (no ADRs — those are for specifications)
 
 ---
 

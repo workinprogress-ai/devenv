@@ -118,6 +118,7 @@ const EXCEPTIONS: Record<string, Partial<Record<Who, string>>> = {
 /** Facade-only capabilities and containers. These are provider-owned
  * decisions rather than host verbs, so they do not occupy contract table rows. */
 const FACADE_CONTAINER_EXPORTS = new Set([
+  "issues.issuesCreateCapabilities",
   "projects.projectsOps",
   "repos.reposApplySettings",
   "repos.reposSettingCapabilities",

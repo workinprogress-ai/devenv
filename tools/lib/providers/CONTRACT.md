@@ -320,6 +320,23 @@ type QueuedRunStrategy =
 using the provider's declared matching constraints. A provider must not be
 inferred to use one strategy because it is—or is not—GitHub.
 
+### Issue creation
+
+Issue-creation capabilities live in `facade/issues.ts`. They tell
+`issue-create` whether the create itself applies the native type:
+
+```ts
+interface IssuesCreateCapabilities {
+  typeOnCreate: boolean;
+}
+```
+
+`typeOnCreate: true` (Azure) means the caller passes `type` to `issuesCreate` —
+the work item type is part of the create URL — and makes no follow-up
+`issuesSetType` call. `typeOnCreate: false` (GitHub) means the caller creates
+without `type` and sets it with `issuesSetType` afterwards, keeping the created
+issue's URL in hand if that second step fails.
+
 ### Package feeds
 
 Package-feed capabilities live in the setup provider seam. Npm and NuGet each
@@ -437,7 +454,7 @@ raw flag-array verbs); anything not listed is not accepted.
 | `provider_issues_list` | `issuesList` | `[repo]`; `state` (`open`/`closed`/`all`), `label[]`, `assignee[]`, `milestone`, `author`, `mention`, `type`, `limit`, `search`, `web`, `lock`, `json`, `jq` | `[Issue]` as JSON text. GitHub forwards every field to `gh issue list`. Azure honors `state`, one `label`, `type`, `limit`, `json`, `jq`; a second label, `assignee`, `milestone`, `author`, `mention`, `search`, `web` and `lock` are named errors. |
 | `provider_issues_view` | `issuesView` | `[repo] NUMBER`; `json`, `jq` | Issue as JSON text. On Azure the facade projects the requested fields (a missing one is `null`) and supports the jq forms `.field` and `.a.b // empty`. |
 | `provider_issues_exists` | `issuesExists` | `[repo] NUMBER` | `boolean`. Only the item's own absence is `false`: on Azure HTTP 404 or TF401232 (a 404 that says the project or organization does not exist is an error), on GitHub `Could not resolve to an Issue` (or an HTTP 404 that does not say a repository could not be resolved). A wrong-scope, credential, network or server failure throws, never reads as "absent". |
-| `provider_issues_create` | `issuesCreate` | `[repo]`; `title`, `body`, `bodyFile`, `label[]`, `assignee[]`, `type`, `milestone`, `project[]`, `web`, `dryRun` | The issue's URL (GitHub) or number (Azure), one line. On Azure `type` selects the work item type (Task and untyped become a User Story); `assignee`, `milestone`, `project`, `web` and `dryRun` are named errors. `body` and `bodyFile` together are an error. If Azure creates the work item but cannot read the write back, the number is still returned, with a warning, so a retry does not duplicate it. |
+| `provider_issues_create` | `issuesCreate` | `[repo]`; `title`, `body`, `bodyFile`, `label[]`, `assignee[]`, `type`, `milestone`, `project[]`, `web`, `dryRun` | The issue's URL (GitHub) or number (Azure), one line. On Azure `type` selects the work item type the item is created as (Task and untyped become a User Story) and the body field it is written to; on GitHub `type` becomes the `gh issue create --type` flag, and `issue-create` instead sets it afterwards with `issuesSetType` (see Issue creation under Behavioral capabilities); `assignee`, `milestone`, `project`, `web` and `dryRun` are named errors. `body` and `bodyFile` together are an error. If Azure creates the work item but cannot read the write back, the number is still returned, with a warning, so a retry does not duplicate it. |
 | `provider_issues_edit` | `issuesEdit` | `[repo] NUMBER`; `title`, `body`, `bodyFile` (`-` is stdin), `addLabel[]`, `removeLabel[]`, `addAssignee[]`, `removeAssignee[]`, `milestone`, `type` | Nothing. On Azure `addAssignee`, `removeAssignee` and `milestone` are named errors; several labels are joined into one tag set; With a body, `type` changes the item's type first (through the set-type verb) and the body is then written to the new type's field; without a body, `type` is a type change, applied after the rest of the edit through the set-type verb. Title, body and tag changes go in one JSON-patch led by a `test` op on the revision the item was read at: a concurrent change fails the edit with a named "modified concurrently" error (never retried), so a failure leaves the item unchanged. Azure tags (also through `issuesAddTag`/`issuesRemoveTag`) compare case-insensitively (add skips a tag present in any case; remove drops the stored tag whatever the case of the request) and a label holding `;` is the several tags Azure makes of it; a label that spells no tag is a named error. |
 | `provider_issues_close` | `issuesClose` | `[repo] NUMBER`; `comment`, `reason` | Nothing meaningful. Azure accepts `reason` and drops it: there is no close reason. |
 | `provider_issues_reopen` | `issuesReopen` | `[repo] NUMBER`; `comment` | Nothing meaningful. |

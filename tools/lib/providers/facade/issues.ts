@@ -214,6 +214,22 @@ export interface IssuesCreateOptions {
   dryRun?: boolean;
 }
 
+/** How a provider applies an issue's native type at creation. */
+export interface IssuesCreateCapabilities {
+  /** True when the caller passes the type to `issuesCreate` and makes no
+   * follow-up `issuesSetType` call; false when the caller creates without a
+   * type and sets it with `issuesSetType` afterwards. */
+  typeOnCreate: boolean;
+}
+
+/** Provider-owned decision on whether the create carries the native type.
+ * Azure work item types are part of the create URL; GitHub's create leaves
+ * the type to `issuesSetType`. */
+export async function issuesCreateCapabilities(): Promise<IssuesCreateCapabilities> {
+  const m = await load();
+  return { typeOnCreate: m.provider === "azure" };
+}
+
 /** Create an issue. Returns the new issue's URL or number, one line. */
 export async function issuesCreate(spec: string | undefined, opts: IssuesCreateOptions): Promise<string> {
   const m = await load();

@@ -54,6 +54,7 @@ import {
   issuesCreate,
   issuesReopen,
   issuesSetType,
+  workItemTypeFor,
   issuesLabelCreate,
   issuesLabelList,
   issueGraphLink,
@@ -781,14 +782,16 @@ if (tier === "write") {
     } catch {
       probe("issues_create --type Bug", false);
     }
-    // An untyped create is a User Story; set_type must be able to change it.
+    // An untyped create is the untyped mapping ([azure_issue_types] untyped,
+    // built-in User Story); set_type must be able to change it.
     try {
+      const untypedType = await workItemTypeFor("");
       const typedId = await issuesCreate("", { title: "[SMOKE-DELETEME] retyped" });
       td.record("work item", String(typedId), `az boards work-item delete --id ${typedId} --destroy --yes`, () => destroyWorkItem(typedId));
       const before = (await rawGet(`${witBase}/workitems/${typedId}?$fields=System.WorkItemType`)) as {
         fields?: Record<string, unknown>;
       } | null;
-      probe("an untyped create is a User Story", before?.fields?.["System.WorkItemType"] === "User Story");
+      probe(`an untyped create is a ${untypedType}`, before?.fields?.["System.WorkItemType"] === untypedType);
       await issuesSetType("", typedId, "Bug");
       const after = (await rawGet(`${witBase}/workitems/${typedId}?$fields=System.WorkItemType`)) as {
         fields?: Record<string, unknown>;

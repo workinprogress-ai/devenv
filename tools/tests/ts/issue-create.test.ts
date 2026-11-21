@@ -151,6 +151,8 @@ describe("issue-create", () => {
     expect(r.stdout).toContain("https://github.com/org/repo/issues/777");
     const calls = ghCalls().join("\n");
     expect(calls).toContain("issue create -R org/repo --title T");
+    // The type is applied after the create, never as a create flag.
+    expect(ghCalls().filter((c) => c.includes("issue create")).some((c) => c.includes("--type"))).toBe(false);
     expect(calls).toContain("issue edit 777 --type Task");
   });
 

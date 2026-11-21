@@ -13,7 +13,7 @@ Use this guide when you want the end-to-end methodology rather than a tool catal
 - **Responsibility and Accountability** — the **engineer** is **always** the **responsible** party for the work, even when AI-assisted; the AI provides support but does not own outcomes.  "The AI did it" is not an acceptable explanation for a shipped change.  
 - **Plans follow the engineer** — plans are current-state execution artifacts, not prescriptive contracts. The engineer drives; the plan is continuously reconciled to what actually happened. When reality diverges from the plan, update the plan (with confirmation whenever intent is ambiguous) so it reflects truth rather than forcing behavior.
 - **A plan starts theoretical and ends as-built** — at creation a plan is the *theoretical* way to implement; during and after execution it is kept current so that at completion it records the *actual* way the work was *really* implemented. A completed plan is therefore a trustworthy as-built record for upstream artifacts (grooming documents, blueprints) to reconcile against.
-- **Three homes for three questions** — living documents (specifications, blueprints, roadmaps) carry the target state (*what it is*), ADRs carry the rationale (*why*), git and issue-edit history carry the chronology (*when*). No artifact carries another home's content.
+- **Three homes for three questions** — living documents (specifications, blueprints, roadmaps) carry the target state (*what it is*) — blueprints and roadmaps including the rationale for their current shape — ADRs carry the rationale (*why*) behind specification decisions and live only in the planning repo, git and issue-edit history carry the chronology (*when*). No artifact carries another home's content.
 - **Attribution is human-only** — artifact authorship and revision entries attribute work to the current user/engineer (or team/repo context), never to the AI or a specific model. Historical notes describe changes, not model actors.
 - **Organic comprehension** - Take the danger of comprehension deficit seriously.  Understand what you are doing and be able to explain it. Do not treat the AI as a black box or a magic wand.  If you don't understand something, ask questions, seek clarification, and do not proceed until you have a clear mental model.
 - **AI is a tool, not a teammate** — use the AI for what it's good at (drafting, summarizing, suggesting) but do not treat it as a human collaborator with agency or ownership. Always maintain human control and oversight.
@@ -589,11 +589,9 @@ flowchart LR
     RM -.->|"issue slices"| GR
     GR --> PLAN[Plan<br/>phases and tasks]
     ADR[(ADRs<br/>the why)] -.-> SPEC
-    ADR -.-> BP
-    ADR -.-> RM
 ```
 
-Specifications and blueprints are co-maintained in cascade mode; grooming draws directly from them. A roadmap artifact is **optional** — added only when a larger effort needs delivery coordination across multiple components, usually associated with an epic; when present it is downstream of specifications/blueprint and upstream of grooming. ADRs record significant decisions across all three.
+Specifications and blueprints are co-maintained in cascade mode; grooming draws directly from them. A roadmap artifact is **optional** — added only when a larger effort needs delivery coordination across multiple components, usually associated with an epic; when present it is downstream of specifications/blueprint and upstream of grooming. ADRs record significant specification decisions; blueprints and roadmaps state their rationale inline.
 
 ### Backporting changes (upstream cascade)
 
@@ -605,7 +603,7 @@ flowchart TD
     FILE --> QUEUE[(Upstream-impact queue<br/>planning repo)]
     QUEUE --> REF["Refine session<br/>/devenv-refine-specifications or /devenv-refine-blueprint<br/>issue intake, cascade mode"]
     REF -->|reply + close| QUEUE
-    REF -->|ADRs record the why| ADR[(target repo docs/Decisions)]
+    REF -->|"spec decisions: ADRs record the why"| ADR[(planning repo docs/Decisions)]
     REF -.->|"downstream picks up via<br/>staleness checks, not edited here"| DOWN[Grooming / plans / roadmap artifact]
 ```
 
@@ -808,10 +806,10 @@ Do not treat these as interchangeable. Each exists to answer a different questio
 **Living documents carry target state only (the three-home rule).** Specifications, blueprints, and roadmaps are living documents: each describes what the system *is*, never what changed. History has two dedicated homes, and only those homes:
 
 1. **Living documents** — target state. No change logs, no Revision History sections, no strikethrough, no tombstones. Superseded content is **deleted clean**; IDs never reflow, so gaps in numbering are expected and harmless.
-2. **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md` in the target repo) — the *why*. Every significant decision (one a future implementer would ask about) gets an Architecture Decision Record: context, decision, alternatives, consequences. ADRs are append-mostly; superseding an ADR writes a new one, it does not edit the old.
+2. **ADRs** (`docs/Decisions/ADR-NNN-<slug>.md` in the planning repo) — the *why* behind specification decisions. Every significant specification decision (one a future implementer would ask about) gets an Architecture Decision Record: context, decision, alternatives, consequences. ADRs are append-mostly; superseding an ADR writes a new one, it does not edit the old. ADRs exist for specifications only: blueprints and roadmaps state the rationale for their current shape inline, as current-state text, and code repos never hold ADRs.
 3. **Git** — the *when*. Who changed what, when. That is what it is for. (For artifact roadmaps, the issue comment's edit history plays this role.)
 
-Grooming documents and plans are not in this tier — grooming keeps its own revision-history convention, and plans are current-state execution artifacts with their own rules.
+Grooming documents and plans are not in this tier — grooming keeps its own revision-history convention, and plans are current-state execution artifacts with their own rules. Neither produces ADRs: a plan records its decisions and pivots in itself.
 
 **Roadmaps are optional coordination documents, hosted as issue artifacts.** A roadmap is added only when a larger effort needs delivery coordination across multiple components — usually associated with an epic — and lives as a doc_id-addressed artifact comment on that parent epic in the planning repo (same pattern as plan artifacts); no long-lived local copy is kept and nothing is committed. When one exists it is a **change-bound artifact**: maintained while the change is in flight (structural edits via `/devenv-refine-roadmap`, status sync via `/devenv-update-roadmap`), and done when the change ships and the parent epic closes — unlike specifications, which are perpetual living documents. The roadmap is downstream of the specifications and blueprint, and upstream of grooming: it receives changes arriving from upstream (spec/blueprint refinement) or pushed back from downstream (execution discoveries), but it is never itself an entry point for changes — changes enter through the refine skills and the upstream-impact queue.
 

@@ -306,6 +306,17 @@ describe("issuesList filters", () => {
     expect(await wiqlFor({ state: "closed" })).toMatch(/\(\(\[System\.WorkItemType\] = 'User Story' AND \[System\.State\] IN \('[^)]+'\)\)\)/);
   });
 
+  it("a type filter on a disabled type still lists its existing items", async () => {
+    const stub = stubAzureFetch([
+      typesRoute(),
+      { method: "GET", url: `${WIT}/workitemtypes/User%20Story?api-version=7.1`, respond: azureJson({ name: "User Story", isDisabled: true }) },
+      { method: "POST", url: /\/wiql\?/, respond: azureJson({ workItems: [] }) },
+    ]);
+    await expect(issuesList("", { type: "task" })).resolves.toEqual([]);
+    const query = (stub.requests.find((r) => r.url.includes("/wiql"))?.body as { query: string }).query;
+    expect(query).toContain("[System.WorkItemType] = 'User Story'");
+  });
+
   it("ANDs label and type with the state group", async () => {
     const q = await wiqlFor({ state: "open", label: "x", type: "bug" });
     expect(q).toContain("[System.Tags] CONTAINS 'x'");

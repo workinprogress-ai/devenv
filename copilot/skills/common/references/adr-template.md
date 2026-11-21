@@ -1,6 +1,8 @@
 # ADR Template
 
-One file per significant decision: `docs/Decisions/ADR-NNN-<slug>.md` in the planning repo. `NNN` is a zero-padded sequence continuing from the highest existing ADR number. ADRs are the **only** home for decision rationale — living documents (specifications, blueprints, roadmaps) carry target state only, and git carries the when.
+**Eligibility: specifications only.** An ADR records a significant specification decision — written by `/devenv-write-specifications` or `/devenv-refine-specifications`, including a cascade decision that also reshapes the blueprint. Blueprints, roadmaps, grooming documents, and plans never produce ADRs: they state the rationale for their current shape inline, as current-state text. Code repos never hold ADRs.
+
+One file per significant specification decision: `docs/Decisions/ADR-NNN-<slug>.md` in the planning repo. `NNN` is a zero-padded sequence continuing from the highest existing ADR number. ADRs are the **only** home for specification decision rationale — specifications carry target state only, and git carries the when.
 
 ```markdown
 # ADR-<NNN>: <short decision title>
@@ -43,5 +45,4 @@ reservations by ID and cannot mutate them."]
 
 - **Significance bar:** write an ADR only when a future downstream implementer would need to know *why*. Rewording, task reordering, and detail-within-an-existing-decision do not qualify.
 - **Append-mostly:** accepted ADRs are immutable. A reversal writes a new ADR whose Status says `Superseded by ADR-<new>` (and the new one references back). Never edit a decided ADR in place.
-- **Seeding at creation:** `/devenv-create-blueprint` writes ADR-0001..N for the major decisions made during its interview (context decomposition choices, rejected alternatives surfaced by the interview). From birth, the ADR set is the decision log.
 - **Naming:** `ADR-007-ordering-owns-reservations.md` style — number, then kebab-case slug.

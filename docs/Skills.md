@@ -374,7 +374,7 @@ Direct-plan exception:
 ```text
 Specifications and/or blueprint changed (initiated change)
   -> /devenv-refine-specifications or /devenv-refine-blueprint
-     (cascade mode: one session edits both; ADRs record significant decisions)
+     (cascade mode: one session edits both; ADRs record significant specification decisions)
   -> downstream artifacts pick the change up via their own
      staleness checks — not edited from the cascade session
 

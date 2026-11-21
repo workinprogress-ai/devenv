@@ -203,8 +203,11 @@ A devenv issue type maps onto the Azure work item type that sits on a board:
 `Epic` → `Epic`, `Feature` → `Feature`, `Bug` → `Bug`, and `Task` (and an
 untyped issue) → `User Story`; the provider creates no plain `Issue` items.
 An `[azure_issue_types]` block in `devenv.config` overrides or extends the map
-(`<devenv type, lower-case>=<Azure type>`); a type with no mapping fails and
-names the key to add. The Agile process's `User Story`, `Bug`, `Feature` and
+(`<devenv type, lower-case>=<Azure type>`; the `untyped` key maps an issue
+created without a type); a type with no mapping fails and names the key to add.
+A create is made directly as its mapped type — the type is part of the create
+URL — and the mapped type is probed first: one the project does not offer,
+whether absent or disabled, fails before the create and names the key to set. The Agile process's `User Story`, `Bug`, `Feature` and
 `Epic` carry the states New, Active, Resolved, Closed (and Removed); an `Issue`
 has only Active and Closed and sits on no board. Whether `Bug` sits on the
 Stories board is a team setting, which the Tier 2 smoke confirms.
