@@ -16,7 +16,7 @@ Any repos cloned should be put under the `repos/` folder.  A command line alias 
 @toochevere ➜ /workspaces/<REPO>/repos (<>) $ repo-get devops
 ```
 
-If the repos is not yet present under the `repos/` folder then it will be cloned.  If it is present, it will be updated.   If the newly cloned repos has a `scripts` folder, then it will be automatically added to the `PATH` variable and any scripts will be available.
+If the repos is not yet present under the `repos/` folder then it will be cloned.  If it is present, it will be updated.   If the repository contains a `.devenv/bin` directory, that directory is automatically added to the `PATH` variable in every shell and its tools are available.
 
 You can also use `repo-get --select` to see an interactive menu of all repositories in your organization (excluding those already cloned), making it easy to discover and clone new repositories:
 
@@ -184,7 +184,10 @@ The `.devcontainer/install-extras/` folder contains optional installation script
 ### Available Optional Installs
 
 * **`helm.sh`** - Installs Helm package manager for Kubernetes
-* **`minikube.sh`** - Installs Minikube for local Kubernetes clusters
+* **`k3d.sh`** - Installs k3d (version-pinned), the k3s cluster factory for the local environment
+* **`k9s.sh`** - Installs k9s terminal dashboard for Kubernetes clusters
+* **`telepresence.sh`** - Installs telepresence OSS v2.20.3 (version-pinned; newer releases are login-walled)
+* **`kubernetes-tools.sh`** - Meta-installer: k3d + k9s + telepresence in one fail-fast run
 * **`mongo-tools.sh`** - Installs MongoDB command-line tools (mongosh, mongodump, mongorestore, etc.)
 * **`mongo-compass.sh`** - Installs MongoDB Compass GUI
 * **`chromium.sh`** - Installs Chromium web browser

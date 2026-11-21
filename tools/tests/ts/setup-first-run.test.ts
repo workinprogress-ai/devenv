@@ -1,4 +1,4 @@
-// Tests for setup.ts — the bootstrap handoff contract (AC-12) + install stage.
+// Tests for setup.ts — the bootstrap handoff contract + install stage.
 // Non-interactive by contract: tests assert the dispatch surface (step
 // selection, unknown-step rejection, --list, no-args contract) and the
 // failure-sequencing behavior. The bash steps themselves are exercised by
@@ -94,6 +94,19 @@ describe("setup (bootstrap handoff contract)", () => {
     // renames the running install aside mid-suite, leaving a broken
     // fragment). Every step still executes for real; only the global-install
     // landing zone is sandboxed.
+    //
+    // Canary scoped opt-out (this test only): the real run needs the real
+    // `sudo apt update` (the apt-packages step) and real npm/node — all
+    // canary-shimmed commands. The canary's purpose is to stop tests
+    // reaching provider backends accidentally; this test deliberately runs
+    // the full provisioning chain against the seeded container (its own
+    // contract) — a sanctioned real-run, not an accidental escape. The
+    // child therefore receives the canary shim directory and the canary
+    // fetch preload removed — and nothing else: the strip matches the exact
+    // fixture shim dir and only the canary preload flag, so a PATH entry
+    // merely containing "canary-bin" survives and other --import flags
+    // (none today) would too. Every other suite keeps full canary
+    // enforcement; the strip is child-only and never touches the worker env.
     const toolbox = process.env.DEVENV_TOOLBOX_ROOT ?? "/workspaces/devenv";
     if (!existsSync(join(toolbox, ".setup", "email.txt"))) {
       // Seeds live in the real toolbox; a rebuilt container before first
@@ -102,6 +115,16 @@ describe("setup (bootstrap handoff contract)", () => {
     }
     const npmPrefix = mkdtempSync(join(tmpdir(), "sfr-npm-prefix-"));
     try {
+      const shimDir = process.env["DEVENV_TEST_FIXTURE_DIR"] ? join(process.env["DEVENV_TEST_FIXTURE_DIR"], "canary-bin") : "";
+      const canaryFlag = process.env["NODE_OPTIONS"]
+        ?.split(" ")
+        .find((f) => f.includes("canary-fetch"));
+      const realPath = shimDir
+        ? (process.env["PATH"] ?? "").split(":").filter((e) => e !== shimDir).join(":")
+        : (process.env["PATH"] ?? "");
+      const realNodeOptions = canaryFlag
+        ? (process.env["NODE_OPTIONS"] ?? "").split(" ").filter((f) => f !== canaryFlag).join(" ")
+        : (process.env["NODE_OPTIONS"] ?? "");
       const r = spawnSync("node", [TOOL, "--all", "--json"], {
         encoding: "utf8",
         input: "",
@@ -110,6 +133,8 @@ describe("setup (bootstrap handoff contract)", () => {
           ...process.env,
           DEVENV_TOOLBOX_ROOT: toolbox,
           NPM_CONFIG_PREFIX: npmPrefix,
+          PATH: realPath,
+          ...(realNodeOptions ? { NODE_OPTIONS: realNodeOptions } : { NODE_OPTIONS: "" }),
         },
       });
       const stdout = r.stdout ?? "";

@@ -3,7 +3,7 @@
 import { toolScript } from "./harness/index.ts";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -194,5 +194,12 @@ describe("install-extras source contract", () => {
 
   it("looks for executable files", () => {
     expect(src()).toContain("0o111");
+  });
+
+  it("the repo's cluster-tooling extras are executable in the checkout (the selector lists by exec bit)", () => {
+    for (const name of ["k3d.sh", "k9s.sh", "telepresence.sh", "kubernetes-tools.sh"]) {
+      const st = statSync(join(ROOT, ".devcontainer", "install-extras", name));
+      expect(st.mode & 0o111, `${name} must carry the exec bit or install-extras never lists it`).not.toBe(0);
+    }
   });
 });

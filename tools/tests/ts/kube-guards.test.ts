@@ -93,7 +93,7 @@ beforeEach(() => {
       'echo "telepresence $*" >> "${STUB_CALL_LOG:?}"',
       'case "$1" in',
       '    status) echo \'{"user_daemon":{"status":"Connected"}}\' ;;',
-      '    replace) exit 1 ;;',
+      '    intercept) exit 1 ;;',
       "esac",
       "exit 0",
       "",
@@ -314,8 +314,8 @@ describe("scripts/kube-guards", () => {
   });
 
   it("kube-intercept: a failed intercept exits non-zero", () => {
-    const r = runTool("kube-intercept", ["api=8080"], { STUB_KUBECTL_PODS: "api-1" });
+    const r = runTool("kube-intercept", ["api=8080"], { STUB_KUBECTL_DEPLOYS: "api" });
     expect(r.status).toBe(1);
-    expect(callLog()).toContain("telepresence replace api-1");
+    expect(callLog()).toContain("telepresence intercept api");
   });
 });
