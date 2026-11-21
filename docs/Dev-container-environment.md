@@ -260,6 +260,31 @@ When using Podman, tell VS Code to use it as the container engine by adding this
 
 Without that setting, VS Code's Dev Containers extension defaults to `docker` and container operations will fail on a Podman-only machine. Everything else — `./setup`, first container build, Reopen in Container — works identically under Podman.
 
+## Host preparation: cpuset delegation for local Kubernetes
+
+Local Kubernetes clusters (k3d — see `install-extras/kubernetes-tools.sh`) run k3s inside the dev container, and **k3s hard-fails at startup unless the `cpuset` cgroup controller is delegated to the container's slice**. On cgroup v2 hosts, controllers must be enabled top-down through the cgroup hierarchy, and by default the container's slice does not get `cpuset`. Without it, `k3d cluster create` produces nodes whose kubelet crash-loops with a controller-not-found error.
+
+`container-start.sh` checks for this on every start (`/sys/fs/cgroup/cgroup.controllers`) and prints a loud warning with fix pointers when `cpuset` is missing; it stays silent when everything is in order.
+
+**Fix on the host** (both scripts live in the repo's `.host/` directory and self-elevate with `sudo`):
+
+* **Durable fix — `.host/cpuset-delegate.sh`**: writes a systemd drop-in that adds `cpuset` to the `Delegate=` set of the unit that owns the container. Detection probes podman then docker for the dev container (name pattern `vsc-…`; override with `--container-name` or `CONTAINER_NAME`); `--force-docker`/`--force-user` skip detection. Survives host reboots. Run it once per host; `./setup` offers to run it automatically the first time it sees a systemd host. Note: the toggle's chain walk is scoped to the one container it targets — the drop-in is the fix that covers future containers.
+* **Same-session fix — `.host/cpuset-live-toggle.sh`**: walks the container's cgroup chain top-down (shallowest level first — the kernel only exposes `cpuset` at a level after its parent enables it) and enables `+cpuset` at each level. Takes effect immediately for that container (no host reboot) but does not persist — a container recreated later needs the walk re-run, or the reboot-effective drop-in. If a level in the chain does not expose `cpuset` as available, it stops and tells you to run the delegate script instead.
+
+Both scripts require cgroup v2 and refuse clearly on other hosts (cgroup v1, non-Linux, non-systemd).
+
+After the durable fix, restart the container; after the live toggle, k3d works in the current session right away.
+
+**Runtime matrix** (rootless podman verified live against k3d v5.9.0 / k3s v1.35.5 — a smoke cluster went `Ready` with the kubelet-in-user-namespace gate; the other rows are analysis, not live-proven):
+
+| Host runtime | cpuset situation | Fix |
+|---|---|---|
+| Podman rootless | Container sits in the user slice (`user@.service`); `cpuset` not delegated by default | `cpuset-delegate.sh` (mode `user`) + `cpuset-live-toggle.sh` — **live-verified** |
+| Docker (rootful) | Delegation typically broader, but distro/systemd defaults vary; k3s still demands `cpuset` visible in the container | `cpuset-delegate.sh` (auto-detects via docker when the container is visible; `--force-docker` if detection misses) — *analysis, not live-proven* |
+| Podman rootful | Same systemd mechanics as Docker — depends on what the unit delegates | `cpuset-delegate.sh` (auto-detect; `--force-docker` selects the docker-service drop-in shape) — *analysis, not live-proven* |
+
+If `cpuset-live-toggle.sh` reports that `cpuset` is not available to enable at some level of the chain, the host kernel or an intermediate unit is constraining the controller set — check `cat /sys/fs/cgroup/cgroup.controllers` on the host itself.
+
 ## Utilities
 
 ### Scripts
@@ -329,6 +354,16 @@ Trade-off (accepted): convenience over at-rest minimization — the seed gives z
 * SSH Key: Configure via the initial setup or re-run the setup script
 
 ## Troubleshooting
+
+### Privileged containers fail after host sleep/replug ("mount src ... ENOENT")
+
+Stale devtmpfs bind-mounts with deleted host-side sources accumulate under
+`/dev` when the host sleeps and re-plugs devices. Every privileged container
+(including k3d node containers) refuses to start while they exist.
+`container-start.sh` sweeps them automatically at container start (unmount
+and remove). If a privileged container still fails mid-session, run the
+sweep manually by restarting the container, or check
+`grep '//deleted' /proc/self/mountinfo`.
 
 ### "Unable to connect to VS Code" errors
 

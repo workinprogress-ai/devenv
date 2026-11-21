@@ -31,8 +31,10 @@ if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_BIN"; then
   exit 1
 fi
 
-chmod +x "$TMP_BIN" || { rm -f "$TMP_BIN"; echo "ERROR: chmod failed"; exit 1; }
-sudo mv "$TMP_BIN" /usr/local/bin/telepresence || { rm -f "$TMP_BIN"; echo "ERROR: install failed"; exit 1; }
+# install(1): atomically places a root-owned 755 binary (mktemp files are
+# 0600 user-owned; chmod+mv would leave a user-writable file on PATH).
+sudo install -m 755 "$TMP_BIN" /usr/local/bin/telepresence || { rm -f "$TMP_BIN"; echo "ERROR: install failed"; exit 1; }
+rm -f "$TMP_BIN"
 
 if ! command -v telepresence &> /dev/null; then
   echo "ERROR: telepresence installation failed"

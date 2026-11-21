@@ -1662,6 +1662,9 @@ describe("bootstrap: docs, helpers, robustness", () => {
     const homeDir = tmpPath("hmpath");
     mkdirSync(join(toolbox, "tools"), { recursive: true });
     mkdirSync(join(toolbox, "repos", "r1", ".devenv", "bin"), { recursive: true });
+    // Transition state: a repo still on the legacy scripts/ layout keeps
+    // its tools reachable — both dirs are probed independently.
+    mkdirSync(join(toolbox, "repos", "r2", "scripts"), { recursive: true });
     mkdirSync(homeDir, { recursive: true });
     const r = spawnSync("node", [join(PROVISION, "devenvrc.ts")], {
       encoding: "utf8",
@@ -1674,7 +1677,8 @@ describe("bootstrap: docs, helpers, robustness", () => {
         `. '${rcFile}' 2>/dev/null\nfirst="$PATH"\n` +
         `. '${rcFile}' 2>/dev/null\n` +
         `[ "$PATH" = "$first" ] || { echo 'PATH grew'; exit 11; }\n` +
-        `case "$PATH" in *'${toolbox}/tools:'*'${toolbox}/repos/r1/.devenv/bin'*) ;; *) echo "order: $PATH"; exit 12 ;; esac\n`,
+        `case "$PATH" in *'${toolbox}/tools:'*'${toolbox}/repos/r1/.devenv/bin'*) ;; *) echo "order: $PATH"; exit 12 ;; esac\n` +
+        `case "$PATH" in *'${toolbox}/repos/r2/scripts'*) ;; *) echo "legacy scripts missing: $PATH"; exit 13 ;; esac\n`,
       { HOME: homeDir },
     );
     expect(r2.status).toBe(0);

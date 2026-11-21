@@ -135,7 +135,9 @@ const isPortName = (value: string): boolean => /^[a-z][a-z0-9-]*$/i.test(value) 
 /** Resolve a named container port's containerPort for DEPLOYMENT via
  * kubectl. Exits misuse when the deployment declares no such port — the
  * named-port form is only valid against a declared name. */
-function resolveContainerPort(deployment: string, portName: string, mapping: string): string {
+function fetchDeploymentSpec(deployment: string, portName: string, mapping: string): {
+  spec?: { template?: { spec?: { containers?: Array<{ ports?: Array<{ name?: string; containerPort?: number }> }> } } };
+} {
   let stdout = "";
   try {
     const r = spawnKubectl(["get", "deployment", deployment, "-n", ns, "-o", "json"]);
@@ -150,14 +152,16 @@ function resolveContainerPort(deployment: string, portName: string, mapping: str
   }
   // Parse failure is an environment problem (polluted output), not a mapping
   // problem — diagnose it as such instead of claiming the port is undeclared.
-  let spec: {
-    spec?: { template?: { spec?: { containers?: Array<{ ports?: Array<{ name?: string; containerPort?: number }> }> } } };
-  };
   try {
-    spec = JSON.parse(stdout) as typeof spec;  } catch {
+    return JSON.parse(stdout) as ReturnType<typeof fetchDeploymentSpec>;
+  } catch {
     console.error(`kubectl returned unparseable output reading deployment ${deployment} (port '${portName}'): ${mapping}`);
     process.exit(EXIT_GENERAL_ERROR);
   }
+}
+
+function resolveContainerPort(deployment: string, portName: string, mapping: string): string {
+  const spec = fetchDeploymentSpec(deployment, portName, mapping);
   for (const c of spec.spec?.template?.spec?.containers ?? []) {
     for (const p of c.ports ?? []) {
       if (p.name === portName && p.containerPort !== undefined) return String(p.containerPort);
@@ -165,27 +169,6 @@ function resolveContainerPort(deployment: string, portName: string, mapping: str
   }
   console.error(`Deployment ${deployment} declares no port named '${portName}' in mapping: ${mapping}`);
   process.exit(EXIT_MISUSE);
-}
-
-/** Whether DEPLOYMENT declares a port named PORTNAME (validation for the
- * LOCAL:PORTNAME pair form — the same check resolveContainerPort applies to
- * the bare form). */
-function portNameDeclared(deployment: string, portName: string): boolean {
-  try {
-    const r = spawnKubectl(["get", "deployment", deployment, "-n", ns, "-o", "json"]);
-    if (r.status !== 0) return false;
-    const spec = JSON.parse(r.stdout) as {
-      spec?: { template?: { spec?: { containers?: Array<{ ports?: Array<{ name?: string }> }> } } };
-    }
-    for (const c of spec.spec?.template?.spec?.containers ?? []) {
-      for (const p of c.ports ?? []) {
-        if (p.name === portName) return true;
-      }
-    }
-  } catch {
-    return false;
-  }
-  return false;
 }
 
 interface Intercept {
@@ -281,12 +264,17 @@ for (const mapping of mappings) {
     }
     // Pair form validates the declared name too — the bare form refuses
     // eagerly; asymmetry would push the failure into telepresence's generic
-    // error after side effects have run.
-    if (isPortName(targetPort) && !portNameDeclared(deployment, targetPort)) {
-      console.error(`Deployment ${deployment} declares no port named '${targetPort}' in mapping: ${mapping}`);
-      process.exit(EXIT_MISUSE);
-    }
+    // error after side effects have run. Same status-aware resolution path:
+    // a kubectl failure must not masquerade as "port not declared".
+    if (isPortName(targetPort)) resolveContainerPort(deployment, targetPort, mapping);
     portArgs.push("--port", `${localPort}:${targetPort}`);
+  }
+  // Duplicate mappings for one deployment would run a second `telepresence
+  // intercept` under the same default intercept name — the later run
+  // replaces the earlier's ports and cleanup `leave`s twice. Refuse loudly.
+  if (intercepts.some((i) => i.deployment === deployment)) {
+    console.error(`Duplicate mapping for deployment ${deployment} — combine the ports in one mapping (comma-separated).`);
+    process.exit(EXIT_MISUSE);
   }
   intercepts.push({ deployment, portArgs });
 }
@@ -389,13 +377,16 @@ if (tm.status !== 0) {
 
 if (!telepresenceConnected()) {
   console.log("Starting telepresence...");
+  // Set before the connect attempt: a SIGINT during connect (partial
+  // daemons already running) must take the quit-daemons cleanup path, not
+  // the attach path's `leave`-against-a-half-connected-session.
+  ownsDaemons = true;
   const c = spawnSync("telepresence", ["connect"], { stdio: "inherit" });
   if (c.status === null && c.signal === "SIGINT") cleanup(130);
   if (c.status !== 0) {
     console.error("telepresence connect failed");
     cleanup(EXIT_GENERAL_ERROR);
   }
-  ownsDaemons = true;
   startWatchdog();
 } else {
   console.log("Telepresence already connected (attaching; daemons are left running on exit).");

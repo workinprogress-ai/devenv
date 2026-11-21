@@ -2935,12 +2935,20 @@ For the pod-addressed forwarders (`kube-logs`, `kube-pod-exec`, `kube-pod-consol
 Set `KUBE_NO_INTERACTIVE=1` to disable the interactive picker entirely
 (assumed by scripts and CI; interactive pickers require a TTY). Picking under
 that env is recorded/CI-only: a single match is taken; several matches are a
-`kube-forward-ports`/`kube-intercept` conflict — pin the exact pod name there,
-since blind-picking a port-forward or intercept target is a wrong-target
-action.
+`kube-forward-ports`/`kube-intercept` conflict — pin the exact pod name there
+(for `kube-forward-ports` and other pod-addressed tools) or the exact
+deployment name (for `kube-intercept`, which targets deployments), since
+blind-picking a port-forward or intercept target is a wrong-target action.
 
 Destructive scripts (`kube-pod-delete`, `kube-pod-restart`, `kube-pod-scale`)
 keep their consent gates regardless of how the namespace was supplied.
+
+### Local clusters (k3d)
+
+The `kube-*` family works identically against local k3d contexts and remote
+clusters. For the local-cluster workflow — tooling, host prerequisites
+(cpuset delegation), lifecycle, and the devenv/org-repo boundary — see
+[Local-Cluster-Usage.md](Local-Cluster-Usage.md).
 
 ---
 

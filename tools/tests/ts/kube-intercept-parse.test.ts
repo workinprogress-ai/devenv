@@ -220,6 +220,32 @@ describe("kube-intercept parse/resolution behavior locks", () => {
     expect(r.out).toContain("declares no port named 'grpc'");
   });
 
+  it("a kubectl failure during pair-form port validation reads as an environment error, not 'port not declared'", () => {
+    // The pair form validates the declared target name via the same
+    // status-aware resolution path as the bare form: a failed kubectl read
+    // (stub exits 1 — no DEPLOY_JSON served) must surface "Cannot read
+    // deployment", never "declares no port" — a transient failure misread
+    // as a mapping typo sends the user chasing a phantom error.
+    const r = runIntercept(["api=5678:http"], { STUB_KUBECTL_DEPLOYS: "api" });
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("Cannot read deployment");
+    expect(r.out).not.toContain("declares no port");
+    expect(callsContain("telepresence intercept")).toBe(false);
+  });
+
+  it("duplicate mappings for one deployment are refused at parse time", () => {
+    // Two mappings for the same deployment would run a second intercept
+    // under the same default name (replacing the first's ports) and leave
+    // twice on cleanup — refuse and tell the user to combine the ports.
+    const r = runIntercept(["api=8080:http", "api=9090:http"], {
+      STUB_KUBECTL_DEPLOYS: "api",
+      STUB_KUBECTL_DEPLOY_JSON: '{"spec":{"template":{"spec":{"containers":[{"ports":[{"name":"http","containerPort":8080}]}]}}}}',
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("Duplicate mapping for deployment api");
+    expect(callsContain("telepresence intercept")).toBe(false);
+  });
+
   it("a port pair with three colon segments is refused", () => {
     const r = runIntercept(["api=8080:http:grpc"], { STUB_KUBECTL_DEPLOYS: "api" });
     expect(r.status).not.toBe(0);

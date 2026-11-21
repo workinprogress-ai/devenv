@@ -40,13 +40,21 @@ esac
 
 # Download and install doctl
 DOWNLOAD_URL="https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-${ARCH_SUFFIX}.tar.gz"
-ARCHIVE="/tmp/doctl-${DOCTL_VERSION}-${ARCH_SUFFIX}.tar.gz"
-trap 'rm -f "$ARCHIVE"' EXIT
-
 TMP_TARBALL="$(mktemp --suffix=.tar.gz)"
+trap 'rm -f "$TMP_TARBALL"' EXIT
 
 if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_TARBALL"; then
   echo "ERROR: Failed to download doctl from $DOWNLOAD_URL"
+  rm -f "$TMP_TARBALL"
+  exit 1
+fi
+
+# Verify the pinned checksum before installing with sudo
+ACTUAL_SHA256="$(sha256sum "$TMP_TARBALL" | awk '{print $1}')"
+if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
+  echo "ERROR: doctl checksum mismatch for ${ARCH_SUFFIX}"
+  echo "  expected: $EXPECTED_SHA256"
+  echo "    actual: $ACTUAL_SHA256"
   rm -f "$TMP_TARBALL"
   exit 1
 fi

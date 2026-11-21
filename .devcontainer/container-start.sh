@@ -120,6 +120,63 @@ run_bootstrap() {
     # The lock itself is released when fd 200 is closed.
 }
 
+function sweep_stale_dev_mounts() {
+    # Host sleep/replug cycles leave devtmpfs bind-mounts under /dev whose
+    # host-side sources are deleted (mountinfo root field ends in //deleted).
+    # runc refuses to start any privileged container while such mounts exist
+    # (mount src ENOENT), so every privileged DinD workload — k3d nodes
+    # included — dies at create. Sweep them: umount each stale entry and
+    # remove the dead node. Idempotent; one entry failing must not abort
+    # container start (log and continue).
+    local swept=0
+    while IFS= read -r line; do
+        local mountpoint
+        # mountinfo layout: 1=id 2=parent 3=major:minor 4=root 5=mount point.
+        # The mount point is field 5; optional fields (master:, shared:) shift
+        # only fields after it, never before.
+        mountpoint="$(printf '%s\n' "$line" | awk '{print $5}')"
+        [ -n "$mountpoint" ] || continue
+        case "$mountpoint" in
+            /dev/*) ;;
+            *) continue ;;
+        esac
+        if umount "$mountpoint" 2>/dev/null; then
+            rm -f "$mountpoint" 2>/dev/null || true
+            echo "Swept stale /dev mount: $mountpoint"
+            swept=$((swept + 1))
+        else
+            echo "WARNING: could not unmount stale /dev entry: $mountpoint (continuing)" >&2
+        fi
+    done < <(grep '//deleted' "${DEVENV_MOUNTINFO_OVERRIDE:-/proc/self/mountinfo}" 2>/dev/null || true)
+    [ "$swept" -gt 0 ] && echo "Stale /dev mount sweep: $swept removed"
+    return 0
+}
+
+sweep_stale_dev_mounts
+
+# k3d/k3s nodes hard-fail at startup when the cpuset cgroup controller is not
+# delegated to this container's slice (k3s demands it up front). Detect that
+# early on every start and point at the host-side fix instead of leaving the
+# user to decode a kubelet crash. Silent when cpuset is present; non-fatal
+# either way — everything else in the container works without it.
+function warn_missing_cpuset() {
+    local controllers="${DEVENV_CGROUP_CONTROLLERS_OVERRIDE:-/sys/fs/cgroup/cgroup.controllers}"
+    if [ -r "$controllers" ] && ! grep -qw cpuset "$controllers" 2>/dev/null; then
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2
+        echo "WARNING: the cpuset cgroup controller is not delegated to this" >&2
+        echo "container — local k3d/k3s clusters will fail to start." >&2
+        echo "" >&2
+        echo "Fix on the host (pick one):" >&2
+        echo "  durable fix:      .host/cpuset-delegate.sh (systemd Delegate= drop-in)" >&2
+        echo "  this session:     .host/cpuset-live-toggle.sh" >&2
+        echo "Details: docs/Dev-container-environment.md (host preparation)" >&2
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2
+    fi
+    return 0
+}
+
+warn_missing_cpuset
+
 if [ ! -f "$container_bootstrap_run_file" ] && [ ! -f "$repo_bootstrap_run_file" ]; then
     echo "Bootstrap has not yet been run, running now"
     run_bootstrap

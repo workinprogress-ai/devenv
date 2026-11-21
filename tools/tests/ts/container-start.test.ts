@@ -2,7 +2,7 @@
 // mechanism and bootstrap coordination, exercised against a mock toolbox.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -113,6 +113,145 @@ describe("container-start structure", () => {
 
   it("container-start.sh warns when no repos are cloned", () => {
     expect(grepFile("No repos have been cloned yet", CS)).toBe(0);
+  });
+
+  it("container-start.sh sweeps stale /dev mounts before bootstrap dispatch", () => {
+    expect(grepFile("^function sweep_stale_dev_mounts()", CS)).toBe(0);
+    // The sweep consults mountinfo's deleted-source marker and is idempotent,
+    // non-fatal per entry, and runs unconditionally before the dispatch.
+    expect(grepFile("//deleted", CS)).toBe(0);
+    expect(grepFile("could not unmount stale /dev entry", CS)).toBe(0);
+    // The call site precedes the bootstrap/startup dispatch.
+    const src = spawnSync("cat", [CS], { encoding: "utf8" }).stdout ?? "";
+    const callIdx = src.indexOf("sweep_stale_dev_mounts\n");
+    const dispatchIdx = src.indexOf('if [ ! -f "$container_bootstrap_run_file" ]');
+    expect(callIdx).toBeGreaterThan(-1);
+    expect(dispatchIdx).toBeGreaterThan(callIdx);
+  });
+
+  it("sweep_stale_dev_mounts: unmounts and removes stale /dev entries, skips non-/dev and tolerates failures", () => {
+    // Behavior lock against a fixture mountinfo (DEVENV_MOUNTINFO_OVERRIDE
+    // seam; production reads /proc/self/mountinfo) and a stubbed umount:
+    // /dev entries with //deleted sources are unmounted; entries elsewhere
+    // are untouched; a failing umount logs and continues.
+    const fx = mkdtempSync(join(tmpdir(), "sweep-fx-"));
+    try {
+      // Real mountinfo layout: 4=root, 5=mount point; one line carries an
+      // optional master: field (shifts only post-point fields).
+      const mountinfo = [
+        "4046 4298 0:7 /hidraw7//deleted /dev/hidraw7 rw,nosuid - devtmpfs udev rw",
+        "4047 4298 0:7 /sound//deleted /run/sound rw - devtmpfs udev rw",
+        "4048 4298 0:7 /input/event27//deleted /dev/input/event27 rw,nosuid master:2 - devtmpfs udev rw",
+        "4049 4298 0:7 /live /dev/live rw - devtmpfs udev rw",
+      ].join("\n");
+      writeFileSync(join(fx, "mountinfo"), `${mountinfo}\n`);
+      const bin = join(fx, "bin");
+      mkdirSync(bin);
+      writeFileSync(
+        join(bin, "umount"),
+        [
+          "#!/usr/bin/env bash",
+          'echo "umount $*" >> "${SWEEP_LOG:?}"',
+          // Fail one /dev target to exercise the non-fatal path.
+          'if [[ "$1" == "/dev/input/event27" ]]; then exit 1; fi',
+          "exit 0",
+          "",
+        ].join("\n"),
+      );
+      writeFileSync(join(bin, "awk"), ["#!/usr/bin/env bash", "exec /usr/bin/awk \"$@\"", ""].join("\n"));
+      chmodSync(join(bin, "umount"), 0o755);
+      chmodSync(join(bin, "awk"), 0o755);
+      const sweepFn = spawnSync("sed", ["-n", "/^function sweep_stale_dev_mounts/,/^}/p", CS], { encoding: "utf8" });
+      expect(sweepFn.stdout).toContain("sweep_stale_dev_mounts");
+      const r = spawnSync("bash", ["-c", sweepFn.stdout + "\nsweep_stale_dev_mounts"], {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          SWEEP_LOG: join(fx, "umount.log"),
+          DEVENV_MOUNTINFO_OVERRIDE: join(fx, "mountinfo"),
+          PATH: `${bin}:${process.env.PATH ?? ""}`,
+        },
+      });
+      expect(r.status).toBe(0);
+      const out = (r.stdout ?? "") + (r.stderr ?? "");
+      expect(out).toContain("Swept stale /dev mount: /dev/hidraw7");
+      expect(out).toContain("WARNING: could not unmount stale /dev entry: /dev/input/event27");
+      const called = readFileSync(join(fx, "umount.log"), "utf8").split("\n").filter(Boolean);
+      expect(called).toContain("umount /dev/hidraw7");
+      expect(called).toContain("umount /dev/input/event27");
+      expect(called).not.toContain("umount /run/sound");
+      expect(called).not.toContain("umount /dev/live");
+    } finally {
+      rmSync(fx, { recursive: true, force: true });
+    }
+  });
+
+  it("container-start.sh warns about missing cpuset delegation before bootstrap dispatch", () => {
+    expect(grepFile("^function warn_missing_cpuset()", CS)).toBe(0);
+    expect(grepFile("cpuset cgroup controller is not delegated", CS)).toBe(0);
+    expect(grepFile("cpuset-delegate\\.sh", CS)).toBe(0);
+    expect(grepFile("cpuset-live-toggle\\.sh", CS)).toBe(0);
+    expect(grepFile("Dev-container-environment\\.md", CS)).toBe(0);
+    // The call site precedes the bootstrap/startup dispatch.
+    const src = spawnSync("cat", [CS], { encoding: "utf8" }).stdout ?? "";
+    const callIdx = src.indexOf("warn_missing_cpuset\n");
+    const dispatchIdx = src.indexOf('if [ ! -f "$container_bootstrap_run_file" ]');
+    expect(callIdx).toBeGreaterThan(-1);
+    expect(dispatchIdx).toBeGreaterThan(callIdx);
+  });
+
+  it("warn_missing_cpuset: loud when cpuset is absent, silent when present, non-fatal when unreadable", () => {
+    // Behavior lock against fixture controller files (DEVENV_CGROUP_CONTROLLERS_OVERRIDE
+    // seam; production reads /sys/fs/cgroup/cgroup.controllers).
+    const runFn = (fixture: string) => {
+      const fn = spawnSync("sed", ["-n", "/^function warn_missing_cpuset/,/^}/p", CS], { encoding: "utf8" });
+      expect(fn.stdout).toContain("warn_missing_cpuset");
+      return spawnSync("bash", ["-c", fn.stdout + "\nwarn_missing_cpuset; echo rc=$?"], {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          DEVENV_CGROUP_CONTROLLERS_OVERRIDE: fixture,
+        },
+      });
+    };
+    // cpuset absent -> loud warning naming both fix scripts + docs, exit 0.
+    const fx = mkdtempSync(join(tmpdir(), "cpuset-fx-"));
+    try {
+      writeFileSync(join(fx, "no-cpuset"), "cpuset cpu memory pids\n".replace("cpuset ", ""));
+      writeFileSync(join(fx, "with-cpuset"), "cpuset cpu memory pids\n");
+      writeFileSync(join(fx, "trailing"), "cpusetX cpu memory pids\n");
+
+      const absent = runFn(join(fx, "no-cpuset"));
+      expect(absent.status).toBe(0);
+      const absentOut = (absent.stdout ?? "") + (absent.stderr ?? "");
+      expect(absentOut).toContain("cpuset cgroup controller is not delegated");
+      expect(absentOut).toContain(".host/cpuset-delegate.sh");
+      expect(absentOut).toContain(".host/cpuset-live-toggle.sh");
+      expect(absentOut).toContain("Dev-container-environment.md");
+      expect(absentOut).toContain("rc=0");
+
+      // cpuset present -> silent (word match, not substring: cpusetX must not match).
+      const present = runFn(join(fx, "with-cpuset"));
+      expect(present.status).toBe(0);
+      expect(((present.stdout ?? "") + (present.stderr ?? ""))).not.toContain("not delegated");
+      const trailing = runFn(join(fx, "trailing"));
+      expect(trailing.status).toBe(0);
+      expect(((trailing.stdout ?? "") + (trailing.stderr ?? ""))).toContain("not delegated");
+
+      // unreadable/missing file -> silent and non-fatal (grep failure is fine).
+      const missing = runFn(join(fx, "does-not-exist"));
+      expect(missing.status).toBe(0);
+      expect(((missing.stdout ?? "") + (missing.stderr ?? ""))).not.toContain("not delegated");
+      expect((missing.stdout ?? "")).toContain("rc=0");
+
+      // empty file (exists, zero bytes) -> grep matches nothing: warn, exit 0.
+      writeFileSync(join(fx, "empty"), "");
+      const empty = runFn(join(fx, "empty"));
+      expect(empty.status).toBe(0);
+      expect(((empty.stdout ?? "") + (empty.stderr ?? ""))).toContain("not delegated");
+    } finally {
+      rmSync(fx, { recursive: true, force: true });
+    }
   });
 });
 

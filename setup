@@ -336,6 +336,37 @@ elif $has_podman; then
   echo "Podman detected. Using Podman as container runtime."
 fi
 
+# k3s (k3d clusters inside the dev container) requires the cpuset cgroup
+# controller; systemd hosts that delegate only cpu/memory/pids to the user
+# session must add cpuset to the delegated set or every k3d cluster hangs.
+# Offer the durable fix once per machine; the fix itself is a host-side
+# systemd drop-in installed by .host/cpuset-delegate.sh (self-elevating).
+if [ -d /run/systemd/system ]; then
+  if [ ! -f "$SETUP_DIR/cpuset_delegated" ]; then
+    echo ""
+    echo "Enabling k3d cluster support (cpuset cgroup delegation) is recommended"
+    echo "on this systemd host — without it, k3d clusters inside the dev container"
+    echo "hang at startup."
+    echo -n "Install the cpuset delegation drop-in now (needs sudo)? [y/N] "
+    read -r cpuset_response
+    if [[ "$cpuset_response" =~ ^[Yy]$ ]]; then
+      if "$toolbox_root/.host/cpuset-delegate.sh"; then
+        touch "$SETUP_DIR/cpuset_delegated"
+        echo "cpuset delegation installed — effective at next reboot/session start."
+        echo "For same-session use, run .host/cpuset-live-toggle.sh from the host."
+      else
+        # No marker on failure: a failed install must re-offer on the next
+        # run instead of silently suppressing the retry.
+        echo "cpuset delegation install failed — run .host/cpuset-delegate.sh manually."
+      fi
+    else
+      # Declining records the offer was made; re-run setup and delete
+      # $SETUP_DIR/cpuset_delegated to be asked again.
+      touch "$SETUP_DIR/cpuset_delegated" 2>/dev/null || true
+    fi
+  fi
+fi
+
 # Check write permission
 if [ ! -w "$toolbox_root" ]; then
   echo "You do NOT have write permission on '$toolbox_root'."
