@@ -120,6 +120,8 @@ Before proposing the message, scan the draft for ephemeral workflow vocabulary: 
 
 When the craft is done, choose the host path from the actual session:
 
+**Lane selection is the tool's, driven by TTY presence — not by AI-vs-human.** When the execution shell has a real TTY on both stdin and stdout, the editor lane applies even when an AI session drives the terminal (this workspace's persistent tool terminal is exactly that case): invoke `repo-commit` plainly and expect the configured editor (VS Code tab via `code --wait`, or a terminal editor) as the human gate. The approval broker exists for hosts that integrate without a TTY at all — there, and only there, the structured-prompt flow below is the gate. Passing `--approval-session` on a TTY session is silently inert: the tool ignores it and opens the editor. Never narrate a broker request the tool did not create.
+
 - **TTY session:** present the suggested message in chat, then invoke `repo-commit` directly — **no pre-run confirmation interview**. The git editor opens pre-loaded with the suggestion, and the editor save is the permission gate. The user can edit the message freely there, empty it to decline, or abort.
 - **No-TTY AI session:** use the approval broker flow below. The structured host prompt, not a chat acknowledgement, is the human gate. The first `repo-commit` invocation creates a pending request and does not commit.
 
