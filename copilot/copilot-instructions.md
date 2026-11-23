@@ -170,6 +170,10 @@ enforces this; `git-unwip` recovers).
 
 When a repository-content edit (or any tracker mutation beyond the active skill's own lane) happens under a skill, the governing frame is named in one line at the mutation point — e.g. "That edit is sanctioned by the delegate handback window" or "This is a chat side action: issue metadata only, not repository content." The line is cheap; it forces the frame choice to be *made* rather than assumed, and makes every mutation auditable afterward. Prefer session discipline (docs/Workflow.md — one session, one concern; fork rather than interleave) so this rule rarely has to arbitrate.
 
+### Hand over facts, not conclusions at every skill switch
+
+Every skill-to-skill transition — in-session or in a new session, including the user typing a new slash command mid-session — follows the [Skill Handoff Protocol](copilot/skills/common/references/skill-handoff-protocol.md). The short form: when a skill proposes the move, it hands over only the user's own words and artifact references, offers both switch options (here, or in a new session), lists owed obligations, and — for an in-session switch — emits a frame-close line; "switch here" means loading the target skill after the user's explicit yes so it becomes the active frame. A new-session handoff is one copyable fenced block. The receiver — always, including when the user typed the command themselves and no skill proposed anything — treats a prior skill's conclusions, consent, and gates as input, never authorization, and runs its own intake and gates in full. A routing conclusion such as "textbook delegate commission" is never passed to the next skill as an argument.
+
 ### Language policy
 
 **Internal reasoning (thinking):** the user's language, always. Reason about the work in whatever language the user is writing in.

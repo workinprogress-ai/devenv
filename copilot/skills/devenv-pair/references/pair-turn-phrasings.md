@@ -1,4 +1,4 @@
-# Handoff Protocol — Phrasings
+# Pair Turn-Taking — Phrasings
 
 Concrete language patterns for the pair-programming handoff. Use these as-is or adapt; the goal is consistency so the user always knows what state we're in.
 

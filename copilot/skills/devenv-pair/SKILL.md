@@ -500,7 +500,7 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
 > **Precondition:** these steps begin only after the split from Step 6 is explicitly agreed. Do not start step 1 while still waiting for the user to confirm the split.
 
-Concrete example phrasings for every handoff state (AI implementing, AI reviewing, pushback, "I don't know", wrap-up) are in [`references/handoff-protocol.md`](./references/handoff-protocol.md).
+Concrete example phrasings for every handoff state (AI implementing, AI reviewing, pushback, "I don't know", wrap-up) are in [`references/pair-turn-phrasings.md`](./references/pair-turn-phrasings.md).
 
 ### Assignment intake (required before code)
 

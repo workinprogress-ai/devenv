@@ -220,7 +220,7 @@ The two-session pattern generalizes: keep sessions separated **by concern**, not
 |---|---|
 | Different skill, same context would help, commission open | **Fork** — do the side work in the fork, return to the original explicitly |
 | New task, prior session's frame/history would pollute it | **Fresh session** — optionally warmed by `/devenv-load` |
-| Same concern continues, no commission conflict | Stay in-session; normal skill switching rules apply |
+| Same concern continues, no commission conflict | Stay in-session; follow the [Skill Handoff Protocol](../copilot/skills/common/references/skill-handoff-protocol.md) — the old skill's frame closes, its conclusions and consent do not carry over, and starting a new session instead is always your choice |
 | Quick question mid-commission, read-only | Either: ask in the commission session (handback windows allow Q&A), or fork if you want the commission tab untouched |
 | Two sessions would touch the same plan | **Never** — the commission never forks; one writer per plan |
 
