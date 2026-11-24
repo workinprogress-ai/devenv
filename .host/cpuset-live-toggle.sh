@@ -14,14 +14,12 @@
 # discovers the dev container's host-side cgroup chain and walks it.
 #
 # Self-elevates: the /sys/fs/cgroup writes require root; re-execs under sudo.
+# Discovery runs as the invoking user BEFORE elevation — root's podman is a
+# separate store (broken outright on some hosts) and cannot see the user's
+# rootless containers — so the elevated re-exec carries the resolved --chain.
 # DEVENV_TOGGLE_SKIP_ELEVATE=1 is a test seam (hermetic suites run as the
 # container user against a writable fake tree).
 set -euo pipefail
-
-if [ "$(id -u)" -ne 0 ] && [ "${DEVENV_TOGGLE_SKIP_ELEVATE:-0}" != "1" ]; then
-    echo "Re-running under sudo (cgroup writes require root)..."
-    exec sudo "$0" "$@"
-fi
 
 usage() {
     echo "Usage: $0 [--chain <cgroup-path>] [--container-name <name>]"
@@ -46,6 +44,12 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ -z "$CHAIN" ]; then
+    if [ "$(id -u)" -eq 0 ]; then
+        echo "Error: running as root without --chain: discovery needs the invoking" >&2
+        echo "user's podman (root's store cannot see rootless containers). Run as your" >&2
+        echo "regular user — the script self-elevates — or pass --chain." >&2
+        exit 1
+    fi
     # The script runs on the host; the dev container is not named after the
     # host's hostname. Default to the dev-container naming pattern (vsc-…).
     NAME="${CONTAINER_NAME:-vsc-}"
@@ -53,7 +57,12 @@ if [ -z "$CHAIN" ]; then
         echo "Error: podman not found and no --chain given; cannot discover the cgroup chain." >&2
         exit 1
     fi
-    CID="$(podman ps -q --filter "name=$NAME" 2>/dev/null | head -1 || true)"
+    if ! PS_OUT="$(podman ps -q --filter "name=$NAME" 2>&1)"; then
+        echo "Error: podman ps failed:" >&2
+        printf '%s\n' "$PS_OUT" >&2
+        exit 1
+    fi
+    CID="$(head -n1 <<< "$PS_OUT")"
     if [ -z "$CID" ]; then
         echo "Error: no podman container matches name '$NAME'; pass --container-name or --chain." >&2
         exit 1
@@ -70,6 +79,13 @@ fi
 if [ -z "$CHAIN" ]; then
     echo "Error: discovered cgroup chain is empty." >&2
     exit 1
+fi
+
+# Elevation happens only now, chain in hand: root privileges are needed for
+# the cgroup writes alone, and the re-exec carries the user-resolved chain.
+if [ "$(id -u)" -ne 0 ] && [ "${DEVENV_TOGGLE_SKIP_ELEVATE:-0}" != "1" ]; then
+    echo "Re-running under sudo (cgroup writes require root)..."
+    exec sudo "$0" --chain "$CHAIN"
 fi
 
 # cgroup v2 only: the walk writes cgroup.subtree_control files that do not

@@ -24,12 +24,10 @@
 #    not live-proven).
 #
 # Self-elevates: requires root for the /etc writes; re-execs under sudo.
+# Rootless-podman detection runs as the invoking user BEFORE elevation
+# (root's podman store cannot see rootless containers); the elevated
+# re-exec carries the resolved --force-user/--force-docker mode.
 set -euo pipefail
-
-if [ "$(id -u)" -ne 0 ]; then
-    echo "Re-running under sudo (writes to /etc require root)..."
-    exec sudo "$0" "$@"
-fi
 
 CONTROLLER_SET="cpu cpuset memory pids"
 
@@ -73,6 +71,34 @@ elif [ "$(id -u)" -eq 0 ]; then
     TARGET_UID="${UID_ARG:-1000}"
 else
     TARGET_UID="${UID_ARG:-$(id -u)}"
+fi
+
+# Rootless podman containers are visible only to the invoking user's podman
+# (root's store is separate — and broken outright on some hosts), so that
+# probe runs BEFORE elevation and the resolved mode rides the sudo re-exec.
+USER_CHAIN=""
+if [ -z "$MODE" ] && [ "$(id -u)" -ne 0 ] && command -v podman >/dev/null 2>&1; then
+    if ! PS_OUT="$(podman ps -q --filter "name=${CONTAINER_NAME:-vsc-}" 2>&1)"; then
+        echo "Warning: podman ps failed (continuing detection):" >&2
+        printf '%s\n' "$PS_OUT" >&2
+        PS_OUT=""
+    fi
+    UCID="$(head -n1 <<< "$PS_OUT")"
+    if [ -n "$UCID" ]; then
+        UPID="$(podman inspect "$UCID" --format '{{.State.Pid}}' 2>/dev/null || true)"
+        if [ -n "$UPID" ] && [ -r "/proc/$UPID/cgroup" ]; then
+            USER_CHAIN="$(awk -F:: '/^0::/{print $2}' "/proc/$UPID/cgroup")"
+        fi
+    fi
+fi
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Re-running under sudo (writes to /etc require root)..."
+    case "$USER_CHAIN" in
+        *user@*.service*) exec sudo "$0" --force-user "$@" ;;
+        "") exec sudo "$0" "$@" ;;
+        *) exec sudo "$0" --force-docker "$@" ;;
+    esac
 fi
 
 if [ -z "$MODE" ]; then

@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 const TOGGLE = join(ROOT, ".host", "cpuset-live-toggle.sh");
+const DELEGATE = join(ROOT, ".host", "cpuset-delegate.sh");
 const SETUP = join(ROOT, "setup");
 const K3D_INSTALLER = join(ROOT, ".devcontainer", "install-extras", "k3d.sh");
 
@@ -201,6 +202,146 @@ describe("k3d installer cpuset pre-flight", () => {
       expect(out).toContain("past-pre-flight rc=0");
     } finally {
       rmSync(fx, { recursive: true, force: true });
+    }
+  });
+});
+
+/**
+ * Discovery & elevation ordering locks. Shipped bug: both scripts elevated
+ * BEFORE container discovery, so discovery ran under root's podman — which
+ * cannot see the invoking user's rootless containers (separate stores; on
+ * some hosts root's podman is broken outright). Locks: discovery happens
+ * with the invoking user's podman, podman failures surface as failures
+ * (not masked as "no match"), and the elevated re-exec carries the resolved
+ * --chain (toggle) / resolved mode flag (delegate) so root never needs podman.
+ */
+describe("cpuset-live-toggle discovery & elevation ordering", () => {
+  const mkbin = (): { bin: string; log: string } => {
+    const bin = mkdtempSync(join(tmpdir(), "cpuset-bin-"));
+    return { bin, log: join(bin, "calls.log") };
+  };
+  const writeHelper = (path: string, body: string): void => {
+    writeFileSync(path, body, { mode: 0o755 });
+  };
+  const runToggleEnv = (bin: string, cgroupRoot: string, args: string[]) =>
+    spawnSync("bash", [TOGGLE, ...args], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        DEVENV_CGROUP_SYSFS_OVERRIDE: cgroupRoot,
+      },
+    });
+
+  it("discovers with the invoking user's podman, then elevates with the resolved --chain", () => {
+    const fx = mkdtempSync(join(tmpdir(), "cpuset-order-"));
+    const { bin, log } = mkbin();
+    const sleeper = spawn("sleep", ["60"]);
+    try {
+      const pid = sleeper.pid!;
+      writeHelper(join(bin, "podman"), [
+        "#!/usr/bin/env bash",
+        `echo "podman uid=$(id -u) args: $*" >> ${log}`,
+        'if [ "$1" = "ps" ]; then echo fakecid; exit 0; fi',
+        `if [ "$1" = "inspect" ]; then echo ${pid}; exit 0; fi`,
+        "exit 1",
+      ].join("\n"));
+      writeHelper(join(bin, "sudo"), [
+        "#!/usr/bin/env bash",
+        `echo "sudo args: $*" >> ${log}`,
+        'DEVENV_TOGGLE_SKIP_ELEVATE=1 exec "$@"',
+      ].join("\n"));
+      // Fake cgroup v2 tree shaped for the sleeper's real chain (0::<path>).
+      writeFileSync(join(fx, "cgroup.controllers"), "cpuset cpu memory pids\n");
+      writeFileSync(join(fx, "cgroup.subtree_control"), "\n");
+      const chain = readFileSync(`/proc/${pid}/cgroup`, "utf8")
+        .split("\n").find((l) => l.startsWith("0::"))!.slice(3);
+      const lvl = join(fx, chain.replace(/^\//, ""));
+      mkdirSync(lvl, { recursive: true });
+      writeFileSync(join(lvl, "cgroup.controllers"), "cpu io memory pids\n");
+      writeFileSync(join(lvl, "cgroup.subtree_control"), "\n");
+
+      const r = runToggleEnv(bin, fx, ["--container-name", "test-ctr"]);
+      expect(r.status).toBe(0);
+      expect((r.stdout ?? "") + (r.stderr ?? "")).toContain("Result: cpuset enabled down the chain");
+      const calls = readFileSync(log, "utf8").split("\n").filter(Boolean);
+      const podmanIdx = calls.findIndex((c) => c.startsWith("podman"));
+      const sudoIdx = calls.findIndex((c) => c.startsWith("sudo"));
+      expect(podmanIdx).toBeGreaterThanOrEqual(0);
+      expect(sudoIdx).toBeGreaterThan(podmanIdx); // discovery BEFORE elevation
+      expect(calls[sudoIdx]).toContain("--chain"); // sudo gets the resolved chain
+    } finally {
+      sleeper.kill();
+      rmSync(fx, { recursive: true, force: true });
+      rmSync(bin, { recursive: true, force: true });
+    }
+  });
+
+  it("surfaces a podman failure instead of masking it as a name mismatch", () => {
+    const fx = mkdtempSync(join(tmpdir(), "cpuset-mask-"));
+    const { bin } = mkbin();
+    try {
+      writeHelper(join(bin, "podman"), [
+        "#!/usr/bin/env bash",
+        'echo "Error: failed to open 2048 locks in /libpod_lock: permission denied" >&2',
+        "exit 1",
+      ].join("\n"));
+      writeHelper(join(bin, "sudo"), [
+        "#!/usr/bin/env bash",
+        'DEVENV_TOGGLE_SKIP_ELEVATE=1 exec "$@"',
+      ].join("\n"));
+      const r = runToggleEnv(bin, fx, ["--container-name", "anything"]);
+      expect(r.status).toBe(1);
+      const out = (r.stdout ?? "") + (r.stderr ?? "");
+      expect(out).toContain("podman ps failed");
+      expect(out).toContain("libpod_lock");
+      expect(out).not.toContain("no podman container matches");
+    } finally {
+      rmSync(fx, { recursive: true, force: true });
+      rmSync(bin, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("cpuset-delegate detection & elevation ordering", () => {
+  it("detects via the invoking user's podman before elevating; sudo receives the resolved mode", () => {
+    const bin = mkdtempSync(join(tmpdir(), "cpuset-bin-"));
+    const log = join(bin, "calls.log");
+    const sleeper = spawn("sleep", ["60"]);
+    try {
+      const pid = sleeper.pid!;
+      writeFileSync(join(bin, "podman"), [
+        "#!/usr/bin/env bash",
+        `echo "podman args: $*" >> ${log}`,
+        'if [ "$1" = "ps" ]; then echo fakecid; exit 0; fi',
+        `if [ "$1" = "inspect" ]; then echo ${pid}; exit 0; fi`,
+        "exit 1",
+      ].join("\n"), { mode: 0o755 });
+      // Record-only sudo: the ordering + argv are the lock; the continued
+      // run (systemd checks, drop-in install) is out of scope hermetically.
+      writeFileSync(join(bin, "sudo"), [
+        "#!/usr/bin/env bash",
+        `echo "sudo args: $*" >> ${log}`,
+        "exit 0",
+      ].join("\n"), { mode: 0o755 });
+
+      const r = spawnSync("bash", [DELEGATE, "--container-name", "test-ctr"], {
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+      });
+      expect(r.status).toBe(0);
+      const calls = readFileSync(log, "utf8").split("\n").filter(Boolean);
+      const podmanIdx = calls.findIndex((c) => c.startsWith("podman"));
+      const sudoIdx = calls.findIndex((c) => c.startsWith("sudo"));
+      expect(podmanIdx).toBeGreaterThanOrEqual(0);
+      expect(sudoIdx).toBeGreaterThan(podmanIdx);
+      // The mode flag derives from the discovered chain's shape.
+      const chain = readFileSync(`/proc/${pid}/cgroup`, "utf8");
+      const expected = /user@\d+\.service/.test(chain) ? "--force-user" : "--force-docker";
+      expect(calls[sudoIdx]).toContain(expected);
+    } finally {
+      sleeper.kill();
+      rmSync(bin, { recursive: true, force: true });
     }
   });
 });
