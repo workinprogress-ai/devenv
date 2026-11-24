@@ -408,7 +408,7 @@ Format:
 | N-1 — Review | `/devenv-review` | plan-encoded mode: folds approved findings back into this plan and cycles to convergence |
 | 4 — Cleanup & docs | `/devenv-delegate` | rote removal + doc sync |
 
-Recommend, don't decide: state that the user picks the invocation (`/devenv-pair` for collaborative execution, `/devenv-delegate` for a commissioned run) and may mix modes per phase. If every phase rates pair-worthy, say so and recommend starting with `/devenv-pair` rather than a mixed commission.
+One passive line follows the table, with no offer: when a plan ends up executed in a different mode than the table recommends, a `/devenv-chat` guided tour of the result is available. Recommend, don't decide: state that the user picks the invocation (`/devenv-pair` for collaborative execution, `/devenv-delegate` for a commissioned run) and may mix modes per phase. If every phase rates pair-worthy, say so and recommend starting with `/devenv-pair` rather than a mixed commission.
 
 If step 9's publish offer was never answered (the user moved straight to execution), re-surface it here in one line: an unpublished plan loses issue-artifact sync during execution; the offer is cheapest to settle now, before the run starts.
 

@@ -186,7 +186,7 @@ direct question:
 
 Help's lane is answering questions about this devenv and running the tooling commands the user asks for, including light issue operations. It never performs another skill's work. Three trip-wires mark the edge of that lane:
 
-1. **Repo-content reads beyond docs.** Reading project-repo source, tests, or config to answer, rather than the devenv's own docs, tooling, and registry. The behavior of project code is `/devenv-chat`'s lane.
+1. **Repo-content reads beyond docs.** Reading project-repo source, tests, or config to answer, rather than the devenv's own docs, tooling, and registry. Plans and tracker state read to route the user — a plan's shape and progress, an issue's grooming and plan artifacts — are in lane. The behavior of project code is `/devenv-chat`'s lane.
 2. **Repository edits, or another skill's multi-step work.** Editing repository content, or running a multi-step workflow that a registry row assigns to a skill. Commands the user explicitly asked for stay in [execution mode](../SKILL.md#execution-mode), and light, user-directed issue operations stay there however many commands they take: log an issue, comment on it, label it; update or fetch an issue; handle the few issues the user listed. What leaves the lane is the work itself — full metadata triage of a new issue, grooming, creating issues in bulk from a roadmap or plan, or any repository edit.
 3. **Another skill's lane.** Planning, implementing, reviewing, debugging, grooming or design deep-dives, issue triage, committing — any work a registry row assigns to a skill.
 

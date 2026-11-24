@@ -220,6 +220,55 @@ describe("artifact-clean (TS pilot port)", () => {
     expect(existsSync(join(folder, "session-state-adhoc-debugging.md"))).toBe(false);
   });
 
+  it("--list reports tour ledgers as their own family, not as other", () => {
+    writeFileSync(join(folder, "tour-ledger-sync-worker.md"), "x");
+    const r = runTool([join(workDir, "repo"), "--list"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("[tour] would clean 1");
+    expect(r.stdout).toContain("[other] would clean 1");
+    expect(r.stdout).toContain("tour-ledger-sync-worker.md");
+  });
+
+  it("--tour -y deletes tour ledgers only", () => {
+    writeFileSync(join(folder, "tour-ledger-sync-worker.md"), "x");
+    writeFileSync(join(folder, "tour-ledger-retry-policy.md"), "x");
+    const r = runTool([join(workDir, "repo"), "--tour", "-y"]);
+    expect(r.status).toBe(0);
+    expect(existsSync(join(folder, "tour-ledger-sync-worker.md"))).toBe(false);
+    expect(existsSync(join(folder, "tour-ledger-retry-policy.md"))).toBe(false);
+    expect(existsSync(join(folder, "session_memory-design.md"))).toBe(true);
+    expect(existsSync(join(folder, "random-notes.md"))).toBe(true);
+    expect(existsSync(join(folder, "tmp1.md"))).toBe(true);
+  });
+
+  it("--tour without -y and without TTY refuses to delete a ledger", () => {
+    writeFileSync(join(folder, "tour-ledger-sync-worker.md"), "x");
+    const r = runTool([join(workDir, "repo"), "--tour"]);
+    expect(r.status).toBe(0);
+    expect(r.output).toContain("need confirmation");
+    expect(existsSync(join(folder, "tour-ledger-sync-worker.md"))).toBe(true);
+  });
+
+  it("family-only sweeps for other families leave tour ledgers alone", () => {
+    writeFileSync(join(folder, "tour-ledger-sync-worker.md"), "x");
+    runTool([join(workDir, "repo"), "--session", "--working", "--tmp", "-y"]);
+    expect(existsSync(join(folder, "tour-ledger-sync-worker.md"))).toBe(true);
+  });
+
+  it("--all -y clears tour ledgers along with the other families", () => {
+    writeFileSync(join(folder, "tour-ledger-sync-worker.md"), "x");
+    const r = runTool([join(workDir, "repo"), "--all", "-y"]);
+    expect(r.status).toBe(0);
+    expect(existsSync(join(folder, "tour-ledger-sync-worker.md"))).toBe(false);
+  });
+
+  it("no flags with no TTY lists tour ledgers too and deletes nothing", () => {
+    writeFileSync(join(folder, "tour-ledger-sync-worker.md"), "x");
+    const r = runTool([join(workDir, "repo")]);
+    expect(r.stdout).toContain("[tour] would clean 1");
+    expect(existsSync(join(folder, "tour-ledger-sync-worker.md"))).toBe(true);
+  });
+
   it("an unknown option is still rejected", () => {
     const r = runTool([join(workDir, "repo"), "--include-deliverable"]);
     expect(r.status).toBe(2);

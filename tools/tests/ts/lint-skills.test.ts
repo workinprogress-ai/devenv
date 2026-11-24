@@ -531,6 +531,47 @@ describe("lint-skills", () => {
     expect(runLint().status).toBe(0);
   });
 
+  it("a fence written with CRLF line endings still hides its quoted handoff example", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}\`\`\`\r\n${HANDOFF_LINE}\r\n\`\`\`\r\n\n${FEEDBACK_LINE}\n\n${HANDOFF_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    expect(runLint().status).toBe(0);
+  });
+
+  it("devenv-load is exempt from the receiving-side handoff line", () => {
+    write(
+      "devenv-help/references/skills-registry.md",
+      "| `/devenv-alpha` | x | x | x |\n| `/devenv-beta` | x | x | x |\n| `/devenv-help` | x | x | x |\n| `/devenv-load` | x | x | x |\n",
+    );
+    write("_shared/docs/Skills.md", "devenv-alpha devenv-beta devenv-help devenv-load\n");
+    write(
+      "devenv-load/SKILL.md",
+      `---\nname: devenv-load\ndescription: x\nuser-invocable: true\n---\n${FEEDBACK_LINE}\n\n# devenv-load\n`,
+      true,
+    );
+    expect(runLint().status).toBe(0);
+  });
+
+  it("the load exemption is by name only: another skill without the line still fails", () => {
+    write(
+      "devenv-help/references/skills-registry.md",
+      "| `/devenv-alpha` | x | x | x |\n| `/devenv-beta` | x | x | x |\n| `/devenv-help` | x | x | x |\n| `/devenv-load` | x | x | x |\n",
+    );
+    write("_shared/docs/Skills.md", "devenv-alpha devenv-beta devenv-help devenv-load\n");
+    write(
+      "devenv-load/SKILL.md",
+      `---\nname: devenv-load\ndescription: x\nuser-invocable: true\n---\n${FEEDBACK_LINE}\n\n# devenv-load\n`,
+      true,
+    );
+    write("devenv-alpha/SKILL.md", `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n\n# devenv-alpha\n`, true);
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("devenv-alpha/SKILL.md");
+    expect(r.out).not.toContain("devenv-load/SKILL.md");
+  });
+
   it("a SKILL.md without a Skill feedback blockquote fails", () => {
     write("devenv-alpha/SKILL.md", `${ALPHA_FRONTMATTER}${HANDOFF_LINE}\n\n# devenv-alpha\n`, true);
     const r = runLint();

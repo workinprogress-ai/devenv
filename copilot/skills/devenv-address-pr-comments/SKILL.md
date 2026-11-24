@@ -41,7 +41,7 @@ A reply and a code change can go together, but neither implies the other. And re
 
 - A reviewer left inline comments and you want to address them efficiently, with the complex ones handled thoughtfully.
 - You want the clear stuff done automatically and the nuanced stuff surfaced for your input.
-- Review feedback exists only as a markdown document — a saved `/devenv-review` report or manually captured comments — and you want the same guided workflow on it.
+- Review feedback exists only as a markdown document — a saved `/devenv-review` report, a `/devenv-chat` tour ledger, or manually captured comments — and you want the same guided workflow on it.
 
 For code review you do yourself, use `/devenv-review`. For CI failures, fix them directly — this skill is for reviewer comments.
 
@@ -56,10 +56,11 @@ For code review you do yourself, use `/devenv-review`. For CI failures, fix them
 
 **Input auto-detection:** `^[0-9]+$` → PR number. An existing `.md` file path → document mode. Otherwise → PR auto-detection from the current branch. When the argument is a number that is also a file (`42` vs `42.md`), the file wins only if it exists as given; state which mode you resolved to before proceeding.
 
-1. **PR mode:** detect PR number (from argument, or `pr-list --head <current-branch> --limit 1 | jq -r '.[0].number'`), run `pr-threads-get <N>` (unresolved only), and if 0 threads report "No unresolved review threads." and stop.
+1. **PR mode:** detect PR number (from argument, or `pr-list --head <current-branch> --limit 1 | jq -r '.[0].number'`), run `pr-threads-get <N>` (unresolved only), and if 0 threads report "No unresolved review threads." and stop. `pr-threads-get` stays the source of truth for threads. A `tour-ledger` keyed `pr-threads:<N>` or `pr:<N>` that holds unused findings is offered per the [tour ledger handoff](../common/references/tour-ledger-handoff.md): its marks are matched to the loaded threads by file and line and never create a second thread, and its other findings join as document-mode items.
 
    **Document mode:** read the feedback document and convert it to the same thread model:
    - Parse findings from the document's sections. A saved `/devenv-review` report maps directly: 🛑 Blocker → C-complex (blockers need direction), ⚠️ Concern → C-complex, 💭 Nit → A, ✅ Praise → E, "Questions for the author" → B, "Missing tests" → C-clear when the gap is localized (add the test) else C-complex, "TODO/FIXME left in the diff" → C-clear.
+   - A **tour ledger** (`tour-ledger-<topic>.md`, named by the user or detected for this PR by source match) is read through the [tour ledger handoff](../common/references/tour-ledger-handoff.md): ask before using a detected one, verify each finding's range text against the live file, and map its severity token like a report's section headings (Blocker and Concern → C-complex, Nit → A). A stale finding is surfaced, never applied from its old line.
    - An unstructured document (pasted comments, bullets): treat each bullet/comment block as one thread; classify with the table below.
    - Extract `file:line` from links or text; a finding without a locatable file is `?` (needs clarification) — never guess the target.
    - There are no thread IDs, replies, or resolution in this mode — the only actions are code changes and the final summary. State this up front: "Document mode: I'll apply fixes and summarize; there are no threads to reply to or resolve."
@@ -217,6 +218,7 @@ Done — 11 threads
 
 Then:
 
+- If a tour ledger was used → list the finding IDs addressed, qualified by the ledger name (`tour-ledger-<topic> F3`), so a later session can tell which ledger findings are used. Never write to the ledger.
 - If any code was changed → "Run `/devenv-commit` before pushing."
 - **PR mode:** if threads are left open → list each with a one-line reminder of what's pending. **Document mode:** list findings not addressed with what remains instead (there is no open/closed state).
 - If a plan was offered → remind the user to follow up with `/devenv-plan`.

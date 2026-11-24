@@ -55,6 +55,7 @@ What are you trying to do?
 │
 ├─ 🔎 Review / address feedback
 │   ├─ Review your changes              →  /devenv-review
+│   ├─ Judge unreviewed delegated work yourself, stop by stop  →  /devenv-chat (guided tour)
 │   ├─ You received PR review comments  →  /devenv-address-pr-comments
 │   └─ Review / land the work           →  /devenv-review then /devenv-commit
 │

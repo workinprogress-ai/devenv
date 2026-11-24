@@ -225,6 +225,33 @@ describe("scripts/devenv-marker-check", () => {
     expect(run(["--include-copilot", WORK_DIR]).status).toBe(1);
   });
 
+  // The marker tool's own usage text and its test fixtures spell out the marker
+  // syntax, so gate and audit scans skip exactly those two files.
+  it("gate mode: the marker tool's own source and test are not scanned", () => {
+    write("tools/ts/devenv-marker-check.ts", "// FIXME:DEVENV[p1]: usage text spelling the syntax");
+    write("tools/tests/ts/devenv-marker-check.test.ts", "// FIXME:DEVENV[p1]: fixture spelling the syntax");
+    expect(run([WORK_DIR]).status).toBe(0);
+  });
+
+  it("gate mode: scanning the tools directory itself still skips the two files", () => {
+    write("tools/ts/devenv-marker-check.ts", "// FIXME:DEVENV[p1]: usage text spelling the syntax");
+    expect(run([join(WORK_DIR, "tools")]).status).toBe(0);
+  });
+
+  it("gate mode: a real marker in any other file under tools/ still blocks", () => {
+    write("tools/ts/devenv-marker-check.ts", "// FIXME:DEVENV[p1]: usage text spelling the syntax");
+    write("tools/ts/other.ts", "// FIXME:DEVENV[p1]: real marker");
+    const r = run([WORK_DIR]);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("other.ts");
+    expect(r.out).not.toContain("devenv-marker-check.ts");
+  });
+
+  it("--no-exclude scans the marker tool's own files too", () => {
+    write("tools/ts/devenv-marker-check.ts", "// FIXME:DEVENV[p1]: usage text spelling the syntax");
+    expect(run(["--no-exclude", WORK_DIR]).status).toBe(1);
+  });
+
   it("--todo-report always scans copilot/ (colon form detected)", () => {
     mkdirSync(join(WORK_DIR, "copilot"), { recursive: true });
     write("copilot/skill.md", "// TODO:DEVENV[p1]: swap — remove when #40 merged");

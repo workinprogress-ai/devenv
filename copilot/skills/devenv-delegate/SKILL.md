@@ -600,6 +600,15 @@ Context-pressure ladder tiers are never stop-trigger values — a Tier-3 checkpo
 
 Keep this concise by default (5-8 lines). Expand only when drift is meaningful or the user asks for detail.
 
+### Review signals: pointer lines and the tour offer
+
+A delegated run makes judgment calls that appear only in handback text, and handback text does not survive compaction. Two small rules keep the signal findable and put it in front of the user at the end.  (Note that this does not weaken the rule that significant unexpected decisions must be surfaced immediately to the user.)
+
+- **Pointer line.** At each handback that carried a deviation, a consequential call made without codebase precedent, or listed hotspots, append one past-tense history line to this run's registry section — counts only, for example `phase 4 handed back — 3 hotspots, 1 call without precedent, 1 deviation`. It never carries decisions, rationale, file names or task IDs; those stay in the handback text and the plan, per the registry's content fence.
+- **Tour offer at the final handback.** The final handback offers a guided tour of the delegated work — a [`/devenv-chat`](../devenv-chat/SKILL.md) assurance tour of the plan against the diff — when any of these holds: a phase ran delegated though the plan recommended pairing or supervision (the commissioned agenda and the plan's recommendation both record it), a consequential call without codebase precedent was made, or hotspots were listed. The pointer lines are what make this computable after compaction. State the reason in the offer ("phase 4 was recommended for pairing and ran delegated; 3 hotspots"). When none of the signals holds, make no offer. The offer joins the next-step offer as an option and never replaces it.
+
+The offer follows the sending side of the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md): the user's own words, the plan and registry as artifact references, and this run's registry section marked exited. A chat tour is read-only, so switching here is the default recommendation.
+
 ### The handback window is pair-like
 
 Whenever control returns to the user — an agenda-scheduled hand-back, a mid-phase stop trigger (ambiguity, decision, obstacle, risk), an abort, a forced stop, or a return after a gap — the interaction temporarily resembles pair-programming: answer questions about what was done and why, discuss concerns and trade-offs, and handle small fixing work directly (the user is watching — this is supervised minor work, not scope expansion). Larger changes become plan edits via the handback's `Next` options. On a `delegate`-mode phase, a boundary whose evaluation passed does not open this window mid-run: the report is posted as notice and execution continues (the user can interject on it at any time). Do not restart autonomous execution on silence or the absence of further questions — after a genuine handback, execution resumes only at explicit direction: a new phase kickoff, or continuation of the current phase from where it stopped. Mid-window decision gates follow the same hard-stop rules as mid-phase ones.

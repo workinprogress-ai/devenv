@@ -6,9 +6,21 @@ A ledger travels as an artifact reference under the [Skill Handoff Protocol](./s
 
 ## Detect
 
-At intake, a consumer looks in the target repo's `.local-artifacts/` for `tour-ledger-*.md` files whose `source:` matches the work in hand — the plan stem, the PR number, the review report, or the diff the consumer was invoked on. A match counts when it holds at least one finding the consumer has not used. The tour's mode does not matter to a consumer; only the findings do.
+At intake, a consumer looks in the target repo's `.local-artifacts/` for `tour-ledger-*.md` files whose `source:` matches the work in hand, and it auto-detects only these keys:
+
+| Work in hand | Keys that match |
+|---|---|
+| A plan | `plan:`, `plan-after:` or `plan-diff:` with the plan's file stem |
+| A PR | `pr:<n>` or `pr-threads:<n>` with the PR number |
+| A review report | `review:<report path>` |
+
+A match counts when it holds at least one finding the consumer has not used. The tour's mode does not matter to a consumer; only the findings do. Ledgers keyed on a diff, a commit range, a trace, an acquaintance topic or a subset of another ledger are never auto-detected, because nothing stable ties them to a later session's work: the user names those.
+
+A review-report ledger also matches only while the report's content hash equals the ledger's `source-hash:`. A report the user has edited — findings deleted, posting markers added — no longer hashes the same, so on a mismatch the consumer says "report changed since the tour" and asks whether to use the ledger anyway; it never skips it silently.
 
 A ledger the user names explicitly skips detection and is used as named. It is still verified before use (below).
+
+When a PR is the work in hand, `/devenv-address-pr-comments` still loads the threads from the PR through its own tooling, which stays the source of truth. A `pr-threads` ledger adds only the user's marks on those threads, matched to them by file and line, so no thread is handled twice; a `pr:` ledger's findings join as document-mode items.
 
 ## Unused findings
 

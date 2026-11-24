@@ -11,6 +11,7 @@ A suite of skills covering the full development lifecycle — from thinking and 
   - [Principle skills](./Skills.md#principle-skills) — detailed write-ups of the backbone skills
   - [All skills — quick reference](./Skills.md#all-skills--quick-reference) — every skill in compact tables
   - Each skill's `SKILL.md` frontmatter (`copilot/skills/<name>/`) is authoritative; the catalog summarizes
+- **[Skill Handoff Protocol](../copilot/skills/common/references/skill-handoff-protocol.md)** — what carries over when you move from one skill to another: your words and artifacts do, a prior skill's conclusions and consent never do
 - **[Workflow Guide](./Workflow.md)** — end-to-end methodology guide with ASCII flowcharts and skill mapping notes
 - **[Progress Reporting](./Progress-Reporting.md)** — how progress is derived from plans/issues/git, the `Progress:` snapshot line, and `/devenv-board`
 - **[Knowledge & Engineering Patterns](./Knowledge-and-Engineering-Patterns.md)** — how skills consult copilot knowledge and the configurable engineering-standards repo

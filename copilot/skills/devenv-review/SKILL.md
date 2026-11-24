@@ -34,6 +34,7 @@ The user provides one of:
 - **A PR number** — e.g. `123`. Fetch via `pr-get N --pretty` (title, body, base/head refs, author, labels, draft state). Fetch the diff via `pr-diff N`.
 - **Two refs** — e.g. `--base master --head my-feature`. Use `pr-diff --base BASE --head HEAD`. This is the preferred mode for pre-PR branch reviews.
 - **Nothing** — ambiguous: resolve by what the working tree shows. **Uncommitted changes present** (staged or unstaged) → propose **uncommitted-diff mode** (diff of HEAD vs working tree + index, via `git diff HEAD`): "You have uncommitted changes — review those (for commit), or the branch vs default?" via structured interview; proceed on answer. **Clean tree** → default to current-branch-vs-default mode (announce it). `/devenv-commit branch` or a branch name given → branch mode, no ask.
+- **A tour ledger** — a `tour-ledger-<topic>.md` the user names, or one detected by source match. Detect-and-ask, verification and citation follow the [tour ledger handoff](../common/references/tour-ledger-handoff.md): a plan-backed ledger's findings enter the plan-encoded fold-in, a PR-backed ledger's findings the posting path below, each through this skill's own gates.
 - **`--plan <path>`** — plan-encoded review: the plan being executed encodes a dedicated Review phase. The diff source is still auto-detected (PR / refs / default); the plan file supplies the fold-in target. The path may be omitted — see the detection ladder in step 8.
 
 **Auto-detection rule:** `^[0-9]+$` → PR number. Two refs given → ref-diff mode. Plan-encoded mode on top of the auto-detected diff source (announce both). No args → uncommitted changes → propose uncommitted-diff mode (interview when unclear); clean tree → current-branch-vs-default mode (announce). Branch review mode does not call GitHub PR APIs.
@@ -183,6 +184,8 @@ Announce which plan was resolved before reviewing.
 ## Next-step offer
 
 Per the shared [next-step offer](../common/references/execution-gates.md#next-step-offer-wrap-up-convention) convention (one offer, mode-conditional): in plan-encoded mode the offer is the next round or the convergence close (user's choice); in PR mode it is `/devenv-address-pr-comments` (if a PR exists); otherwise back to `/devenv-pair` for the rework.
+
+A review that finds work for a human to judge also offers a guided tour of it: when the report holds at least one Blocker or Concern, offer a [`/devenv-chat`](../devenv-chat/SKILL.md) assurance tour of the findings, stating the reason ("2 Concerns on the retry path"). When the report holds only Nits and Praise, mention that a tour is available and do not offer. The move follows the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md), and the report file travels as an artifact reference.
 
 Two wrap-up riders, both offered — never executed unilaterally:
 

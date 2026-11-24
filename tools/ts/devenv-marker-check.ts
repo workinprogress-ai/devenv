@@ -19,6 +19,11 @@ assertNodeFloor();
 // them (a nested src/cache is real source).
 const EXCLUDE_ANYWHERE = new Set(["node_modules", ".git"]);
 const EXCLUDE_AT_ROOT = new Set(["cache", "repos", "tools/cache"]);
+// This tool's own usage text and test fixtures spell out the marker syntax, so
+// a scan skips exactly these two files (unless --no-exclude or the caller
+// names one directly).
+const OWN_FILES = ["tools/ts/devenv-marker-check.ts", "tools/tests/ts/devenv-marker-check.test.ts"];
+const isOwnFile = (path: string): boolean => OWN_FILES.some((f) => path === f || path.endsWith(`/${f}`));
 
 function usage(): never {
   console.log(`Usage: devenv-marker-check [PATH...] [OPTIONS]
@@ -45,7 +50,8 @@ Options:
                                  REGEX (with --require: fail when none does)
     --require                    Invert --marker: at least one match required
     --no-exclude                 Scan excluded dirs too (cache, node_modules,
-                                 .git, repos) — for exhaustive audits
+                                 .git, repos) and this tool's own source and
+                                 test — for exhaustive audits
     --include-copilot            Gate/audit modes: also scan copilot/ (devenv's own
                                  example markers live there; copilot/ is always
                                  scanned by --todo-report and --ac)
@@ -65,7 +71,11 @@ Exit Codes:
 function walk(root: string, noExclude: boolean, skipCopilot: boolean, out: string[], rel = ""): void {
   const st = rel === "" ? statSync(root, { throwIfNoEntry: false }) : lstatSync(root, { throwIfNoEntry: false });
   if (!st || st.isSymbolicLink()) return;
-  if (st.isFile()) { out.push(root); return; }
+  if (st.isFile()) {
+    if (rel !== "" && !noExclude && isOwnFile(root)) return;
+    out.push(root);
+    return;
+  }
   if (!st.isDirectory()) return;
   if (rel !== "" && !noExclude) {
     const base = rel.split("/").pop() ?? "";
@@ -77,7 +87,7 @@ function walk(root: string, noExclude: boolean, skipCopilot: boolean, out: strin
   }
 }
 
-const SCRIPT_VERSION = "1.0.0";
+const SCRIPT_VERSION = "1.1.0";
 
 let acMode = false, todoReport = false, allMarkers = false, require = false;
 let noExclude = false, includeCopilot = false;

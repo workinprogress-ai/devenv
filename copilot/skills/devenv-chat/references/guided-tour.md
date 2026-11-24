@@ -118,7 +118,7 @@ The `source:` key has one canonical form per source, so a ledger can be matched 
 | A scenario trace | `trace:<topic>` |
 | Codebase acquaintance | `acquaintance:<topic>` |
 
-A review-report source also carries `source-hash:`, a content hash of the report file, and such a ledger matches only when the hash matches — so a reused review file name cannot match the wrong ledger. No other source carries a hash: a plan is ticked and edited as work proceeds, so plan and ledger sources match on the key alone. A ledger is matched on `source:` and `mode:` together, so an assurance tour and a comprehension tour of the same range keep separate ledgers.
+A review-report source also carries `source-hash:`, a content hash of the report file, and such a ledger matches only when the hash matches — so a reused review file name cannot match the wrong ledger. A consumer that finds a hash mismatch says the report changed since the tour and asks, rather than skipping the ledger. No other source carries a hash: a plan is ticked and edited as work proceeds, so plan and ledger sources match on the key alone. A ledger is matched on `source:` and `mode:` together, so an assurance tour and a comprehension tour of the same range keep separate ledgers.
 
 ### Body
 
@@ -147,7 +147,7 @@ A review-report source also carries `source-hash:`, a content hash of the report
 ### Discovery and consumption
 
 - Chat looks for an unfinished ledger whose `source:` and `mode:` match the current tour, and offers to resume it.
-- Other skills may detect a ledger by source match when it holds findings they have not yet used, and they ask before using it. Consumption is recorded in the consumer's own output (a plan task citing `tour-ledger-<topic> F3`, a review round listing the finding IDs it folded in), so detection compares the ledger's finding IDs with those citations. Consumers never write to the ledger.
+- Other skills may detect a ledger by source match when it holds findings they have not yet used, and they ask before using it, following the [tour ledger handoff](../../common/references/tour-ledger-handoff.md). Consumption is recorded in the consumer's own output (a plan task citing `tour-ledger-<topic> F3`, a review round listing the finding IDs it folded in), so detection compares the ledger's finding IDs with those citations. Consumers never write to the ledger.
 
 ### Retirement
 

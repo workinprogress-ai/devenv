@@ -392,6 +392,26 @@ Plan exists?
                 +-- no  --> /devenv-delegate
 ```
 
+### Scenario: delegated what should have been paired
+
+A plan recommended pairing on its contracts phase, but the whole plan ran as a delegated commission. Nothing failed, yet the human never saw the judgment calls the run made.
+
+```text
+Delegated run finishes
+  |
+  +-- any phase ran delegated though the plan recommended pairing or supervision?
+  +-- any consequential call without codebase precedent?
+  +-- any hotspots listed?
+        |
+        +-- yes --> final handback offers a /devenv-chat guided tour
+        |             (plan x diff, assurance mode: every stop gets your mark)
+        |             --> findings go to /devenv-review fold-in or /devenv-pair
+        |
+        +-- no  --> no offer
+```
+
+The offer names its reason, and the delegated run leaves counts-only pointer lines in its registry section so the signal survives compaction. See the [guided tour](../copilot/skills/devenv-chat/references/guided-tour.md) for what a tour does and the [tour ledger handoff](../copilot/skills/common/references/tour-ledger-handoff.md) for how its findings are picked up.
+
 ## Plan problems during execution
 
 When execution reveals that the plan or design is wrong, route by problem size and blast radius.

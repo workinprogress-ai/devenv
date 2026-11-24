@@ -899,7 +899,7 @@ Never hand-parse the header — use this tool so format changes stay encapsulate
 ### `artifact-clean`
 
 Clean up `.local-artifacts/` folders by artifact family (ephemeral `tmpN.md`,
-session memory, issue-artifact working copies, other). Interactive by default;
+session memory, issue-artifact working copies, tour ledgers, other). Interactive by default;
 `--tmp` deletes scratch files without confirmation while every other family
 requires `-y` or an interactive confirm. Retained deliverables (`research-*.md`,
 `bug-hunt-*.md`, `TECH_DEBT_AUDIT*`) are never swept — not by `--all`, not by
@@ -911,7 +911,7 @@ for the family definitions.
 **Usage:**
 
 ```bash
-artifact-clean [PATH...] [--tmp | --session | --working | --all] [--include-deliverables] [-y] [-l]
+artifact-clean [PATH...] [--tmp | --session | --working | --tour | --all] [--include-deliverables] [-y] [-l]
 ```
 
 ## CI Pipelines

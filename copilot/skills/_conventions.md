@@ -98,12 +98,13 @@ Skills that follow this convention: `devenv-refine-specifications`, `devenv-refi
 
 ## Standard local markdown folder (`.local-artifacts/`)
 
-All local markdown that is NOT a shipped repo file lives in `.local-artifacts/` at the root of the target repo — never in the repo root. The folder is gitignored in every repo (see `.gitignore` templates). The folder holds three families:
+All local markdown that is NOT a shipped repo file lives in `.local-artifacts/` at the root of the target repo — never in the repo root. The folder is gitignored in every repo (see `.gitignore` templates). The folder holds four families:
 
 | Family | Examples | Source of truth after the session |
 |---|---|---|
 | **Working copies of issue-published artifacts** | `Plan-issue-<N>-*.md`, `Grooming-*.md`, roadmap/spec scratch copies pulled via `issue-artifact-get --write-body` | The GitHub issue artifact — the local file is disposable once published |
 | **Session memory** | `session_memory-*.md` (all planning-skill suffixes) | None — never published; retired when the skill's work completes |
+| **Tour ledgers** | `tour-ledger-<topic>.md` written by `/devenv-chat` tours | None — never published; other skills read the findings, so check they are used before retiring it (`artifact-clean --tour`, confirmed per file) |
 | **Ephemeral markdown** | `tmpN.md` scratch files | None — consume-and-forget |
 
 Rules:

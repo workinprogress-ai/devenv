@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // artifact-clean.ts - Clean up `.local-artifacts/` folders by artifact family
-// Version: 1.3.0
+// Version: 1.4.0
 // Description: Interactive (default when a TTY is present) or flag-driven
 //              cleanup of local artifact folders. Files are grouped into the
 //              convention families (ephemeral tmpN.md, session memory,
-//              issue-artifact working copies) plus an "other" bucket. A fifth
-//              family, deliverables (research-*, bug-hunt-*, TECH_DEBT_AUDIT*),
+//              issue-artifact working copies, tour ledgers) plus an "other"
+//              bucket. A further family, deliverables (research-*, bug-hunt-*, TECH_DEBT_AUDIT*),
 //              is retained work product: no sweep touches it unless
 //              --include-deliverables says so. Deletion confidence matches
-//              family: ephemeral needs no confirmation; working/session/other
+//              family: ephemeral needs no confirmation; working/session/tour/other
 //              require an explicit -y/--yes or interactive confirmation.
 //              Never touches anything outside .local-artifacts/.
 // Requirements: Node >= 23.6 (native type-stripping execution)
@@ -29,10 +29,10 @@ import { cwd as getCwd } from "node:process";
 assertNodeFloor();
 
 const FOLDER_NAME = ".local-artifacts";
-const SCRIPT_VERSION = "1.3.0";
+const SCRIPT_VERSION = "1.4.0";
 const SCRIPT_NAME = "artifact-clean";
 
-type Family = "ephemeral" | "session" | "working" | "other" | "deliverable";
+type Family = "ephemeral" | "session" | "working" | "tour" | "other" | "deliverable";
 
 /** classify FILENAME -> family name (mirror of the _conventions.md families) */
 export function classify(fileName: string): Family {
@@ -42,6 +42,7 @@ export function classify(fileName: string): Family {
   // their plans close.
   if (/^(session_memory|session-state|pairing-state)-.*\.md$/.test(fileName)) return "session";
   if (/^(Plan-issue|Grooming|Specifications|Blueprint|Roadmap)-.*\.md$/.test(fileName)) return "working";
+  if (/^tour-ledger-.*\.md$/.test(fileName)) return "tour";
   if (/^(research-.*\.md|bug-hunt-.*\.md|TECH_DEBT_AUDIT.*)$/.test(fileName)) return "deliverable";
   return "other";
 }
@@ -95,7 +96,7 @@ async function sweepRoot(root: string, opts: SweepOptions): Promise<number> {
   if (opts.families.includes("interactive" as Family)) {
     // Interactive mode: ephemeral auto-cleaned (unless keepTmp), then one
     // multiselect over every remaining candidate (clack).
-    const sweepFamilies: Family[] = ["ephemeral", "session", "working", "other"];
+    const sweepFamilies: Family[] = ["ephemeral", "session", "working", "tour", "other"];
     if (opts.families.includes("deliverable")) sweepFamilies.push("deliverable");
 
     let deletable: string[] = [];
@@ -211,6 +212,9 @@ Families (per the .local-artifacts convention):
     working     Plan-issue-*.md / Grooming-*.md / Specifications-*.md /
                 Blueprint-*.md / Roadmap-*.md — local working copies of
                 issue-published artifacts (confirm or -y)
+    tour        tour-ledger-*.md /devenv-chat tour ledgers — findings other
+                skills may still consume (confirmed per file, like the
+                other families — check the findings are used first, or -y)
     other       anything else in the folder (confirm or -y; never silently
                 deleted)
     deliverable research-*.md / bug-hunt-*.md / TECH_DEBT_AUDIT* — retained
@@ -226,6 +230,7 @@ Options:
     --tmp               Ephemeral family only
     --session           Session-memory family only
     --working           Issue working-copy family only
+    --tour              Tour-ledger family only
     --all               Every family, including other (deliverables only
                         with --include-deliverables)
     --include-deliverables
@@ -273,6 +278,7 @@ async function main(argv: string[]): Promise<number> {
         tmp: { type: "boolean", default: false },
         session: { type: "boolean", default: false },
         working: { type: "boolean", default: false },
+        tour: { type: "boolean", default: false },
         all: { type: "boolean", default: false },
         "include-deliverables": { type: "boolean", default: false },
         "keep-tmp": { type: "boolean", default: false },
@@ -286,7 +292,8 @@ async function main(argv: string[]): Promise<number> {
     if (cli.values["tmp"]) mode += "tmp";
     if (cli.values["session"]) mode += "session";
     if (cli.values["working"]) mode += "working";
-    if (cli.values["all"]) mode = "tmp session working other";
+    if (cli.values["tour"]) mode += "tour";
+    if (cli.values["all"]) mode = "tmp session working tour other";
     if (cli.values["include-deliverables"]) includeDeliverables = true;
     if (cli.values["keep-tmp"]) keepTmp = true;
     if (cli.values["yes"]) assumeYes = true;
@@ -329,7 +336,7 @@ async function main(argv: string[]): Promise<number> {
   // default-mode runs degrade to list-only when no terminal is available.
   if (!isInteractive()) {
     if (mode === "" || mode === "interactive") {
-      mode = "tmp session working other";
+      mode = "tmp session working tour other";
       listOnly = true;
       logWarn("No family flags given and stdin is not a TTY — defaulting to list-only");
     }
@@ -347,6 +354,7 @@ async function main(argv: string[]): Promise<number> {
       if (mode.includes("tmp")) families.push("ephemeral");
       if (mode.includes("session")) families.push("session");
       if (mode.includes("working")) families.push("working");
+      if (mode.includes("tour")) families.push("tour");
       if (mode.includes("other")) families.push("other");
       // Deliverables join only when explicitly asked for, and only in a
       // full (--all) sweep; no other flag combination reaches them.

@@ -95,13 +95,13 @@ the editor unless `--no-interactive`). Prefer `--body-file` over shell-quoted
 
 ### artifact-clean
 
-Clean up `.local-artifacts/` folders by artifact family (ephemeral tmpN.md, session memory, issue-artifact working copies, other). Retained deliverables (`research-*.md`, `bug-hunt-*.md`, `TECH_DEBT_AUDIT*`) are kept out of every sweep — not by `--all`, not by `-y` — unless `--include-deliverables` is passed.
+Clean up `.local-artifacts/` folders by artifact family (ephemeral tmpN.md, session memory, issue-artifact working copies, tour ledgers, other). Retained deliverables (`research-*.md`, `bug-hunt-*.md`, `TECH_DEBT_AUDIT*`) are kept out of every sweep — not by `--all`, not by `-y` — unless `--include-deliverables` is passed.
 
 ```
-artifact-clean [PATH...] [--tmp | --session | --working | --all] [--include-deliverables] [-y] [-l]
+artifact-clean [PATH...] [--tmp | --session | --working | --tour | --all] [--include-deliverables] [-y] [-l]
 ```
 
-With no family flags and a TTY, runs interactively (family-by-family selection). `--tmp` deletes `tmpN.md` scratch files without confirmation; every other family requires `-y` or an interactive confirm — never silently deletes. `-l` lists what would be cleaned and deletes nothing. Without a TTY and without flags, degrades to list-only. Use this for every offer-to-retire / cleanup sweep instead of hand-run `rm` lists.
+With no family flags and a TTY, runs interactively (family-by-family selection). `--tmp` deletes `tmpN.md` scratch files without confirmation; `--tour` covers `/devenv-chat` tour ledgers (`tour-ledger-*.md`), which other skills consume, so each is confirmed like every other family — check its findings are used first; every other family requires `-y` or an interactive confirm — never silently deletes. `-l` lists what would be cleaned and deletes nothing. Without a TTY and without flags, degrades to list-only. Use this for every offer-to-retire / cleanup sweep instead of hand-run `rm` lists.
 
 Examples:
 
