@@ -11,6 +11,8 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+
 Use this as the default intake for **component-level architecture and design direction** when the right next step is not obvious.
 
 `/devenv-groom` standardizes how we choose among the remaining design paths.
@@ -294,7 +296,10 @@ When a grooming decision rests on an **empirical unknown** — feasibility, perf
 - **Why it matters:** <which grooming decision this unblocks; the options waiting on the answer>
 - **Constraints:** <what's fixed — stack, performance envelope, compatibility>
 - **Return route:** bring the findings doc back to this grooming session — the classification and attack plan are redone with the answer in hand (`/devenv-groom <grooming-doc-path>`)
+- **Owed obligations:** <what the stop protocol or another contract still requires, or "none">
 ```
+
+This block is the new-session handoff block under the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md), including its owed-obligations line.
 
 Never run the research inside the grooming session — and **dispatching a research subagent is not a way around that:** research is not read-only computation (destructive-class experiments, code modification under just-in-time consent), so it has no dispatch-safe lane; the consent points need the user present, and a stateless subagent has no one to ask. The handoff block exists precisely so a fresh, user-supervised session picks the question up. Scope rule: feasibility-shaped questions only — approach or preference choices route to `/devenv-design` (existing round trip), not research.
 

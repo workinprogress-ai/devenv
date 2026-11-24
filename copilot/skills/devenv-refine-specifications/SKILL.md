@@ -11,6 +11,8 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+
 Revise an existing specifications document based on new information — stakeholder priorities that shifted, new actors or scenarios that surfaced, a research finding that invalidated an assumption, or implementation discovery that exposed gaps. Preserve every prior decision and ID; never silently rewrite history.
 
 **This skill is how specifications stay living.** Specifications are not point-in-time artifacts gathered once and frozen — they are the system's current functional truth, kept accurate as reality moves. Refinement is the normal, expected maintenance path for that truth: when the world changes, the specifications change with it (surgically, with IDs stable and history recorded), so downstream artifacts — blueprints, roadmaps, plans — can trust what they read. A specifications document that no longer matches reality is a defect in the document, not a footnote.
@@ -78,7 +80,7 @@ If non-surgical:
 1. Stop direct edit flow.
 2. Explain why: this is discovery/brainstorming, not direct refinement.
 3. Recommend [`/devenv-write-specifications`](../devenv-write-specifications/SKILL.md) continuation mode with the same file path.
-4. Offer one explicit confirmation gate: continue anyway with direct edits, or switch to gather now.
+4. Offer one explicit confirmation gate: continue anyway with direct edits, or move to gather now per the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
 
 If surgical, continue with the workflow below.
 

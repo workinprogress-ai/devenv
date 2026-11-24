@@ -13,6 +13,8 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+
 One skill, three entry modes, one pipeline. The user's starting point differs — sometimes existence is the question, sometimes the cause, sometimes only the fix remains — but a bug engagement flows verify → diagnose → fix, and this skill carries it without forcing a mid-investigation skill switch.
 
 ## Intake: classify the mode
@@ -336,6 +338,7 @@ Wait for the choice. Do not proceed without one. Do not steer around the estimat
 - **Path A (kill now)** → Phase F2. If no issue disposition was chosen during capture, offer one now (`issue-comment` on an existing issue or `issue-create`); the user may decline again — a strike does not require an issue.
 - **Path B (handoff)** → recommend `/devenv-pair` for collaborative, supervised implementation or `/devenv-delegate` when the user wants it run autonomously; both act on this session's context. The hunter stops at the handoff — the implementing skill takes over from the findings report.
 - **Path C (plan)** → hand off to `/devenv-plan`; the findings report is complete plan input (paste it), and this session's context (oracle, causal chain, repro, eliminated hypotheses) feeds the plan. Draft a one-paragraph plan-input summary on request.
+- **Either handoff** follows the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md): offer both ways to move (load the target here after the user's explicit yes, or a new session with the handoff block); the findings report travels as an artifact reference, and the target's own intake still runs in full.
 - **Path D (self-fix)** → confirm the user has root cause, recommended fix, failing test, and any issue link; stop.
 
 ### Phase F2 — Apply the fix (Path A, kill now)

@@ -15,6 +15,8 @@ Review code changes and produce structured, actionable feedback for work. Invers
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+
 ## When to Use
 
 - Reviewing a PR before approving / requesting changes.
@@ -64,7 +66,7 @@ When a review completes with changes merged or approved-for-merge, signal `workf
 
 ### 3. Build the review
 
-Output structure (markdown, in this order). **Number every finding sequentially — F1, F2, F3, … — continuing across sections** (Blockers, Concerns, Nits, Praise, Missing tests, TODO/FIXME). The number is the finding's identity for the rest of the session: the user's edit-to-select decisions, fold-in interviews, and any follow-up discussion all cite numbers.
+Output structure (markdown, in this order). Findings are numbered per the shared [findings format](../common/references/findings-format.md#numbering) — F1, F2, F3, … continuing across sections (Blockers, Concerns, Nits, Praise, Missing tests, TODO/FIXME).
 
 ````markdown
 ## Code review — <PR title or "branch <head> vs. <base>">
@@ -111,44 +113,17 @@ Output structure (markdown, in this order). **Number every finding sequentially 
 
 ### 4. Severity rules
 
-- **Blocker**: must change before merge. Correctness bugs, security issues, breaking changes without migration, missing critical tests, contract violations.
-- **Concern**: should be discussed; may or may not block. Design choices that look risky, performance issues, edge cases, missing error handling at boundaries.
-- **Nit**: only include if it materially affects readability or correctness. Skip pure style preferences.
-- **Praise**: call out genuinely good work. Skip if there's nothing specific to praise — don't fabricate.
+Severity definitions (Blocker, Concern, Nit, Praise) are in the shared [findings format](../common/references/findings-format.md#severity).
 
 ### 5. Hotspot format and `@post` markers
 
-Every finding is a single bullet in the format:
-
-```
-- [file:line](../workspace-root-relative-path#L42) — <one-line reason>
-  <!-- @post: file=<repo-relative-path> line=42 side=RIGHT -->
-```
-
-Display links resolve from the file's own location: this review is saved to
-`.local-artifacts/tmpN.md`, one level below the repo root, so display-link
-paths carry a single `../` prefix in front of the repo-relative path —
-`../src/Foo.cs` for a repo file. (For a workspace-level artifact in
-`<workspace>/.local-artifacts/`, the equivalent is
-`../repos/<repo>/src/Foo.cs`.) VS Code only renders the link clickable when
-the prefix escapes `.local-artifacts/`. The `@post` marker's `file=` value
-stays **repo-relative** with no prefix — it is the PR diff's path and what
-`pr-review-comment --file` expects. Do not emit a path you haven't confirmed
-exists.
-
-The indented `@post` HTML comment under the bullet is the machine-readable posting target — invisible when the markdown renders. Rules:
-
-- `file=` is **repo-relative** (as shown in the PR diff — this is what `pr-review-comment --file` expects); it usually differs from the workspace-root display link above it.
-- `side=` is `RIGHT` (default — new content) or `LEFT` (original content).
-- **Postable sections** (get markers): Blocker, Concern, Nit, Praise, TODO/FIXME, Ephemeral-artifact findings. **Summary-only sections** (no markers): Summary, Missing tests, Questions for the author — these are not single-line findings and ride in the top-level summary comment instead.
-- One marker per bullet, directly under it. Multi-line findings: use the first line; note the range in prose.
-- The user controls posting purely by editing the file: deleting a finding (or its marker) skips it; adding a marker to a new bullet posts it. Deleted findings' markers are simply absent at parse time.
-
-For ranges: `[file.ext:42-58](path/file.ext#L42-L58)`. For multiple non-contiguous lines: separate bullets.
+Every finding is a single bullet followed by its `@post` marker, in the shape defined by the shared [findings format](../common/references/findings-format.md#finding-bullet-and-post-marker): the link-prefix rule for a report saved to `.local-artifacts/tmpN.md`, the marker's `file=` and `side=` rules, which sections are postable (Blocker, Concern, Nit, Praise, TODO/FIXME, ephemeral-artifact findings) and which are summary-only (Summary, Missing tests, Questions for the author), and how the user controls posting by editing the file.
 
 ### 6. Write the review to a file
 
 Write the full review to `.local-artifacts/tmpN.md` in the target repo (next free number — see the [standard local markdown folder](../_conventions.md#standard-local-markdown-folder-local-artifacts); this is the session's working copy). Also print the full review to chat. Do **not** post to GitHub yet — the user edits the file first (see step 7).
+
+**Walkthroughs.** When the user asks to be walked through a finding ("walk me through F5"), run a limited single-stop walkthrough per the [guided walkthrough protocol](../common/references/guided-walkthrough-protocol.md); a flag from the user becomes a finding or fold-in candidate in this skill's own terms. A walkthrough that needs a ledger is a chat tour, so offer to move it.
 
 ### 7. Offer to post (PR mode only) — user edits the file, then per-line posting
 

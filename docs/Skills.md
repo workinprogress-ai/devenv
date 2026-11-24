@@ -19,6 +19,7 @@ What are you trying to do?
 │
 ├─ 🔍 Explore / think
 │   ├─ Understand a codebase via chat   →  /devenv-chat
+│   ├─ Be walked through code or a change, stop by stop   →  /devenv-chat
 │   ├─ Warm up context before choosing a work skill  →  /devenv-load
 │   ├─ Investigate a question           →  /devenv-research
 │   ├─ Verify / diagnose / fix a bug  →  /devenv-hunt
@@ -168,9 +169,9 @@ Defaults to the workspace docs-family convention — `docs/Architecture_and_impl
 
 Orients against README, project structure, runtime entry points or primary documents, and test/evidence layout for one or more repos, then answers questions in the voice of the repo itself — witty, slightly sarcastic, always cited to `file:line`. Caches orientation in session memory. Handles architecture, data flow, history/intent, dependency, cross-cutting, runbook, and docs-interrogation questions (specifications, blueprints, plans).
 
-**Use for:** understanding an unfamiliar codebase or markdown-first planning/docs repo; cross-repo questions; architecture, behaviour, data flow, dependency, runbook, and specifications/blueprint interrogation  
+**Use for:** guided tours (a diff, plan, PR, commits, findings, delegated work, or a use case walked stop by stop with a coverage ledger); understanding an unfamiliar codebase or markdown-first planning/docs repo; cross-repo questions; architecture, behaviour, data flow, dependency, runbook, and specifications/blueprint interrogation  
 **Don't use for:** writing or changing files (→ `/devenv-pair` or `/devenv-delegate`); formal debt findings (→ `/devenv-audit`); architecture design (→ `/devenv-create-blueprint` or `/devenv-design`)  
-**Tool deps:** none (read-only repo interrogation; writes only to session memory)
+**Tool deps:** none (read-only repo interrogation; writes only to session memory and its tour ledger)
 
 ---
 
@@ -236,7 +237,7 @@ Answers status/composition/progress questions (board status, epic rollups via th
 | `/devenv-delegate` | Commissioned autonomous build run — entered only by explicit invocation; assistant-led execution with user review and ownership, phase by phase, while keeping the plan aligned to actual work. Triggers: "delegate this to you", "you take this", "run with this", "implement this plan", "work through this plan", "do this for me", "stop and discuss" | Issue # or plan path |
 | `/devenv-document` | Bootstrap or refresh the repo docs family (Architecture_and_implementation + Usage_guide) and the thin AGENTS.md dispatcher; deep investigations keep the Q-NNN machinery. Triggers: "document this repo", "bootstrap docs for", "create the docs family", "add an AGENTS.md", "refresh the docs", "write up how this works" | Repo path, component name, or description |
 | `/devenv-load` | Read-only session warm-up — `skill-orient` census, marker discovery, conventions and a bounded layout skim so the next skill starts warm; nothing is written. Triggers: "load this repo", "load context", "orient on this codebase", "warm up for work on X" | Optional area or path to target |
-| `/devenv-chat` | Conversational fact-finding with source code, markdown-first repos, or a GitHub issue — the repo talks back. Triggers: "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "help me think through how to…", "what about issue #123" | Repo path(s), issue #, or nothing for current workspace |
+| `/devenv-chat` | Conversational fact-finding with source code, markdown-first repos, or a GitHub issue — the repo talks back; also guided tours — a diff, plan, PR, commits, findings, delegated work, or a use case walked stop by stop with a coverage ledger. Triggers: "chat with this code", "explain this repo", "how does X work", "walk me through the architecture", "what does this codebase do", "help me think through how to…", "what about issue #123", "tour", "guide me through", "show me around", "help me review this carefully" | Repo path(s), issue #, or nothing for current workspace |
 | `/devenv-research` | Exploratory investigation + findings doc; empowered like `/devenv-hunt` (consented in-repo experiments with recovery route). Triggers: "research X", "spike on X", "investigate whether we can Y", "explore the feasibility of Z", "do a quick proof-of-concept" | Question or issue # |
 | `/devenv-design` | Opinionated, conversation-first thinking partner for design/architecture choices; best for one bounded blocker or design question; writes `Solution_Proposal_<topic>-NNN.md` only on request (as context-rich input to technical design); may draft pattern candidates / knowledge additions when targeted or when a generalization becomes apparent; the only skill that prepares engineering-repo changes as user-merge PRs. Triggers: "discuss the design", "talk through the approach", "weigh the options", "what's the right way to structure this", "discuss an architectural change" | Design question or topic |
 
@@ -261,7 +262,7 @@ Answers status/composition/progress questions (board status, epic rollups via th
 
 | Skill | Purpose | Argument |
 |---|---|---|
-| `/devenv-help` | Answer questions about the devenv — its skills, tooling, scripts, docs, config, and the engineering/knowledge repos — directly with citations; also picks the right skill or chain for workflow intents and advises on working style (sessions, execution modes, review setup) grounded in the workflow docs (offers to start, never starts unprompted). Triggers: "help", "how do I", "what tool", "where is", "which skill", "why does X behave that way", "how should I manage my sessions?", "am I doing this right?", "help me set up for this work" | Any question about the environment, a working-style question ("how should I manage my sessions?"), a problem description, or issue # (optional) |
+| `/devenv-help` | Answer questions about the devenv — its skills, tooling, scripts, docs, config, and the engineering/knowledge repos — directly with citations; also picks the right skill or chain for workflow intents and advises on working style (sessions, execution modes, review setup) grounded in the workflow docs (offers to start, never starts unprompted; stops at the edge of its lane and routes out — switch here or in a new session — instead of doing another skill's work). Triggers: "help", "how do I", "what tool", "where is", "which skill", "why does X behave that way", "how should I manage my sessions?", "am I doing this right?", "help me set up for this work" | Any question about the environment, a working-style question ("how should I manage my sessions?"), a problem description, or issue # (optional) |
 | `/devenv-skill-maintenance` | Correct and synchronize the custom skill system (skills, devenv-help routing, registry, and related docs) while preserving workflow principles; files validated findings as devenv issues and fixes from them | Skill problems to fix, plus optional target skill names, file paths, diagnostic output, an `IMPROVEMENT_REPORT.md`, or devenv issue numbers |
 
 ---
@@ -422,6 +423,7 @@ Component design changed
 | `/devenv-review` vs `/devenv-address-pr-comments` | Review assistance for your changes vs you address a reviewer's comments. |
 | `/devenv-address-pr-comments` vs GitHub PR extension | Auto-fixes clear threads + surfaces complex ones with recommendations vs batch fix-all with no per-thread direction. |
 | `/devenv-chat` vs `/devenv-audit` | /devenv-chat is conversational Q&A — you ask, it answers. /devenv-audit is an unsupervised sweep that produces a structured findings document. |
+| `/devenv-chat` tour vs `/devenv-review` | A /devenv-chat tour walks you through code one stop at a time, and you make the judgment — the careful-review path when you need to be sure you looked. /devenv-review is AI-judged: it produces findings by severity for you to select from. |
 | `/devenv-chat` vs `/devenv-design` | /devenv-chat surfaces facts about existing code. /devenv-design weighs trade-offs and drives to a recommendation for what to build or change. |
 | `/devenv-document` vs `/devenv-create-blueprint` | Document describes an *existing* system as it is (reference, orientation, context). Blueprint *designs* how a system should be structured (architecture, new components, deltas). Use document to understand the present; use blueprint to plan the future. |
 | `/devenv-document` vs `/devenv-audit` | Document aims to produce useful reference material. /devenv-audit aims to surface problems and prioritise remediation. |

@@ -11,6 +11,8 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+
 Revise an existing blueprint based on new information — architectural decisions that changed, specifications that arrived after the original blueprint, or implementation discovery that exposed gaps. Preserve section numbering and cross-references; supersede structure deliberately.
 
 Write the blueprint body as the current target architecture. Keep historical change narrative out of the document entirely — the document is target state, period. The rationale for the current shape is stated inline, as current-state text, in the section a decision shapes (`We use X; Y was rejected because …`); the blueprint never produces ADRs — ADRs are for specifications only (see the shared [ADR template](../common/references/adr-template.md)). Git records what changed and when. If a `## Revision History` section exists, fold any still-relevant rationale into the owning sections as current-state text and delete the section.

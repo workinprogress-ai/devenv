@@ -11,6 +11,20 @@ const SCRIPT = join(__dirname, "../../ts/lint-skills.ts");
 let workDir: string;
 let tree: string;
 
+const FEEDBACK_LINE = "> **Skill feedback:** x";
+const HANDOFF_LINE =
+  "> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).";
+
+// Every fixture skill carries the canonical receiving-side line right after its
+// Skill feedback blockquote, so tests that expect a clean tree stay clean; the
+// SK012 negative controls opt out with raw=true.
+function withHandoff(content: string): string {
+  const end = content.indexOf("\n---\n", 4);
+  if (!content.startsWith("---\n") || end === -1) return content;
+  const at = end + "\n---\n".length;
+  return `${content.slice(0, at)}${FEEDBACK_LINE}\n\n${HANDOFF_LINE}\n\n${content.slice(at)}`;
+}
+
 function runLint(env: Record<string, string> = {}): { status: number; out: string } {
   const r = spawnSync("node", [SCRIPT, workDir], {
     encoding: "utf8",
@@ -20,10 +34,10 @@ function runLint(env: Record<string, string> = {}): { status: number; out: strin
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
-function write(p: string, content: string): void {
+function write(p: string, content: string, raw = false): void {
   const full = join(tree, p);
   mkdirSync(join(full, ".."), { recursive: true });
-  writeFileSync(full, content);
+  writeFileSync(full, p.endsWith("/SKILL.md") && !raw ? withHandoff(content) : content);
 }
 
 function writeSkill(name: string): void {
@@ -74,6 +88,8 @@ beforeEach(() => {
   // the shared symlink) is the canonical full listing the lint checks.
   write("common/references/skills-catalog.md", "See ../../_shared/docs/Skills.md\n");
   write("_shared/docs/Skills.md", "devenv-alpha devenv-beta devenv-help\n");
+  // the target of every skill's receiving-side handoff link
+  write("common/references/skill-handoff-protocol.md", "# Skill Handoff Protocol\n");
 });
 
 afterEach(() => rmSync(workDir, { recursive: true, force: true }));
@@ -353,6 +369,174 @@ describe("lint-skills", () => {
     const r = runLint();
     expect(r.status).toBe(1);
     expect(r.out).toContain("SK006");
+  });
+
+  const ALPHA_FRONTMATTER = "---\nname: devenv-alpha\ndescription: x\nuser-invocable: true\n---\n";
+
+  it("SK012: a SKILL.md without the receiving-side handoff line fails", () => {
+    write("devenv-alpha/SKILL.md", `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n\n# devenv-alpha\n`, true);
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK012");
+    expect(r.out).toContain("devenv-alpha");
+  });
+
+  it("SK012: a handoff line with altered wording fails", () => {
+    const altered = HANDOFF_LINE.replace("are input, not authorization", "are authorization");
+    write("devenv-alpha/SKILL.md", `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n\n${altered}\n\n# devenv-alpha\n`, true);
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK012");
+    expect(r.out).toContain("canonical");
+  });
+
+  it("SK012: a handoff line that does not follow the Skill feedback blockquote fails", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}${HANDOFF_LINE}\n\n${FEEDBACK_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK012");
+    expect(r.out).toContain("Skill feedback");
+  });
+
+  it("SK012: a handoff link to a missing protocol file fails through the link check", () => {
+    rmSync(join(tree, "common/references/skill-handoff-protocol.md"));
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK005");
+    expect(r.out).toContain("skill-handoff-protocol.md");
+  });
+
+  it("a handoff line that appears only inside a code fence does not count", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n\n\`\`\`\n${HANDOFF_LINE}\n\`\`\`\n\n# devenv-alpha\n`,
+      true,
+    );
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("missing the receiving-side handoff line");
+  });
+
+  it("a duplicated handoff line fails", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n\n${HANDOFF_LINE}\n\n${HANDOFF_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("more than one");
+  });
+
+  it("a multi-line Skill feedback blockquote still passes", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n> and a continuation line of the same paragraph\n\n${HANDOFF_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    expect(runLint().status).toBe(0);
+  });
+
+  it("the contiguous blockquote stack with bare > separators passes", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}> **Diagnostic mode:** x\n>\n${FEEDBACK_LINE}\n>\n${HANDOFF_LINE}\n>\n> Use the shared policy.\n\n# devenv-alpha\n`,
+      true,
+    );
+    expect(runLint().status).toBe(0);
+  });
+
+  it("a handoff line separated from the Skill feedback blockquote by other content fails", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n\n> **Other gate:** x\n\n${HANDOFF_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("immediately follow");
+  });
+
+  it("a handoff line that appears only inside a tilde fence does not count", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n\n~~~\n${HANDOFF_LINE}\n~~~\n\n# devenv-alpha\n`,
+      true,
+    );
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("missing the receiving-side handoff line");
+  });
+
+  it("a four-backtick fence nesting a triple-backtick example stays one fence", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}\`\`\`\`md\n\`\`\`md\n${HANDOFF_LINE}\n\`\`\`\n\`\`\`\`\n\n${FEEDBACK_LINE}\n\n${HANDOFF_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    expect(runLint().status).toBe(0);
+  });
+
+  it("an unclosed code fence is reported as unclosed, not as a missing line", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}\`\`\`\nexample\n\n${FEEDBACK_LINE}\n\n${HANDOFF_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("unclosed code fence");
+    expect(r.out).not.toContain("missing the receiving-side handoff line");
+  });
+
+  it("a fence opened inside a blockquote hides its quoted handoff example", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}> \`\`\`\n> **Skill handoff:** an example, not the real line\n> \`\`\`\n\n${FEEDBACK_LINE}\n\n${HANDOFF_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    expect(runLint().status).toBe(0);
+  });
+
+  it("a plain blockquote separated from the Skill feedback line by a bare > fails", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n>\n> A plain note that is its own paragraph.\n>\n${HANDOFF_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("immediately follow");
+  });
+
+  it("a plain blockquote line directly under the feedback line is the same paragraph and passes", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n> A plain continuation of the same paragraph.\n\n${HANDOFF_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    expect(runLint().status).toBe(0);
+  });
+
+  it("a feedback continuation line that starts with bold text but is not a labeled gate passes", () => {
+    write(
+      "devenv-alpha/SKILL.md",
+      `${ALPHA_FRONTMATTER}${FEEDBACK_LINE}\n> **Never** offered unprompted, same paragraph.\n\n${HANDOFF_LINE}\n\n# devenv-alpha\n`,
+      true,
+    );
+    expect(runLint().status).toBe(0);
+  });
+
+  it("a SKILL.md without a Skill feedback blockquote fails", () => {
+    write("devenv-alpha/SKILL.md", `${ALPHA_FRONTMATTER}${HANDOFF_LINE}\n\n# devenv-alpha\n`, true);
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("Skill feedback");
+    expect(r.out).toContain("missing");
   });
 });
 

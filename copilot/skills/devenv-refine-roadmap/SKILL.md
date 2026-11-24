@@ -11,6 +11,8 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+
 Revise the **structure** of an existing roadmap artifact after new information — the blueprint changed, a step needs splitting, a new component landed, or phases need re-sequencing. Preserve every prior step ID and issue link; supersede structure deliberately.
 
 Roadmaps are issue artifacts (doc_id-addressed comments on their parent epic), not files in source control. Refinement pulls the artifact to a session scratch copy, edits there, and republishes. For the shared pull/edit/publish mechanics see [issue-artifact-integration.md](../common/references/issue-artifact-integration.md) and the [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).

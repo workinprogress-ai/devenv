@@ -11,6 +11,8 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+
 Produce a phased, committable plan that gives a human or another AI enough context to execute a user story or task collaboratively. The plan is human-first: goals and orientation first, phase guidance second, detailed task tracking third.
 
 ## When to Use
@@ -148,7 +150,7 @@ Re-division signals:
 - Phase count or dependency density suggests high coordination risk.
 - The user states uncertainty and high implementation risk for one combined plan.
 
-If triggered, propose redivision through grooming and provide a copyable markdown handoff block the user can paste into `/devenv-groom`:
+If triggered, propose redivision through grooming and provide a copyable markdown handoff block the user can paste into `/devenv-groom` — the new-session handoff block under the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md), with its owed-obligations line:
 
 ```markdown
 ## Grooming Redivision Request
@@ -174,6 +176,8 @@ Please produce a grooming attack plan with proposed issues including:
 After grooming updates the upstream artifact, return with:
 - grooming artifact location
 - selected issue slice to plan now
+
+Owed obligations: <what the stop protocol or another contract still requires, or "none">
 ```
 
 After grooming returns an updated upstream artifact, use it to reshape this plan into a smaller, focused plan for one selected issue slice.
@@ -199,7 +203,7 @@ When an interview answer would rest on an **empirical unknown** — "can we do X
 Encoded shape:
 
 - `- [ ] **N.M [S|M] Research: <question>**` with `owner: User` — the research session runs in a **separate chat**, user-supervised (`/devenv-research` is empowered: destructive-class experiments, code modification with just-in-time permission), and the executor stops at this task and hands back rather than attempting it inline. **Dispatching a research subagent is not a shortcut around this:** research is not read-only computation, so the plan-encoded review asymmetry does not have a dispatch-safe lane here — just-in-time consent needs the user present to grant it, and a stateless subagent has no one to ask. The executor stops and hands back; the user decides whether to run the session themselves or route it elsewhere.
-- At the stop, the executor emits a copyable markdown handoff block the user can paste into a fresh `/devenv-research` invocation (same shape grooming's research handoff uses):
+- At the stop, the executor emits a copyable markdown handoff block the user can paste into a fresh `/devenv-research` invocation (same shape grooming's research handoff uses; the new-session handoff block under the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md), with its owed-obligations line):
 
   ```markdown
   ## Research Handoff — <topic>
@@ -208,6 +212,7 @@ Encoded shape:
   - **Why it matters:** <which plan tasks/decisions this unblocks — the `depends on N.M` consumers>
   - **Constraints:** <what's fixed — stack, performance envelope, compatibility>
   - **Return route:** bring the findings doc back to this plan via `/devenv-refine-plan <plan-path>` — the answer folds in and resolves the open question
+  - **Owed obligations:** <what the stop protocol or another contract still requires, or "none">
   ```
 
   The asymmetry with plan-encoded review is deliberate: review is read-only computation (safe to dispatch); research needs a user present.

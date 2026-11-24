@@ -162,7 +162,7 @@ Start here: `/first-skill`
 ```
 
 **Offer to start** (single skill, invocation supported): close with
-`Want me to start /skill-name now? (y/n)` and invoke only on explicit yes.
+`Want me to start /skill-name now? (y/n)` and invoke only on explicit yes. To invoke is the [Skill Handoff Protocol](../../common/references/skill-handoff-protocol.md#switch-options)'s switch-here: after the yes, help loads the skill so it becomes the active frame, announces the move with the protocol's frame-close line, and hands over only the user's own words and artifact references; where the host cannot load a skill, help asks the user to type `/skill-name`.
 Otherwise close with the plain `Say /skill-name to start.` Never start without
 permission either way.
 
@@ -181,3 +181,33 @@ direct question:
   component-level intake → `/devenv-groom`; specialized design skills only
   on explicit request.
 - "Not sure yet" counts as decide-direction-first.
+
+## Trip-wires and route-out
+
+Help's lane is answering questions about this devenv and running the tooling commands the user asks for, including light issue operations. It never performs another skill's work. Three trip-wires mark the edge of that lane:
+
+1. **Repo-content reads beyond docs.** Reading project-repo source, tests, or config to answer, rather than the devenv's own docs, tooling, and registry. The behavior of project code is `/devenv-chat`'s lane.
+2. **Repository edits, or another skill's multi-step work.** Editing repository content, or running a multi-step workflow that a registry row assigns to a skill. Commands the user explicitly asked for stay in [execution mode](../SKILL.md#execution-mode), and light, user-directed issue operations stay there however many commands they take: log an issue, comment on it, label it; update or fetch an issue; handle the few issues the user listed. What leaves the lane is the work itself — full metadata triage of a new issue, grooming, creating issues in bulk from a roadmap or plan, or any repository edit.
+3. **Another skill's lane.** Planning, implementing, reviewing, debugging, grooming or design deep-dives, issue triage, committing — any work a registry row assigns to a skill.
+
+When a trip-wire fires, stop and run the route-out as an interview, per the [direct query style](../../_conventions.md#direct-query-style-questions-and-selections):
+
+1. **Name the owning skill** and why, citing its registry row.
+2. **Offer both ways to move**, per the [Skill Handoff Protocol](../../common/references/skill-handoff-protocol.md): switch now — help loads the skill after the user's explicit yes and announces the move with the protocol's frame-close line, which states that the new skill governs from here — or stay in help and switch in a new session with the handoff block. Recommend by the target's class: a mutating target defaults to a new session, anything else to switching here.
+3. **Hand over only the user's own words and artifact references** — never help's recommendation or a mode label.
+4. **If the user declines both**, stay in lane: answer what help can, and say plainly what it cannot do here.
+
+Exits for the lanes help trips on most. The [skills registry](./skills-registry.md) is the routing truth: read the row before naming a skill.
+
+| Lane | Owning skill |
+|---|---|
+| Behavior of project code, codebase walk-throughs | `/devenv-chat` |
+| Planning a story or task | `/devenv-plan` |
+| Implementing a plan together, or as a commissioned unattended run | `/devenv-pair`, `/devenv-delegate` |
+| Reviewing a diff or PR | `/devenv-review` |
+| Responding to PR feedback | `/devenv-address-pr-comments` |
+| Committing, opening a PR | `/devenv-commit`, `/devenv-open-pr` |
+| Investigating a suspected bug | `/devenv-hunt` |
+| Design trade-offs, component-level grooming | `/devenv-design`, `/devenv-groom` |
+| Issue metadata triage, board and population status | `/devenv-triage`, `/devenv-board` |
+| Fixing the skill system itself | `/devenv-skill-maintenance` |

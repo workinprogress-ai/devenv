@@ -35,7 +35,7 @@ When a Review-phase task becomes current:
 
 ## Subagent brief (self-contained prompt template)
 
-Dispatch with this prompt, filling the bracketed values. The brief is self-contained on purpose: the subagent has no session context, no plan context, and no conversation history.
+Dispatch with this prompt, filling the bracketed values. The brief is self-contained on purpose: the subagent has no session context, no plan context, and no conversation history. Its OUTPUT shape mirrors the shared [findings format](./findings-format.md) and stays inline for that reason.
 
 ```text
 You are an adversarial code reviewer. A review that finds nothing is a
@@ -174,7 +174,7 @@ final message.
 ## Fold-in rules (shared by all consumers)
 
 - Findings fold into the plan **only with user approval** (set-approval interview); the executor or review session is the single plan writer while it holds the ledger.
-- **Finding numbers are per-round reference vocabulary** (F1…Fn, assigned by the reviewer in the round report). The fold-in interview, the user's keep/reject decisions, rejections in the round summary, and each folded task's `Additional context:` bullet all cite numbers; across rounds, qualify them ("round 2, F3"). Numbers live in the working file, chat, and plan — never in durable source comments (see the ephemeral-artifact rule).
+- **Finding numbers are per-round reference vocabulary** (F1…Fn, assigned by the reviewer in the round report, per the shared [findings format](./findings-format.md#numbering)). The fold-in interview, the user's keep/reject decisions, rejections in the round summary, and each folded task's `Additional context:` bullet all cite numbers; across rounds, qualify them ("round 2, F3"). Numbers live in the working file, chat, and plan — never in durable source comments (see the ephemeral-artifact rule).
 - **Findings-visibility gate (hard, every round):** every round's findings are presented in full in chat — number, severity, file:line, evidence/suggested fix — immediately before the fold-in interview, and the presenting message carries no dispositions and no fixing action. Convergence re-check rounds have identical presentation obligations; a round whose findings were not presented cannot interview, cannot yield-count, and cannot converge.
 - **Disposition gate (hard):** fold-in dispositions are recommendations requiring explicit user approval per finding — the pressure-test protocol's disposition-gate rule applies verbatim here: propose, interview, apply only what the user approved; never self-approve a disposition, not even on a re-check round or a small delta. **Recommendation vocabulary: every finding is proposed as `Take`, `Skip`, or `Discuss`** — `Take` (fold in as tasks), `Skip` (reject, reason inline), `Discuss` (insufficient information to recommend; name what is missing). Silence is not a recommendation.
 - Eligible classes: Blockers, Concerns, Missing tests. Nits opt-in; praise never.

@@ -11,6 +11,8 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+
 Reconcile a roadmap artifact with reality: read every linked issue and PR, recompute each step's status, update the epic task list, and republish the artifact. Optionally create issues for steps that don't have them yet.
 
 This skill keeps the roadmap a *current state of the work* document, not just a planning artifact. Roadmaps are issue artifacts (doc_id-addressed comments on their parent epic) — no local file is kept. Pull/edit/republish mechanics follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).

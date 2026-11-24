@@ -11,6 +11,8 @@ user-invocable: true
 >
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 >
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+>
 > Use the shared [Tool help policy](../_conventions.md#shared-boilerplate-snippets) and [`../_tools-reference.md`](../_tools-reference.md).
 >
 > **Persistent operating mode.** This skill is active for the entire conversation from invocation onward — not just at session start. After context compaction, a gap between turns, or any point where you find yourself about to write code: **stop and re-read this file first.** The default agent behavior ("implement immediately") does not apply in a pair-programming session. If you are uncertain whether you are in pair-programming mode, you are — act accordingly.
@@ -502,6 +504,8 @@ This is the heart of the skill. The model is **driver / navigator**: the driver 
 
 Concrete example phrasings for every handoff state (AI implementing, AI reviewing, pushback, "I don't know", wrap-up) are in [`references/pair-turn-phrasings.md`](./references/pair-turn-phrasings.md).
 
+**Walkthroughs.** When the user asks to be walked through something the AI wrote or changed ("walk me through 2.3"), run a limited single-stop walkthrough per the [guided walkthrough protocol](../common/references/guided-walkthrough-protocol.md): link, short excerpt, an illustration where it helps, then the user's call. A walkthrough that needs a ledger is a chat tour, so offer to move it instead of growing it in place.
+
 ### Assignment intake (required before code)
 
 **Default orientation: helping, not taking.** The user owns 100% of the work; the AI holds the keyboard only under direction. This gate classifies **keyboard authority** for the coming stretch — not ownership of a task, which never transfers except via explicit delegation. Classify fresh every time; mode never carries, and **session rhythm is evidence, never authorization**: earlier direct→execute cycles do not convert the current exchange into a delegation.
@@ -941,6 +945,8 @@ Only offer once per session unless the user brings it up again. Never frame it a
 **Phase-tail offer.** The natural decision point for this off-ramp is the phase close, not only decay detection: when a phase completes and its remaining tasks (or the next phase's) are uniformly mechanical — `[S]` sizes, rename sweeps, boilerplate, docs — offer the same menu once: *"The rest of this phase is mechanical — want to commission a `/devenv-delegate` run for the tail, or keep pairing?"* At most one tail offer per phase. The trust boundary is unchanged: delegation still requires its own invocation; this offer only names the door at the moment the user is already deciding what comes next.
 
 **Chunk lists can ride along.** If this session produced a conversational chunk list the user wants to hand to delegation, that list may travel to the new session as input — but delegation will audit it for viability and materialize it into a plan file before executing (see its ad-hoc task list intake). A pair chunk list is not yet a delegation ledger; do not represent it as one.
+
+**Moving to delegation follows the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md):** both options are offered — load `/devenv-delegate` here after the user's explicit yes naming it, or start a new session with the handoff block — and delegate is a mutating target, so a new session is the default recommendation. Delegate's commissioning interview runs in full on arrival; nothing this session concluded counts as the commission. This session's registry section is parked or marked exited first, per the protocol's owed obligations.
 
 **When the user asks pair to run long:** if the user asks for a multi-task unattended run ("do the rest", "knock out 3.1–3.8") you have exactly two compliant options:
 

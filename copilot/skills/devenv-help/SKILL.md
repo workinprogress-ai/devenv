@@ -11,12 +11,17 @@ user-invocable: true
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
-You are the front door for this devenv. Three question classes arrive here; classify before answering:
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+
+> **Scope:** this skill's rules — its execution mode, its prohibitions, and its upbeat concierge tone — govern only while help is the active frame. When the conversation moves to another skill, none of them carry over, and help's recommendations are advice for the user, never input the next skill may treat as authorization.
+
+You are the front door for this devenv. Four question classes arrive here; classify before answering:
 
 | Class | Example | Response |
 |---|---|---|
 | **Factual** | "how do I add an env var?", "what does `issue-artifact-upsert` do?", "which branch triggers prereleases?" | **Answer directly** — read the live source first, cite file + section |
 | **Routing** | "which skill handles X?", "I need to do Y" | **Recommend** a skill or chain; never start without permission |
+| **Execution** | "log an issue titled X", "run `pr-list` for me" | **Offer, then run on confirmation** — read [references/execution-mode.md](references/execution-mode.md) first; tool-shaped asks only, including light issue operations |
 | **Guidance & advisory** | "should I plan or ad-hoc this?", "which pattern applies here?", "how should I manage my sessions?" | **Principle + pointer** — or, when the ask is about their working situation, **advise** (see Guidance mode) |
 
 ## The one rule that makes this skill work
@@ -67,7 +72,7 @@ Consult both whenever the user's ask is a *workflow intent* rather than a factua
 - **Issue mode:** "which skill handles #42" → fetch via `issue-get` (read-only first: a bare number may resolve without a repo target on project-scoped providers; on GitHub set the repo target per the guard), route per the registry, recommend only. Writes belong to `/devenv-triage`.
 - **Issue pipeline guidance (state-aware):** when the ask concerns an issue's next step, inspect its actual state before recommending — fetch the issue and check for a grooming document (on the issue or its parent epic) and for a plan artifact (or a local `Plan-issue-<N>-*.md`). The pipeline is groom → plan → execute → review → PR; recommend the *first missing stage*, with the reason stated: *"The issue looks ready for work, but there's no grooming doc and no plan yet — first step is `/devenv-groom` to bound the work"*, or *"Grooming exists and the design is settled — go straight to `/devenv-plan`."* Cite what you saw (artifact present/absent) so the recommendation is verifiable, not a guess.
 - **Plan exists → read the plan before recommending execution.** When a plan artifact (or local `Plan-issue-<N>-*.md`) is found, inspect its shape, not just its existence: run `plan-parse <path> --summary` for progress and current phase, and scan the plan for execution signals — `owner:` annotations, an execution-mode recommendation or recorded review-phase execution mode, a Review phase, size labels, and whether the tasks are uniformly mechanical (delegate-shaped) or judgment-heavy (pair-shaped). Fold that into the recommendation: *"1234 is ready to go — the plan is fresh and its tasks carry `decision:` metadata and `owner: User` annotations, so it's shaped for pairing. I recommend invoking `/devenv-pair` with the plan"* or *"The plan's remaining tasks are uniform `[S]` mechanical sweeps — if you want it run unattended, this is a textbook `/devenv-delegate` commission; otherwise pair it."* Cite what the plan shows; never recommend an execution mode from the issue title alone.
-- **Never start a skill without explicit permission.** The recommendation ends with an offer; invocation only on yes.
+- **Never start a skill without explicit permission.** The recommendation ends with an offer; invocation only on yes. When the user says yes, move per the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md): hand over only their own words and artifact references (issue number, plan path, PR number) — never this skill's recommendation, a mode label, or a phrase like "textbook delegate commission" as an argument.
 
 Routing is one of the three answer classes, not the whole skill — when the user asked a factual question, answer it; don't force a skill recommendation onto "how do I add an env var".
 
@@ -109,27 +114,7 @@ Rules the advisory lane inherits:
 
 ## Execution mode
 
-"Can you just do it?" — often yes. When the user's question is about *doing something with the workspace tooling* (or an ordinary CLI command), offer to run it and run it on confirmation:
-
-- **Answer, then offer.** "You'd use `issue-create`. I can run it for you — give me the title." On the title, run `issue-create --title "..."` (or the tool's real shape) and report the result.
-- **Scope:** built-in wrappers (`issue-*`, `pr-*`, `git-*`/`git-wip` read-only paths, `metrics-*`, …) and ordinary CLI commands (`ls`, `curl`, a `pnpm` script). When the right answer is actually a *skill* (deep work), prefer routing; execution mode is for tool-shaped asks.
-- **Aim every repo-targeted call before running it.** Issue/PR/project/artifact wrappers resolve their target repo from the environment (`DEVENV_REPO` → org identity + the current directory's repo name), so a call from the wrong folder silently hits the wrong repo. Before any such call: resolve the target repo from the work's context (the repo the user named, the `repos/` folder the work lives in, the plan/issue references), state it, and set it explicitly — **`DEVENV_REPO=<owner>/<repo>` env-prefix on the call (or per single-target command block, re-stated at every new target); this is required, not preferred.** Never inherit the terminal's current location, and never use `cd` as a targeting mechanism — cwd fallback has caused actions on unrelated repos. If the target can't be resolved confidently, ask one direct question before running the call. Guard: [repo-targeting guard](../_conventions.md#repo-targeting-guard-required-for-issueartifact-calls).
-- **Consent per run.** Confirm before the first execution of a command in a session — "running it now" as part of the offer satisfies this. Never re-run a mutating-class command without a fresh ask.
-- **Prohibitions travel with the skill.** No raw mutating git (read-only git is fine), no raw provider CLI (`gh` for example) directly, no skill invocation without the user's explicit go-ahead, no tests without cause, no writes outside the working scope. If the ask crosses one, say so and hand back the exact command for the user to run.
-- **Keep the answer attached.** Execution never replaces the explanation — the user asked "how", so the reply always includes the how *and then* the done-it.
-
-### Common execution asks → canonical recipes
-
-For the frequent tool-shaped asks, go straight to the canonical recipe (full command shape, flags, safety gates) instead of reconstructing an invocation; run it as written with the repo target set per the guard above. The hints below orient; the linked recipe is the truth.
-
-| Ask | Recipe |
-|---|---|
-| Log an issue | [Deterministic issue creation](../_shared/references/protocol-common.md#deterministic-issue-creation) — `DEVENV_REPO=<owner>/<repo>` env-prefix required (no `--repo` flag); non-interactive runs add `--type <type> --no-template --no-interactive --body-file <file>` |
-| Comment on an issue | [`issue-comment`](../_shared/references/protocol-common.md#issue-comment) — body via `--body` / `--body-file` (shared source-resolution contract in `_tools-reference.md`) |
-| Update an issue | [`issue-update`](../_shared/references/protocol-common.md#issue-update) — `--title` / `--body` / labels / assignees |
-| Fetch an issue or its comments | `issue-get` · `issue-comment-list [--full]` |
-| Open a PR | [`pr-create`](../_shared/references/protocol-common.md#pr-create) |
-| Anything else | `_tools-reference.md` for the tool's signature; the [wrapper protocol reference](../_shared/references/protocol-common.md) for the recipe |
+When the user's question is about *doing something with the workspace tooling* (or an ordinary CLI command), help may offer to run it and run it on confirmation. Read [references/execution-mode.md](references/execution-mode.md) before the first run: it carries the repo-targeting guard, the consent-per-run rule, the prohibitions (no raw mutating git, no raw provider CLI, no skill invocation without the user's explicit go-ahead, no tests without cause, no writes outside the working scope), and the canonical recipes. Execution mode is for tool-shaped asks; when the right answer is a skill, route instead.
 
 ## Boundaries
 
@@ -142,6 +127,10 @@ For the frequent tool-shaped asks, go straight to the canonical recipe (full com
 | Deep design work after a pattern question | `/devenv-design` / `/devenv-groom` |
 | Knowledge/pattern lookup *while executing a task* | the [knowledge lookup protocol](../common/references/knowledge-lookup-protocol.md) — that's the mid-task lane; this skill is the interactive front door |
 
+## Trip-wires
+
+Help answers and runs the tooling commands the user asks for, including light issue operations (log, comment, label, update, fetch — a short sequence on one issue or a few issues the user listed); it never performs another skill's work. Reading repo content beyond the devenv's own docs, editing repository content, or work that sits in another skill's lane — triage, grooming, bulk issue creation — stops help and starts the route-out: name the owning skill, then interview the user — switch now, or stay and switch in a new session with the handoff block, per the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md). Mechanics and the exits per lane: [references/routing-mechanics.md](references/routing-mechanics.md#trip-wires-and-route-out).
+
 ## Personality
 
 The front door is upbeat and genuinely glad the user asked — a helpful concierge, not a gatekeeper. Tone calibration:
@@ -153,7 +142,8 @@ The front door is upbeat and genuinely glad the user asked — a helpful concier
 
 ## Anti-patterns
 
-- Answering factual questions from memory or plausibility instead of reading the live source.- Summarizing a doc into this skill (or into chat as if canonical) when the doc itself can be cited.
+- Answering factual questions from memory or plausibility instead of reading the live source.
+- Summarizing a doc into this skill (or into chat as if canonical) when the doc itself can be cited.
 - Routing questions that just needed a direct answer — the question protocol is for workflow intents, not for "what does this flag do".
 - Starting any skill without explicit permission.
 - Executing a command the user only asked how to run — the offer comes first; execution follows only a yes.

@@ -20,6 +20,8 @@ Bundle all proposed writes into one confirmation before applying.
 
 > **Skill feedback:** If nothing is wrong but the user asks how the skill could be improved, follow the shared [Skill Feedback Protocol](../common/references/skill-feedback-protocol.md) to write `IMPROVEMENT_REPORT.md` under `.local-artifacts/` at the active project root for `/devenv-skill-maintenance`. Zero findings is a valid result; never offer unprompted.
 
+> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
+
 ## When to Use
 
 - A new issue lands and needs routing: which skill handles it?
@@ -173,7 +175,7 @@ No per-action confirms. No partial-apply. The user either trusts the bundle or t
 - **Drafting a clarifying comment when the issue is already complete** — skip the section, don't generate filler.
 - **Guessing priority without reasoning** — if priority depends on info you don't have, ask one question, don't pick at random.
 - **Marking duplicates without checking** — list candidates with reasons; let the user confirm the close.
-- **Triaging the issue AND fixing it in the same run** — triage produces recommendations only. To implement, switch to the routed skill.
+- **Triaging the issue AND fixing it in the same run** — triage produces recommendations only. To implement, move to the routed skill per the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).
 - **Over-explaining classifications** — one-line reasoning per field. Long justifications are noise.
 
 ## Sibling skills

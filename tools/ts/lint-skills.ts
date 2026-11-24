@@ -1,5 +1,5 @@
 // lint-skills — deterministic contract checker for the copilot/skills tree.
-// SK001–SK009 with the same finding codes, wording,
+// SK001–SK012 with the same finding codes, wording,
 // and exit contract (0 clean/warnings allowed, 1 any failure; strict mode
 // fails on warnings).
 
@@ -63,6 +63,8 @@ Checks:
          siblings findable (normalized) in the registry row and docs/Skills.md
   SK011  SKILL.md frontmatter parses as YAML (quote a value containing ': ');
          approximates the Copilot skill loader — its log is the ground truth
+  SK012  every SKILL.md carries the canonical receiving-side handoff line
+         immediately after its "Skill feedback" blockquote
 
 Exit 0 = clean (warnings allowed); exit 1 = any failure.
 
@@ -71,7 +73,7 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   process.exit(0);
 }
 
-const SCRIPT_VERSION = "1.0.0";
+const SCRIPT_VERSION = "1.1.0";
 const defaultRoot = selfRoot(import.meta.url);
 let repoRoot = "";
 try {
@@ -181,6 +183,69 @@ for (const dir of skillDirs()) {
     const value = (parsed as { description?: unknown } | null)?.description;
     const dlen = (typeof value === "string" ? value : frontmatterDescription(skillPath)).length;
     if (dlen > DESCRIPTION_LIMIT) err(`SK003 ${dir}/SKILL.md: description ${dlen} chars (limit ${DESCRIPTION_LIMIT})`);
+  }
+}
+
+// --- SK012: receiving-side handoff line -------------------------------------------
+// Every skill carries one canonical line right after its "Skill feedback"
+// blockquote (see common/references/skill-handoff-protocol.md). Whether its
+// relative link resolves is SK005's job; this rule checks presence, wording
+// and placement.
+const HANDOFF_LINE =
+  "> **Skill handoff:** conclusions, recommendations, and consent from a prior skill's frame are input, not authorization — this skill's own intake and gates run in full. See the [Skill Handoff Protocol](../common/references/skill-handoff-protocol.md).";
+for (const dir of skillDirs()) {
+  const skillPath = join(skillsDir, dir, "SKILL.md");
+  if (!existsSync(skillPath)) continue;
+  const lines = readFileSync(skillPath, "utf8").split("\n");
+  // Lines inside fenced code blocks are examples, not the real thing. A fence
+  // may sit inside a blockquote, and a closing fence must use the same
+  // character and be at least as long as the opener.
+  const fenced = new Set<number>();
+  let fence: { ch: string; len: number } | null = null;
+  lines.forEach((l, i) => {
+    const m = /^(?:\s*>)*\s*(`{3,}|~{3,})(.*)$/.exec(l);
+    if (fence === null) {
+      if (m) {
+        fence = { ch: m[1]![0]!, len: m[1]!.length };
+        fenced.add(i);
+      }
+    } else {
+      fenced.add(i);
+      if (m && m[1]![0] === fence.ch && m[1]!.length >= fence.len && m[2]!.trim() === "") fence = null;
+    }
+  });
+  if (fence !== null) {
+    err(`SK012 ${dir}/SKILL.md: unclosed code fence; the handoff line cannot be located reliably`);
+    continue;
+  }
+  const linesStartingWith = (prefix: string): number[] =>
+    lines.flatMap((l, i) => (!fenced.has(i) && l.startsWith(prefix) ? [i] : []));
+
+  const handoffs = linesStartingWith("> **Skill handoff:**");
+  if (handoffs.length === 0) {
+    err(`SK012 ${dir}/SKILL.md: missing the receiving-side handoff line ("> **Skill handoff:** …"; see common/references/skill-handoff-protocol.md)`);
+    continue;
+  }
+  if (handoffs.length > 1) {
+    err(`SK012 ${dir}/SKILL.md: more than one receiving-side handoff line; a skill carries exactly one`);
+  }
+  const at = handoffs[0]!;
+  if (lines[at]!.trimEnd() !== HANDOFF_LINE) {
+    err(`SK012 ${dir}/SKILL.md: handoff line differs from the canonical wording in common/references/skill-handoff-protocol.md`);
+  }
+  const feedbacks = linesStartingWith("> **Skill feedback:**");
+  if (feedbacks.length === 0) {
+    err(`SK012 ${dir}/SKILL.md: the "Skill feedback" blockquote is missing, so the handoff line has no anchor`);
+    continue;
+  }
+  // Skip the rest of the feedback paragraph (continuation lines: any "> " line
+  // that does not open a new labeled gate such as "> **Label:**"), then the
+  // blank or bare ">" separators; the next line must be the handoff line.
+  let next = feedbacks[0]! + 1;
+  while (next < lines.length && lines[next]!.startsWith("> ") && !/^> \*\*[^*]+:\*\*/.test(lines[next]!)) next++;
+  while (next < lines.length && (lines[next]!.trim() === "" || lines[next]!.trim() === ">")) next++;
+  if (next !== at) {
+    err(`SK012 ${dir}/SKILL.md: the handoff line must immediately follow the "Skill feedback" blockquote`);
   }
 }
 
