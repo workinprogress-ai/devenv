@@ -50,6 +50,7 @@ import {
   issuesComments,
   issuesComment,
   issuesCommentGet,
+  issuesCommentEdit,
   issuesEdit,
   issuesCreate,
   issuesReopen,
@@ -647,7 +648,7 @@ if (tier === "write") {
         probe("issues_comment_get", false);
       }
       try {
-        await issuesEditComment(ref, "edited comment");
+        await issuesCommentEdit("", ref, { body: "edited comment" });
         probe("issues_comment_edit", true);
       } catch {
         probe("issues_comment_edit", false);
@@ -1018,32 +1019,6 @@ function issueEditComment(): never {
   throw new Error("internal: replaced by issuesEdit path");
 }
 void issueEditComment;
-
-/** comment_edit rides issuesEdit? No — the comment contract verb: patch the
- * comment text via the comments API (issues.ts exposes it through
- * issuesCommentGet's sibling; the edit path is issuesEdit for items only).
- * Implemented here against the transport directly, mirroring the bash
- * verb's request. */
-async function issuesEditComment(ref: string, body: string): Promise<void> {
-  const { workItem, commentId } = splitRef(ref);
-  const { base } = witUrls();
-  await azureHttp(
-    "PATCH",
-    `${base}/workitems/${workItem}/comments/${commentId}?format=markdown&api-version=7.2-preview.4`,
-    { body: JSON.stringify({ text: body.trim() === "" ? body : body.replace(/\n$/, "") }) },
-  );
-}
-
-function splitRef(ref: string): { workItem: string; commentId: string } {
-  const parts = ref.split("/");
-  if (parts.length !== 2) throw new Error(`malformed comment ref '${ref}'`);
-  return { workItem: parts[0]!, commentId: parts[1]! };
-}
-
-function witUrls(): { base: string } {
-  const { org: orgName, project: projName } = azureOrgProject();
-  return { base: `https://dev.azure.com/${azureUri(orgName)}/${azureUri(projName)}/_apis/wit` };
-}
 
 /** Merged PR outcome: completed, rebase strategy, source branch gone, linear
  * history. Completion is asynchronous — poll before judging. */

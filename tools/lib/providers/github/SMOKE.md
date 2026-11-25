@@ -115,7 +115,7 @@ things at teardown) go through the same `gh` transport, `ghApi` in `github/trans
 ### URL helpers and authentication
 
 One scenario checks the offline helpers (`web_host`, `web_url`, `pr_web_url`, `extract_url`,
-`remote_to_spec`, `remote_to_web`, `git_transport_url`) against the throwaway repository's
+`remote_to_spec`, `remote_to_web`, `remote_is_org_owned`, `git_transport_url`) against the throwaway repository's
 address and `auth_status_ok` against the real `gh` login. It creates nothing.
 
 ### Excluded verbs

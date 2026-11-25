@@ -177,7 +177,7 @@ count: `view` reads it from the comments resource, `list` from the
 | Milestones | Iterations | Config-mapped (existing `[azure] iteration` keys); no API parity claimed |
 | Sub-issue graph (parent/child) | Work-item links (parent/child, relates-to) | Replaces the GH sub-issue graphql; the issue-graph verbs map onto relation queries. A failed link reports the real error unless the parent already lists the child; an unlink is guarded by a `test` op on `/rev`, so a concurrent relation change fails the write instead of removing a different relation |
 | Blocked-by | `Dependency-Forward` work-item link from the blocked item to each blocker | Distinct from the parent/child hierarchy. The link type is pinned as `Dependency-Forward` (the item carries the link, pointing at the blocker as predecessor) **pending a live check** of the direction against a real organization. The facade applies a blocker list sequentially, because parallel relation writes on one work item race its revision; adding an existing link and removing an absent one are no-op successes |
-| Comment edit | — | No comment-edit primitive is wired: the facade's `issuesCommentEdit` throws a named error (a known gap in [CONTRACT.md](../CONTRACT.md)) |
+| Comment edit | Work-item comment update | `PATCH …/workitems/{id}/comments/{commentId}?format=markdown` with `{ "text": … }`: `format` is a query parameter (a body field is ignored), and the body takes the same artifact marker transform as a comment add. The facade reads the comment back to return the record. The request shape comes from the smoke probe and the stubbed tests pin it, **pending a live check** |
 | Reactions | — | No native equivalent; not mapped |
 
 ### Area-path convention (as-built: provisioning only)

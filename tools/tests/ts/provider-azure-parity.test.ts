@@ -133,7 +133,6 @@ const FACADE_CONTAINER_EXPORTS = new Set([
 const KNOWN_GAPS = [
   "provider_repos_default_branch@github",
   "provider_repos_protect_branch@github",
-  "provider_issues_comment_edit@azure",
   "provider_org_packages_list@github",
   "provider_org_package_versions@github",
 ];

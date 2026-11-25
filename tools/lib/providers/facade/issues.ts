@@ -375,9 +375,8 @@ export async function issuesCommentGet(spec: string | undefined, commentRef: str
   return m.gh.issuesCommentGet(spec, commentRef);
 }
 
-/** Replace a comment's body; emits the updated record (seam shape). Azure's
- * seam has no comment-edit primitive — named error, matching the inline
- * refusals this facade absorbed from the tools. */
+/** Replace a comment's body; emits the updated record (seam shape). Azure
+ * patches the comment, then reads it back, the way issuesCommentAdd does. */
 export async function issuesCommentEdit(
   spec: string | undefined,
   commentRef: string,
@@ -385,8 +384,8 @@ export async function issuesCommentEdit(
 ): Promise<string> {
   const m = await load();
   if (m.provider === "azure") {
-    void commentRef;
-    throw new ProviderError("issues_comment_edit is not implemented for provider 'azure' yet (github-only seam)");
+    await m.az.issuesCommentEdit(spec ?? "", commentRef, opts);
+    return JSON.stringify(await m.az.issuesCommentGet(spec ?? "", commentRef));
   }
   return m.gh.issuesCommentEdit(spec, commentRef, opts);
 }

@@ -88,7 +88,7 @@ provider_issues_comment | issues.issuesComment | issues.issuesComment | issues.i
 provider_issues_comments | issues.issuesComments | issues.issuesComments | issues.issuesComments |
 provider_issues_comment_add | issues.issuesCommentAdd | issues.issuesCommentAdd | via-facade | the facade posts with issuesComment, then reads the record back with issuesCommentGet
 provider_issues_comment_get | issues.issuesCommentGet | issues.issuesCommentGet | issues.issuesCommentGet |
-provider_issues_comment_edit | issues.issuesCommentEdit | issues.issuesCommentEdit | gap: Azure has no comment-edit primitive wired; the facade throws a named error | the one verb listed for both providers that Azure lacks
+provider_issues_comment_edit | issues.issuesCommentEdit | issues.issuesCommentEdit | issues.issuesCommentEdit | the facade patches with issuesCommentEdit, then reads the record back with issuesCommentGet
 provider_issues_set_type | issues.issuesSetType | issues.issuesSetType | issues.issuesSetType |
 provider_issues_milestones | issues.issuesMilestones | issues.issuesMilestones | issues.issuesMilestones |
 provider_issue_web_url | issues.issueWebUrl | issues.issueWebUrl | urls.issueWebUrl | Azure hosts it in its urls module
@@ -463,7 +463,7 @@ raw flag-array verbs); anything not listed is not accepted.
 | `provider_issues_comments` | `issuesComments` | `[repo] NUMBER` | `[Comment]` as JSON text, oldest first |
 | `provider_issues_comment_add` | `issuesCommentAdd` | `[repo] NUMBER`; `body`, `bodyFile` | Comment record as JSON text. On Azure the facade posts with `issuesComment` and reads the record back with `issuesCommentGet`. |
 | `provider_issues_comment_get` | `issuesCommentGet` | `[repo] COMMENT_REF` | Comment record. `COMMENT_REF` is the comment's `id` (`<issue>/<comment>` on Azure; digits only on GitHub, anything else is refused before a request). |
-| `provider_issues_comment_edit` | `issuesCommentEdit` | `[repo] COMMENT_REF`; `body`, `bodyFile` | Comment record. Known gap: Azure has no comment-edit primitive wired, and the facade throws a named error. |
+| `provider_issues_comment_edit` | `issuesCommentEdit` | `[repo] COMMENT_REF`; `body`, `bodyFile` | Comment record. On Azure the facade patches the comment with `issuesCommentEdit`, then reads the record back with `issuesCommentGet`. |
 | `provider_issues_set_type` | `issuesSetType` | `SPEC NUMBER TYPE` | Nothing. Sets the issue's native type (Azure: replaces `System.WorkItemType`). The facade takes the repository spec on both providers. |
 | `provider_issues_milestones` | `issuesMilestones` | `[repo]`; `jq` (Azure only) | The repository's milestones as JSON text. Azure returns an empty list (iterations are not mapped). On GitHub a `jq` request is a named error (raw REST JSON passes through). |
 | `provider_issue_web_url` | `issueWebUrl` | `SPEC NUMBER` | The address of an issue (GitHub) or work item (Azure) in a browser. Async in the facade. |

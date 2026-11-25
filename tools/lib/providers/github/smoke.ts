@@ -977,6 +977,7 @@ async function urlHelpers(): Promise<void> {
   await check("extract_url finds a URL in tool output", "provider_extract_url", () => fUrls.extractUrl(`created https://github.com/${spec}/issues/3 ok`), (u) => (u === `https://github.com/${spec}/issues/3` ? true : String(u)));
   await check("remote_to_spec parses a remote", "provider_remote_to_spec", () => fUrls.remoteToSpec(`https://github.com/${spec}.git`), (s) => (s === spec ? true : String(s)));
   await check("remote_to_web parses a remote", "provider_remote_to_web", () => fUrls.remoteToWeb(`https://github.com/${spec}.git`), (u) => (u === `https://github.com/${spec}` ? true : String(u)));
+  await check("remote_is_org_owned accepts the repo's own remote", "provider_remote_is_org_owned", () => fUrls.remoteIsOrgOwned(`https://github.com/${spec}.git`, state.owner), (b) => b === true || String(b));
   await check("git_transport_url builds the clone URL", "provider_git_transport_url", () => fUrls.gitTransportUrl(state.owner, state.repoName), (u) => (u === `https://github.com/${spec}.git` ? true : u));
   await check("auth_status_ok reports an authenticated gh", "provider_auth_status_ok", () => fUrls.authStatusOk(), (b) => b === true || "false");
 }
@@ -1009,7 +1010,7 @@ const SCENARIOS: Scenario[] = [
   { id: "rerun and cancel", family: "pipelines", run: pipelinesRerunCancel, verbs: ["provider_pipelines_run_rerun", "provider_pipelines_run_cancel"] },
   { id: "rulesets", family: "org", run: orgRulesets, verbs: ["provider_org_ruleset_create", "provider_org_rulesets_list", "provider_org_ruleset_get", "provider_org_ruleset_update"] },
   { id: "releases and packages", family: "org", run: orgReleasesAndPackages, verbs: ["provider_org_releases_list", "provider_org_packages_query", "provider_org_package_versions_query"] },
-  { id: "URL helpers and auth", family: "urls", run: urlHelpers, verbs: ["provider_web_host", "provider_web_url", "provider_pr_web_url", "provider_extract_url", "provider_remote_to_spec", "provider_remote_to_web", "provider_git_transport_url", "provider_auth_status_ok"] },
+  { id: "URL helpers and auth", family: "urls", run: urlHelpers, verbs: ["provider_web_host", "provider_web_url", "provider_pr_web_url", "provider_extract_url", "provider_remote_to_spec", "provider_remote_to_web", "provider_remote_is_org_owned", "provider_git_transport_url", "provider_auth_status_ok"] },
 ];
 
 if (process.argv.includes("--list-coverage")) {

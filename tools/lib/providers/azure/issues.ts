@@ -786,6 +786,48 @@ export async function issuesComment(
   return `${number}/${String(r.id ?? "")}`;
 }
 
+export interface IssuesCommentEditOptions {
+  body?: string;
+  bodyFile?: string;
+}
+
+/** Replace a work-item comment's text. `commentRef` is `<workItem>/<commentId>`.
+ * The body takes the same artifact marker transform as the add path, so the
+ * read path's restore round-trips it. `format=markdown` must be a query
+ * parameter: a body field is ignored by the API. Callers read the comment
+ * back (issuesCommentGet) to obtain the updated record. */
+export async function issuesCommentEdit(
+  repo: string,
+  commentRef: string,
+  opts: IssuesCommentEditOptions,
+): Promise<void> {
+  void repo;
+  const { workItem, commentId } = splitCommentRef(commentRef);
+  // Exactly one body source, the same rule the add path applies.
+  if (opts.body !== undefined && opts.bodyFile !== undefined) {
+    throw new ProviderError("provider_issues_comment_edit: --body and --body-file are mutually exclusive");
+  }
+  if (opts.body === undefined && opts.bodyFile === undefined) {
+    throw new ProviderError("provider_issues_comment_edit requires --body");
+  }
+  let text = opts.body ?? "";
+  if (opts.bodyFile !== undefined) {
+    const { readFileSync } = await import("node:fs");
+    text = opts.bodyFile === "-" ? readFileSync(0, "utf8") : readFileSync(opts.bodyFile, "utf8");
+  }
+  if (text.trim() === "") {
+    throw new ProviderError("provider_issues_comment_edit: the comment body is empty");
+  }
+  const { base } = witBase();
+  await azureHttp(
+    "PATCH",
+    `${base}/workitems/${workItem}/comments/${commentId}?format=markdown&api-version=${AZURE_COMMENTS_API_VERSION}`,
+    {
+      body: JSON.stringify({ text: issuesArtifactBodyTransform(text) }),
+    },
+  );
+}
+
 export interface IssuesCloseOptions {
   reason?: string;
   comment?: string;
