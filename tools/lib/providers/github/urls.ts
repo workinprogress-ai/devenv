@@ -79,6 +79,14 @@ export function remoteToSpec(remote: string): string | null {
   return web.replace(`https://${webHost()}/`, "");
 }
 
+/** Whether a git remote belongs to `org`: a remote on this provider's host
+ * whose owner is `org`. Unparseable remotes are foreign. */
+export function remoteIsOrgOwned(remote: string, org: string): boolean {
+  const spec = remoteToSpec(remote);
+  if (spec === null || org === "") return false;
+  return spec.split("/")[0] === org;
+}
+
 /** Git transport URL for a repo: https://<host>/<org>/<repo>.git. Clean —
  * credentials never embed; auth rides gh's credential helper. */
 export function gitTransportUrl(org: string, repo: string): string {

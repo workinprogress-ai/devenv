@@ -19,8 +19,8 @@ import { gitCapture, gitCheck } from "../lib/core/git.ts";
 import { logError, logWarn } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
-import { providerOrgGet, providerRepoSplit } from "../lib/providers/provider-core.ts";
-import { gitTransportUrl, authStatusOk, remoteToSpec } from "../lib/providers/facade/urls.ts";
+import { providerOrgGet } from "../lib/providers/provider-core.ts";
+import { gitTransportUrl, authStatusOk, remoteIsOrgOwned } from "../lib/providers/facade/urls.ts";
 import { reposList } from "../lib/providers/facade/repos.ts";
 
 assertNodeFloor();
@@ -348,30 +348,13 @@ async function configureGitRepo(dir: string, remoteUrl: string): Promise<void> {
 }
 
 async function isOrgMember(spec: string): Promise<boolean> {
-  // Origin URLs arrive in every git form (HTTPS, SSH, with .git, with
-  // embedded credentials); providerRepoSplit expects bare owner/repo.
-  // Normalize through the provider's remote parser first — an unparseable
-  // form stays foreign (safety-first).
-  let normalized = "";
+  // Ownership is the provider's call: each backend knows its remote forms and
+  // namespace shape. Any failure reads as foreign (safety-first).
   try {
-    normalized = (await remoteToSpec(spec)) ?? "";
+    return await remoteIsOrgOwned(spec, org);
   } catch {
     return false;
   }
-  // An unparseable remote is foreign BY DEFINITION — never fall back to a
-  // cwd-derived spec here: providerRepoSplit("") resolves from the working
-  // tree's own basename, which would judge the repo against itself and read
-  // any local-path origin as an org member.
-  if (normalized === "") return false;
-  let owner = "";
-  try {
-    owner = providerRepoSplit(normalized).owner;
-  } catch {
-    // Unresolvable spec (no DEVENV_REPO, no git context) reads as foreign —
-    // safety-first, the same verdict the bash is_org_member gave.
-    return false;
-  }
-  return owner !== "" && owner === org;
 }
 
 // Whether the repo's own .repo scripts may run: its origin must be org-owned

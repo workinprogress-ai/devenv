@@ -51,6 +51,13 @@ export async function remoteToSpec(remote: string): Promise<string | null> {
   return m.provider === "azure" ? m.az!.remoteToSpec(remote) : m.gh!.remoteToSpec(remote);
 }
 
+/** Whether a git remote belongs to `org` in the provider's own ownership
+ * model (false when foreign or unparseable). */
+export async function remoteIsOrgOwned(remote: string, org: string): Promise<boolean> {
+  const m = await load();
+  return m.provider === "azure" ? m.az!.remoteIsOrgOwned(remote, org) : m.gh!.remoteIsOrgOwned(remote, org);
+}
+
 /** A git remote URL as a browser address (null when foreign). */
 export async function remoteToWeb(remote: string): Promise<string | null> {
   const m = await load();

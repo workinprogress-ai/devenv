@@ -226,6 +226,18 @@ export function remoteToSpec(remote: string): string | null {
   return `${parsed.project}/${parsed.repo}`;
 }
 
+/** Whether a git remote belongs to `org`: an Azure remote in `org` and in the
+ * configured project, the namespace this provider's repos live in. Azure
+ * names are case-insensitive. Unparseable remotes and an unconfigured project
+ * read as foreign. */
+export function remoteIsOrgOwned(remote: string, org: string): boolean {
+  const parsed = azureParseRemote(remote);
+  const project = azureProjectGet();
+  if (parsed === null || org === "" || project === "") return false;
+  return parsed.org.toLowerCase() === org.toLowerCase()
+    && parsed.project.toLowerCase() === project.toLowerCase();
+}
+
 /** Resolve org/project/repo from a SPEC that is project/repo (org comes from
  * config) or org/project/repo. Throws when the spec shape or the org is
  * unresolved. */
