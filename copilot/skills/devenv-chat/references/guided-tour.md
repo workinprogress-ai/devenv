@@ -153,14 +153,48 @@ A review-report source also carries `source-hash:`, a content hash of the report
 
 A ledger is retired by the artifact cleanup tool or by the user, once its findings are consumed. It is never deleted automatically.
 
-## Register and personality
+## Illustrating a stop
+
+A stop usually makes several distinct points — a before and after, a design choice, why a field exists, how call sites changed. Each point gets its own visual, so the user can follow the whole stop without opening a file. A point that is only narrated, with a citation the user must go and read, has not been shown.
+
+- **One point, one excerpt.** Put a short excerpt from the live file, with its line range, next to the sentence that makes the point. The protocol's fifteen-line cap applies per excerpt, not per stop. A point with no code behind it (a design reason) gets a small diagram or a one-line contrast instead. Points that fit one excerpt share it.
+- **Show before and after for a change.** When a point is about what changed — a refactor, a rename, a moved responsibility — show the base-side text and the new text as two labeled fenced blocks (`Before — <file>:<range> @ <base>`, `After — <file>:<range>`), each read from the actual base and head with read-only git inspection, never from memory. Trim to the lines that differ in meaning and say what was trimmed. For a signature that shrank, show both signatures; for a call-site sweep, show one representative before and after and link the rest.
+- **Point inside the code.** Number the points and mark the lines they refer to with a short end-of-line marker in the excerpt (`◄ ①`), with a one-line legend under the block saying the markers are annotations, not code. The prose then says "see ①", not "see line 42". The code itself stays verbatim.
+- **Draw shape, not syntax.** For data flow, who calls whom, or structure before and after, use the protocol's plain-text diagram, and say so when it infers something the cited code does not state.
+- **Split rather than shrink.** When a stop's points, with their visuals, would not read comfortably in one turn (about four points), break it into parts with a "next" between them. Do not cut the visuals to fit.
+
+A stop in this style (the code speaking; the refactor is invented for the example):
+
+````markdown
+**Stop 3 — RetryPolicy.** I used to take seventeen parameters. We don't talk about that.
+
+Before — `send()` @ main: five of the arguments were really about retrying:
+
+```python
+def send(msg, url, timeout, retries, backoff, jitter, retry_on, fail_fast, ...):   # ◄ ①
+```
+
+After — `send()` takes one policy object, and `RetryPolicy` carries the five (`send.py:12-30`):
+
+```python
+@dataclass(frozen=True)
+class RetryPolicy:
+    retries: int = 3          # ◄ ②
+    backoff: float = 0.5
+    ...
+def send(msg, url, timeout, policy: RetryPolicy | None = None):
+    policy = policy or RetryPolicy()     # ◄ ③
+```
+
+① retry knobs smuggled in as loose arguments · ② the new home, frozen so nobody changes it mid-flight · ③ "no policy" means all defaults, the same as the old kwargs — which is why the body reads exactly as before.
+(Markers are annotations, not code. Excerpts trimmed with `…`.)
+
+```
+before:  send(…, retries, backoff, jitter, …)      after:  send(…, policy) ──► RetryPolicy
+```
+````
+
+## Register
 
 **Register.** Chat starts in the simple-explanation register: plain vocabulary, terms defined on first use, what a thing is for before how it works, concrete examples from the code, and an honest note where the simple version leaves out real nuance. The intake calibrates the register up or down, and an expert may opt into a terse register. The amount of visual aid scales with it: the simple register gets the fullest excerpts and illustrations, the terse register trims a stop to its link and a minimal excerpt.
 
-**Personality.** In a tour the code is the host, showing the user around its own house, in the first-person voice chat already uses.
-
-- A heads-up or a flag prompt drops out of the persona into a plain-text callout. The change of voice is the signal that the user's attention is needed. The chat dialect still governs the wording; only the persona drops.
-- The persona may carry an emotional cue — sarcasm, embarrassment, indignation at what an AI agent changed — immediately before the callout. The fact itself is never buried in the joke.
-- Humans are never named or identified in the snark. AI agents may be named. The intensity of the cue scales with the severity of what it introduces.
-- The simple register keeps the warmth and drops the sarcasm.
-- The ledger never carries the persona.

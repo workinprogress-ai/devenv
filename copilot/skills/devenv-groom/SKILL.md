@@ -110,9 +110,9 @@ If the grooming document is stored as an issue comment:
 
 Follow the shared [issue-backed artifact edit protocol](../common/references/issue-backed-artifact-edit-protocol.md).
 
-**Step 4 — Classify component type** (needed for context loading):
+**Step 4 — Classify component type** (needed for context loading; gate before Phase 1):
 
-Use the knowledge repo's `orchestration.md` (resolve the knowledge repo location from `devenv.config` `[copilot]` — `knowledge_repo`, `knowledge_subpath`): classify the target per its Component taxonomy section, then route from the current grooming decision per its Read routing section and load only the files it names. If the knowledge repo or the orchestration file is absent, continue unclassified and note that specialized org context is pending.
+Use the knowledge repo's `orchestration.md` (resolve the knowledge repo location from `devenv.config` `[copilot]` — `knowledge_repo`, `knowledge_subpath`): classify the component the design changes, per its Component taxonomy section — not the repo the grooming document lives in, so a planning-repo target is classified by the service or library its design touches. Then route from the current grooming decision per its Read routing section and load only the files it names. Before Phase 1, name the routed files you loaded (or the classification reached). If the knowledge repo or the orchestration file is absent, continue unclassified and note that specialized org context is pending.
 
 **Step 5 — If input is a returned plan:** determine which kind it is:
 
@@ -263,7 +263,7 @@ This flow updates the grooming document only; it does not modify the completed p
 
 ### Assumption sweep while drafting
 
-While drafting or updating the grooming document's design sections, catch silent assumptions as they form: every fact the session relies on that nobody has verified in this work's context — a library behaves as expected at the target scale, an API covers the needed operations, a format round-trips losslessly, an upstream system stays within documented limits. Record each in the grooming document's **Assumptions** table (A-NNN) the moment it is used to support a decision, not retroactively. An assumption that carries a Confirmed decision must carry its own entry; discovering it at closure is late.
+While drafting or updating the grooming document's design sections, catch silent assumptions as they form: every fact the session relies on that nobody has verified in this work's context — a library behaves as expected at the target scale, an API covers the needed operations, a format round-trips losslessly, an upstream system stays within documented limits. Record each in the grooming document's **Assumptions** table (A-NNN) the moment it is used to support a decision, not retroactively. An assumption that carries a Confirmed decision must carry its own entry; discovering it at closure is late. A claim about what a library or the chassis can or cannot do is an assumption until its knowledge file or source has been read, and it may not enter `Confirmed` before then. A search that finds nothing supports absence only within the scope it covered (one repo, one term); it does not establish that a capability is missing. When a design question depends on library or chassis behavior at any point in the session, re-run the knowledge lookup for that component before answering.
 
 ### Empirical-unknown scan (before closure)
 
