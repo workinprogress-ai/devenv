@@ -20,6 +20,7 @@ import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
+import { rejectAttribution } from "../lib/core/attribution-gate.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { issueTypeNames, resolveIssueType } from "../lib/domain/issues/types.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
@@ -262,6 +263,8 @@ async function main(argv: string[]): Promise<number> {
       return EXIT_MISUSE;
     }
   }
+
+  if (newBody !== "" && rejectAttribution(newBody, "issue body")) return EXIT_MISUSE;
 
   if (hasUpdates) {
     if (dryRun) {

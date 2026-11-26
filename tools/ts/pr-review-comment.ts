@@ -11,6 +11,7 @@ import { basename } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { rejectAttribution } from "../lib/core/attribution-gate.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
@@ -140,6 +141,7 @@ async function main(argv: string[]): Promise<number> {
 
   const repo = requireRepoTarget(providerRepoTarget(""), "pr-review-comment", "pr");
   const body = bodyFile !== "" ? readFileSync(bodyFile, "utf8") : bodyText;
+  if (rejectAttribution(body, "review comment")) return EXIT_MISUSE;
   if (body.replace(/\s/g, "") === "") {
     logError("Comment body is empty — aborting");
     return EXIT_GENERAL_ERROR;

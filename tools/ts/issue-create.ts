@@ -22,6 +22,7 @@ import { logDebug, logError, logInfo, logWarn } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageEnvBlock } from "../lib/core/cli.ts";
+import { rejectAttribution } from "../lib/core/attribution-gate.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { openInEditor } from "../lib/core/editor.ts";
 import { getOriginUrl, getRepoRoot } from "../lib/core/git.ts";
@@ -636,6 +637,8 @@ async function main(argv: string[]): Promise<number> {
     body = pipedStdinBody;
     logDebug("No body flag and no template body; issue body from piped stdin");
   }
+
+  if (rejectAttribution(body, "issue body")) return EXIT_MISUSE;
 
   return await createIssue({
     title,

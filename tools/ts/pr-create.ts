@@ -14,6 +14,7 @@ import { basename } from "node:path";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { rejectAttribution } from "../lib/core/attribution-gate.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
@@ -226,6 +227,8 @@ async function main(argv: string[]): Promise<number> {
     }
     prBody = readFileSync(bodyFile, "utf8");
   }
+
+  if (rejectAttribution(prBody, "pull request body")) return EXIT_MISUSE;
 
   if (issueNumber !== "" && noIssue) {
     console.error("Error: Cannot specify both --issue and --no-issue.");

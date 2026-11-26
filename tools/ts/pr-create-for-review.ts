@@ -12,6 +12,7 @@ import { basename } from "node:path";
 import { execFileSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { rejectAttribution } from "../lib/core/attribution-gate.ts";
 import { logError } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
@@ -98,6 +99,10 @@ async function main(argv: string[]): Promise<number> {
     console.error(`Usage: ${SCRIPT_NAME} <PR_DESCRIPTION> [REPO_DIR] [FROM_COMMIT] [TO_COMMIT]`);
     return EXIT_MISUSE;
   }
+  // The description becomes the PR title and body: reject attribution before
+  // any review branch is created or pushed.
+  if (rejectAttribution(description, "pull request description")) return EXIT_MISUSE;
+
   const repoDir = repoDirArg !== "" ? repoDirArg : process.cwd();
 
   // Git context: repo + clean working tree; never on a review branch.

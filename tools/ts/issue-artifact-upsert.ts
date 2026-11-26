@@ -20,6 +20,7 @@ import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
 
 import { EXIT_API_FAILURE, EXIT_CONFLICT, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
+import { rejectAttribution } from "../lib/core/attribution-gate.ts";
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { select } from "../lib/ui/prompts.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
@@ -273,6 +274,8 @@ async function main(argv: string[]): Promise<number> {
   } else {
     body = args.body;
   }
+
+  if (rejectAttribution(body, "artifact body")) return EXIT_MISUSE;
 
   // Single repo-resolution entry point (override > DEVENV_REPO > cwd), with
   // the devenv-repo safety gate applied to implicit targets — the bash

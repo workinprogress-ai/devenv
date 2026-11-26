@@ -107,6 +107,13 @@ function localReviewBranches(): string[] {
 }
 
 describe("scripts/pr-create-for-review", () => {
+  it("rejects an attributed description before any review branch exists", () => {
+    const r = runScript(["check the changes\n\nCo-Authored-By: Claude <noreply@anthropic.com>", CLONE, FROM, TO]);
+    expect(r.status).toBe(2);
+    expect(r.out).toContain("AI attribution is not allowed in a pull request description");
+    expect(remoteReviewBranches()).toHaveLength(0);
+  });
+
   it("a successful run leaves both review branches on the remote, because the PR needs them", () => {
     const r = runScript(["check the changes", CLONE, FROM, TO]);
     expect(r.status).toBe(0);

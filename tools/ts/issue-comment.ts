@@ -21,6 +21,7 @@ import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
+import { rejectAttribution } from "../lib/core/attribution-gate.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { checkTargetRepo, requireRepoTarget, providerRepoTarget } from "../lib/providers/provider-core.ts";
 import { issuesComment } from "../lib/providers/facade/issues.ts";
@@ -202,6 +203,8 @@ async function main(argv: string[]): Promise<number> {
     }
     body = resolved.body;
   }
+
+  if (rejectAttribution(body, "issue comment")) return EXIT_MISUSE;
 
   checkTargetRepo(args.devenv);
 

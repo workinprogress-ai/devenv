@@ -110,6 +110,15 @@ describe("issue-artifact-upsert", () => {
     process.env.PATH = savedPath;
   });
 
+  it("rejects an attributed artifact body with exit 2 and posts nothing", () => {
+    writeFileSync(responses, "issues/42/comments\t[]\n");
+    const body = `${artifactBody("dv1:attributed")}\n\nCo-Authored-By: Claude <noreply@anthropic.com>`;
+    const r = runTool(["--issue", "42", "--body", body]);
+    expect(r.status).toBe(2);
+    expect(r.output).toContain("AI attribution is not allowed in an artifact body");
+    expect(ghCalls().some((c) => c.includes("-X POST") || c.includes("-X PATCH"))).toBe(false);
+  });
+
   it("create path: no existing match posts a new comment and reports created", () => {
     writeFileSync(responses, "issues/42/comments\t[]\n");
     const r = runTool(["--issue", "42", "--body", artifactBody("dv1:new")]);

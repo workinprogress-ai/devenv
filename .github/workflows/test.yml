@@ -196,3 +196,6 @@ jobs:
 
       - name: Devenv-Action trailer
         run: ./tools/internal/commit-action-check "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+
+      - name: No AI attribution
+        run: ./tools/internal/attribution-check "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"

@@ -100,6 +100,21 @@ describe("issue-create", () => {
     rmSync(workDir, { recursive: true, force: true });
   });
 
+  it("rejects an attributed body, inline or from a file, with exit 2, live or dry-run, and creates nothing", () => {
+    const cfg = writeTypesConfig();
+    const bad = "Steps to reproduce.\n\nCo-Authored-By: Claude <noreply@anthropic.com>";
+    const file = join(workDir, "attributed.md");
+    writeFileSync(file, bad);
+    for (const source of [["--body", bad], ["--body-file", file]]) {
+      for (const extra of [[], ["--dry-run"]]) {
+        const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", ...source, ...extra], issuesConfig: cfg });
+        expect(r.status, `${source[0]} ${extra.join(" ")}`).toBe(2);
+        expect(r.output).toContain("AI attribution is not allowed in an issue body");
+      }
+    }
+    expect(ghCalls().some((c) => c.includes("issue create"))).toBe(false);
+  });
+
   it("--dry-run prints the final body without any mutating call", () => {
     const cfg = writeTypesConfig();
     const r = runTool({ args: ["--title", "T", "--type", "Task", "--no-interactive", "--dry-run", "--body", "C:\\new\\table"], issuesConfig: cfg });

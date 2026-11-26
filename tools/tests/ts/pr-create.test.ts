@@ -169,6 +169,17 @@ afterEach(() => {
 });
 
 describe("pr-create (behavioral port)", () => {
+  it("pr-create rejects an attributed body, inline or from a file, before anything else", () => {
+    const bad = "## Summary\n\nA change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)";
+    const file = join(TMP, "attributed-body.md");
+    writeFileSync(file, bad);
+    for (const args of [["--body", bad], ["--body-file", file]]) {
+      const r = prCreate(["feat: new feature", "--no-issue", ...args, "--repo-dir", REPO_DIR]);
+      expect(r.status, args[0]).toBe(2);
+      expect(r.out).toContain("AI attribution is not allowed in a pull request body");
+    }
+  });
+
   it("pr-create requires --issue or --no-issue (un-inferable branch errors with guidance)", () => {
     const r = prCreate(["feat: new feature", "--repo-dir", REPO_DIR]);
     expect(r.status).not.toBe(0);

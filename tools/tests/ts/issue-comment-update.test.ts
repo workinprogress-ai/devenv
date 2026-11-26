@@ -74,6 +74,13 @@ describe("issue-comment-update", () => {
     process.env.PATH = savedPath;
   });
 
+  it("rejects an attributed body with exit 2 and never reaches the update", () => {
+    const r = runTool(["777", "--body", "Updated.\n\nCo-Authored-By: Claude <noreply@anthropic.com>"]);
+    expect(r.status).toBe(2);
+    expect(r.output).toContain("AI attribution is not allowed in an issue comment");
+    expect(r.output).not.toContain("updated");
+  });
+
   it("updates a comment inline and reports success", () => {
     const r = runTool(["777", "--body", "Updated content"]);
     expect(r.status).toBe(0);

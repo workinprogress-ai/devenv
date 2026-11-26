@@ -149,4 +149,11 @@ describe("ci workflows", () => {
   it("CI validates the Devenv-Action trailer on pull-request commits", () => {
     expect(readFileSync(TESTWF, "utf8")).toContain("commit-action-check");
   });
+
+  it("CI rejects AI attribution on pull-request commits, over the same range as the trailer check", () => {
+    const wf = readFileSync(TESTWF, "utf8");
+    const range = '"${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"';
+    expect(wf).toContain(`./tools/internal/attribution-check ${range}`);
+    expect(wf).toContain(`./tools/internal/commit-action-check ${range}`);
+  });
 });

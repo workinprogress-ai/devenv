@@ -65,6 +65,18 @@ describe("pr-comment body sources", () => {
     rmSync(repoRoot, { recursive: true, force: true });
   });
 
+  it("rejects an attributed body, inline or from a file, with exit 2 and posts nothing", () => {
+    const bad = "LGTM.\n\nCo-Authored-By: Claude <noreply@anthropic.com>";
+    const file = join(stubDir, "attributed.md");
+    writeFileSync(file, bad);
+    for (const args of [["123", "--body", bad], ["123", "--body-file", file]]) {
+      const r = runTool(args);
+      expect(r.status, args.join(" ")).toBe(2);
+      expect(r.stderr).toContain("AI attribution is not allowed in a pull request comment");
+    }
+    expect(ghCalls()).toHaveLength(0);
+  });
+
   it("--body-file posts the file's CONTENT, never empty", () => {
     const body = join(stubDir, "body.md");
     writeFileSync(body, "hello from file");

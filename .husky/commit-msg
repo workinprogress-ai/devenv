@@ -7,4 +7,9 @@ commit_file="$1"
 
 "$(dirname "$0")/../tools/internal/commit-action-check" --message-file "$commit_file" || exit 1
 
+# Reject AI attribution: every change is attributed to the human who owns it.
+# The pattern list lives in one place, tools/lib/core/attribution-patterns.ts,
+# shared with CI and repo-commit.
+"$(dirname "$0")/../tools/internal/attribution-check" --message-file "$commit_file" || exit 1
+
 npx --no-install commitlint --edit "$1"

@@ -17,6 +17,7 @@ import { EXIT_API_FAILURE, EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/e
 import { logError, logInfo } from "../lib/core/logging.ts";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
+import { rejectAttribution } from "../lib/core/attribution-gate.ts";
 import { resolveBodySource } from "../lib/core/body-source.ts";
 import { toolCli, usageCommonFlags, usageEnvBlock } from "../lib/core/cli.ts";
 import { checkTargetRepo } from "../lib/providers/provider-core.ts";
@@ -163,6 +164,8 @@ async function main(argv: string[]): Promise<number> {
     bodyText = resolved.body;
     bodyFile = "";
   }
+
+  if (rejectAttribution(bodyText, "pull request comment")) return EXIT_MISUSE;
 
   if (!(await authStatusOk())) {
     logError("Not authenticated with the active provider");

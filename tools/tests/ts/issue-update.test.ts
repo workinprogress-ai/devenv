@@ -60,6 +60,13 @@ describe("issue-update", () => {
     rmSync(repoRoot, { recursive: true, force: true });
   });
 
+  it("rejects an attributed --body with exit 2 and never edits the issue", () => {
+    const r = runTool(["123", "--body", "New text.\n\nCo-Authored-By: Claude <noreply@anthropic.com>"]);
+    expect(r.status).toBe(2);
+    expect(r.output).toContain("AI attribution is not allowed in an issue body");
+    expect(ghCalls().join("\n")).not.toContain("issue edit");
+  });
+
   it("verifies existence, then applies a single edit", () => {
     const r = runTool(["123", "--title", "New name"]);
     expect(r.status).toBe(0);

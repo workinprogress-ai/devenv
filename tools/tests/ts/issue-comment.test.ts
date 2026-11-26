@@ -68,6 +68,16 @@ describe("issue-comment", () => {
     process.env.PATH = savedPath;
   });
 
+  it("rejects an attributed body with exit 2, live or dry-run, and makes no gh call", () => {
+    const bad = "Thanks.\n\nCo-Authored-By: Claude <noreply@anthropic.com>";
+    for (const extra of [[], ["--dry-run"]]) {
+      const r = runTool(["123", "--body", bad, ...extra]);
+      expect(r.status, extra.join(" ")).toBe(2);
+      expect(r.output).toContain("AI attribution is not allowed in an issue comment");
+    }
+    expect(ghCalls()).toBe("");
+  });
+
   it("posts an inline body through the facade (repo from DEVENV_REPO, number positional)", () => {
     const r = runTool(["123", "--body", "Fixed in PR #456"]);
     expect(r.status).toBe(0);
