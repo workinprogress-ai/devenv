@@ -16,6 +16,7 @@ import { ensureProviderAuth, providerOrgGet, } from "../lib/providers/provider-c
 import { requireFamilyCapability } from "../lib/providers/facade/provider-loader.ts";
 import { reposList } from "../lib/providers/facade/repos.ts";
 import { pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
+import { repoSpecFor } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
 
@@ -144,7 +145,7 @@ const failures: Array<{ repo: string; reason: string }> = [];
 for (const repo of repoNames) {
   let raw: string;
   try {
-    raw = await pipelinesRunList(`${org}/${repo}`, { limit: Number(limit), json: RUN_FIELDS });
+    raw = await pipelinesRunList(await repoSpecFor(org, repo), { limit: Number(limit), json: RUN_FIELDS });
   } catch (err) {
     failures.push({ repo, reason: errorMessage(err).split("\n")[0] ?? "run list failed" });
     continue;

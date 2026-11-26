@@ -150,6 +150,7 @@ provider_pr_web_url | urls.prWebUrl | urls.prWebUrl | urls.prWebUrl |
 provider_extract_url | urls.extractUrl | urls.extractUrl | urls.extractUrl |
 provider_remote_to_web | urls.remoteToWeb | urls.remoteToWeb | urls.remoteToWeb |
 provider_remote_to_spec | urls.remoteToSpec | urls.remoteToSpec | urls.remoteToSpec |
+provider_repo_spec_for | urls.repoSpecFor | urls.repoSpecFor | urls.repoSpecFor |
 provider_remote_is_org_owned | urls.remoteIsOrgOwned | urls.remoteIsOrgOwned | urls.remoteIsOrgOwned |
 provider_git_transport_url | urls.gitTransportUrl | urls.gitTransportUrl | urls.gitTransportUrl |
 provider_auth_status_ok | urls.authStatusOk | urls.authStatusOk | auth.authStatusOk | Azure hosts it in its auth module
@@ -554,6 +555,7 @@ so call sites await uniformly.
 | `provider_extract_url` | `extractUrl` | The first host URL in a command's output, optionally filtered to a path prefix; `null` when none |
 | `provider_remote_to_web` | `remoteToWeb` | A git remote URL as a clean https web address; `null` when the remote is not this provider's host |
 | `provider_remote_to_spec` | `remoteToSpec` | A git remote URL as a repository spec; `null` when the remote is not this provider's host |
+| `provider_repo_spec_for` | `repoSpecFor` | The repository spec of a repository name under an organization, in the host's canonical form (GitHub: `org/name`; Azure: `<configured project>/name`). Tools that address many repositories by name build specs with it rather than joining `org/name` |
 | `provider_remote_is_org_owned` | `remoteIsOrgOwned` | `true` when a git remote belongs to the given organization in the provider's ownership model (GitHub: owner; Azure: organization and configured project); `false` when foreign or unparseable |
 | `provider_git_transport_url` | `gitTransportUrl` | The clean HTTPS URL git fetches a repository from, with no embedded credential |
 | `provider_auth_status_ok` | `authStatusOk` | `true` when the provider's credential is usable |

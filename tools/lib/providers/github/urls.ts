@@ -71,6 +71,12 @@ export function remoteToWeb(remote: string): string | null {
   return `https://${host}/${rest}`;
 }
 
+/** The repo spec of the repository `name` owned by `org`, in this host's
+ * canonical form: owner/repo. */
+export function repoSpecFor(org: string, name: string): string {
+  return `${org}/${name}`;
+}
+
 /** A git remote URL as this provider's repo spec (owner/repo), whatever the
  * transport form. Null when the remote is not this provider's host. */
 export function remoteToSpec(remote: string): string | null {

@@ -26,6 +26,7 @@ import {
 } from "../lib/domain/cs/dependency-graph.ts";
 import { providerOrgGet } from "../lib/providers/provider-core.ts";
 import { pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
+import { repoSpecFor } from "../lib/providers/facade/urls.ts";
 import { csprojPackageReferences } from "../lib/domain/cs/csproj.ts";
 import { repoDefaultBranch } from "../lib/domain/cs/default-branch.ts";
 import { resolvePostUpdateScript } from "../lib/domain/cs/post-update.ts";
@@ -232,12 +233,18 @@ async function runPipelinesList(repo: string, branch: string, limit: number, jso
   return pipelinesRunList(repo, { branch, limit, json: json === "status" ? "status,conclusion" : "conclusion" });
 }
 
-/** Full owner/repo name of a cached repo (get_full_repo_name parity through
- * the facade's reposView). Empty when unresolvable. */
-function getFullRepoName(repoDir: string): string {
+/** Repo spec of a cached repo in the provider's canonical form (owner/repo on
+ * GitHub, project/repo on Azure). Empty when unresolvable. */
+async function getFullRepoName(repoDir: string): Promise<string> {
   const name = basename(repoDir);
   const org = providerOrgGet();
-  return org !== "" ? `${org}/${name}` : "";
+  if (org === "") return "";
+  try {
+    return await repoSpecFor(org, name);
+  } catch (err) {
+    logError(`Could not resolve the repo spec of ${name}: ${errorMessage(err)}`);
+    return "";
+  }
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────
@@ -590,7 +597,7 @@ async function main(): Promise<void> {
         }
       }
 
-      const fullName = getFullRepoName(join(cacheRoot, repo));
+      const fullName = await getFullRepoName(join(cacheRoot, repo));
       if (fullName !== "") mergedRepos.push(fullName);
       processed += 1;
     }

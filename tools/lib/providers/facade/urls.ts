@@ -45,6 +45,13 @@ export async function extractUrl(output: string, pathPrefix = ""): Promise<strin
   return m.provider === "azure" ? m.az!.extractUrl(output, pathPrefix) : m.gh!.extractUrl(output, pathPrefix);
 }
 
+/** The repo spec of the repository `name` owned by `org`, in the provider's
+ * canonical form (owner/repo on GitHub, project/repo on Azure). */
+export async function repoSpecFor(org: string, name: string): Promise<string> {
+  const m = await load();
+  return m.provider === "azure" ? m.az!.repoSpecFor(org, name) : m.gh!.repoSpecFor(org, name);
+}
+
 /** A git remote URL as this provider's repo spec (null when foreign). */
 export async function remoteToSpec(remote: string): Promise<string | null> {
   const m = await load();

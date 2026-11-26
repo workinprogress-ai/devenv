@@ -217,6 +217,18 @@ export function remoteToWeb(remote: string): string | null {
   return `https://dev.azure.com/${azureUri(parsed.org)}/${azureUri(parsed.project)}/_git/${azureUri(parsed.repo)}`;
 }
 
+/** The repo spec of the repository `name`, in this host's canonical form:
+ * project/repo. The project comes from config, never from `org`: an
+ * organization name in the project slot addresses a project that does not
+ * exist. Throws when no project is configured. */
+export function repoSpecFor(_org: string, name: string): string {
+  const project = azureProjectGet();
+  if (project === "") {
+    throw new Error("azure project unresolved — set [provider] azure_project in devenv.config");
+  }
+  return `${project}/${name}`;
+}
+
 /** A git remote URL as this provider's repo spec: project/repo (the
  * organization comes from config). Null when the remote is not an Azure
  * remote. */

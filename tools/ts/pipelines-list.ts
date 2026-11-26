@@ -16,6 +16,7 @@ import { requireFamilyCapability } from "../lib/providers/facade/provider-loader
 import { formatTable } from "../lib/ui/panels.ts";
 import { reposList } from "../lib/providers/facade/repos.ts";
 import { pipelinesWorkflowList } from "../lib/providers/facade/pipelines.ts";
+import { repoSpecFor } from "../lib/providers/facade/urls.ts";
 
 assertNodeFloor();
 
@@ -127,7 +128,7 @@ const workflows: WorkflowRow[] = [];
 for (const repo of repoNames) {
   let raw = "[]";
   try {
-    raw = await pipelinesWorkflowList(`${org}/${repo}`, ["--json", "id,name,path,state"]);
+    raw = await pipelinesWorkflowList(await repoSpecFor(org, repo), ["--json", "id,name,path,state"]);
   } catch {
     raw = "[]";
   }
