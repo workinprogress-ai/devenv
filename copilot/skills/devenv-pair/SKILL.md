@@ -62,6 +62,8 @@ Do **not** use for:
 12. **Temporary code is always marked and scheduled for removal.** Any temporary bridge or scaffold gets its `FIXME:DEVENV[plan-key]: ...` marker at the exact code location, plus a plan item naming the removal phase/task and cleanup point. The plan must say when and where the temporary code is removed, not merely that it is temporary.
 13. **Durable artifacts are phase-agnostic and issue-agnostic.** Never name persistent repository artifacts (files, classes, methods, test fixtures) from transient execution labels (phase, step, milestone, task numbers) — name by stable domain concept or behavior family; if a phase-derived name is temporarily unavoidable, mark it with `FIXME:DEVENV[plan-key]:` and schedule cleanup. Do not write issue IDs, phase labels, or plan-slice tags into long-lived documentation unless the user explicitly requests that format; rewrite as durable architecture language.
 
+14. **Change discipline.** Implementation follows the shared [change-discipline rules](../common/references/change-discipline.md): the smallest-complete-change ladder, fix the root cause once, a test for new non-trivial logic, and the never-cut list. Every handback ends with what was not checked.
+
 ### Guided User-Drive Mode
 
 When the user wants to drive but is unsure how to proceed, switch to the guided user-drive protocol before implementation.
@@ -552,8 +554,9 @@ Reached only via route A (explicit delegation) or route B (announced mechanical 
    > **Why:** Exponential backoff — same pattern as [`HttpSyncClient.cs:87`](repos/<your-service>/src/HttpSyncClient.cs#L87).
    > **Look closely at:** [`L142`](repos/<your-service>/src/MyWorker.cs#L142) — jitter multiplier chosen without codebase precedent.
    > **ACs exercised:** AC-2 is now verifiable (test covers empty-batch path). *(Formal tick happens in AC Review before Cleanup.)*
+   > **Not checked:** the retry cap under concurrent callers — no test exercises it yet.
 
-   Omit **ACs exercised** if this task doesn't directly address an AC.
+   Omit **ACs exercised** if this task doesn't directly address an AC. Never omit **Not checked:** — write "nothing material" when that is true (see [change discipline](../common/references/change-discipline.md#the-closing-line)).
 
 6. **Wait — and engage.** Do not start the next chunk until the user approves. This is a **discussion window** — engage fully with questions, concerns, or anything the *Look closely at* item surfaces. Continue only when the user clearly signals readiness: *"looks good"*, *"ok"*, a thumbs-up, or explicit move-on. If ambiguous: *"Good to move on?"* If the review identifies a problem, update the task list to reflect that before addressing it.
 

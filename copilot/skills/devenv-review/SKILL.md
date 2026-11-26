@@ -64,6 +64,7 @@ When a review completes with changes merged or approved-for-merge, signal `workf
 - Read each changed file's diff and any relevant unchanged context.
 - **Org-knowledge pass:** classify the diff's component per the knowledge repo's `orchestration.md` (resolve both roots from `devenv.config` `[copilot]`; canonical links `~/.copilot/knowledge` and `~/.copilot/engineering`), load the routed entries it names for that component, and judge the diff against their conventions and the engineering repo's ratified patterns (e.g. `Standards/Design-Principles/`): a violation is a Concern (Blocker when the principle's adherence level makes it mandatory and the violation is structural); cite the knowledge file + section or pattern name. Missing roots or docs → note the gap in the report — never skip the pass silently.
 - Identify: new behavior, removed behavior, behavior changes, refactors, dead code removal, dependency changes, test changes.
+- **Lean pass.** For each helper, wrapper or abstraction the diff adds, ask which of these applies: *delete* (nothing needs it); *reuse* (an existing helper does it — name its path); *stdlib-native* (the standard library or platform does it); *yagni* (one implementation behind an interface, or a pass-through wrapper); *merge* (two things that always change together); *split* (by job, never by line count). A hit is a Concern that states the saving, and the total feeds the `Lean:` closing line.
 
 ### 3. Build the review
 
@@ -83,11 +84,11 @@ Output structure (markdown, in this order). Findings are numbered per the shared
 ### Findings
 
 #### 🛑 Blocker
-- **F1** [repos/path/file.ts:42](repos/path/file.ts#L42) — <reason: correctness bug, security issue, breaking API change, missing critical test>
+- **F1** [repos/path/file.ts:42](repos/path/file.ts#L42) — <reason: correctness bug, security issue, breaking API change, missing critical test> **If we skip it:** <the concrete consequence>
   <!-- @post: file=path/file.ts line=42 side=RIGHT -->
 
 #### ⚠️ Concern
-- **F2** [repos/path/file.ts:88](repos/path/file.ts#L88) — <reason: design issue, maintainability, performance, edge case not handled>
+- **F2** [repos/path/file.ts:88](repos/path/file.ts#L88) — <reason: design issue, maintainability, performance, edge case not handled> **If we skip it:** <the concrete consequence>
   <!-- @post: file=path/file.ts line=88 side=RIGHT -->
 
 #### 💭 Nit
@@ -110,7 +111,13 @@ Output structure (markdown, in this order). Findings are numbered per the shared
 
 ### Questions for the author
 - <Open questions where the diff isn't self-explanatory: "Is the retry count of 3 intentional or arbitrary?" "Why does this prefer X over Y?">
+
+### Closing
+**Lean:** -N lines possible (or "nothing to cut")
+**Not checked:** <what this review did not verify, and any risk the author must know; "nothing material" when true>
 ````
+
+**Finding wording.** Every finding rests on a concrete case: no case, no finding, and no style taste or vague worry. Every Blocker and Concern ends with **If we skip it:** and the consequence, so accepting or deferring it is a quick call. The `### Closing` lines are summary-only: they carry no `@post` marker.
 
 ### 4. Severity rules
 

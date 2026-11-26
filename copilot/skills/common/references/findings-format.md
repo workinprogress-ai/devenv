@@ -28,7 +28,7 @@ Marker rules:
 
 - `file=` is **repo-relative** (as shown in the PR diff — what `pr-review-comment --file` expects) and carries no prefix; it usually differs from the display link above it.
 - `side=` is `RIGHT` (default — new content) or `LEFT` (original content).
-- **Postable sections** (get markers): Blocker, Concern, Nit, Praise, TODO/FIXME, and ephemeral-artifact findings. **Summary-only sections** (no markers): Summary, Missing tests, and Questions for the author — these are not single-line findings and ride in the top-level summary comment instead.
+- **Postable sections** (get markers): Blocker, Concern, Nit, Praise, TODO/FIXME, and ephemeral-artifact findings. **Summary-only sections** (no markers): Summary, Missing tests, Questions for the author, and Closing — these are not single-line findings and ride in the top-level summary comment instead.
 - One marker per bullet, directly under it. For a multi-line finding use the first line and note the range in prose.
 - The user controls posting purely by editing the file: deleting a finding (or its marker) skips it; adding a marker to a new bullet posts it. Deleted findings' markers are simply absent at parse time.
 

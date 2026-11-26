@@ -66,6 +66,7 @@ Do **not** use for:
 11. **Architectural fidelity beats local progress.** If the plan, contracts, or design context imply a hard architectural requirement — for example execution locus, boundary ownership, server-side vs client-side execution, or a materially distinct implementation mode — treat that as binding. If it is not explicit enough to implement safely, stop and ask rather than choosing the easiest nearby implementation surface.
 12. **Durable artifact naming must be phase-agnostic.** Never name a persistent repository artifact (files, classes, methods, test fixtures) from transient execution labels such as phase, step, milestone, or task numbers. Name by stable domain concept or behavior family. If a phase-derived name is temporarily unavoidable, mark it with `FIXME:DEVENV[plan-key]:` and add explicit cleanup work before completion.
 13. **Temporary bridge code always gets a plan-bounded DEVENV FIXME and a removal plan.** Any temporary bridge or scaffold must receive a `FIXME:DEVENV[plan-key]: ...` marker at the exact code location, plus a corresponding plan item naming the removal phase/task and the expected cleanup point. The plan must say when and where the temporary code will be removed, not merely that it is temporary.
+14. **Change discipline.** Implementation follows the shared [change-discipline rules](../common/references/change-discipline.md): the smallest-complete-change ladder, fix the root cause once, a test for new non-trivial logic, and the never-cut list. Every handback carries a **Not checked:** line.
 
 ## Event signal
 
@@ -580,6 +581,7 @@ Default output shape:
 > **Open questions:** [[QUESTION] items, unresolved choices, or "none"]
 > **Working-tree provenance:** [files the run changed vs foreign/pre-existing edits observed — one line; "all changes are the run's" when nothing foreign]
 > **Gate:** [clear/blocked/not yet run + reason]
+> **Not checked:** [what this phase skipped or could not verify, and any risk the user must know — "nothing material" when true; see [change discipline](../common/references/change-discipline.md#the-closing-line)]
 > **Sync:** [synced / offered (awaiting user) / declined by user / not applicable (no associated issue) — one line; a plan with an issue number but no published artifact reports "pending first publication" here, not "not applicable"]
 > **Next:** [continue to next phase / rework item / plan revision]
 
