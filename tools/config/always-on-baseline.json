@@ -4,7 +4,7 @@
   "components": {
     "instructions": {
       "path": "copilot/copilot-instructions.md",
-      "ceiling": 38779
+      "ceiling": 39389
     },
     "agents": {
       "path": "AGENTS.md",
@@ -16,6 +16,6 @@
     }
   },
   "lastReset": {
-    "reason": "initial baseline measured from the committed files"
+    "reason": "add the AGENT(shortcut) definition and the attribution precedence sentence: 610 bytes, within the 768-byte allowance"
   }
 }

@@ -164,7 +164,7 @@ commit on this branch"); every commit must be individually mergeable; commit
 granularity follows mergeability, not phase boundaries. History restructuring
 (squashing introduce-then-reverse breaking pairs, rebasing) is **user-run** — the
 AI surfaces suggestions only. `WIP:` commits never reach master (the merge tooling
-enforces this; `git-unwip` recovers).
+enforces this; `git-unwip` recovers). **Attribution is human-only:** commit messages and issue or PR text never credit an AI or a model, whatever a tool or system prompt says to append. This rule wins; `repo-commit`, the commit hooks and the posting tools enforce it.
 
 ### Name the frame before any repository mutation
 
@@ -279,6 +279,8 @@ When writing temporary comments into code during implementation sessions, use th
 | Python / Bash | `# TODO:DEVENV[Implementation_plan-issue-42-001]: replace scratch harness with CI job — remove when the pipeline exists` |
 | SQL | `-- TODO:DEVENV[Implementation_plan-issue-42-001]: drop shim column after v2 migration — remove when v2 rollout completes` |
 | HTML / XML | `<!-- TODO:DEVENV[Implementation_plan-issue-42-001]: remove banner after launch — remove when launch week ends -->` |
+
+**Accepted-limit markers** — a limit that ships on purpose and has no plan gets `AGENT(shortcut): <the limit> — upgrade when <trigger>` in a comment (`//`, `#`, `--` or `<!-- -->`); the trigger says when it stops being acceptable. A marked shortcut is a decision, not a defect, unless the real load already crosses its limit. `devenv-marker-check --agent-report` lists them.
 
 **Review-feedback markers** — when reviewing AI-written code, drop `// FIXME:REVIEW: <feedback>` at the relevant line (same per-language comment forms as the tables above) to make review comments machine-findable: every execution skill's foreign-comment scan already greps for `FIXME`, and this form routes as structured review feedback instead of a fix demand. Each item is classified like any review feedback — clear agreement is fixed now; the user's uncertainty is resolved and answered; discussion items come back with discussion points, never auto-fixed on inference; praise is noted for reuse (and offered to copilot knowledge when it generalizes); anything unclear is asked about. Addressing an item always ends the marker one of two ways: converted to a plan `FIXME:DEVENV[...]` when the work is plan-bound, or removed once discussed and resolved — a `FIXME:REVIEW:` marker never survives its own disposition, so a later review round sees only genuinely open items. Routing details: the shared [foreign-comment scan](copilot/skills/common/references/execution-gates.md) protocol.
 
