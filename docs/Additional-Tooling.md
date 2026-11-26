@@ -3467,12 +3467,15 @@ Deterministic DEVENV-marker and AC-comment scanning for cleanup gates and
 discovery sweeps. Gate mode fails when plan-bounded FIXME markers remain;
 cross-plan TODO markers are sanctioned to ship;
 `--todo-report` lists scoped TODOs and warns about missing discharge
-conditions; `--all` audits every marker form.
+conditions; `--agent-report` lists `AGENT(shortcut)` markers (the permanent
+accepted-limit marker, recognised only inside comments) and tags a marker
+with no `upgrade when` trigger, an unknown kind or an empty limit as
+malformed; `--all` audits every marker form.
 
 **Usage:**
 
 ```bash
-devenv-marker-check [PATH...] [--all] [--ac] [--todo-report] [--marker REGEX] [--require]
+devenv-marker-check [PATH...] [--all] [--ac] [--todo-report] [--agent-report] [--marker REGEX] [--require]
 ```
 
 See the DEVENV marker spec in `copilot/copilot-instructions.md` for the marker

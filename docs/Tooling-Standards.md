@@ -497,6 +497,64 @@ TypeScript tools execute natively under node, so every job that runs a tool
 needs Node 24.18 or newer (`engines` in `package.json`; CI pins `24.18.0`,
 kept in lockstep with `NODE_VERSION` in `.devcontainer/tool-versions.bash`).
 
+## Always-on size ratchet
+
+Text that every AI session loads before any skill runs costs context in every
+session, and it grows whenever a rule is tightened after an incident. The
+ratchet stops that growth: three components each have a committed byte
+ceiling, and `lint-skills` (code SK013, in the pre-commit hook and in CI) fails
+a change that pushes one over its ceiling.
+
+| Component | Counted as |
+|---|---|
+| `instructions` | the size of `copilot/copilot-instructions.md` |
+| `agents` | the size of `AGENTS.md` |
+| `skill-descriptions` | the summed size of every skill's `description:` frontmatter entry: the line plus any continuation lines of a folded block |
+
+The ceilings live in `tools/config/always-on-baseline.json`, in bytes, together
+with the reason for the latest reset. `lint-skills` takes the repository root
+from its own location, so each repository, including each fork, is measured
+against its own baseline. A repository with no baseline file gets a warning, not
+a failure.
+
+When SK013 fails, first move the new text into the skill that needs it. When the
+growth is deliberate, reset the ceilings on purpose:
+
+```bash
+lint-skills --reset-always-on --reason "<why>"
+```
+
+The reset sets every ceiling to its measured size and runs no other check.
+Lowering a ceiling is free and needs no reason. Raising one, or creating the
+file, is refused without `--reason`, and the reason is recorded in the file. A
+fork that customizes the instructions re-runs the reset after syncing from
+upstream.
+
+Every normal `lint-skills` run also prints the markdown total of the skills tree
+as one informational line. It is not a ceiling and never fails.
+
+## Agent markers
+
+A `TODO:DEVENV` marker belongs to a plan: it carries a "remove when" condition
+and is gone once its plan completes. A deliberate limit that ships and stays, such
+as a linear scan that is fine under a thousand rows, has no plan, so it gets its
+own marker, addressed to the agent that reads the file:
+`AGENT(shortcut): <the limit> — upgrade when <trigger>`.
+
+| Rule | Detail |
+|---|---|
+| Where it goes | Inside a comment in any language: `//`, `#`, `--`, or `<!-- -->` |
+| Kinds | Only `shortcut` is defined. The parenthesized slot is reserved for later kinds, and an unknown kind is reported as malformed. |
+| Required parts | A non-empty limit, a dash (em dash, en dash or hyphens) set off by spaces, and `upgrade when` followed by a trigger. A missing trigger or an empty limit is malformed. |
+| Shape | One line. `upgrade when` is case-insensitive. |
+| Scope | The marker must start the comment text. Prose, inline code and quoted examples that merely mention it are ignored. |
+
+Find them with `devenv-marker-check --agent-report [PATH...]`. It lists each
+marker as `file:line:text`, tags the malformed ones `[malformed: reason]` with a
+warning, and always exits 0. It skips `copilot/` (documentation examples live
+there) unless `--include-copilot` is given. It is a finder, not a gate: an agent
+marker never fails the default marker check.
+
 ## Common mistakes this guide exists to prevent
 
 - Capturing a helper's stdout when it returns its result another way — pick

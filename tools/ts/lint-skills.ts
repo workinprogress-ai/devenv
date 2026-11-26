@@ -4,13 +4,21 @@
 // fails on warnings).
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 
 import { load } from "js-yaml";
 
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
 import { errorMessage } from "../lib/core/logging.ts";
+import {
+  COMPONENT_IDS,
+  readBaseline,
+  resetBaseline,
+  writeBaseline,
+  type AlwaysOnBaseline,
+  type ComponentId,
+} from "../lib/core/always-on-baseline.ts";
 import { selfRoot } from "../lib/core/self-root.ts";
 import { toolCli, usageCommonFlags } from "../lib/core/cli.ts";
 import { EXIT_MISUSE } from "../lib/core/exit-codes.ts";
@@ -65,23 +73,37 @@ Checks:
          approximates the Copilot skill loader — its log is the ground truth
   SK012  every SKILL.md carries the canonical receiving-side handoff line
          immediately after its "Skill feedback" blockquote
+  SK013  always-on size ratchet: the instructions file, AGENTS.md and the summed
+         skill descriptions stay within the byte ceilings committed in
+         tools/config/always-on-baseline.json (repo-root layout only)
 
 Exit 0 = clean (warnings allowed); exit 1 = any failure.
 
 Options:
+  --reset-always-on     Set every always-on ceiling to its measured size and write
+                        tools/config/always-on-baseline.json. Lowering is free;
+                        raising any ceiling (or creating the file) needs --reason.
+                        Runs no other check.
+  --reason TEXT         Why the ceilings were raised; recorded in the baseline file.
 ${usageCommonFlags({ noDryRun: true, noDevenv: true })}`);
   process.exit(0);
 }
 
-const SCRIPT_VERSION = "1.1.0";
+const SCRIPT_VERSION = "1.2.0";
 const defaultRoot = selfRoot(import.meta.url);
 let repoRoot = "";
+let resetAlwaysOn = false;
+let resetReason: string | undefined;
 try {
   const cli = toolCli({
     name: "lint-skills",
     version: SCRIPT_VERSION,
     argv: process.argv.slice(2),
     noDryRun: true,
+    options: {
+      "reset-always-on": { type: "boolean", default: false },
+      reason: { type: "string" },
+    },
   });
   if (cli.common.help) usage();
   if (cli.positionals.length > 1) {
@@ -89,6 +111,12 @@ try {
     process.exit(1);
   }
   repoRoot = cli.positionals[0] ?? defaultRoot;
+  resetAlwaysOn = cli.values["reset-always-on"] === true;
+  resetReason = cli.values["reason"] as string | undefined;
+  if (resetReason !== undefined && !resetAlwaysOn) {
+    console.error("SK-FAIL --reason only applies together with --reset-always-on");
+    process.exit(EXIT_MISUSE);
+  }
 } catch (err) {
   console.error(`SK-FAIL ${errorMessage(err)}`);
   console.error("Use --help for usage information");
@@ -97,8 +125,12 @@ try {
 
 // Accept either a repo root (…/copilot/skills beneath it) or a skills dir.
 let skillsDir: string;
+// True when the path is a repository root; only then is there a place for the
+// committed baseline that SK013 reads.
+let haveRepoLayout = false;
 if (existsSync(join(repoRoot, "copilot", "skills")) && statSync(join(repoRoot, "copilot", "skills")).isDirectory()) {
   skillsDir = join(repoRoot, "copilot", "skills");
+  haveRepoLayout = true;
 } else if (
   existsSync(repoRoot) &&
   readdirSync(repoRoot).some((n) => n.startsWith("devenv-") && statSync(join(repoRoot, n)).isDirectory())
@@ -145,6 +177,85 @@ function frontmatterOf(file: string): string {
   const end = lines.indexOf("---", 1);
   return end === -1 ? "" : lines.slice(1, end).join("\n");
 }
+
+// --- always-on size measurement and --reset-always-on (SK013 support) -----------
+const BASELINE_REL = join("tools", "config", "always-on-baseline.json");
+const DEFAULT_COMPONENT_PATHS: Record<ComponentId, string> = {
+  instructions: join("copilot", "copilot-instructions.md"),
+  agents: "AGENTS.md",
+  "skill-descriptions": join("copilot", "skills"),
+};
+
+// A description's size is its whole frontmatter entry: the `description:` line
+// plus any continuation lines of a folded or literal block, up to the next
+// top-level key. Counting only the first line would let a block scalar slip
+// past the ceiling.
+function descriptionEntryBytes(skillPath: string): number {
+  const lines = frontmatterOf(skillPath).split("\n");
+  const at = lines.findIndex((l) => l.startsWith("description:"));
+  if (at === -1) return 0;
+  let end = at + 1;
+  while (end < lines.length && !/^[A-Za-z0-9_-]+:/.test(lines[end] as string)) end++;
+  return Buffer.byteLength(lines.slice(at, end).join("\n"));
+}
+
+function measureComponent(id: ComponentId, fullPath: string): number {
+  if (id !== "skill-descriptions") return statSync(fullPath).size;
+  return skillDirs()
+    .map((d) => join(skillsDir, d, "SKILL.md"))
+    .filter((p) => existsSync(p))
+    .reduce((sum, p) => sum + descriptionEntryBytes(p), 0);
+}
+
+// Reset is an action, not a check: it measures, applies the reset rule from the
+// baseline contract (lowering is free; raising, or creating the file, needs a
+// reason), writes the file, and exits without running the other checks.
+function resetAlwaysOnBaseline(): never {
+  const fail = (msg: string): never => {
+    console.error(`SK-FAIL ${msg}`);
+    process.exit(1);
+  };
+  if (!haveRepoLayout) fail("--reset-always-on needs a repository root (a copilot/skills tree beneath the given path)");
+  const baselineFile = join(repoRoot, BASELINE_REL);
+  let current: AlwaysOnBaseline;
+  if (existsSync(baselineFile)) {
+    const loaded = readBaseline(baselineFile);
+    if (!loaded.ok) return fail(`${BASELINE_REL} is invalid: ${loaded.errors.join("; ")}`);
+    current = loaded.baseline;
+  } else {
+    // No baseline yet: every ceiling starts at zero, so creating one is a raise.
+    const components = {} as AlwaysOnBaseline["components"];
+    for (const id of COMPONENT_IDS) components[id] = { path: DEFAULT_COMPONENT_PATHS[id], ceiling: 0 };
+    current = { schema: 1, unit: "bytes", components, lastReset: { reason: "none" } };
+  }
+
+  const measured = {} as Record<ComponentId, number>;
+  for (const id of COMPONENT_IDS) {
+    const path = current.components[id].path;
+    const full = join(repoRoot, path);
+    if (!existsSync(full)) return fail(`always-on component '${id}': ${path} does not exist`);
+    measured[id] = measureComponent(id, full);
+  }
+
+  const result = resetBaseline(current, measured, resetReason);
+  if (!result.ok) {
+    const names = result.raised.map((id) => `'${id}'`).join(", ");
+    return fail(`refusing to raise the ceiling of ${names} without a reason. Run: lint-skills --reset-always-on --reason "<why>"`);
+  }
+  const reasonGiven = (resetReason ?? "").trim() !== "";
+  const created = !existsSync(baselineFile);
+  if (result.raised.length + result.lowered.length > 0 || reasonGiven || created) {
+    mkdirSync(dirname(baselineFile), { recursive: true });
+    writeBaseline(baselineFile, result.baseline);
+  }
+  for (const id of COMPONENT_IDS) {
+    const was = current.components[id].ceiling;
+    const change = result.raised.includes(id) ? "raised" : result.lowered.includes(id) ? "lowered" : "unchanged";
+    console.log(`${id}: ${was} -> ${measured[id]} (${change})`);
+  }
+  process.exit(0);
+}
+if (resetAlwaysOn) resetAlwaysOnBaseline();
 
 // --- SK001/SK002/SK003/SK011: per-skill frontmatter ---------------------------
 for (const dir of skillDirs()) {
@@ -542,6 +653,66 @@ if (existsSync(join(repoRoot, ".git"))) {
       }
     }
   }
+}
+
+// --- SK013: always-on size ratchet ----------------------------------------------
+// The text every session loads before a skill runs (the instructions file,
+// AGENTS.md and the summed skill descriptions) may not grow past the byte
+// ceilings committed in tools/config/always-on-baseline.json. The repository
+// root comes from this script's own location (or the path argument), never the
+// working directory. The measuring helpers and --reset-always-on sit above the
+// per-skill checks so a reset runs on its own.
+if (haveRepoLayout) {
+  const baselineFile = join(repoRoot, BASELINE_REL);
+  if (!existsSync(baselineFile)) {
+    warn(`SK013 no always-on baseline at ${BASELINE_REL}; the size ratchet is not enforced. Create it with: lint-skills --reset-always-on --reason "initial baseline"`);
+  } else {
+    const loaded = readBaseline(baselineFile);
+    if (!loaded.ok) {
+      err(`SK013 ${BASELINE_REL} is invalid: ${loaded.errors.join("; ")}`);
+    } else {
+      for (const id of COMPONENT_IDS) {
+        const c = loaded.baseline.components[id];
+        const full = join(repoRoot, c.path);
+        if (!existsSync(full)) {
+          err(`SK013 always-on component '${id}': ${c.path} does not exist (named by ${BASELINE_REL})`);
+          continue;
+        }
+        const bytes = measureComponent(id, full);
+        if (bytes > c.ceiling) {
+          err(
+            `SK013 always-on component '${id}' (${c.path}) is ${bytes} bytes, ${bytes - c.ceiling} over its ceiling of ${c.ceiling}. ` +
+              `Move the new text into the skill that needs it, or raise the ceiling on purpose with: lint-skills --reset-always-on --reason "<why>"`,
+          );
+        }
+      }
+    }
+  }
+}
+
+// --- skill-total report (information only) --------------------------------------
+// Total markdown under the skills tree, so growth is visible even where no
+// ceiling applies. Symlinks are not followed.
+function skillsMarkdownTotal(dir: string): { bytes: number; files: number } {
+  let bytes = 0;
+  let files = 0;
+  const walk = (d: string): void => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) {
+        if (e.name !== "node_modules") walk(full);
+      } else if (e.isFile() && e.name.endsWith(".md")) {
+        bytes += statSync(full).size;
+        files++;
+      }
+    }
+  };
+  walk(dir);
+  return { bytes, files };
+}
+{
+  const total = skillsMarkdownTotal(skillsDir);
+  console.log(`lint-skills: skills tree is ${total.bytes} bytes in ${total.files} markdown files (report only; not enforced)`);
 }
 
 // --- summary --------------------------------------------------------------------

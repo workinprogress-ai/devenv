@@ -320,4 +320,78 @@ describe("scripts/devenv-marker-check", () => {
     expect(r.out).toContain("real/a.cs");
     expect(r.out).not.toContain("alias/a.cs");
   });
+
+  // -------------------------------------------------------------------------
+  // --agent-report finder mode: permanent accepted-limit markers,
+  // `AGENT(shortcut): <limit> — upgrade when <trigger>`, comment-scoped.
+  // -------------------------------------------------------------------------
+
+  describe("--agent-report", () => {
+    const GOOD = "AGENT(shortcut): linear scan — upgrade when lists pass 10k rows";
+
+    it("lists a well-formed marker in each comment syntax and exits 0 without a warning", () => {
+      write("a.ts", `// ${GOOD}`);
+      write("b.sh", `# ${GOOD}`);
+      write("c.sql", `-- ${GOOD}`);
+      write("d.html", `<!-- ${GOOD} -->`);
+      const r = run(["--agent-report", WORK_DIR]);
+      expect(r.status).toBe(0);
+      for (const f of ["a.ts:1:", "b.sh:1:", "c.sql:1:", "d.html:1:"]) expect(r.out).toContain(f);
+      expect(r.out).not.toMatch(/malformed/i);
+    });
+
+    it("tags a marker without an upgrade-when trigger as malformed, warns, and still exits 0", () => {
+      write("a.ts", "// AGENT(shortcut): linear scan only");
+      write("b.ts", "// AGENT(shortcut): linear scan — upgrade when");
+      const r = run(["--agent-report", WORK_DIR]);
+      expect(r.status).toBe(0);
+      expect(r.out).toContain("a.ts:1:[malformed: missing-trigger]");
+      expect(r.out).toContain("b.ts:1:[malformed: missing-trigger]");
+      expect(r.out).toMatch(/2 malformed AGENT marker/);
+    });
+
+    it("tags an unknown kind and an empty limit as malformed", () => {
+      write("a.ts", "// AGENT(debt): a limit — upgrade when it hurts");
+      write("b.ts", "// AGENT(shortcut): — upgrade when it hurts");
+      const r = run(["--agent-report", WORK_DIR]);
+      expect(r.out).toContain("a.ts:1:[malformed: unknown-kind]");
+      expect(r.out).toContain("b.ts:1:[malformed: empty-limit]");
+    });
+
+    it("is comment-scoped: prose, inline code and a plan-scoped TODO are not reported", () => {
+      write("notes.md", ["Use `// AGENT(shortcut): <limit> — upgrade when <trigger>` for accepted limits.", "AGENT(shortcut): a — upgrade when b"].join("\n"));
+      write("a.ts", "// TODO:DEVENV[plan-1]: swap provider — remove when #40 is merged");
+      const r = run(["--agent-report", WORK_DIR]);
+      expect(r.status).toBe(0);
+      expect(r.out).toContain("No AGENT markers found");
+      expect(r.out).not.toContain("notes.md:");
+    });
+
+    it("reports the line number of each marker", () => {
+      write("a.ts", ["const x = 1;", "", `  g(); // ${GOOD}`].join("\n"));
+      expect(run(["--agent-report", WORK_DIR]).out).toContain("a.ts:3:");
+    });
+
+    it("skips copilot/ by default (doc examples live there) and scans it with --include-copilot", () => {
+      write("copilot/doc.md", `// ${GOOD}`);
+      write("src/a.ts", `// ${GOOD}`);
+      const def = run(["--agent-report", WORK_DIR]);
+      expect(def.out).toContain("src/a.ts:1:");
+      expect(def.out).not.toContain("copilot/doc.md");
+      expect(run(["--agent-report", "--include-copilot", WORK_DIR]).out).toContain("copilot/doc.md:1:");
+    });
+
+    it("never changes the gate: an AGENT marker does not fail the default gate", () => {
+      write("a.ts", `// ${GOOD}`);
+      expect(run([WORK_DIR]).status).toBe(0);
+    });
+
+    it("is mutually exclusive with the other finder and gate modes", () => {
+      write("a.ts", `// ${GOOD}`);
+      for (const other of ["--ac", "--todo-report", "--all"]) {
+        const r = run(["--agent-report", other, WORK_DIR]);
+        expect(r.status, other).toBe(2);
+      }
+    });
+  });
 });

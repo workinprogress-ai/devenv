@@ -2,9 +2,10 @@
 // class must FAIL the checker (negative controls); a golden tree must PASS.
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readBaseline, serializeBaseline, type AlwaysOnBaseline, type ComponentId } from "../../lib/core/always-on-baseline.ts";
 
 const SCRIPT = join(__dirname, "../../ts/lint-skills.ts");
 
@@ -578,6 +579,262 @@ describe("lint-skills", () => {
     expect(r.status).toBe(1);
     expect(r.out).toContain("Skill feedback");
     expect(r.out).toContain("missing");
+  });
+});
+
+describe("SK013: always-on size ratchet", () => {
+  // The golden tree has three skills, each with the one-line `description: x`.
+  const ONE_DESCRIPTION = "description: x".length;
+  const GOLDEN_DESCRIPTIONS = 3 * ONE_DESCRIPTION;
+  const SIZES = { instructions: 120, agents: 40 };
+
+  function rootFile(rel: string, content: string): void {
+    const full = join(workDir, rel);
+    mkdirSync(join(full, ".."), { recursive: true });
+    writeFileSync(full, content);
+  }
+
+  // Lays out the always-on files and a baseline whose ceilings equal the sizes
+  // unless overridden.
+  function arrange(ceilings: Partial<Record<ComponentId, number>> = {}): void {
+    rootFile("copilot/copilot-instructions.md", "i".repeat(SIZES.instructions));
+    rootFile("AGENTS.md", "a".repeat(SIZES.agents));
+    const baseline: AlwaysOnBaseline = {
+      schema: 1,
+      unit: "bytes",
+      components: {
+        instructions: { path: "copilot/copilot-instructions.md", ceiling: ceilings.instructions ?? SIZES.instructions },
+        agents: { path: "AGENTS.md", ceiling: ceilings.agents ?? SIZES.agents },
+        "skill-descriptions": { path: "copilot/skills", ceiling: ceilings["skill-descriptions"] ?? GOLDEN_DESCRIPTIONS },
+      },
+      lastReset: { reason: "initial baseline" },
+    };
+    rootFile("tools/config/always-on-baseline.json", serializeBaseline(baseline));
+  }
+
+  it("passes silently when every component is at its ceiling", () => {
+    arrange();
+    const r = runLint();
+    expect(r.status).toBe(0);
+    expect(r.out).not.toContain("SK013");
+  });
+
+  it("passes when a component is under its ceiling", () => {
+    arrange({ instructions: 500, agents: 500, "skill-descriptions": 500 });
+    const r = runLint();
+    expect(r.status).toBe(0);
+    expect(r.out).not.toContain("SK013");
+  });
+
+  it("fails one byte over the instructions ceiling and names the component, path and sizes", () => {
+    arrange({ instructions: SIZES.instructions - 1 });
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK013");
+    expect(r.out).toContain("'instructions'");
+    expect(r.out).toContain("copilot/copilot-instructions.md");
+    expect(r.out).toContain(`is ${SIZES.instructions} bytes`);
+    expect(r.out).toContain(`1 over its ceiling of ${SIZES.instructions - 1}`);
+  });
+
+  it("fails when AGENTS.md or the summed skill descriptions exceed their ceilings", () => {
+    arrange({ agents: SIZES.agents - 10, "skill-descriptions": GOLDEN_DESCRIPTIONS - 5 });
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("'agents'");
+    expect(r.out).toContain("10 over its ceiling");
+    expect(r.out).toContain("'skill-descriptions'");
+    expect(r.out).toContain("5 over its ceiling");
+  });
+
+  it("tells the author how to resolve a breach: move the text, or reset with a reason", () => {
+    arrange({ instructions: 1 });
+    const r = runLint();
+    expect(r.out).toMatch(/skill that needs/);
+    expect(r.out).toContain('lint-skills --reset-always-on --reason');
+  });
+
+  it("measures a folded description by its whole entry, not its first line", () => {
+    write("devenv-alpha/SKILL.md", "---\nname: devenv-alpha\ndescription: >\n  short text\n  more\nuser-invocable: true\n---\n");
+    const folded = Buffer.byteLength("description: >\n  short text\n  more");
+    const total = folded + 2 * ONE_DESCRIPTION;
+    arrange({ "skill-descriptions": total });
+    expect(runLint().out).not.toContain("SK013");
+    arrange({ "skill-descriptions": total - 1 });
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("1 over its ceiling");
+  });
+
+  it("warns, without failing, when the repository has no baseline file yet", () => {
+    const r = runLint();
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("SK-WARN SK013");
+    expect(r.out).toContain("--reset-always-on");
+    expect(runLint({ SK_LINT_STRICT: "1" }).status).toBe(1);
+  });
+
+  it("fails on a baseline that does not parse", () => {
+    rootFile("tools/config/always-on-baseline.json", "{ not json");
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("SK013");
+    expect(r.out).toContain("invalid");
+  });
+
+  it("fails when the baseline names a component path that does not exist", () => {
+    arrange();
+    rmSync(join(workDir, "AGENTS.md"));
+    const r = runLint();
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("'agents'");
+    expect(r.out).toContain("AGENTS.md does not exist");
+  });
+
+  it("is not evaluated when pointed at a bare skills directory (no repository root to anchor the baseline)", () => {
+    arrange({ instructions: 1 });
+    const r = spawnSync("node", [SCRIPT, tree], { encoding: "utf8", timeout: 60_000 });
+    expect(r.status).toBe(0);
+    expect(`${r.stdout}${r.stderr}`).not.toContain("SK013");
+  });
+
+  it("resolves its repository root from the script's location, not the working directory", () => {
+    const run = (cwd: string): string => {
+      const r = spawnSync("node", [SCRIPT], { encoding: "utf8", timeout: 60_000, cwd });
+      return `${r.status}\n${r.stdout}${r.stderr}`;
+    };
+    expect(run(tmpdir())).toBe(run(join(__dirname, "../../..")));
+  });
+
+  describe("--reset-always-on", () => {
+    const BASELINE = (): string => join(workDir, "tools", "config", "always-on-baseline.json");
+    const runWith = (args: string[]): { status: number; out: string } => {
+      const r = spawnSync("node", [SCRIPT, workDir, ...args], { encoding: "utf8", timeout: 60_000 });
+      return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
+    };
+    const load = (): AlwaysOnBaseline => {
+      const r = readBaseline(BASELINE());
+      if (!r.ok) throw new Error(r.errors.join("; "));
+      return r.baseline;
+    };
+
+    it("lowers every ceiling to the measured size without a reason, and the ratchet then passes", () => {
+      arrange({ instructions: 500, agents: 500, "skill-descriptions": 500 });
+      const r = runWith(["--reset-always-on"]);
+      expect(r.status).toBe(0);
+      expect(r.out).toContain("instructions: 500 -> 120");
+      expect(r.out).toContain("lowered");
+      const b = load();
+      expect(b.components.instructions.ceiling).toBe(SIZES.instructions);
+      expect(b.components.agents.ceiling).toBe(SIZES.agents);
+      expect(b.components["skill-descriptions"].ceiling).toBe(GOLDEN_DESCRIPTIONS);
+      expect(b.lastReset.reason).toBe("lowered to measured size");
+      expect(runLint().status).toBe(0);
+    });
+
+    it("refuses to raise a ceiling without a reason, names the component, and writes nothing", () => {
+      arrange({ instructions: SIZES.instructions - 10 });
+      const before = readFileSync(BASELINE(), "utf8");
+      const r = runWith(["--reset-always-on"]);
+      expect(r.status).toBe(1);
+      expect(r.out).toContain("'instructions'");
+      expect(r.out).toContain("--reason");
+      expect(readFileSync(BASELINE(), "utf8")).toBe(before);
+    });
+
+    it("raises with a reason and records it", () => {
+      arrange({ instructions: SIZES.instructions - 10 });
+      const r = runWith(["--reset-always-on", "--reason", "a new skill merged"]);
+      expect(r.status).toBe(0);
+      expect(r.out).toContain("raised");
+      const b = load();
+      expect(b.components.instructions.ceiling).toBe(SIZES.instructions);
+      expect(b.lastReset.reason).toBe("a new skill merged");
+      expect(runLint().out).not.toContain("SK013");
+    });
+
+    it("leaves the file untouched when every ceiling already equals the measured size", () => {
+      arrange();
+      const before = readFileSync(BASELINE(), "utf8");
+      const r = runWith(["--reset-always-on"]);
+      expect(r.status).toBe(0);
+      expect(r.out).toContain("unchanged");
+      expect(readFileSync(BASELINE(), "utf8")).toBe(before);
+    });
+
+    it("creates a missing baseline only with a reason, using the default component paths", () => {
+      rootFile("copilot/copilot-instructions.md", "i".repeat(SIZES.instructions));
+      rootFile("AGENTS.md", "a".repeat(SIZES.agents));
+      expect(runWith(["--reset-always-on"]).status).toBe(1);
+      expect(existsSync(BASELINE())).toBe(false);
+      const r = runWith(["--reset-always-on", "--reason", "initial baseline"]);
+      expect(r.status).toBe(0);
+      const b = load();
+      expect(b.components.instructions).toEqual({ path: "copilot/copilot-instructions.md", ceiling: SIZES.instructions });
+      expect(b.components.agents).toEqual({ path: "AGENTS.md", ceiling: SIZES.agents });
+      expect(b.components["skill-descriptions"]).toEqual({ path: "copilot/skills", ceiling: GOLDEN_DESCRIPTIONS });
+      expect(b.lastReset.reason).toBe("initial baseline");
+      expect(runLint().out).not.toContain("SK013");
+    });
+
+    it("runs no other check: a broken skill does not block a reset", () => {
+      arrange({ instructions: 500 });
+      write("devenv-alpha/SKILL.md", "no frontmatter at all\n", true);
+      expect(runLint().status).toBe(1);
+      expect(runWith(["--reset-always-on"]).status).toBe(0);
+    });
+
+    it("refuses when a component path is missing, and writes nothing", () => {
+      arrange({ instructions: 500 });
+      rmSync(join(workDir, "AGENTS.md"));
+      const before = readFileSync(BASELINE(), "utf8");
+      const r = runWith(["--reset-always-on"]);
+      expect(r.status).toBe(1);
+      expect(r.out).toContain("'agents'");
+      expect(readFileSync(BASELINE(), "utf8")).toBe(before);
+    });
+
+    it("refuses to touch an invalid baseline", () => {
+      rootFile("tools/config/always-on-baseline.json", "{ not json");
+      const r = runWith(["--reset-always-on", "--reason", "x"]);
+      expect(r.status).toBe(1);
+      expect(r.out).toContain("invalid");
+      expect(readFileSync(BASELINE(), "utf8")).toBe("{ not json");
+    });
+
+    it("needs a repository root: a bare skills directory is refused", () => {
+      arrange({ instructions: 500 });
+      const r = spawnSync("node", [SCRIPT, tree, "--reset-always-on"], { encoding: "utf8", timeout: 60_000 });
+      expect(r.status).toBe(1);
+      expect(`${r.stdout}${r.stderr}`).toContain("repository root");
+    });
+
+    it("rejects --reason without --reset-always-on as misuse", () => {
+      const r = runWith(["--reason", "orphan"]);
+      expect(r.status).toBe(2);
+      expect(r.out).toContain("--reset-always-on");
+    });
+  });
+});
+
+describe("skill-total report", () => {
+  it("reports the markdown total of the skills tree as information and never fails on it", () => {
+    write("common/big-notes.md", "m".repeat(5000));
+    const r = runLint();
+    expect(r.status).toBe(0);
+    const m = /skills tree is (\d+) bytes in (\d+) markdown files \(report only/.exec(r.out);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeGreaterThanOrEqual(5000);
+    expect(Number(m![2])).toBeGreaterThanOrEqual(1);
+  });
+
+  it("counts every markdown file under the skills tree, but not files outside it", () => {
+    const count = (): number => Number(/skills tree is (\d+) bytes/.exec(runLint().out)![1]);
+    const base = count();
+    write("common/extra-notes.md", "e".repeat(1000));
+    expect(count()).toBe(base + 1000);
+    writeFileSync(join(workDir, "outside.md"), "o".repeat(1000));
+    expect(count()).toBe(base + 1000);
   });
 });
 

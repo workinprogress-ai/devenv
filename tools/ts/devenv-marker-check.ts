@@ -1,11 +1,12 @@
 // devenv-marker-check — deterministic DEVENV-marker and AC-comment scanning.
 // Gate mode (plan-bounded FIXME markers),
-// --all audit, --ac / --todo-report finders, --marker REGEX custom scan,
-// --require, --no-exclude, --include-copilot.
+// --all audit, --ac / --todo-report / --agent-report finders, --marker REGEX
+// custom scan, --require, --no-exclude, --include-copilot.
 
 import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { parseAgentMarkers } from "../lib/core/agent-marker.ts";
 import { errorMessage } from "../lib/core/logging.ts";
 import { EXIT_GENERAL_ERROR, EXIT_MISUSE } from "../lib/core/exit-codes.ts";
 import { invalidArgs } from "../lib/core/args.ts";
@@ -19,10 +20,15 @@ assertNodeFloor();
 // them (a nested src/cache is real source).
 const EXCLUDE_ANYWHERE = new Set(["node_modules", ".git"]);
 const EXCLUDE_AT_ROOT = new Set(["cache", "repos", "tools/cache"]);
-// This tool's own usage text and test fixtures spell out the marker syntax, so
-// a scan skips exactly these two files (unless --no-exclude or the caller
-// names one directly).
-const OWN_FILES = ["tools/ts/devenv-marker-check.ts", "tools/tests/ts/devenv-marker-check.test.ts"];
+// This tool's own usage text and test fixtures, and the AGENT marker grammar
+// with its tests, spell out the marker syntax, so a scan skips exactly these
+// files (unless --no-exclude or the caller names one directly).
+const OWN_FILES = [
+  "tools/ts/devenv-marker-check.ts",
+  "tools/tests/ts/devenv-marker-check.test.ts",
+  "tools/lib/core/agent-marker.ts",
+  "tools/tests/ts/agent-marker.test.ts",
+];
 const isOwnFile = (path: string): boolean => OWN_FILES.some((f) => path === f || path.endsWith(`/${f}`));
 
 function usage(): never {
@@ -46,6 +52,14 @@ Options:
                                  phase completes).
     --todo-report                Finder mode: list scoped TODO:DEVENV[ markers
                                  with file:line:match; exit 0 regardless.
+    --agent-report               Finder mode: list AGENT(shortcut) markers (the
+                                 permanent accepted-limit marker, recognised
+                                 only inside comments) with file:line:text.
+                                 A marker without an 'upgrade when' trigger, with
+                                 an unknown kind or with an empty limit is listed
+                                 as [malformed: reason] and warned about; exit 0
+                                 regardless. copilot/ is skipped unless
+                                 --include-copilot.
     --marker REGEX               Custom scan: fail when any line matches
                                  REGEX (with --require: fail when none does)
     --require                    Invert --marker: at least one match required
@@ -87,9 +101,9 @@ function walk(root: string, noExclude: boolean, skipCopilot: boolean, out: strin
   }
 }
 
-const SCRIPT_VERSION = "1.1.0";
+const SCRIPT_VERSION = "1.2.0";
 
-let acMode = false, todoReport = false, allMarkers = false, require = false;
+let acMode = false, todoReport = false, agentReport = false, allMarkers = false, require = false;
 let noExclude = false, includeCopilot = false;
 let marker = "";
 let customMarker = false;
@@ -104,6 +118,7 @@ try {
     options: {
       ac: { type: "boolean", default: false },
       "todo-report": { type: "boolean", default: false },
+      "agent-report": { type: "boolean", default: false },
       all: { type: "boolean", default: false },
       require: { type: "boolean", default: false },
       "no-exclude": { type: "boolean", default: false },
@@ -114,6 +129,7 @@ try {
   if (cli.common.help) usage();
   acMode = cli.values["ac"] === true;
   todoReport = cli.values["todo-report"] === true;
+  agentReport = cli.values["agent-report"] === true;
   allMarkers = cli.values["all"] === true;
   require = cli.values["require"] === true;
   noExclude = cli.values["no-exclude"] === true;
@@ -131,9 +147,11 @@ if (paths.length === 0) paths.push(".");
 for (const p of paths) {
   if (!existsSync(p)) invalidArgs(`Path not found: ${p}`);
 }
-if (acMode && todoReport) invalidArgs("--ac and --todo-report are mutually exclusive");
-if (allMarkers && (acMode || todoReport)) {
-  invalidArgs("--all is a gate-mode option; it cannot be combined with --ac or --todo-report");
+if ([acMode, todoReport, agentReport].filter(Boolean).length > 1) {
+  invalidArgs("--ac, --todo-report and --agent-report are mutually exclusive");
+}
+if (allMarkers && (acMode || todoReport || agentReport)) {
+  invalidArgs("--all is a gate-mode option; it cannot be combined with --ac, --todo-report or --agent-report");
 }
 
 let regex: string;
@@ -158,6 +176,36 @@ for (const p of paths) {
   // audit modes unless --include-copilot; --todo-report and --ac always scan it.
   const skipCopilot = !includeCopilot && !todoReport && !acMode;
   walk(p, noExclude, skipCopilot, files);
+}
+
+if (agentReport) {
+  // AGENT markers are recognised by the shared grammar (comment-scoped), not by
+  // a line regex, so this finder bypasses the generic scan below.
+  let found = 0;
+  let malformed = 0;
+  for (const f of files) {
+    let text: string;
+    try {
+      text = readFileSync(f, "utf8");
+    } catch {
+      continue; // unreadable (binary etc.) — the other modes skip these too
+    }
+    const lines = text.split(/\r?\n/);
+    const scan = parseAgentMarkers(text);
+    for (const m of scan.markers) {
+      console.log(`${f}:${m.line}:${lines[m.line - 1] as string}`);
+      found++;
+    }
+    for (const m of scan.malformed) {
+      console.log(`${f}:${m.line}:[malformed: ${m.reason}] ${m.text}`);
+      malformed++;
+    }
+  }
+  if (found + malformed === 0) console.log(`No AGENT markers found under: ${paths.join(" ")}`);
+  if (malformed > 0) {
+    logWarn(`${malformed} malformed AGENT marker(s) found — each needs a known kind, a limit and an 'upgrade when <trigger>' clause; fix them or remove the marker`);
+  }
+  process.exit(0);
 }
 
 let re: RegExp;

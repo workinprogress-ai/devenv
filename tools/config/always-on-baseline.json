@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "unit": "bytes",
+  "components": {
+    "instructions": {
+      "path": "copilot/copilot-instructions.md",
+      "ceiling": 38779
+    },
+    "agents": {
+      "path": "AGENTS.md",
+      "ceiling": 1814
+    },
+    "skill-descriptions": {
+      "path": "copilot/skills",
+      "ceiling": 26264
+    }
+  },
+  "lastReset": {
+    "reason": "initial baseline measured from the committed files"
+  }
+}
