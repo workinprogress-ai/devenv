@@ -27,6 +27,8 @@ import {
 import { providerOrgGet } from "../lib/providers/provider-core.ts";
 import { pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
 import { repoSpecFor } from "../lib/providers/facade/urls.ts";
+import { mergedRunState, type MergedRunState, type RunRow } from "../lib/domain/cs/merged-run.ts";
+import { repoFilter } from "../lib/domain/cs/repo-filter.ts";
 import { csprojPackageReferences } from "../lib/domain/cs/csproj.ts";
 import { repoDefaultBranch } from "../lib/domain/cs/default-branch.ts";
 import { resolvePostUpdateScript } from "../lib/domain/cs/post-update.ts";
@@ -67,11 +69,19 @@ ${usageCommonFlags()}
     --framework TFM         Forwarded to the single-repo wizard
     --lang-version VER      Forwarded to the single-repo wizard
     --lang-default          Forwarded to the single-repo wizard
+    --pre-restore SCRIPT    Forwarded to the single-repo wizard: executable run
+                            after the TFM rewrite, before the restore gate, in
+                            every repo; failure aborts that repo
     --post-update SCRIPT    Forwarded to the single-repo wizard: executable run
                             last in every repo, its edits join that repo's
                             update commit; failure aborts that repo
     --auto                  Process generations without confirmation prompts
     --global [N]            Global mode; optional starting generation N
+    --include GLOB          Global mode: process only repos matching GLOB
+                            (repeatable; any match includes)
+    --exclude GLOB          Global mode: never process repos matching GLOB
+                            (repeatable; wins over --include). Filtered repos
+                            keep their place in the generation order.
 
 Exit Codes:
     0   Success
@@ -165,72 +175,85 @@ function getUsedVersion(repoDir: string, pkgName: string): string {
   return walk(repoDir);
 }
 
-/** Wait for pipeline runs on a repo/branch to complete (the
- * wait_for_workflow_runs contract: unknown states are retried, a failed or
- * cancelled latest run fails the wait). Goes through the facade's
+/** Wait until a pipeline run has built the merged commit (or a later commit
+ * containing it): success passes; a failed or cancelled run fails; no such run
+ * before the timeout fails, so a repository whose CI never fires cannot pass
+ * on an older run. Query errors are retried. Goes through the facade's
  * pipelines verbs — no direct provider CLI anywhere. */
-async function waitForWorkflowRuns(repo: string, branch: string, interval: number, timeout: number): Promise<boolean> {
+async function waitForMergedRun(merged: MergedRepo, branch: string, interval: number, timeout: number): Promise<boolean> {
+  const { spec: repo, sha, dir } = merged;
+  const short = sha.slice(0, 10);
+  const isDescendant = descendantCheck(dir, branch, sha);
   let elapsed = 0;
   let queryFailures = 0;
   const maxQueryFailures = 3;
   for (;;) {
     if (elapsed >= timeout) {
-      logError(`wait_for_workflow_runs: timed out after ${timeout}s on ${repo} (${branch})`);
+      logError(
+        `No completed pipeline run for merged commit ${short} on ${repo} (${branch}) after ${timeout}s — ` +
+          "if no run started at all, the repository's CI trigger may be missing",
+      );
       return false;
     }
-    let activeCount: number;
+    let state: MergedRunState;
     try {
-      const out = await runPipelinesList(repo, branch, 10, "status");
-      const parsed = JSON.parse(out) as Array<{ status?: string }>;
+      const out = await pipelinesRunList(repo, { branch, limit: 10, json: "status,conclusion,headSha" });
+      const parsed = JSON.parse(out) as RunRow[];
       if (!Array.isArray(parsed)) throw new Error("run list returned a non-array payload");
-      activeCount = parsed.filter((r) =>
-        r.status === "queued" || r.status === "in_progress" || r.status === "waiting" || r.status === "pending" || r.status === "requested",
-      ).length;
+      state = mergedRunState(parsed, sha, isDescendant);
     } catch {
       queryFailures += 1;
       if (queryFailures >= maxQueryFailures) {
-        logError(`wait_for_workflow_runs: could not query workflow runs on ${repo} (${branch}) after ${queryFailures} attempts`);
+        logError(`Could not query pipeline runs on ${repo} (${branch}) after ${queryFailures} attempts`);
         return false;
       }
-      logWarn(`could not query workflow runs on ${repo} (${branch}); retrying (${queryFailures}/${maxQueryFailures})`);
+      logWarn(`could not query pipeline runs on ${repo} (${branch}); retrying (${queryFailures}/${maxQueryFailures})`);
       await sleep(interval * 1000);
       elapsed += interval;
       continue;
     }
-    if (activeCount === 0) {
-      try {
-        const out = await runPipelinesList(repo, branch, 1, "conclusion");
-        const parsed = JSON.parse(out) as Array<{ conclusion?: string }>;
-        const latest = parsed[0]?.conclusion ?? "";
-        if (latest === "failure" || latest === "cancelled") {
-          logWarn(`Latest workflow run on ${repo} (${branch}) concluded: ${latest}`);
-          return false;
-        }
-        return true;
-      } catch {
-        queryFailures += 1;
-        if (queryFailures >= maxQueryFailures) {
-          logError(`wait_for_workflow_runs: could not read the latest run's conclusion on ${repo} (${branch}) after ${queryFailures} attempts`);
-          return false;
-        }
-        logWarn(`could not read the latest run's conclusion on ${repo} (${branch}); retrying (${queryFailures}/${maxQueryFailures})`);
-        await sleep(interval * 1000);
-        elapsed += interval;
-        continue;
-      }
-    }
     queryFailures = 0;
-    logInfo(`Waiting for ${activeCount} workflow run(s) on ${repo} (${branch})... [${elapsed}s/${timeout}s]`);
+    if (state.state === "success") return true;
+    if (state.state === "failure") {
+      logWarn(`Pipeline run for ${state.headSha.slice(0, 10)} on ${repo} (${branch}) concluded: ${state.conclusion}`);
+      return false;
+    }
+    const what = state.state === "pending" ? "in progress" : "not started yet";
+    logInfo(`Pipeline run for merged commit ${short} on ${repo} (${branch}) ${what}... [${elapsed}s/${timeout}s]`);
     await sleep(interval * 1000);
     elapsed += interval;
   }
 }
 
-/** The facade's run list for a branch, called in-process. Plain --json only
- * (the jq programs this used to pass are outside applyJq's supported
- * subset): the caller filters the rows itself. */
-async function runPipelinesList(repo: string, branch: string, limit: number, json: string): Promise<string> {
-  return pipelinesRunList(repo, { branch, limit, json: json === "status" ? "status,conclusion" : "conclusion" });
+/** A repository the wizard merged in this generation: its provider spec, the
+ * merged commit, and the local clone the merge was made from. */
+interface MergedRepo {
+  spec: string;
+  sha: string;
+  dir: string;
+}
+
+/** HEAD of a clone, or "" when unreadable. The single-repo wizard ends on the
+ * pulled default branch, so after a merge this is the merged commit. */
+function headSha(dir: string): string {
+  const r = spawnSync("git", ["-C", dir, "rev-parse", "HEAD"], { encoding: "utf8" });
+  return r.status === 0 ? (r.stdout ?? "").trim() : "";
+}
+
+/** Whether a commit contains `mergedSha`, answered from the local clone. A
+ * commit the clone has not seen (pushed after the merge) triggers one fetch
+ * of the branch; still unknown afterwards means no. */
+function descendantCheck(dir: string, branch: string, mergedSha: string): (sha: string) => boolean {
+  let fetched = false;
+  return (sha: string): boolean => {
+    for (;;) {
+      const r = spawnSync("git", ["-C", dir, "merge-base", "--is-ancestor", mergedSha, sha], { encoding: "utf8" });
+      if (r.status === 0) return true;
+      if (r.status === 1 || fetched) return false;
+      fetched = true;
+      spawnSync("git", ["-C", dir, "fetch", "origin", branch, "--quiet"], { encoding: "utf8" });
+    }
+  };
 }
 
 /** Repo spec of a cached repo in the provider's canonical form (owner/repo on
@@ -260,12 +283,16 @@ interface WizardArgs {
   langVersion: string;
   langDefault: boolean;
   postUpdate: string;
+  preRestore: string;
+  includes: string[];
+  excludes: string[];
 }
 
 function parseArgs_main(): WizardArgs {
   const a: WizardArgs = {
     targetDir: "", skipRefresh: false, dryRun: false, globalMode: false,
-    globalStartGen: 0, auto: false, framework: "", langVersion: "", langDefault: false, postUpdate: "",
+    globalStartGen: 0, auto: false, framework: "", langVersion: "", langDefault: false, postUpdate: "", preRestore: "",
+    includes: [], excludes: [],
   };
   try {
     const cli = toolCli({
@@ -278,8 +305,11 @@ function parseArgs_main(): WizardArgs {
         "lang-version": { type: "string" },
         "lang-default": { type: "boolean", default: false },
         "post-update": { type: "string" },
+        "pre-restore": { type: "string" },
         auto: { type: "boolean", default: false },
         "auto-generations": { type: "boolean", default: false },
+        include: { type: "string", multiple: true },
+        exclude: { type: "string", multiple: true },
         global: { type: "boolean", default: false },
       },
     });
@@ -289,8 +319,11 @@ function parseArgs_main(): WizardArgs {
     a.langVersion = (cli.values["lang-version"] as string | undefined) ?? "";
     a.langDefault = cli.values["lang-default"] === true;
     a.postUpdate = (cli.values["post-update"] as string | undefined) ?? "";
+    a.preRestore = (cli.values["pre-restore"] as string | undefined) ?? "";
     a.dryRun = cli.common.dryRun;
     a.auto = cli.values["auto"] === true || cli.values["auto-generations"] === true;
+    a.includes = (cli.values["include"] as string[] | undefined) ?? [];
+    a.excludes = (cli.values["exclude"] as string[] | undefined) ?? [];
     a.globalMode = cli.values["global"] === true;
     // --global [N]: the optional generation number arrives as a bare
     // positional (parseArgs has no optional-value flags); numeric
@@ -319,8 +352,20 @@ function parseArgs_main(): WizardArgs {
     }
     a.postUpdate = resolved.path;
   }
+  if (a.preRestore !== "") {
+    const resolved = resolvePostUpdateScript(a.preRestore, "--pre-restore");
+    if (!resolved.ok) {
+      logError(resolved.message);
+      process.exit(resolved.reason === "missing" ? EXIT_CONFLICT : EXIT_MISUSE);
+    }
+    a.preRestore = resolved.path;
+  }
   if (a.globalMode && a.targetDir !== "") {
     logError("--global and TARGET_DIR are mutually exclusive. Use --help for usage information.");
+    process.exit(EXIT_MISUSE);
+  }
+  if (!a.globalMode && (a.includes.length > 0 || a.excludes.length > 0)) {
+    logError("--include and --exclude apply to --global mode only. Use --help for usage information.");
     process.exit(EXIT_MISUSE);
   }
   return a;
@@ -358,6 +403,7 @@ function runSingleRepoWizard(args: WizardArgs, repoDir: string): number {
   if (args.framework !== "") wizardArgs.push("--framework", args.framework);
   if (args.langVersion !== "") wizardArgs.push("--lang-version", args.langVersion);
   if (args.langDefault) wizardArgs.push("--lang-default");
+  if (args.preRestore !== "") wizardArgs.push("--pre-restore", args.preRestore);
   if (args.postUpdate !== "") wizardArgs.push("--post-update", args.postUpdate);
   wizardArgs.push(repoDir);
   const inv = siblingInvocation(SINGLE_REPO_WIZARD, wizardArgs);
@@ -407,11 +453,24 @@ async function main(): Promise<void> {
 
   if (args.globalMode) {
     const gens = getTopologicalGenerations();
+    const keep = repoFilter(args.includes, args.excludes);
     const byGen = new Map<number, string[]>();
+    let filteredOut = 0;
     for (const g of gens) {
+      // Filtering happens after the graph is ordered, so a wave keeps the full
+      // dependency order and generation numbers mean the same in every wave.
+      if (!keep(g.repo)) {
+        filteredOut += 1;
+        continue;
+      }
       const list = byGen.get(g.generation) ?? [];
       list.push(g.repo);
       byGen.set(g.generation, list);
+    }
+    if (filteredOut > 0) logInfo(`Repository filter: ${gens.length - filteredOut} of ${gens.length} repositories selected`);
+    if (gens.length > 0 && byGen.size === 0) {
+      logInfo("No repositories match the --include/--exclude filter. Nothing to update.");
+      return;
     }
     depths = [...byGen.keys()].sort((a, b) => a - b);
     for (const [gen, repos] of byGen) treeRows.set(String(gen), repos);
@@ -521,7 +580,7 @@ async function main(): Promise<void> {
 
     let processed = 0;
     let skipped = 0;
-    const mergedRepos: string[] = [];
+    const mergedRepos: MergedRepo[] = [];
 
     for (const repo of reposAtDepth) {
       const repoDir = join(cacheRoot, repo);
@@ -588,17 +647,20 @@ async function main(): Promise<void> {
             break;
           }
           wizardRc = runSingleRepoWizard(args, repoDir);
-          if (wizardRc === 0 || wizardRc === 10) { wizardRc = 0; break; }
+          if (wizardRc === 0 || wizardRc === 10) break;
           logError(`Retry failed for ${repo} (exit ${wizardRc})`);
         }
+        // A retry that found nothing to change merged nothing: no run to wait for.
         if (skipRepo || wizardRc !== 0) {
           skipped += 1;
           continue;
         }
       }
 
-      const fullName = await getFullRepoName(join(cacheRoot, repo));
-      if (fullName !== "") mergedRepos.push(fullName);
+      const fullName = await getFullRepoName(repoDir);
+      const sha = headSha(repoDir);
+      if (fullName !== "" && sha !== "") mergedRepos.push({ spec: fullName, sha, dir: repoDir });
+      else logWarn(`Could not record the merged commit of ${repo}; its pipeline run will not be awaited`);
       processed += 1;
     }
 
@@ -611,12 +673,12 @@ async function main(): Promise<void> {
       if (processed > 0) {
         logInfo(`Waiting for pipeline runs to complete before processing generation ${nextDepth}...`);
         let workflowFailed = false;
-        for (const repoFull of mergedRepos) {
+        for (const merged of mergedRepos) {
           try {
-            const branch = await repoDefaultBranch(repoFull);
-            if (!(await waitForWorkflowRuns(repoFull, branch, 15, 600))) workflowFailed = true;
+            const branch = await repoDefaultBranch(merged.spec);
+            if (!(await waitForMergedRun(merged, branch, 15, 600))) workflowFailed = true;
           } catch (err) {
-            logError(`Could not determine the default branch of ${repoFull}: ${errorMessage(err)}`);
+            logError(`Could not determine the default branch of ${merged.spec}: ${errorMessage(err)}`);
             workflowFailed = true;
           }
         }

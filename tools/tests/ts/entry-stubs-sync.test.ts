@@ -232,7 +232,9 @@ describe("entry-stubs-sync", () => {
       if (!/^[a-z]/.test(f)) continue;
       const full = join(ROOT, "tools", f);
       if (!existsSync(full) || !statSync(full).isFile()) continue;
-      const target = (readFileSync(full, "utf8").match(/(?:ts|fork|custom)\/[a-zA-Z0-9._-]*\.(?:sh|ts)/) ?? [])[0];
+      // Anchored on the "/" after "$(dirname "$0")": an unanchored match would
+      // read the generator's tests/run-devenv-tests.sh target as ts/….
+      const target = (readFileSync(full, "utf8").match(/\/((?:ts|fork|custom|tests)\/[a-zA-Z0-9._-]*\.(?:sh|ts))/) ?? [])[1];
       if (!target) continue;
       if (!existsSync(join(ROOT, "tools", target))) {
         broken.push(`${f} -> ${target}`);

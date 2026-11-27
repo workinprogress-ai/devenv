@@ -1,4 +1,5 @@
-// Resolution of the --post-update migration script shared by the cs update tools.
+// Resolution of the --pre-restore / --post-update migration scripts shared by
+// the cs update tools.
 import { accessSync, constants, statSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -8,8 +9,9 @@ export type PostUpdateResolution =
 
 /** Resolve `scriptArg` to an absolute path (against the current directory) and
  * check it is an executable file. Resolving once at the tool entry point keeps
- * the path valid after the tools change directory per repo. */
-export function resolvePostUpdateScript(scriptArg: string): PostUpdateResolution {
+ * the path valid after the tools change directory per repo. `flag` names the
+ * option in messages. */
+export function resolvePostUpdateScript(scriptArg: string, flag = "--post-update"): PostUpdateResolution {
   const path = resolve(scriptArg);
   let isFile = false;
   try {
@@ -17,11 +19,11 @@ export function resolvePostUpdateScript(scriptArg: string): PostUpdateResolution
   } catch {
     isFile = false;
   }
-  if (!isFile) return { ok: false, reason: "missing", message: `--post-update script not found: ${path}` };
+  if (!isFile) return { ok: false, reason: "missing", message: `${flag} script not found: ${path}` };
   try {
     accessSync(path, constants.X_OK);
   } catch {
-    return { ok: false, reason: "not-executable", message: `--post-update script is not executable: ${path}` };
+    return { ok: false, reason: "not-executable", message: `${flag} script is not executable: ${path}` };
   }
   return { ok: true, path };
 }

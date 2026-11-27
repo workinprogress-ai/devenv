@@ -291,6 +291,20 @@ describe("scripts/cs-references-update-wizard", () => {
     removeShadowGit();
   });
 
+  it("the update commit message carries no CI-skip token, so the merge triggers CI", () => {
+    writeFake(
+      "cs-references-update",
+      '#!/usr/bin/env bash\nrepo_dir="${1:-$PWD}"\nsed -i \'s/Version="1\\.0\\.0"/Version="1.1.0"/\' "$repo_dir/src/MyLib.csproj"\nexit 0\n',
+    );
+    shadowGitPushFails();
+    const r = wizard()([REPO_DIR]);
+    expect(r.status).toBe(20);
+    const message = (git(["log", "-1", "--format=%B", "auto-update-references"]).stdout ?? "").trim();
+    expect(message).toBe("patch: update references");
+    expect(message).not.toMatch(/skip ci|ci skip|no_ci/i);
+    removeShadowGit();
+  });
+
   it("stages explicit tracked paths only: untracked residue stays out of the commit", () => {
     writeFake(
       "cs-references-update",
@@ -422,6 +436,26 @@ describe("scripts/cs-references-update-wizard", () => {
     const r = wizard()(["--post-update", script, REPO_DIR], { CAPTURE_FILE: captured });
     expect(r.status).toBe(10);
     expect(readFileSync(captured, "utf8")).toContain(`--post-update ${script}`);
+  });
+
+  it("forwards --pre-restore as an absolute path, before --post-update", () => {
+    writeFake("cs-references-update", '#!/usr/bin/env bash\necho "ARGS: $*" > "${CAPTURE_FILE:?}"\nexit 0\n');
+    const pre = join(TMP, "pre.sh");
+    const post = join(TMP, "post.sh");
+    for (const s of [pre, post]) {
+      writeFileSync(s, "#!/usr/bin/env bash\nexit 0\n");
+      chmodSync(s, 0o755);
+    }
+    const captured = join(TMP, "captured.args");
+    const r = wizard()(["--pre-restore", pre, "--post-update", post, REPO_DIR], { CAPTURE_FILE: captured });
+    expect(r.status).toBe(10);
+    expect(readFileSync(captured, "utf8")).toContain(`--pre-restore ${pre} --post-update ${post}`);
+  });
+
+  it("rejects a missing --pre-restore script before touching the repo", () => {
+    const r = wizard()(["--pre-restore", join(TMP, "nope.sh"), REPO_DIR]);
+    expect(r.status).toBe(3);
+    expect(r.out).toContain("--pre-restore script not found");
   });
 
   it("cs-references-update-wizard.sh rejects a missing --post-update script before touching the repo", () => {

@@ -436,6 +436,60 @@ describe("scripts/cs-references-update", () => {
     expect(readFileSync(hookLog, "utf8")).toBe("ok\n");
   });
 
+  // ── --pre-restore ────────────────────────────────────────────────────────
+
+  it("--pre-restore runs after the rewrite and before the restore gate, with env and repo-root cwd", () => {
+    const hookLog = join(TMP, "hook.log");
+    const script = writePostUpdate(
+      [
+        'echo "pre-restore" >> "$MOCK_LOG"',
+        'echo "cwd=$(pwd) dir=$CS_UPDATE_REPO_DIR fw=$CS_UPDATE_FRAMEWORK prev=$CS_UPDATE_PREVIOUS_FRAMEWORKS" > "$HOOK_LOG"',
+        'grep -o "<TargetFramework>[^<]*" "$CS_UPDATE_REPO_DIR/src/MyLib.csproj" >> "$HOOK_LOG"',
+      ].join("\n"),
+    );
+    const r = runUpdate([REPO_DIR, "--framework", "net11.0", "--pre-restore", script], { HOOK_LOG: hookLog });
+    expect(r.status).toBe(0);
+    const calls = readFileSync(MOCK_LOG, "utf8").split("\n").filter((l) => l !== "");
+    const hookAt = calls.indexOf("pre-restore");
+    const restoreAt = calls.findIndex((l) => l.startsWith("restore"));
+    expect(hookAt).toBeGreaterThanOrEqual(0);
+    expect(restoreAt).toBeGreaterThan(hookAt);
+    const log = readFileSync(hookLog, "utf8");
+    expect(log).toContain(`cwd=${REPO_DIR}`);
+    expect(log).toContain(`dir=${REPO_DIR}`);
+    expect(log).toContain("fw=net11.0");
+    expect(log).toContain("prev=net8.0");
+    // the hook sees the rewritten target framework
+    expect(log).toContain("<TargetFramework>net11.0");
+  });
+
+  it("--pre-restore without --framework still runs the restore gate after it", () => {
+    const script = writePostUpdate('echo "pre-restore" >> "$MOCK_LOG"');
+    const r = runUpdate([REPO_DIR, "--pre-restore", script]);
+    expect(r.status).toBe(0);
+    const calls = readFileSync(MOCK_LOG, "utf8").split("\n").filter((l) => l !== "");
+    expect(calls.findIndex((l) => l.startsWith("restore"))).toBeGreaterThan(calls.indexOf("pre-restore"));
+  });
+
+  it("--pre-restore failure exits 13 before the restore gate and package updates", () => {
+    const script = writePostUpdate("exit 5");
+    const r = runUpdate([REPO_DIR, "--framework", "net11.0", "--pre-restore", script]);
+    expect(r.status).toBe(13);
+    expect(r.out).toContain("--pre-restore script failed (exit 5)");
+    expect(mockLogHas("^restore")).toBe(false);
+    expect(mockLogHas("outdated")).toBe(false);
+  });
+
+  it("--pre-restore with a missing script exits 3; a non-executable one exits 2", () => {
+    const missing = runUpdate([REPO_DIR, "--pre-restore", join(TMP, "nope.sh")]);
+    expect(missing.status).toBe(3);
+    expect(missing.out).toContain("--pre-restore script not found");
+    const plain = join(TMP, "plain.sh");
+    writeFileSync(plain, "#!/usr/bin/env bash\nexit 0\n");
+    chmodSync(plain, 0o644);
+    expect(runUpdate([REPO_DIR, "--pre-restore", plain]).status).toBe(2);
+  });
+
   // ── Help ─────────────────────────────────────────────────────────────────
 
   it("--help prints usage and exits 0", () => {

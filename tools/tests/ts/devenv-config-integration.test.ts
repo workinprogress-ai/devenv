@@ -81,20 +81,26 @@ describe("devenv.config integration", () => {
     }
   });
 
+  // The repository names differ between devenv and its forks, so these checks
+  // assert the shape of the configuration, not particular repositories.
+  const REPO_URL = /^(https:\/\/\S+|git@\S+:\S+)$/;
+
   it("devenv.config: copilot knowledge repository is configured (two-clone model)", () => {
     const repo = reader(CONFIG, "config_read_value copilot knowledge_repo");
     expect(repo.status).toBe(0);
-    expect(repo.out).toContain("docs.copilot-knowledge.git");
+    expect(repo.out.trim()).toMatch(REPO_URL);
     const sub = reader(CONFIG, "config_read_value copilot knowledge_subpath");
-    expect(sub.out.trim()).toBe("copilot-knowledge/");
+    expect(sub.out.trim()).toMatch(/^\S+\/$/);
   });
 
-  it("devenv.config: copilot engineering repository is configured (two-clone model)", () => {
+  it("devenv.config: copilot engineering repository is a URL with a subpath, or not configured (two-clone model)", () => {
     const repo = reader(CONFIG, "config_read_value copilot engineering_repo");
     expect(repo.status).toBe(0);
-    expect(repo.out).toContain("docs.engineering.git");
+    // Empty means no engineering import: the sync step skips it.
+    if (repo.out.trim() === "") return;
+    expect(repo.out.trim()).toMatch(REPO_URL);
     const sub = reader(CONFIG, "config_read_value copilot engineering_subpath");
-    expect(sub.out.trim()).toBe("docs/");
+    expect(sub.out.trim()).toMatch(/^\S+\/$/);
   });
 });
 

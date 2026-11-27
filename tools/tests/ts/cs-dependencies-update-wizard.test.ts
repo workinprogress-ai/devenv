@@ -232,6 +232,48 @@ describe("scripts/cs-dependencies-update-wizard", () => {
     expect(r.out).toContain("--post-update script not found");
   });
 
+  it("--include selects matching repos only", () => {
+    setupTwoGenCache();
+    const r = runWizard(["--global", "--dry-run", "--no-refresh", "--include", "repo-beta"]);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("Would update repo-beta");
+    expect(r.out).not.toContain("Would update repo-alpha");
+    expect(r.out).toContain("Repository filter: 1 of 2 repositories selected");
+  });
+
+  it("--exclude wins over --include, and repeated globs combine", () => {
+    setupTwoGenCache();
+    const r = runWizard(["--global", "--dry-run", "--no-refresh", "--include", "repo-*", "--exclude", "repo-beta"]);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("Would update repo-alpha");
+    expect(r.out).not.toContain("Would update repo-beta");
+  });
+
+  it("a filter matching nothing updates nothing", () => {
+    setupTwoGenCache();
+    const r = runWizard(["--global", "--dry-run", "--no-refresh", "--include", "lib.cs.*"]);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("No repositories match the --include/--exclude filter");
+    expect(r.out).not.toContain("Would update");
+  });
+
+  it("--include without --global is an argument error", () => {
+    const r = runWizard(["--include", "repo-*"]);
+    expect(r.status).toBe(2);
+    expect(r.out).toContain("apply to --global mode only");
+  });
+
+  it("rejects a missing --pre-restore script up front", () => {
+    setupMinimalCache();
+    const r = runWizard(["--global", "--dry-run", "--no-refresh", "--pre-restore", "/nonexistent/pre.sh"]);
+    expect(r.status).toBe(3);
+    expect(r.out).toContain("--pre-restore script not found");
+  });
+
+  it("shows --pre-restore in usage", () => {
+    expect(runWizard(["--help"]).out).toContain("--pre-restore");
+  });
+
   it("cs-dependencies-update-wizard.sh --framework without value errors", () => {
     const r = runWizard(["--global", "--framework"]);
     expect(r.status).not.toBe(0);

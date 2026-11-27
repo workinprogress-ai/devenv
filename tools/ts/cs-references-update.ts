@@ -9,7 +9,7 @@
 // Exit codes: 0 success · 2 invalid arguments / unknown TFM mapping ·
 // 3 target directory missing · 10 restore gate failed after a rewrite ·
 // 11 'dotnet outdated' failed for at least one project · 12 the --post-update
-// script exited non-zero.
+// script exited non-zero · 13 the --pre-restore script exited non-zero.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -36,6 +36,7 @@ const EXIT_OK = 0;
 const EXIT_RESTORE_FAILED = 10;
 const EXIT_OUTDATED_FAILED = 11;
 const EXIT_POST_UPDATE_FAILED = 12;
+const EXIT_PRE_RESTORE_FAILED = 13;
 
 // TFM major -> default C# language version for that TFM. When --framework is
 // passed without a language flag, existing <LangVersion> tags are rewritten
@@ -69,6 +70,14 @@ ${usageCommonFlags({ noDryRun: true, noDevenv: true })}
     --lang-default          Remove existing <LangVersion> tags (never adds) so
                             the TFM default language version applies
                             implicitly. Conflicts with --lang-version.
+    --pre-restore SCRIPT    Run SCRIPT (an executable) after the TFM/LangVersion
+                            rewrite and before the 'dotnet restore' gate, with
+                            the repo root as cwd and the same environment as
+                            --post-update. For edits the restore gate needs
+                            first (e.g. removing package references the new
+                            TFM prunes). The gate always runs after it. A
+                            non-zero exit fails the run (exit 13). Must be
+                            idempotent.
     --post-update SCRIPT    Run SCRIPT (an executable) as the last step, after
                             the package update and boilerplate chain, with the
                             repo root as cwd. Its edits join this run's
@@ -95,7 +104,8 @@ Exits:
     10   'dotnet restore' failed after a rewrite (invalid TFM or packages
          without assets for the new target)
     11   'dotnet outdated' failed for at least one project
-    12   the --post-update script exited non-zero`);
+    12   the --post-update script exited non-zero
+    13   the --pre-restore script exited non-zero`);
   process.exit(EXIT_OK);
 }
 
@@ -140,6 +150,7 @@ let framework = "";
 let langVersion = "";
 let langDefault = false;
 let postUpdateArg = "";
+let preRestoreArg = "";
 let positionalCount = 0;
 
 try {
@@ -153,10 +164,12 @@ try {
       "lang-version": { type: "string" },
       "lang-default": { type: "boolean", default: false },
       "post-update": { type: "string" },
+      "pre-restore": { type: "string" },
     },
   });
   if (cli.common.help) showUsage();
   postUpdateArg = (cli.values["post-update"] as string | undefined) ?? "";
+  preRestoreArg = (cli.values["pre-restore"] as string | undefined) ?? "";
   framework = (cli.values["framework"] as string | undefined) ?? "";
   langVersion = (cli.values["lang-version"] as string | undefined) ?? "";
   langDefault = cli.values["lang-default"] === true;
@@ -202,9 +215,18 @@ if (postUpdateArg !== "") {
   }
   postUpdateScript = resolved.path;
 }
+let preRestoreScript = "";
+if (preRestoreArg !== "") {
+  const resolved = resolvePostUpdateScript(preRestoreArg, "--pre-restore");
+  if (!resolved.ok) {
+    console.error(`ERROR: ${resolved.message}`);
+    process.exit(resolved.reason === "missing" ? EXIT_CONFLICT : EXIT_MISUSE);
+  }
+  preRestoreScript = resolved.path;
+}
 
 const csprojs = findCsprojFiles(targetDir);
-// Captured before any rewrite so the --post-update script can tell old from new.
+// Captured before any rewrite so the migration scripts can tell old from new.
 const previousFrameworks = [...new Set(csprojs.flatMap((p) => targetFrameworksOf(readFileSync(p, "utf8"))))];
 
 // ── Resolve the effective LangVersion mode ───────────────────────────────
@@ -323,14 +345,40 @@ if (framework !== "" || langMode !== "none") {
   }
 }
 
+// Both migration scripts run from the repo root (the target itself when it is
+// not inside a git repository) with the same environment.
+const repoRoot = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", cwd: targetDir }).stdout.trim();
+const hookCwd = repoRoot !== "" ? repoRoot : targetDir;
+const hookEnv = {
+  ...process.env,
+  CS_UPDATE_REPO_DIR: targetDir,
+  CS_UPDATE_FRAMEWORK: framework,
+  CS_UPDATE_PREVIOUS_FRAMEWORKS: previousFrameworks.join(" "),
+};
+
+// ── Pre-restore migration script ─────────────────────────────────────────
+//
+// After the rewrite, before the restore gate: edits the gate depends on (for
+// example removing package references the new framework prunes) happen here.
+// Fatal on failure, like --post-update.
+
+if (preRestoreScript !== "") {
+  console.log(`Running pre-restore script: ${preRestoreScript}`);
+  const r = spawnSync(preRestoreScript, [], { stdio: "inherit", cwd: hookCwd, env: hookEnv });
+  if (r.status !== 0) {
+    console.error(`ERROR: --pre-restore script failed (exit ${r.status ?? "signal"}): ${preRestoreScript}`);
+    process.exit(EXIT_PRE_RESTORE_FAILED);
+  }
+}
+
 // ── Restore gate ─────────────────────────────────────────────────────────
 
-if (rewroteAnything) {
+if (rewroteAnything || preRestoreScript !== "") {
   console.log("Running 'dotnet restore' gate after rewrite...");
   const r = spawnSync("dotnet", ["restore"], { stdio: "inherit", cwd: targetDir });
   if (r.status !== 0) {
     console.error(
-      "ERROR: 'dotnet restore' failed after rewriting TFM/LangVersion — the new target is invalid or some packages have no assets for it. No package updates were attempted.",
+      "ERROR: 'dotnet restore' failed after the TFM/LangVersion rewrite and pre-restore script — the new target is invalid, some packages have no assets for it, or the restore reports errors (such as pruned package references). No package updates were attempted.",
     );
     process.exit(EXIT_RESTORE_FAILED);
   }
@@ -386,7 +434,6 @@ if (failedProjects.length > 0) {
 // run's own upgrades. Pre-existing dirt means the chain is skipped with a
 // NOTE. Unattended-safe: non-fatal when absent or failing.
 
-const repoRoot = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", cwd: targetDir }).stdout.trim();
 if (repoRoot !== "" && existsSync(`${repoRoot}/.repo/update.sh`)) {
   const chainArgs = ["--no-refresh"];
   if (treeWasDirtyBefore) {
@@ -419,16 +466,7 @@ if (repoRoot !== "" && existsSync(`${repoRoot}/.repo/update.sh`)) {
 
 if (postUpdateScript !== "") {
   console.log(`Running post-update script: ${postUpdateScript}`);
-  const r = spawnSync(postUpdateScript, [], {
-    stdio: "inherit",
-    cwd: repoRoot !== "" ? repoRoot : targetDir,
-    env: {
-      ...process.env,
-      CS_UPDATE_REPO_DIR: targetDir,
-      CS_UPDATE_FRAMEWORK: framework,
-      CS_UPDATE_PREVIOUS_FRAMEWORKS: previousFrameworks.join(" "),
-    },
-  });
+  const r = spawnSync(postUpdateScript, [], { stdio: "inherit", cwd: hookCwd, env: hookEnv });
   if (r.status !== 0) {
     console.error(`ERROR: --post-update script failed (exit ${r.status ?? "signal"}): ${postUpdateScript}`);
     process.exit(EXIT_POST_UPDATE_FAILED);

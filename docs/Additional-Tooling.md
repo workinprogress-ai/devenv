@@ -2342,6 +2342,9 @@ cs-references-update [REPO_DIR] [OPTIONS]
   - `CS_UPDATE_PREVIOUS_FRAMEWORKS`: the TFMs found in the tree before the rewrite, space-separated (e.g. `net8.0`).
 
   The script must be **idempotent**, because the wizards can re-run a repo. A relative path is resolved against the invocation directory.
+- `--pre-restore SCRIPT`: Run `SCRIPT` (an executable file) after the `--framework`/LangVersion rewrite and **before** the `dotnet restore` gate, with the same working directory, environment and idempotency requirement as `--post-update`. Use it for edits the restore gate depends on — for example removing package references the new target framework prunes (`NU1510`, an error under warnings-as-errors). The restore gate always runs after it, even without `--framework`. A non-zero exit fails the run (exit `13`) before any package update. A missing script exits `3`; a non-executable one exits `2`.
+
+  Both scripts run from the repository root. When the target directory is not itself a git repository, that is the **enclosing** repository's root, so a script must act on `CS_UPDATE_REPO_DIR`, never on its working directory.
 - `-h, --help`: Show help and exit
 
 **LangVersion rules:**
@@ -2360,10 +2363,11 @@ If the target repo has an executable `.repo/update.sh`, it is chained after the 
 |------|--------------------|
 | `0` | Success |
 | `2` | Invalid arguments (bad flag values, conflicting flags, unmapped TFM with LangVersion tags present) |
-| `3` | Target directory not found, or `--post-update` script not found |
+| `3` | Target directory not found, or a `--pre-restore`/`--post-update` script not found |
 | `10` | `dotnet restore` failed after a rewrite |
 | `11` | `dotnet outdated` failed for at least one project |
 | `12` | The `--post-update` script exited non-zero |
+| `13` | The `--pre-restore` script exited non-zero |
 
 **Examples:**
 
@@ -2403,6 +2407,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 - `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Passed through to `cs-references-update` (see its section above for LangVersion interaction). A framework change is always treated as a breaking update: the PR is titled `major: update references and target framework` and the bump report includes the framework change (e.g. `net8.0 → net10.0 (FRAMEWORK)`).
 - `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj.
 - `--lang-default`: Remove `<LangVersion>` tags so the TFM default applies.
+- `--pre-restore SCRIPT`: Forwarded to `cs-references-update` (see its section for the contract), resolved and validated up front like `--post-update`. A failing script fails the update step (exit `21`).
 - `--post-update SCRIPT`: Forwarded to `cs-references-update` (see its section for the contract). The path is resolved to absolute and validated up front. If the script fails, the update step fails (exit `21`) and the update branch is discarded, so a half-migrated repo is never committed.
 - `-h, --help`: Show help and exit
 - `-v, --version`: Show version and exit
@@ -2426,7 +2431,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 2. Run `cs-references-update` to update all NuGet packages
 3. Detect major version bumps in non-test `.csproj` files
 4. If nothing changed, clean up and exit with code `10`
-5. Commit and push the branch
+5. Commit and push the branch. The commit message carries no CI-skip token, so the merged commit triggers the repository's CI pipeline — `cs-dependencies-update-wizard` waits for that run before the next generation
 6. Run `./run-tests` if present — pause for the user to fix failures
 7. If major bumps or test failures are detected, prompt the user to confirm the change level (`patch` or `major`)
 8. Create a PR with the selected prefix (`patch:` or `major:`). When the only changed `.csproj` files are under `test/`/`tests/` trees, the PR and commit are `chore(tests): update references` instead — semantic-release emits no version bump for test-only dependency updates
@@ -2471,11 +2476,13 @@ cs-dependencies-update-wizard [OPTIONS] --global [N]
 **Options:**
 
 - `--global [N]`: Global mode — update all C# repos in topological order, optionally starting from generation `N`
+- `--include GLOB` / `--exclude GLOB` *(global, repeatable)*: Process only repos matching an include glob (all repos when none is given), never repos matching an exclude glob — exclude wins. Globs use `*` and `?` against the repo name (e.g. `--include 'lib.cs.*'`). Filtering happens after the generation order is computed, so a filtered wave keeps the full dependency order and generation numbers stay the same across waves (`--global 1 --include 'lib.cs.*'` resumes a library wave at generation 1). Using either flag without `--global` is an argument error.
 - `--no-refresh`: Skip refreshing the repository cache
 - `--dry-run`: Show what would be updated without making any changes
 - `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Forwarded to `cs-references-update-wizard` (and through it to `cs-references-update`) for every processed repo. A framework change produces a `major:` PR per repo.
 - `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj.
 - `--lang-default`: Remove `<LangVersion>` tags so the TFM default applies.
+- `--pre-restore SCRIPT`: Forwarded to `cs-references-update-wizard` (and through it to `cs-references-update`) for every processed repo, resolved and validated once up front like `--post-update`.
 - `--post-update SCRIPT`: Forwarded to `cs-references-update-wizard` (and through it to `cs-references-update`; see that section for the contract) for every processed repo. The path is resolved to absolute and validated once, before any repo is touched. A failing script makes that repo's single-repo wizard exit `21` with its update branch discarded, which triggers this wizard's failure prompt.
 - `-h, --help`: Show help and exit
 - `-v, --version`: Show version and exit
@@ -2498,6 +2505,8 @@ For each generation:
 1. Run `cs-references-update-wizard` for every repo (exit 10 = no changes → skipped silently)
 2. If a repo fails, pause and prompt the user to fix it before continuing with the generation
 3. After the generation is complete, wait for CI pipelines to finish, refresh the cache, and advance
+
+**The pipeline wait (both modes):** for every repo merged in the level, the wizard records the merged commit and waits (up to 10 minutes, polling every 15 s) for a pipeline run that built it — the commit itself, or a later commit on the default branch that contains it (batched CI may build only the newest push). A successful run passes; a failed or cancelled run fails the wait; no such run before the timeout also fails it, with a message pointing at a possibly missing CI trigger. Repos where the update changed nothing (exit 10) are not waited on. Any failed wait pauses the wizard so the runs can be checked by hand before the next level.
 
 **Resuming an interrupted global run:**
 
@@ -2522,6 +2531,10 @@ cs-dependencies-update-wizard --global 4
 
 # Dry run — show which repos would be updated at each generation
 cs-dependencies-update-wizard --global --dry-run
+
+# A library-only wave, then the services (same generation order, different repo sets)
+cs-dependencies-update-wizard --global --include 'lib.cs.*'
+cs-dependencies-update-wizard --global --include 'service.*' --include template.service --exclude monorepo.services-backend
 
 # Skip initial cache refresh (useful when cache is already fresh)
 cs-dependencies-update-wizard --no-refresh

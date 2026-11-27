@@ -38,9 +38,6 @@ const EXIT_MERGE_FAILED = 41;
 const PROTECTED_BRANCHES = new Set(["master", "main", "develop", "development", "trunk", "HEAD"]);
 const PROTECTED_BRANCH_PREFIXES = ["release/", "hotfix/"];
 
-// TODO:DEVENV[Plan-001]: the commit message suffix below suppresses CI on the update commit while the dependency wizard waits for CI between generations — remove when the maintainer has confirmed what the skip-CI token does to the release workflows the dependency wizard waits on
-const COMMIT_SUFFIX = " [skip ci]";
-
 function showUsage(): never {
   console.log(`Usage: cs-references-update-wizard [OPTIONS] REPO_DIR
 
@@ -62,6 +59,8 @@ ${usageCommonFlags({ noDryRunShort: true })}
     --framework TFM     Forwarded to cs-references-update
     --lang-version VER  Forwarded to cs-references-update
     --lang-default      Forwarded to cs-references-update
+    --pre-restore SCRIPT  Forwarded to cs-references-update: executable run after
+                        the TFM rewrite, before the restore gate; failure aborts (21)
     --post-update SCRIPT  Forwarded to cs-references-update: executable run last,
                         its edits join the update commit; failure aborts (21)
 
@@ -254,6 +253,7 @@ function main(): void {
   let langVersion = "";
   let langDefault = false;
   let postUpdate = "";
+  let preRestore = "";
 
   try {
     const cli = toolCli({
@@ -266,6 +266,7 @@ function main(): void {
         "lang-version": { type: "string" },
         "lang-default": { type: "boolean", default: false },
         "post-update": { type: "string" },
+        "pre-restore": { type: "string" },
         continue: { type: "boolean", default: false },
       },
     });
@@ -275,6 +276,7 @@ function main(): void {
     langVersion = (cli.values["lang-version"] as string | undefined) ?? "";
     langDefault = cli.values["lang-default"] === true;
     postUpdate = (cli.values["post-update"] as string | undefined) ?? "";
+    preRestore = (cli.values["pre-restore"] as string | undefined) ?? "";
     dryRun = cli.common.dryRun;
     continueMode = cli.values["continue"] === true;
     const positionals = cli.positionals;
@@ -297,6 +299,14 @@ function main(): void {
       process.exit(resolved.reason === "missing" ? EXIT_CONFLICT : EXIT_MISUSE);
     }
     postUpdate = resolved.path;
+  }
+  if (preRestore !== "") {
+    const resolved = resolvePostUpdateScript(preRestore, "--pre-restore");
+    if (!resolved.ok) {
+      logError(resolved.message);
+      process.exit(resolved.reason === "missing" ? EXIT_CONFLICT : EXIT_MISUSE);
+    }
+    preRestore = resolved.path;
   }
 
   repoDir = repoDir === "" ? "." : repoDir;
@@ -405,6 +415,7 @@ function main(): void {
     if (framework !== "") updateArgs.push("--framework", framework);
     if (langVersion !== "") updateArgs.push("--lang-version", langVersion);
     if (langDefault) updateArgs.push("--lang-default");
+    if (preRestore !== "") updateArgs.push("--pre-restore", preRestore);
     if (postUpdate !== "") updateArgs.push("--post-update", postUpdate);
     logInfo(`Updating NuGet references in ${repoName}...`);
     const updInv = siblingInvocation("cs-references-update", updateArgs);
@@ -494,12 +505,15 @@ function main(): void {
 
   // ── Commit and push (git hook will run tests) ──
   stageTrackedChanges(repoDir);
-  let commit = gitCheck(repoDir, ["commit", "-m", `${prTitle}${COMMIT_SUFFIX}`, "--quiet"]);
+  // The update commit must trigger CI: it reaches the default branch through a
+  // rebase merge, and the dependency wizard waits for that run before the next
+  // generation consumes the published packages.
+  let commit = gitCheck(repoDir, ["commit", "-m", prTitle, "--quiet"]);
   if (!commit.ok) {
     logWarn(`Commit failed for ${repoName} (likely a git hook failure)`);
     promptUser(`Please fix the issue in ${repoDir} so that COMMIT HOOKS PASS, then press Enter to retry.`);
     stageTrackedChanges(repoDir);
-    commit = gitCheck(repoDir, ["commit", "-m", `${prTitle}${COMMIT_SUFFIX}`, "--quiet"]);
+    commit = gitCheck(repoDir, ["commit", "-m", prTitle, "--quiet"]);
     if (!commit.ok) {
       logError(`Commit still failing for ${repoName} — aborting`);
       if (!promptYesNo(`Discard the working-tree changes and delete branch '${updateBranch}' (the fixes made for the commit hooks are lost)`)) {

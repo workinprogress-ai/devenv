@@ -8,7 +8,7 @@
 // matches the contract's verb table.
 import { afterAll, beforeAll, describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, matchesGlob, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -71,7 +71,11 @@ function smokeSuites(): string[] {
 function testFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
-    if (statSync(p).isDirectory()) return testFiles(p);
+    // lstat, not stat: symlinks are skipped (the machine-managed repo cache
+    // holds links whose targets may not exist, which stat would throw on).
+    const st = lstatSync(p);
+    if (st.isSymbolicLink()) return [];
+    if (st.isDirectory()) return testFiles(p);
     return name.endsWith(".ts") ? [p] : [];
   });
 }
