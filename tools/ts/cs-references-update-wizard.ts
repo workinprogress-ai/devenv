@@ -146,6 +146,38 @@ function unpushedCommitCount(repoDir: string, branch: string, base: string): num
 /** Whether a leftover local update branch may be deleted: only when it holds
  * no commits beyond its remote counterpart (or the base), or the operator
  * confirms. Without a terminal the answer is no. */
+// The change level (commit subject and BREAKING CHANGE note) is computed from
+// the version diff the first pass sees; a --continue run cannot recompute it, so
+// the first pass saves it beside the repository's git metadata.
+interface ChangeLevel {
+  branch: string;
+  prTitle: string;
+  breakingNote: string;
+}
+
+function changeLevelFile(repoDir: string): string {
+  return join(gitCheck(repoDir, ["rev-parse", "--absolute-git-dir"]).out.trim(), "cs-references-update-wizard.json");
+}
+
+function saveChangeLevel(repoDir: string, level: ChangeLevel): void {
+  writeFileSync(changeLevelFile(repoDir), `${JSON.stringify(level)}\n`);
+}
+
+function loadChangeLevel(repoDir: string, branch: string): ChangeLevel | null {
+  const file = changeLevelFile(repoDir);
+  if (!existsSync(file)) return null;
+  try {
+    const level = JSON.parse(readFileSync(file, "utf8")) as ChangeLevel;
+    return level.branch === branch && typeof level.prTitle === "string" && typeof level.breakingNote === "string" ? level : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearChangeLevel(repoDir: string): void {
+  rmSync(changeLevelFile(repoDir), { force: true });
+}
+
 function mayDiscardLeftoverBranch(repoDir: string, branch: string, base: string): boolean {
   const n = unpushedCommitCount(repoDir, branch, base);
   if (n === 0) return true;
@@ -343,6 +375,7 @@ function main(): void {
 
   let hasBreaking = false;
   let hasFrameworkChange = false;
+  let savedLevel: ChangeLevel | null = null;
 
   if (continueMode) {
     logInfo(`Continuing previous update in ${repoName}...`);
@@ -360,6 +393,13 @@ function main(): void {
       process.exit(EXIT_NO_CHANGES);
     }
     logInfo(`Found changes on branch '${updateBranch}' — resuming workflow`);
+    savedLevel = loadChangeLevel(repoDir, updateBranch);
+    if (savedLevel === null) {
+      logError(
+        `No saved change level for branch '${updateBranch}' in ${repoName}: --continue resumes only a run this wizard started. Delete the branch and run the wizard again without --continue.`,
+      );
+      process.exit(EXIT_MISUSE);
+    }
   } else {
     // Guard: refuse on uncommitted changes.
     const diffQuiet = git(repoDir, ["diff", "--quiet"], { quiet: true }).ok;
@@ -476,7 +516,10 @@ function main(): void {
   // "fix:" (patch release); a test-only update stays "chore(tests):" (no release).
   let prTitle = "fix: update references";
   let breakingNote = "";
-  if (testOnly) {
+  if (savedLevel !== null) {
+    prTitle = savedLevel.prTitle;
+    breakingNote = savedLevel.breakingNote;
+  } else if (testOnly) {
     logInfo("Only test csproj files changed — committing as chore(tests) (no release).");
     prTitle = "chore(tests): update references";
   } else if (hasFrameworkChange) {
@@ -488,6 +531,7 @@ function main(): void {
     prTitle = "feat!: update references";
     breakingNote = "BREAKING CHANGE: dependencies moved to new major versions.";
   }
+  if (savedLevel === null) saveChangeLevel(repoDir, { branch: updateBranch, prTitle, breakingNote });
   const commitMessage = breakingNote === "" ? ["-m", prTitle] : ["-m", prTitle, "-m", breakingNote];
 
   // ── Tests ──
@@ -525,6 +569,7 @@ function main(): void {
         logError(`Left branch '${updateBranch}' and the working tree in ${repoName} untouched; fix the commit and re-run with --continue`);
         process.exit(EXIT_TESTS_FAILED);
       }
+      clearChangeLevel(repoDir);
       git(repoDir, ["checkout", "-f", defaultBranch], { quiet: true });
       git(repoDir, ["branch", "-D", updateBranch], { quiet: true });
       process.exit(EXIT_TESTS_FAILED);
@@ -554,7 +599,8 @@ function main(): void {
       "pr-create",
       ["--no-issue", "--repo-dir", repoDir, "--branch", updateBranch, "--label", "automated", prTitle],
     );
-    const r = spawnSync(createInv.command, createInv.args, { encoding: "utf8" });
+    // pr-create refuses to act on a repository other than the one it runs in.
+    const r = spawnSync(createInv.command, createInv.args, { cwd: repoDir, encoding: "utf8" });
     const m = /https:\/\/[^\s]+/.exec(`${r.stdout ?? ""}${r.stderr ?? ""}`);
     if (m !== null && m[0] !== undefined) {
       prUrl = m[0];
@@ -568,6 +614,7 @@ function main(): void {
   if (prUrl === "") {
     logError(`Failed to create PR for ${repoName} after 5 attempts`);
     promptUser("Please resolve the PR creation issue manually.  Merge it and then press Enter.");
+    clearChangeLevel(repoDir);
     git(repoDir, ["checkout", defaultBranch], { quiet: true });
     git(repoDir, ["branch", "-D", updateBranch], { quiet: true });
     process.exit(EXIT_PR_FAILED);
@@ -585,6 +632,7 @@ function main(): void {
   if (merge.status !== 0) {
     logError(`Failed to merge PR for ${repoName}`);
     promptUser("Please merge manually, then press Enter.");
+    clearChangeLevel(repoDir);
     git(repoDir, ["checkout", defaultBranch], { quiet: true });
     git(repoDir, ["branch", "-D", updateBranch], { quiet: true });
     process.exit(EXIT_MERGE_FAILED);
@@ -596,6 +644,7 @@ function main(): void {
   git(repoDir, ["checkout", defaultBranch], { quiet: true });
   gitCheck(repoDir, ["pull", "--quiet"]);
   git(repoDir, ["branch", "-D", updateBranch], { quiet: true });
+  clearChangeLevel(repoDir);
 }
 
 try {

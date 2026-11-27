@@ -2403,7 +2403,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 
 - `--branch NAME`: Branch to create for the update (default: `auto-update-references`)
 - `--dry-run`: Show what would happen without making any changes
-- `--continue`: Resume a previously started update. Expects the update branch to exist with staged or unstaged changes. Skips branch creation and dependency update steps. Framework/language flags are ignored in this mode (the update already happened).
+- `--continue`: Resume a previously started update. Expects the update branch to exist with staged or unstaged changes. Skips branch creation and dependency update steps. Framework/language flags are ignored in this mode (the update already happened). The commit subject and `BREAKING CHANGE` note are the ones the first pass detected, saved in the repository's git directory (`cs-references-update-wizard.json`); a branch the wizard did not start has no saved level, and `--continue` refuses it (exit 2).
 - `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Passed through to `cs-references-update` (see its section above for LangVersion interaction). A framework change is always treated as a breaking update: the commit and PR are titled `feat!: update references and target framework`, the commit carries a `BREAKING CHANGE:` footer, and the bump report includes the framework change (e.g. `net8.0 → net10.0 (FRAMEWORK)`).
 - `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj.
 - `--lang-default`: Remove `<LangVersion>` tags so the TFM default applies.

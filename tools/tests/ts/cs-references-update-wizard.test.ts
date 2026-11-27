@@ -392,11 +392,14 @@ describe("scripts/cs-references-update-wizard", () => {
   });
 
   it("keeps the branch and the working-tree fixes when the commit keeps failing and nobody confirms the discard", () => {
-    git(["checkout", "-q", "-b", "auto-update-references"]);
-    writeFileSync(join(REPO_DIR, "src", "MyLib.csproj"), CSPROJ.replace("1.0.0", "1.1.0") + "\n");
+    writeFake(
+      "cs-references-update",
+      '#!/usr/bin/env bash\nsed -i \'s/Version="1\\.0\\.0"/Version="1.1.0"/\' "$1/src/MyLib.csproj"\nexit 0\n',
+    );
     const hook = join(REPO_DIR, ".git", "hooks", "pre-commit");
     writeFileSync(hook, "#!/usr/bin/env bash\nexit 1\n");
     spawnSync("chmod", ["+x", hook]);
+    expect(wizard()([REPO_DIR]).status).toBe(30);
     const r = wizard()(["--continue", REPO_DIR]);
     expect(r.status).toBe(30);
     expect(r.out).toContain("untouched");
@@ -584,6 +587,72 @@ describe("scripts/cs-references-update-wizard", () => {
     const titles = readFileSync(prArgs, "utf8");
     expect(titles).toContain("fix: update references");
     expect(titles).not.toContain("chore(tests)");
+    removeShadowGit();
+  });
+
+  // ── Resume and PR creation ─────────────────────────────────────────────────
+
+  function frameworkChangeSetup(): void {
+    writeFake(
+      "cs-references-update",
+      '#!/usr/bin/env bash\nrepo_dir="${1:-$PWD}"\nfind "$repo_dir/src" -name \'*.csproj\' -exec sed -i \'s|net8.0|net11.0|g\' {} +\nexit 0\n',
+    );
+    const proj = readFileSync(join(REPO_DIR, "src", "MyLib.csproj"), "utf8");
+    writeFileSync(
+      join(REPO_DIR, "src", "MyLib.csproj"),
+      proj.replace("<ItemGroup>", "<PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>\n  <ItemGroup>"),
+    );
+    spawnSync("git", ["add", "-A"], { cwd: REPO_DIR, env: GIT_ENV() });
+    spawnSync("git", ["commit", "-q", "-m", "add TFM"], { cwd: REPO_DIR, env: GIT_ENV() });
+    spawnSync("git", ["update-ref", "refs/remotes/origin/master", "HEAD"], { cwd: REPO_DIR, env: GIT_ENV() });
+  }
+
+  it("a resumed run commits with the change level the first pass detected", () => {
+    frameworkChangeSetup();
+    const hook = join(REPO_DIR, ".git", "hooks", "pre-commit");
+    writeFileSync(hook, "#!/usr/bin/env bash\nexit 1\n");
+    spawnSync("chmod", ["+x", hook]);
+    expect(wizard()([REPO_DIR]).status).toBe(30);
+    rmSync(hook);
+    shadowGitPushFails();
+    const r = wizard()(["--continue", REPO_DIR]);
+    expect(r.status).toBe(20);
+    const message = (git(["log", "-1", "--format=%B", "auto-update-references"]).stdout ?? "").trim();
+    expect(message.split("\n")[0]).toBe("feat!: update references and target framework");
+    expect(message).toMatch(/^BREAKING CHANGE: /m);
+    removeShadowGit();
+  });
+
+  it("refuses to resume a branch the wizard did not start, and commits nothing", () => {
+    git(["checkout", "-q", "-b", "auto-update-references"]);
+    writeFileSync(join(REPO_DIR, "src", "MyLib.csproj"), CSPROJ.replace("1.0.0", "1.1.0") + "\n");
+    const head = git(["rev-parse", "HEAD"]).stdout.trim();
+    const r = wizard()(["--continue", REPO_DIR]);
+    expect(r.status).toBe(2);
+    expect(r.out).toContain("No saved change level");
+    expect(git(["rev-parse", "HEAD"]).stdout.trim()).toBe(head);
+  });
+
+  it("removes the saved change level when the run completes", () => {
+    frameworkChangeSetup();
+    shadowGitPush();
+    expect(wizard()([REPO_DIR]).status).toBe(0);
+    expect(existsSync(join(REPO_DIR, ".git", "cs-references-update-wizard.json"))).toBe(false);
+    removeShadowGit();
+  });
+
+  it("runs pr-create in the target repository, not the caller's directory", () => {
+    frameworkChangeSetup();
+    writeFake("pr-create", '#!/usr/bin/env bash\npwd > "${CAPTURE_FILE:?}"\necho "https://github.com/test-org/test-repo/pull/1"\n');
+    shadowGitPush();
+    const captured = join(TMP, "pr.cwd");
+    const r = spawnSync("setsid", ["--wait", "node", join(FAKE_TOOLS, "ts", "wizard.ts"), REPO_DIR], {
+      cwd: TMP,
+      encoding: "utf8",
+      env: { ...GIT_ENV(), PATH: `${BIN}:${GIT_ENV().PATH ?? ""}`, CAPTURE_FILE: captured },
+    });
+    expect(r.status).toBe(0);
+    expect(readFileSync(captured, "utf8").trim()).toBe(REPO_DIR);
     removeShadowGit();
   });
 });
