@@ -7,7 +7,9 @@
 // HOME, so no real VS Code window is ever opened.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { chmodSync, existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+import { installChangeIdHook } from "./harness/fork-fixture.ts";
 import {
   claimCommitApprovalRequest,
   commitApprovalDirectory,
@@ -32,6 +34,9 @@ import {
   harnessStageFile,
   type Harness,
 } from "./harness/repo-commit.ts";
+
+/** The workspace's tools/ (holds the real prepare-commit-msg hook body). */
+const TOOLS = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 let h: Harness;
 let home: string;
@@ -297,6 +302,35 @@ describe("approval broker contract", () => {
       expect(resumed.out).toContain("commit created");
       expect(harnessHeadCount(h)).toBe(before + 1);
       expect(harnessHeadSubject(h)).toBe("feat: broker commit");
+    });
+
+    it("keeps the Change-Id trailer that prepare-commit-msg adds", () => {
+      installChangeIdHook(h.repo, TOOLS);
+      const { requestPath } = requestBroker(["feat: broker commit"]);
+      const resumed = resumeBroker(requestPath, writeBrokerResponse(requestPath, "approve", "feat: broker commit\n"));
+      expect(resumed.status).toBe(0);
+      const message = harnessGit(h, "log", "-1", "--format=%B");
+      expect(message.split("\n")[0]).toBe("feat: broker commit");
+      expect(message).toMatch(/^Change-Id: [A-Za-z0-9]{12}$/m);
+    });
+
+    it("keeps a Change-Id the approved message carries instead of adding a second one", () => {
+      installChangeIdHook(h.repo, TOOLS);
+      const { requestPath } = requestBroker(["feat: broker commit"]);
+      const approved = "feat: broker commit\n\nChange-Id: KeepThisId12\n";
+      const resumed = resumeBroker(requestPath, writeBrokerResponse(requestPath, "approve", approved));
+      expect(resumed.status).toBe(0);
+      const ids = harnessGit(h, "log", "-1", "--format=%B").match(/^Change-Id: .*$/gm) ?? [];
+      expect(ids).toEqual(["Change-Id: KeepThisId12"]);
+    });
+
+    it("accepts the approval request given as a path relative to the working directory", () => {
+      const before = harnessHeadCount(h);
+      const { requestPath } = requestBroker(["feat: relative request"]);
+      const response = writeBrokerResponse(requestPath, "approve", "feat: relative request\n");
+      const resumed = resumeBroker(relative(h.repo, requestPath), response);
+      expect(resumed.status).toBe(0);
+      expect(harnessHeadCount(h)).toBe(before + 1);
     });
 
     it("leaves HEAD and the index unchanged after cancellation", () => {
