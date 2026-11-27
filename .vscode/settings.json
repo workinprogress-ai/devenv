@@ -1,4 +1,9 @@
 {
+    "dotnet.defaultSolution": "disable",
+    "omnisharp.projectFilesExcludePattern": "**/node_modules/**,**/.git/**,**/bower_components/**,**/repos/**",
+    "files.watcherExclude": {
+        "**/repos/**": true
+    },
     "cSpell.words": [
         "devenv",
         "distro",
