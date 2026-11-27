@@ -42,6 +42,7 @@ dotnet-install.*
 /tools/custom/
 !/tools/config
 !/tools/fork/
+!/tools/guard/
 !/tools/git-hooks/
 !/tools/internal/
 !/tools/lib/

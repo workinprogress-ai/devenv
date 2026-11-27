@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "provider": {
+    "clis": [
+      { "name": "gh" },
+      { "name": "glab" },
+      { "name": "az", "subcommands": ["devops", "repos", "boards"] },
+      { "name": "tea" },
+      { "name": "bb" }
+    ],
+    "apiHosts": [
+      { "host": "api.github.com" },
+      { "host": "gitlab.com", "pathPrefix": "/api/" },
+      { "host": "dev.azure.com" },
+      { "host": "vssps.dev.azure.com" },
+      { "host": "api.bitbucket.org" }
+    ],
+    "denyText": "Direct provider access is not allowed here. Use the workspace wrappers (issue-*, pr-*, project-*, pipelines-*, release-list) with DEVENV_REPO set; if none covers what you need, report the gap to the user instead of working around it."
+  },
+  "git": {
+    "globalOptionsWithValue": ["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix", "--config-env"],
+    "readOnly": [
+      { "subcommand": "status" },
+      { "subcommand": "log" },
+      { "subcommand": "diff" },
+      { "subcommand": "show" },
+      { "subcommand": "rev-parse" },
+      { "subcommand": "merge-base" },
+      { "subcommand": "blame" },
+      { "subcommand": "ls-files" },
+      { "subcommand": "config", "requireAnyOf": ["--get"] },
+      { "subcommand": "worktree", "requireFirstArg": "list" },
+      { "subcommand": "clean", "requireAnyOf": ["-n", "--dry-run"] },
+      { "subcommand": "apply", "requireAnyOf": ["--check", "--stat", "--numstat", "--summary"] }
+    ],
+    "denyText": "This git command changes repository state, and only read-only git is allowed here. Use the workspace tools instead: /devenv-commit (repo-commit) to commit, repo-stage to stage, git-wip for WIP snapshots; for anything else, show the user the exact command and ask them to run it."
+  },
+  "parse": {
+    "onProblem": "deny",
+    "problemDenyText": "This command could not be analyzed safely, so it is not allowed. Simplify it or split it into smaller commands, and avoid unbalanced quotes and deeply nested shells.",
+    "onDynamicProgram": "allow",
+    "dynamicDenyText": "This command builds its program name from a variable or glob, so it cannot be checked. Write the program name out."
+  },
+  "scope": {
+    "workspaceRoot": "derived",
+    "outsideWorkspace": "allow",
+    "unresolvableTarget": "inside",
+    "insideSubpaths": ["tmp"]
+  },
+  "heredoc": {
+    "mode": "observe",
+    "interpreters": ["python", "python3", "node", "bash", "sh", "zsh", "ruby", "perl", "pwsh"],
+    "dataConsumers": ["cat", "tee", "sed", "awk", "patch", "tr", "sort", "wc", "grep", "jq"]
+  }
+}

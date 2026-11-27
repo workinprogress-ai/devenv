@@ -62,4 +62,28 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // The command guard runs inside a host's hook process, so it is CommonJS
+    // by contract (the workspace package.json is "type": "module", and hosts
+    // execute the script directly): require() is the module system here, and
+    // an undefined name must fail the lint, not a tool call.
+    files: ["tools/guard/**/*.cjs"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        require: "readonly",
+        module: "writable",
+        __dirname: "readonly",
+        process: "readonly",
+        console: "readonly",
+        Buffer: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+      "no-undef": "error",
+    },
+  },
 );
