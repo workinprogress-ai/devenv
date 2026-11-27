@@ -12,7 +12,7 @@
       { "host": "api.github.com" },
       { "host": "gitlab.com", "pathPrefix": "/api/" },
       { "host": "dev.azure.com" },
-      { "host": "vssps.dev.azure.com" },
+      { "host": "visualstudio.com" },
       { "host": "api.bitbucket.org" }
     ],
     "denyText": "Direct provider access is not allowed here. Use the workspace wrappers (issue-*, pr-*, project-*, pipelines-*, release-list) with DEVENV_REPO set; if none covers what you need, report the gap to the user instead of working around it."

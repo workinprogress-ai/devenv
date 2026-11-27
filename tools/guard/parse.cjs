@@ -657,6 +657,9 @@ function resolveWords(words, ctx, base) {
   }
   const program = baseName(w.value);
   record(ctx, base, program, false, args);
+  // The text this command writes, when it is literal: a following `| bash` runs it.
+  if (program === "cat" && base.heredoc !== null) base.out = base.heredoc.body;
+  else if (program === "echo" || program === "printf") base.out = args.filter((a) => !a.startsWith("-")).join(" ");
 
   if (program === "cd") afterCd(rest, ctx);
   else if (program === "pushd" || program === "popd") ctx.cwd = { unresolvable: true };
@@ -665,8 +668,9 @@ function resolveWords(words, ctx, base) {
   } else if (SHELLS.has(program)) {
     const script = shellScript(rest);
     if (script !== null) recurse(script.value, "shell-c", ctx);
-    else if (base.heredoc !== null && !rest.some((x) => !/^[-+]/.test(x.value) && x.value !== "-s")) {
-      recurse(base.heredoc.body, "heredoc-script", ctx);
+    else if (!rest.some((x) => !/^[-+]/.test(x.value) && x.value !== "-s")) {
+      if (base.heredoc !== null) recurse(base.heredoc.body, "heredoc-script", ctx);
+      else if (base.carry !== null) recurse(base.carry, "pipe-script", ctx);
     }
   } else if (program === "find") {
     for (let j = 0; j < rest.length; j++) {
@@ -675,15 +679,17 @@ function resolveWords(words, ctx, base) {
       while (k < rest.length && rest[k].value !== ";" && rest[k].value !== "+") k++;
       const inner = rest.slice(j + 1, k);
       if (inner.length > 0) {
-        resolveWords(inner, ctx, { env: {}, wrappers: [], via: ctx.via.concat(["find-exec"]), heredoc: null, redirects: [] });
+        resolveWords(inner, ctx, { carry: null, out: null, env: {}, wrappers: [], via: ctx.via.concat(["find-exec"]), heredoc: null, redirects: [] });
       }
       j = k;
     }
   }
 }
 
-function emit(words, redirs, heredocRef, ctx) {
+function emit(words, redirs, heredocRef, ctx, carry) {
   const base = {
+    carry,
+    out: null,
     env: {},
     wrappers: [],
     via: ctx.via,
@@ -697,17 +703,18 @@ function emit(words, redirs, heredocRef, ctx) {
     i++;
   }
   const rest = words.slice(i);
-  if (rest.length === 0) return;
+  if (rest.length === 0) return null;
   const head = rest[0];
   if (!head.dynamic && !head.quoted && SKIP_SEGMENT.has(head.value)) {
     for (const w of rest) scanSubs(w, ctx);
-    return;
+    return null;
   }
   resolveWords(rest, ctx, base);
   for (const w of rest) scanSubs(w, ctx);
   if (heredocRef !== null && !heredocRef.quoted) {
     for (const s of bodySubstitutions(heredocRef.body)) recurse(s, "substitution", ctx);
   }
+  return base.out;
 }
 
 function build(tokens, ctx) {
@@ -715,9 +722,11 @@ function build(tokens, ctx) {
   let redirs = [];
   let heredocRef = null;
   let expectTarget = false;
+  let carry = null;
+  let lastOut = null;
   const scopes = [];
   const end = () => {
-    if (words.length > 0 || redirs.length > 0 || heredocRef !== null) emit(words, redirs, heredocRef, ctx);
+    lastOut = words.length > 0 || redirs.length > 0 || heredocRef !== null ? emit(words, redirs, heredocRef, ctx, carry) : null;
     words = [];
     redirs = [];
     heredocRef = null;
@@ -738,11 +747,16 @@ function build(tokens, ctx) {
       redirs.push({ op: "<<", fd: t.fd, target: null });
     } else if (t.v === "(") {
       end();
+      carry = null;
       scopes.push(ctx.cwd);
     } else if (t.v === ")") {
       end();
+      carry = null;
       if (scopes.length > 0) ctx.cwd = scopes.pop();
-    } else end();
+    } else {
+      end();
+      carry = t.v === "|" || t.v === "|&" ? lastOut : null;
+    }
   }
   end();
 }

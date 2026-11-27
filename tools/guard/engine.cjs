@@ -30,7 +30,7 @@ const EXIT_DENY = 2;
 // Rule modules register here, in order; the first to deny wins. A rule module
 // exports { name, evaluate(invocations, ctx) } and returns null to pass or
 // { reason } to deny.
-const RULE_MODULES = [];
+const RULE_MODULES = ["./rules-provider.cjs"];
 
 const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 const messageOf = (e) => {

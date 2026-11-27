@@ -310,7 +310,7 @@ describe("guard/engine: as a process", () => {
   });
 
   it("is plain CommonJS with no dependency outside Node and its own folder", () => {
-    for (const f of ["engine.cjs", "parse.cjs", "policy-schema.cjs"]) {
+    for (const f of ["engine.cjs", "parse.cjs", "policy-schema.cjs", "rules-provider.cjs"]) {
       const src = readFileSync(join(GUARD_DIR, f), "utf8");
       const required = [...src.matchAll(/require\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1] as string);
       for (const r of required) expect(r.startsWith("node:") || r.startsWith("./"), `${f} requires ${r}`).toBe(true);

@@ -260,6 +260,27 @@ describe("guard/parse: wrappers and indirection", () => {
   });
 });
 
+describe("guard/parse: a literal script piped into a shell", () => {
+  it("reads echo, printf and a cat heredoc piped into bash or sh", () => {
+    expect(programs("echo 'git push' | bash")).toEqual(["echo", "bash", "git"]);
+    expect(programs("printf 'git push\\n' | sh")).toContain("git");
+    expect(programs("cat <<EOF | bash\ngh pr list\nEOF")).toEqual(["cat", "bash", "gh"]);
+    expect(programs("echo git push | sudo bash")).toContain("git");
+    expect(parse("echo 'git push' | bash").invocations[2]?.via).toEqual(["pipe-script"]);
+  });
+
+  it("reads through a pipeline of more than two commands only from the command directly before the shell", () => {
+    expect(programs("echo 'git push' | cat | bash")).toEqual(["echo", "cat", "bash"]);
+  });
+
+  it("does not invent a script when the shell is not fed by a pipe, or runs a file or -c", () => {
+    expect(programs("echo 'git push' | grep x")).toEqual(["echo", "grep"]);
+    expect(programs("echo 'git push'; bash")).toEqual(["echo", "bash"]);
+    expect(programs("echo 'git push' | bash run.sh")).toEqual(["echo", "bash"]);
+    expect(programs("echo 'git push' | bash -c 'ls'")).toEqual(["echo", "bash", "ls"]);
+  });
+});
+
 describe("guard/parse: cd tracking", () => {
   const cwdOf = (cmd: string, program: string): Invocation["cwd"] | undefined =>
     parse(cmd).invocations.find((i) => i.program === program && i.args[0] !== undefined && i.program !== "cd")?.cwd;
