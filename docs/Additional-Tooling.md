@@ -2409,6 +2409,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 - `--lang-default`: Remove `<LangVersion>` tags so the TFM default applies.
 - `--pre-restore SCRIPT`: Forwarded to `cs-references-update` (see its section for the contract), resolved and validated up front like `--post-update`. A failing script fails the update step (exit `21`).
 - `--post-update SCRIPT`: Forwarded to `cs-references-update` (see its section for the contract). The path is resolved to absolute and validated up front. If the script fails, the update step fails (exit `21`) and the update branch is discarded, so a half-migrated repo is never committed.
+- `--self-approve`: Forwarded to `pr-merge`: before completing the update PR, approve it with its creator's vote where the target branch's minimum-reviewers policy counts that vote (Azure only). A policy that does not count it, or a GitHub repository, fails the merge (exit `41`) with nothing approved.
 - `-h, --help`: Show help and exit
 - `-v, --version`: Show version and exit
 
@@ -2479,11 +2480,12 @@ cs-dependencies-update-wizard [OPTIONS] --global [N]
 - `--include GLOB` / `--exclude GLOB` *(global, repeatable)*: Process only repos matching an include glob (all repos when none is given), never repos matching an exclude glob — exclude wins. Globs use `*` and `?` against the repo name (e.g. `--include 'lib.cs.*'`). Filtering happens after the generation order is computed, so a filtered wave keeps the full dependency order and generation numbers stay the same across waves (`--global 1 --include 'lib.cs.*'` resumes a library wave at generation 1). Using either flag without `--global` is an argument error.
 - `--no-refresh`: Skip refreshing the repository cache
 - `--dry-run`: Show what would be updated without making any changes
-- `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Forwarded to `cs-references-update-wizard` (and through it to `cs-references-update`) for every processed repo. A framework change produces a `major:` PR per repo.
+- `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Forwarded to `cs-references-update-wizard` (and through it to `cs-references-update`) for every processed repo. A framework change produces a `feat!:` PR with a `BREAKING CHANGE` footer per repo.
 - `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj.
 - `--lang-default`: Remove `<LangVersion>` tags so the TFM default applies.
 - `--pre-restore SCRIPT`: Forwarded to `cs-references-update-wizard` (and through it to `cs-references-update`) for every processed repo, resolved and validated once up front like `--post-update`.
 - `--post-update SCRIPT`: Forwarded to `cs-references-update-wizard` (and through it to `cs-references-update`; see that section for the contract) for every processed repo. The path is resolved to absolute and validated once, before any repo is touched. A failing script makes that repo's single-repo wizard exit `21` with its update branch discarded, which triggers this wizard's failure prompt.
+- `--self-approve`: Forwarded to `cs-references-update-wizard` (and through it to `pr-merge`) for every processed repo: each update PR is approved with its creator's vote where the branch's review policy counts it, so the run does not stop at every merge.
 - `-h, --help`: Show help and exit
 - `-v, --version`: Show version and exit
 

@@ -22,7 +22,7 @@ import { toolCli } from "../lib/core/cli.ts";
 import { conventionalCommitsOk } from "../lib/core/commit-format.ts";
 import { siblingInvocation } from "../lib/core/sibling.ts";
 import { checkTargetRepo, providerRepoTarget, requireRepoTarget } from "../lib/providers/provider-core.ts";
-import { prsList, prsMerge, prsView } from "../lib/providers/facade/prs.ts";
+import { prsApproveAsCreator, prsList, prsMerge, prsView } from "../lib/providers/facade/prs.ts";
 import { prWebUrl } from "../lib/providers/facade/urls.ts";
 import { signalPrEvents } from "../lib/domain/events.ts";
 
@@ -54,6 +54,9 @@ Options:
   --force                 Allow merging a draft PR. Branch protection (required
                           reviews and checks) is never bypassed.
   --keep-branch           Keep the source branch after merge (deleted by default)
+  --self-approve          Before completing, approve the PR with its creator's
+                          vote where the target branch's review policy counts
+                          that vote (Azure only). Refused when a policy does not.
   --                      End of options: what follows is the commit message
   -h, --help              Show this help message and exit
   -v, --version           Show version information and exit
@@ -137,6 +140,7 @@ async function main(argv: string[]): Promise<number> {
   let repoDir = process.cwd();
   let force = false;
   let keepBranch = false;
+  let selfApprove = false;
   let help = false;
   let devenvFlag = false;
 
@@ -157,6 +161,7 @@ async function main(argv: string[]): Promise<number> {
         branch: { type: "string" },
         force: { type: "boolean", default: false },
         "keep-branch": { type: "boolean", default: false },
+        "self-approve": { type: "boolean", default: false },
       },
     });
     help = cli.common.help;
@@ -171,6 +176,7 @@ async function main(argv: string[]): Promise<number> {
     sourceBranch = ((cli.values["branch"] as string | undefined) ?? "");
     force = cli.values["force"] === true;
     keepBranch = cli.values["keep-branch"] === true;
+    selfApprove = cli.values["self-approve"] === true;
     devenvFlag = cli.common.devenv;
     if (cli.positionals.length > 1) {
       logError(`pr-merge takes at most one commit message (got ${cli.positionals.length} arguments); quote a message that contains spaces.`);
@@ -349,6 +355,17 @@ async function main(argv: string[]): Promise<number> {
     return EXIT_GENERAL_ERROR;
   }
   breakingMarkerScan(repoDir, range);
+
+  if (selfApprove) {
+    try {
+      const outcome = await prsApproveAsCreator(repo, Number.parseInt(prId, 10));
+      logInfo(outcome === "approved" ? `Approved PR #${prId} with its creator's vote.` : `No review policy applies to PR #${prId}; nothing to approve.`);
+    } catch (err) {
+      logError(`Could not approve PR #${prId} with its creator's vote; not merging.`);
+      logError(errorMessage(err));
+      return EXIT_API_FAILURE;
+    }
+  }
 
   // Merge. merge_pr's sequence: build the full message (title + refs
   // footer + body), then split it — subject is its first line, body the

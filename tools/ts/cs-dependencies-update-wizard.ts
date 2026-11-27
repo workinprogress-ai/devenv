@@ -76,6 +76,9 @@ ${usageCommonFlags()}
     --post-update SCRIPT    Forwarded to the single-repo wizard: executable run
                             last in every repo, its edits join that repo's
                             update commit; failure aborts that repo
+    --self-approve          Forwarded to the single-repo wizard: each update PR
+                            is approved with its creator's vote where the
+                            branch review policy counts it
     --auto                  Process generations without confirmation prompts
     --global [N]            Global mode; optional starting generation N
     --include GLOB          Global mode: process only repos matching GLOB
@@ -283,6 +286,7 @@ interface WizardArgs {
   langDefault: boolean;
   postUpdate: string;
   preRestore: string;
+  selfApprove: boolean;
   includes: string[];
   excludes: string[];
 }
@@ -290,7 +294,7 @@ interface WizardArgs {
 function parseArgs_main(): WizardArgs {
   const a: WizardArgs = {
     targetDir: "", skipRefresh: false, dryRun: false, globalMode: false,
-    globalStartGen: 0, auto: false, framework: "", langVersion: "", langDefault: false, postUpdate: "", preRestore: "",
+    globalStartGen: 0, auto: false, framework: "", langVersion: "", langDefault: false, postUpdate: "", preRestore: "", selfApprove: false,
     includes: [], excludes: [],
   };
   try {
@@ -305,6 +309,7 @@ function parseArgs_main(): WizardArgs {
         "lang-default": { type: "boolean", default: false },
         "post-update": { type: "string" },
         "pre-restore": { type: "string" },
+        "self-approve": { type: "boolean", default: false },
         auto: { type: "boolean", default: false },
         "auto-generations": { type: "boolean", default: false },
         include: { type: "string", multiple: true },
@@ -319,6 +324,7 @@ function parseArgs_main(): WizardArgs {
     a.langDefault = cli.values["lang-default"] === true;
     a.postUpdate = (cli.values["post-update"] as string | undefined) ?? "";
     a.preRestore = (cli.values["pre-restore"] as string | undefined) ?? "";
+    a.selfApprove = cli.values["self-approve"] === true;
     a.dryRun = cli.common.dryRun;
     a.auto = cli.values["auto"] === true || cli.values["auto-generations"] === true;
     a.includes = (cli.values["include"] as string[] | undefined) ?? [];
@@ -404,6 +410,7 @@ function runSingleRepoWizard(args: WizardArgs, repoDir: string): number {
   if (args.langDefault) wizardArgs.push("--lang-default");
   if (args.preRestore !== "") wizardArgs.push("--pre-restore", args.preRestore);
   if (args.postUpdate !== "") wizardArgs.push("--post-update", args.postUpdate);
+  if (args.selfApprove) wizardArgs.push("--self-approve");
   wizardArgs.push(repoDir);
   const inv = siblingInvocation(SINGLE_REPO_WIZARD, wizardArgs);
   const r = spawnSync(inv.command, inv.args, { stdio: "inherit" });

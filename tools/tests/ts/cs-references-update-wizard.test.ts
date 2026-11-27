@@ -656,6 +656,26 @@ describe("scripts/cs-references-update-wizard", () => {
     removeShadowGit();
   });
 
+  it("forwards --self-approve to pr-merge, and only when asked", () => {
+    frameworkChangeSetup();
+    const merges = join(TMP, "pr-merge.args");
+    writeFake("pr-merge", `#!/usr/bin/env bash\necho "$*" >> "${merges}"\nexit 0\n`);
+    shadowGitPush();
+    expect(wizard()(["--self-approve", REPO_DIR]).status).toBe(0);
+    expect(readFileSync(merges, "utf8")).toContain("--self-approve");
+    removeShadowGit();
+  });
+
+  it("does not ask pr-merge to approve by default", () => {
+    frameworkChangeSetup();
+    const merges = join(TMP, "pr-merge.args");
+    writeFake("pr-merge", `#!/usr/bin/env bash\necho "$*" >> "${merges}"\nexit 0\n`);
+    shadowGitPush();
+    expect(wizard()([REPO_DIR]).status).toBe(0);
+    expect(readFileSync(merges, "utf8")).not.toContain("--self-approve");
+    removeShadowGit();
+  });
+
   it("takes pr-create's exit status as the outcome, whatever URL form it prints", () => {
     frameworkChangeSetup();
     const calls = join(TMP, "pr-create.calls");

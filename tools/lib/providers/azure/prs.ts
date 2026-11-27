@@ -14,7 +14,7 @@
 // failure; never process.exit.
 
 import { ProviderError, unknownOption, needValue } from "../provider-core.ts";
-import { azureHttp } from "./http.ts";
+import { azureHttp, azureHttpPaginate } from "./http.ts";
 import { azureBranchRef, azureRepoParts, azureUri, prWebUrl } from "./urls.ts";
 
 /** The PR list API's server-side page cap. */
@@ -87,9 +87,9 @@ interface AzurePr {
   closedDate?: string;
   mergeFailureMessage?: string;
   completionOptions?: { mergeStrategy?: string };
-  createdBy?: { displayName?: string };
+  createdBy?: { displayName?: string; id?: string };
   labels?: Array<{ name: string; active?: boolean }>;
-  repository?: { webUrl?: string; name?: string };
+  repository?: { webUrl?: string; name?: string; id?: string };
   /** Present when the source branch lives in a fork. */
   forkSource?: unknown;
 }
@@ -925,3 +925,72 @@ export async function prsThreadResolve(
 
 void unknownOption;
 void needValue;
+
+// ---------------------------------------------------------------------------
+// Creator approval
+// ---------------------------------------------------------------------------
+
+const MINIMUM_REVIEWERS_POLICY = "fa4e907d-c16b-4a4c-9dfa-4906e5d171dd";
+
+interface ReviewerPolicy {
+  id?: number;
+  isEnabled?: boolean;
+  isBlocking?: boolean;
+  isDeleted?: boolean;
+  type?: { id?: string };
+  settings?: {
+    creatorVoteCounts?: boolean;
+    scope?: Array<{ repositoryId?: string | null; refName?: string; matchKind?: string }>;
+  };
+}
+
+/** Whether a policy scope entry covers this repository's branch: an entry
+ * without a repository is project-wide, one without a ref covers every branch. */
+export function policyScopeCovers(
+  entry: { repositoryId?: string | null; refName?: string; matchKind?: string },
+  repositoryId: string,
+  ref: string,
+): boolean {
+  if (entry.repositoryId !== undefined && entry.repositoryId !== null && entry.repositoryId !== repositoryId) return false;
+  if (entry.refName === undefined || entry.refName === "") return true;
+  return (entry.matchKind ?? "Exact").toLowerCase() === "prefix" ? ref.startsWith(entry.refName) : ref === entry.refName;
+}
+
+/** Approve a pull request with its creator's vote, where the target branch's
+ * minimum-reviewers policies let that vote count. Refuses when one of them
+ * does not (the vote could not satisfy it); "no-policy" when none applies.
+ * Azure accepts a vote only from the token's own identity, so a token that is
+ * not the creator's is refused by the server. */
+export async function prsApproveAsCreator(repo: string, number: number): Promise<"approved" | "no-policy"> {
+  if (!Number.isFinite(number)) throw new ProviderError("prs_approve_as_creator: PR number is required");
+  if (repo === "") throw new ProviderError("prs_approve_as_creator: a repository is required");
+  const prUrl = `${prBase(repo)}/pullrequests/${number}`;
+  const pr = await azureHttp<AzurePr>("GET", prUrl);
+  const creator = pr.createdBy?.id ?? "";
+  const repositoryId = pr.repository?.id ?? "";
+  const ref = pr.targetRefName ?? "";
+  if (creator === "" || repositoryId === "" || ref === "") {
+    throw new ProviderError(`prs_approve_as_creator: PR ${number} has no creator, repository or target branch`);
+  }
+  const { org, project } = azureRepoParts(repo);
+  const policies = await azureHttpPaginate<ReviewerPolicy>(
+    `https://dev.azure.com/${azureUri(org)}/${azureUri(project)}/_apis/policy/configurations?repositoryId=${azureUri(repositoryId)}&refName=${azureUri(ref)}&policyType=${MINIMUM_REVIEWERS_POLICY}`,
+  );
+  const applicable = policies.filter(
+    (c) =>
+      c.type?.id === MINIMUM_REVIEWERS_POLICY &&
+      c.isEnabled === true &&
+      c.isBlocking === true &&
+      c.isDeleted !== true &&
+      (c.settings?.scope ?? []).some((e) => policyScopeCovers(e, repositoryId, ref)),
+  );
+  if (applicable.length === 0) return "no-policy";
+  const refusing = applicable.filter((c) => c.settings?.creatorVoteCounts !== true);
+  if (refusing.length > 0) {
+    throw new ProviderError(
+      `PR ${number}: the minimum-reviewers policy ${refusing.map((c) => String(c.id)).join(", ")} on ${stripRef(ref)} does not count the creator's vote — it needs another reviewer`,
+    );
+  }
+  await azureHttp("PUT", `${prUrl}/reviewers/${azureUri(creator)}`, { body: JSON.stringify({ vote: 10 }) });
+  return "approved";
+}

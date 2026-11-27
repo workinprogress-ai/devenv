@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { azureFixture, azureJson, stubAzureFetch, useAzureEnv } from "./harness/azure-stub.ts";
-import { prsCreate, prsDiff, prsList, prsView } from "../../lib/providers/azure/prs.ts";
+import { policyScopeCovers, prsApproveAsCreator, prsCreate, prsDiff, prsList, prsView } from "../../lib/providers/azure/prs.ts";
 
 const REPO = "https://dev.azure.com/test-org/test-project/_apis/git/repositories/widgets";
 const PRS_URL = `${REPO}/pullrequests?api-version=7.1`;
@@ -204,5 +204,56 @@ describe("pull request URLs", () => {
       else process.env.DEVENV_ROOT = savedRoot;
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("prsApproveAsCreator", () => {
+  const CREATOR = "aaaaaaaa-1111-4222-8333-444444444444";
+  const REPO_ID = "ee82a99c-fa04-4bf3-83c8-0d076b5c218e";
+  const PR = { pullRequestId: 13056, status: "active", targetRefName: "refs/heads/master", createdBy: { id: CREATOR }, repository: { id: REPO_ID } };
+  const policy = (settings: Record<string, unknown>, extra: Record<string, unknown> = {}): unknown => ({
+    id: 460,
+    isEnabled: true,
+    isBlocking: true,
+    type: { id: "fa4e907d-c16b-4a4c-9dfa-4906e5d171dd" },
+    settings: { minimumApproverCount: 1, scope: [{ refName: "refs/heads/master", matchKind: "Exact", repositoryId: REPO_ID }], ...settings },
+    ...extra,
+  });
+  const routes = (policies: unknown[]): Parameters<typeof stubAzureFetch>[0] => [
+    { method: "GET", url: `${REPO}/pullrequests/13056?api-version=7.1`, respond: azureJson(PR) },
+    { method: "GET", url: /_apis\/policy\/configurations\?/, respond: azureJson({ value: policies, count: policies.length }) },
+    { method: "PUT", url: `${REPO}/pullrequests/13056/reviewers/${CREATOR}?api-version=7.1`, respond: azureJson({ vote: 10 }) },
+  ];
+
+  it("votes approve as the creator when the branch policy counts the creator's vote", async () => {
+    const stub = stubAzureFetch(routes([policy({ creatorVoteCounts: true })]));
+    expect(await prsApproveAsCreator("widgets", 13056)).toBe("approved");
+    const put = stub.requests.find((r) => r.method === "PUT") as { body: unknown } | undefined;
+    expect(put?.body).toEqual({ vote: 10 });
+  });
+
+  it("refuses, without voting, when a policy does not count the creator's vote", async () => {
+    const stub = stubAzureFetch(routes([policy({ creatorVoteCounts: true }, { id: 1 }), policy({ creatorVoteCounts: false }, { id: 2 })]), { allowUnmatched: true });
+    await expect(prsApproveAsCreator("widgets", 13056)).rejects.toThrow(/policy 2 .*creator's vote/);
+    expect(stub.requests.some((r) => r.method === "PUT")).toBe(false);
+  });
+
+  it("does nothing when no enabled blocking policy covers the target branch", async () => {
+    const stub = stubAzureFetch(routes([
+      policy({ creatorVoteCounts: false }, { isEnabled: false }),
+      policy({ creatorVoteCounts: false, scope: [{ refName: "refs/heads/release", matchKind: "Exact", repositoryId: REPO_ID }] }),
+    ]), { allowUnmatched: true });
+    expect(await prsApproveAsCreator("widgets", 13056)).toBe("no-policy");
+    expect(stub.requests.some((r) => r.method === "PUT")).toBe(false);
+  });
+});
+
+describe("policyScopeCovers", () => {
+  it("project-wide, prefix and branch-less scopes cover the branch; another repository or branch does not", () => {
+    expect(policyScopeCovers({ refName: "refs/heads/master", matchKind: "Exact" }, "r1", "refs/heads/master")).toBe(true);
+    expect(policyScopeCovers({ repositoryId: null, refName: "refs/heads/", matchKind: "Prefix" }, "r1", "refs/heads/master")).toBe(true);
+    expect(policyScopeCovers({ repositoryId: "r1" }, "r1", "refs/heads/master")).toBe(true);
+    expect(policyScopeCovers({ repositoryId: "r2", refName: "refs/heads/master" }, "r1", "refs/heads/master")).toBe(false);
+    expect(policyScopeCovers({ repositoryId: "r1", refName: "refs/heads/main", matchKind: "Exact" }, "r1", "refs/heads/master")).toBe(false);
   });
 });

@@ -131,6 +131,15 @@ describe("pr-merge gates", () => {
     expect(ghLog()).toContain("gh pr merge 7");
   });
 
+  it("--self-approve is refused on GitHub and nothing is merged", () => {
+    commit("feat: clean");
+    pushBranch("feature/x");
+    const r = prMerge(["--no-issue-id", "--self-approve"]);
+    expect(r.status).not.toBe(0);
+    expect(r.out).toContain("Could not approve PR #7");
+    expect(ghLog()).not.toContain("gh pr merge");
+  });
+
   it("shows the provider's reason when the merge itself fails", () => {
     commit("feat: clean");
     pushBranch("feature/x");

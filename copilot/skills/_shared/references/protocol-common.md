@@ -931,8 +931,10 @@ pr-create-for-review "review latest changes"
 Merge an open pull request from the current branch.
 
 ```
-pr-merge [commit-message] [--issue NUMBER | --select | --no-issue-id] [--method squash|merge|rebase] [--base BRANCH] [--repo-dir PATH] [--branch NAME] [--force]
+pr-merge [commit-message] [--issue NUMBER | --select | --no-issue-id] [--method squash|merge|rebase] [--base BRANCH] [--repo-dir PATH] [--branch NAME] [--force] [--keep-branch] [--self-approve]
 ```
+
+`--self-approve` (Azure only) casts the PR creator's approval vote before completing, and only where the target branch's minimum-reviewers policy counts the creator's vote; otherwise it refuses and merges nothing.
 
 Examples:
 

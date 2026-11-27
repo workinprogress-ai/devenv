@@ -221,6 +221,13 @@ describe("scripts/cs-dependencies-update-wizard", () => {
     expect(r.out).toContain("--lang-default");
   });
 
+  it("accepts --self-approve and shows it in usage", () => {
+    setupMinimalCache();
+    const r = runWizard(["--global", "--dry-run", "--no-refresh", "--self-approve"]);
+    expect(r.status).toBe(0);
+    expect(runWizard(["--help"]).out).toContain("--self-approve");
+  });
+
   it("cs-dependencies-update-wizard.sh shows --post-update in usage", () => {
     expect(runWizard(["--help"]).out).toContain("--post-update");
   });

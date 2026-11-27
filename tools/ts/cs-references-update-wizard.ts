@@ -63,6 +63,8 @@ ${usageCommonFlags({ noDryRunShort: true })}
                         the TFM rewrite, before the restore gate; failure aborts (21)
     --post-update SCRIPT  Forwarded to cs-references-update: executable run last,
                         its edits join the update commit; failure aborts (21)
+    --self-approve      Forwarded to pr-merge: approve the update PR with its
+                        creator's vote where the branch review policy counts it
 
 Exit codes:
     0   success
@@ -286,6 +288,7 @@ function main(): void {
   let langDefault = false;
   let postUpdate = "";
   let preRestore = "";
+  let selfApprove = false;
 
   try {
     const cli = toolCli({
@@ -299,6 +302,7 @@ function main(): void {
         "lang-default": { type: "boolean", default: false },
         "post-update": { type: "string" },
         "pre-restore": { type: "string" },
+        "self-approve": { type: "boolean", default: false },
         continue: { type: "boolean", default: false },
       },
     });
@@ -309,6 +313,7 @@ function main(): void {
     langDefault = cli.values["lang-default"] === true;
     postUpdate = (cli.values["post-update"] as string | undefined) ?? "";
     preRestore = (cli.values["pre-restore"] as string | undefined) ?? "";
+    selfApprove = cli.values["self-approve"] === true;
     dryRun = cli.common.dryRun;
     continueMode = cli.values["continue"] === true;
     const positionals = cli.positionals;
@@ -626,7 +631,7 @@ function main(): void {
 
   // ── Merge PR (via the pr-merge wrapper) ──
   logInfo(`Merging PR for ${repoName}...`);
-  const mergeInv = siblingInvocation("pr-merge", ["--force", "--no-issue-id", prTitle]);
+  const mergeInv = siblingInvocation("pr-merge", ["--force", "--no-issue-id", ...(selfApprove ? ["--self-approve"] : []), prTitle]);
   const merge = spawnSync(mergeInv.command, mergeInv.args, {
     cwd: repoDir,
     stdio: "inherit",

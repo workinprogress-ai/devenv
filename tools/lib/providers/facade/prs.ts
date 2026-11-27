@@ -221,6 +221,15 @@ export async function prsCreate(spec: string | undefined, opts: PrsCreateOptions
   return m.gh!.prsCreate(spec, opts);
 }
 
+/** Approve a pull request with its creator's vote where the target branch's
+ * review policy counts that vote. Azure only: a GitHub pull request cannot be
+ * approved by its author. */
+export async function prsApproveAsCreator(spec: string | undefined, number: number): Promise<"approved" | "no-policy"> {
+  const m = await load();
+  if (m.provider === "azure") return (m.az as AzurePrs).prsApproveAsCreator(spec ?? "", number);
+  throw new ProviderError("prs_approve_as_creator: GitHub does not let a pull request's author approve it");
+}
+
 /** Comment on a PR; stdout carries the display value (comment URL on
  * github, thread id on azure). The --body-file divergence (azure once
  * posted the file PATH) is normalized: both providers read the file's
