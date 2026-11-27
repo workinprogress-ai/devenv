@@ -361,6 +361,34 @@ describe("approval broker contract", () => {
       expect(harnessHeadSubject(h)).toBe("feat: amended by broker");
     });
 
+    it("an approved amend keeps the commit's existing Change-Id", () => {
+      switchToBareRemoteHarness();
+      installChangeIdHook(h.repo, TOOLS);
+      harnessSeedCommit(h, "feat: unpushed base", "unpushed.txt");
+      const before = /^Change-Id: (\S+)$/m.exec(harnessGit(h, "log", "-1", "--format=%B"))?.[1];
+      expect(before).toBeTruthy();
+      const { requestPath } = requestBroker(["--amend"]);
+      const resumed = resumeBroker(requestPath, writeBrokerResponse(requestPath, "approve", "feat: amended by broker\n"));
+      expect(resumed.status).toBe(0);
+      const ids = harnessGit(h, "log", "-1", "--format=%B").match(/^Change-Id: .*$/gm) ?? [];
+      expect(ids).toEqual([`Change-Id: ${before}`]);
+    });
+
+    it("an approved reword keeps the target commit's existing Change-Id", () => {
+      switchToBareRemoteHarness();
+      installChangeIdHook(h.repo, TOOLS);
+      const target = harnessSeedCommit(h, "feat: first", "first.txt");
+      const before = /^Change-Id: (\S+)$/m.exec(harnessGit(h, "log", "-1", "--format=%B", target))?.[1];
+      expect(before).toBeTruthy();
+      harnessSeedCommit(h, "feat: second", "second.txt");
+      const { requestPath } = requestBroker(["--reword", target]);
+      const resumed = resumeBroker(requestPath, writeBrokerResponse(requestPath, "approve", "feat: broker reword\n"));
+      expect(resumed.status).toBe(0);
+      const reworded = harnessGit(h, "log", "-1", "--format=%B", "HEAD~1");
+      expect(reworded.split("\n")[0]).toBe("feat: broker reword");
+      expect(reworded.match(/^Change-Id: .*$/gm) ?? []).toEqual([`Change-Id: ${before}`]);
+    });
+
     it("resumes reword on the recorded target", () => {
       switchToBareRemoteHarness();
       const target = harnessSeedCommit(h, "feat: first", "first.txt");

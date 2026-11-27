@@ -29,6 +29,7 @@ import { pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
 import { repoSpecFor } from "../lib/providers/facade/urls.ts";
 import { mergedRunState, type MergedRunState, type RunRow } from "../lib/domain/cs/merged-run.ts";
 import { repoFilter } from "../lib/domain/cs/repo-filter.ts";
+import { attemptsMerged, levelWaitPurpose, mergeHandedToUser, mergedTip } from "../lib/domain/cs/merged-commit.ts";
 import { csprojPackageReferences } from "../lib/domain/cs/csproj.ts";
 import { repoDefaultBranch } from "../lib/domain/cs/default-branch.ts";
 import { resolvePostUpdateScript } from "../lib/domain/cs/post-update.ts";
@@ -103,10 +104,11 @@ function promptUser(message: string): void {
   console.log("");
 }
 
-function promptRetrySkipAbort(repo: string): 0 | 1 | 2 {
+function promptRetrySkipAbort(repo: string, offerMerged: boolean): 0 | 1 | 2 | 3 {
   console.log("");
+  const merged = offerMerged ? " / [m]erged by hand — await its pipeline run" : "";
   for (;;) {
-    process.stdout.write(`>>> ${repo} failed. [r]etry / [s]kip (continue without it) / [a]bort wizard: `);
+    process.stdout.write(`>>> ${repo} failed. [r]etry / [s]kip (continue without it)${merged} / [a]bort wizard: `);
     const r = spawnSync("bash", ["-c", 'read -r answer < /dev/tty; printf "%s" "$answer"'], {
       encoding: "utf8",
       stdio: ["inherit", "pipe", "inherit"],
@@ -115,7 +117,8 @@ function promptRetrySkipAbort(repo: string): 0 | 1 | 2 {
     if (/^[Rr]/.test(a)) { console.log(""); return 0; }
     if (/^[Ss]/.test(a)) { console.log(""); return 1; }
     if (/^[Aa]/.test(a)) { console.log(""); return 2; }
-    console.log("    Please answer r, s, or a.");
+    if (offerMerged && /^[Mm]/.test(a)) { console.log(""); return 3; }
+    console.log(offerMerged ? "    Please answer r, s, m, or a." : "    Please answer r, s, or a.");
   }
 }
 
@@ -180,8 +183,12 @@ function getUsedVersion(repoDir: string, pkgName: string): string {
  * before the timeout fails, so a repository whose CI never fires cannot pass
  * on an older run. Query errors are retried. Goes through the facade's
  * pipelines verbs — no direct provider CLI anywhere. */
-async function waitForMergedRun(merged: MergedRepo, branch: string, interval: number, timeout: number): Promise<boolean> {
+async function waitForMergedRun(merged: MergedRepo & { sha: string }, branch: string, interval: number, timeout: number): Promise<boolean> {
   const { spec: repo, sha, dir } = merged;
+  if (sha === "") {
+    logError(`Could not fetch the merged commit of ${repo} (${branch}); its pipeline run cannot be awaited`);
+    return false;
+  }
   const short = sha.slice(0, 10);
   const isDescendant = descendantCheck(dir, branch, sha);
   let elapsed = 0;
@@ -197,7 +204,7 @@ async function waitForMergedRun(merged: MergedRepo, branch: string, interval: nu
     }
     let state: MergedRunState;
     try {
-      const out = await pipelinesRunList(repo, { branch, limit: 10, json: "status,conclusion,headSha" });
+      const out = await pipelinesRunList(repo, { branch, limit: 10, json: "status,conclusion,headSha,workflowName" });
       const parsed = JSON.parse(out) as RunRow[];
       if (!Array.isArray(parsed)) throw new Error("run list returned a non-array payload");
       state = mergedRunState(parsed, sha, isDescendant);
@@ -225,19 +232,11 @@ async function waitForMergedRun(merged: MergedRepo, branch: string, interval: nu
   }
 }
 
-/** A repository the wizard merged in this generation: its provider spec, the
- * merged commit, and the local clone the merge was made from. */
+/** A repository the wizard merged in this generation: its provider spec and
+ * the local clone the merge was made from. */
 interface MergedRepo {
   spec: string;
-  sha: string;
   dir: string;
-}
-
-/** HEAD of a clone, or "" when unreadable. The single-repo wizard ends on the
- * pulled default branch, so after a merge this is the merged commit. */
-function headSha(dir: string): string {
-  const r = spawnSync("git", ["-C", dir, "rev-parse", "HEAD"], { encoding: "utf8" });
-  return r.status === 0 ? (r.stdout ?? "").trim() : "";
 }
 
 /** Whether a commit contains `mergedSha`, answered from the local clone. A
@@ -628,6 +627,7 @@ async function main(): Promise<void> {
 
       // Delegate per-repo workflow to cs-references-update-wizard.
       let wizardRc = runSingleRepoWizard(args, repoDir);
+      const exitCodes = [wizardRc];
       if (wizardRc === 10) {
         skipped += 1;
         continue;
@@ -635,8 +635,13 @@ async function main(): Promise<void> {
       if (wizardRc !== 0) {
         logError(`Single-repo wizard failed for ${repo} (exit ${wizardRc})`);
         let skipRepo = false;
+        let mergedByHand = false;
         for (;;) {
-          const choice = promptRetrySkipAbort(repo);
+          const choice = promptRetrySkipAbort(repo, mergeHandedToUser(exitCodes));
+          if (choice === 3) {
+            mergedByHand = true;
+            break;
+          }
           if (choice === 2) {
             logError(`Aborting: ${repo} could not be updated and downstream repos may depend on it.`);
             process.exit(1);
@@ -647,46 +652,54 @@ async function main(): Promise<void> {
             break;
           }
           wizardRc = runSingleRepoWizard(args, repoDir);
+          exitCodes.push(wizardRc);
           if (wizardRc === 0 || wizardRc === 10) break;
           logError(`Retry failed for ${repo} (exit ${wizardRc})`);
         }
-        // A retry that found nothing to change merged nothing: no run to wait for.
-        if (skipRepo || wizardRc !== 0) {
+        // A retry with nothing left to change merged nothing — unless an earlier
+        // attempt handed the merge to the user, who has since merged it by hand.
+        if (skipRepo || (!mergedByHand && !attemptsMerged(exitCodes))) {
           skipped += 1;
           continue;
         }
+        if (mergedByHand || wizardRc === 10) logInfo(`${repo} was merged by hand; its pipeline run will be awaited`);
       }
 
       const fullName = await getFullRepoName(repoDir);
-      const sha = headSha(repoDir);
-      if (fullName !== "" && sha !== "") mergedRepos.push({ spec: fullName, sha, dir: repoDir });
-      else logWarn(`Could not record the merged commit of ${repo}; its pipeline run will not be awaited`);
+      if (fullName === "") {
+        logWarn(`Could not resolve the repo spec of ${repo}; its pipeline run will not be awaited`);
+      } else {
+        mergedRepos.push({ spec: fullName, dir: repoDir });
+      }
       processed += 1;
     }
 
     console.log("");
     console.log(`  Generation ${depth} complete: ${processed} updated, ${skipped} skipped`);
 
-    // Between-generation: wait for GH Actions, refresh cache.
-    if (idx < depths.length - 1) {
-      const nextDepth = depths[idx + 1];
-      if (processed > 0) {
-        logInfo(`Waiting for pipeline runs to complete before processing generation ${nextDepth}...`);
-        let workflowFailed = false;
-        for (const merged of mergedRepos) {
-          try {
-            const branch = await repoDefaultBranch(merged.spec);
-            if (!(await waitForMergedRun(merged, branch, 15, 600))) workflowFailed = true;
-          } catch (err) {
-            logError(`Could not determine the default branch of ${merged.spec}: ${errorMessage(err)}`);
-            workflowFailed = true;
-          }
-        }
-        if (workflowFailed) {
-          logWarn("Some workflow runs failed or timed out.");
-          promptUser("Please verify the pipeline runs manually, then press Enter to continue.");
+    // After every level, the last one included: wait for the merged commits'
+    // pipeline runs. Between levels, also refresh the cache.
+    if (mergedRepos.length > 0) {
+      logInfo(`Waiting for pipeline runs to complete ${levelWaitPurpose(idx, depths)}...`);
+      let workflowFailed = false;
+      for (const merged of mergedRepos) {
+        try {
+          const branch = await repoDefaultBranch(merged.spec);
+          // Resolved now, on the branch the provider reports: "" when it cannot
+          // be fetched, which fails the wait rather than passing without proof.
+          const sha = mergedTip(merged.dir, branch);
+          if (!(await waitForMergedRun({ ...merged, sha }, branch, 15, 600))) workflowFailed = true;
+        } catch (err) {
+          logError(`Could not determine the default branch of ${merged.spec}: ${errorMessage(err)}`);
+          workflowFailed = true;
         }
       }
+      if (workflowFailed) {
+        logWarn("Some workflow runs failed or timed out.");
+        promptUser("Please verify the pipeline runs manually, then press Enter to continue.");
+      }
+    }
+    if (idx < depths.length - 1) {
       // --no-refresh and --dry-run both mean the cache is not touched.
       if (!args.skipRefresh && !args.dryRun) {
         logInfo("Refreshing repository cache for next generation...");

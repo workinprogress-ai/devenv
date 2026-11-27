@@ -300,7 +300,7 @@ describe("scripts/cs-references-update-wizard", () => {
     const r = wizard()([REPO_DIR]);
     expect(r.status).toBe(20);
     const message = (git(["log", "-1", "--format=%B", "auto-update-references"]).stdout ?? "").trim();
-    expect(message).toBe("patch: update references");
+    expect(message).toBe("fix: update references");
     expect(message).not.toMatch(/skip ci|ci skip|no_ci/i);
     removeShadowGit();
   });
@@ -500,7 +500,29 @@ describe("scripts/cs-references-update-wizard", () => {
     const prArgs = join(TMP, "pr.args");
     const r = wizard()(datamodel(["--framework", "net10.0", REPO_DIR]), { CAPTURE_FILE: prArgs });
     expect(r.status).toBe(0);
-    expect(readFileSync(prArgs, "utf8")).toContain("major: update references and target framework");
+    expect(readFileSync(prArgs, "utf8")).toContain("feat!: update references and target framework");
+    removeShadowGit();
+  });
+
+  it("a framework change commits feat! with a BREAKING CHANGE footer", () => {
+    writeFake(
+      "cs-references-update",
+      '#!/usr/bin/env bash\nrepo_dir="${1:-$PWD}"\nfind "$repo_dir/src" -name \'*.csproj\' -exec sed -i \'s|net8.0|net11.0|g\' {} +\nexit 0\n',
+    );
+    const proj = readFileSync(join(REPO_DIR, "src", "MyLib.csproj"), "utf8");
+    writeFileSync(
+      join(REPO_DIR, "src", "MyLib.csproj"),
+      proj.replace("<ItemGroup>", "<PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>\n  <ItemGroup>"),
+    );
+    spawnSync("git", ["add", "-A"], { cwd: REPO_DIR, env: GIT_ENV() });
+    spawnSync("git", ["commit", "-q", "-m", "add TFM"], { cwd: REPO_DIR, env: GIT_ENV() });
+    spawnSync("git", ["update-ref", "refs/remotes/origin/master", "HEAD"], { cwd: REPO_DIR, env: GIT_ENV() });
+    shadowGitPushFails();
+    const r = wizard()([REPO_DIR]);
+    expect(r.status).toBe(20);
+    const message = (git(["log", "-1", "--format=%B", "auto-update-references"]).stdout ?? "").trim();
+    expect(message.split("\n")[0]).toBe("feat!: update references and target framework");
+    expect(message).toMatch(/^BREAKING CHANGE: /m);
     removeShadowGit();
   });
 
@@ -515,7 +537,7 @@ describe("scripts/cs-references-update-wizard", () => {
     const r = wizard()([REPO_DIR], { CAPTURE_FILE: prArgs });
     expect(r.status).toBe(0);
     const titles = readFileSync(prArgs, "utf8");
-    expect(titles).toContain("patch: update references");
+    expect(titles).toContain("fix: update references");
     expect(titles).not.toContain("and target framework");
     removeShadowGit();
   });
@@ -560,7 +582,7 @@ describe("scripts/cs-references-update-wizard", () => {
     const r = wizard()([REPO_DIR], { CAPTURE_FILE: prArgs });
     expect(r.status).toBe(0);
     const titles = readFileSync(prArgs, "utf8");
-    expect(titles).toContain("patch: update references");
+    expect(titles).toContain("fix: update references");
     expect(titles).not.toContain("chore(tests)");
     removeShadowGit();
   });

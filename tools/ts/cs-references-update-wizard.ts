@@ -470,20 +470,25 @@ function main(): void {
       .filter((l) => l.endsWith(".csproj"));
   const testOnly = changedCsprojs.length > 0 && changedCsprojs.every((p) => /(^|\/)(test|tests)\//.test(p));
 
-  let changeLevel = "patch";
+  // The repositories' commit-msg hooks enforce conventional commits, and their
+  // release configs cut a release only for conventional types: a breaking update
+  // is "feat!:" with a BREAKING CHANGE footer (major release), any other update
+  // "fix:" (patch release); a test-only update stays "chore(tests):" (no release).
+  let prTitle = "fix: update references";
+  let breakingNote = "";
   if (testOnly) {
     logInfo("Only test csproj files changed — committing as chore(tests) (no release).");
-    changeLevel = "chore(tests)";
+    prTitle = "chore(tests): update references";
   } else if (hasFrameworkChange) {
-    logWarn(`Framework change detected in ${repoName} — forcing major update.`);
-    changeLevel = "major";
+    logWarn(`Framework change detected in ${repoName} — forcing a major release.`);
+    prTitle = "feat!: update references and target framework";
+    breakingNote = "BREAKING CHANGE: the target framework changed; consumers must target it as well.";
   } else if (hasBreaking) {
     logWarn(`Breaking changes were detected in ${repoName} (major version bumps).`);
-    changeLevel = "major";
+    prTitle = "feat!: update references";
+    breakingNote = "BREAKING CHANGE: dependencies moved to new major versions.";
   }
-
-  let prTitle = `${changeLevel}: update references`;
-  if (hasFrameworkChange) prTitle = `${changeLevel}: update references and target framework`;
+  const commitMessage = breakingNote === "" ? ["-m", prTitle] : ["-m", prTitle, "-m", breakingNote];
 
   // ── Tests ──
   if (existsSync(join(repoDir, "run-tests"))) {
@@ -508,12 +513,12 @@ function main(): void {
   // The update commit must trigger CI: it reaches the default branch through a
   // rebase merge, and the dependency wizard waits for that run before the next
   // generation consumes the published packages.
-  let commit = gitCheck(repoDir, ["commit", "-m", prTitle, "--quiet"]);
+  let commit = gitCheck(repoDir, ["commit", ...commitMessage, "--quiet"]);
   if (!commit.ok) {
     logWarn(`Commit failed for ${repoName} (likely a git hook failure)`);
     promptUser(`Please fix the issue in ${repoDir} so that COMMIT HOOKS PASS, then press Enter to retry.`);
     stageTrackedChanges(repoDir);
-    commit = gitCheck(repoDir, ["commit", "-m", prTitle, "--quiet"]);
+    commit = gitCheck(repoDir, ["commit", ...commitMessage, "--quiet"]);
     if (!commit.ok) {
       logError(`Commit still failing for ${repoName} — aborting`);
       if (!promptYesNo(`Discard the working-tree changes and delete branch '${updateBranch}' (the fixes made for the commit hooks are lost)`)) {

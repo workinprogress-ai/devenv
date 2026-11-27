@@ -2404,7 +2404,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 - `--branch NAME`: Branch to create for the update (default: `auto-update-references`)
 - `--dry-run`: Show what would happen without making any changes
 - `--continue`: Resume a previously started update. Expects the update branch to exist with staged or unstaged changes. Skips branch creation and dependency update steps. Framework/language flags are ignored in this mode (the update already happened).
-- `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Passed through to `cs-references-update` (see its section above for LangVersion interaction). A framework change is always treated as a breaking update: the PR is titled `major: update references and target framework` and the bump report includes the framework change (e.g. `net8.0 → net10.0 (FRAMEWORK)`).
+- `--framework TFM`: Retarget every csproj to `TFM` (e.g. `net10.0`) before updating packages. Passed through to `cs-references-update` (see its section above for LangVersion interaction). A framework change is always treated as a breaking update: the commit and PR are titled `feat!: update references and target framework`, the commit carries a `BREAKING CHANGE:` footer, and the bump report includes the framework change (e.g. `net8.0 → net10.0 (FRAMEWORK)`).
 - `--lang-version VER`: Set `<LangVersion>` to `VER` (e.g. `14.0`) in every csproj.
 - `--lang-default`: Remove `<LangVersion>` tags so the TFM default applies.
 - `--pre-restore SCRIPT`: Forwarded to `cs-references-update` (see its section for the contract), resolved and validated up front like `--post-update`. A failing script fails the update step (exit `21`).
@@ -2434,7 +2434,7 @@ cs-references-update-wizard [OPTIONS] [REPO_DIR]
 5. Commit and push the branch. The commit message carries no CI-skip token, so the merged commit triggers the repository's CI pipeline — `cs-dependencies-update-wizard` waits for that run before the next generation
 6. Run `./run-tests` if present — pause for the user to fix failures
 7. If major bumps or test failures are detected, prompt the user to confirm the change level (`patch` or `major`)
-8. Create a PR with the selected prefix (`patch:` or `major:`). When the only changed `.csproj` files are under `test/`/`tests/` trees, the PR and commit are `chore(tests): update references` instead — semantic-release emits no version bump for test-only dependency updates
+8. Create a PR titled with the commit's conventional subject: `fix: update references` (patch release), or `feat!: update references` / `feat!: update references and target framework` with a `BREAKING CHANGE:` footer on the commit (major release) when non-test packages moved to a new major version or the target framework changed. When the only changed `.csproj` files are under `test/`/`tests/` trees, the PR and commit are `chore(tests): update references` instead — semantic-release emits no version bump for test-only dependency updates. These are conventional types, so repositories enforcing conventional commits in a `commit-msg` hook accept them and their release configs release them
 9. Merge the PR
 10. Return to the default branch and clean up the local branch
 
@@ -2506,7 +2506,9 @@ For each generation:
 2. If a repo fails, pause and prompt the user to fix it before continuing with the generation
 3. After the generation is complete, wait for CI pipelines to finish, refresh the cache, and advance
 
-**The pipeline wait (both modes):** for every repo merged in the level, the wizard records the merged commit and waits (up to 10 minutes, polling every 15 s) for a pipeline run that built it — the commit itself, or a later commit on the default branch that contains it (batched CI may build only the newest push). A successful run passes; a failed or cancelled run fails the wait; no such run before the timeout also fails it, with a message pointing at a possibly missing CI trigger. Repos where the update changed nothing (exit 10) are not waited on. Any failed wait pauses the wizard so the runs can be checked by hand before the next level.
+**The pipeline wait (both modes):** after every level — the last one included — the wizard waits (up to 10 minutes per repo, polling every 15 s) for each repo it merged in that level. The merged commit is read from the remote default branch after a fetch, not from the local clone. A pipeline run counts when it built that commit or a later commit on the default branch that contains it (batched CI may build only the newest push); every pipeline of the repo that built it must succeed — for each, its newest such run. A failed or cancelled run fails the wait; no such run before the timeout also fails it, with a message pointing at a possibly missing CI trigger, and so does a merged commit that cannot be fetched. Any failed wait pauses the wizard so the runs can be checked by hand before going on.
+
+Repos whose update changed nothing (exit 10) are not waited on — except after the single-repo wizard handed the merge to the user (PR creation or merge failed, exit `40`/`41`): the failure prompt then also offers **[m]erged by hand**, which awaits the merged commit without re-running the update, and a retry that finds nothing left to change is awaited the same way.
 
 **Resuming an interrupted global run:**
 

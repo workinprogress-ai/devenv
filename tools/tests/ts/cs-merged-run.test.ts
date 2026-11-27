@@ -54,6 +54,35 @@ describe("mergedRunState", () => {
     expect(mergedRunState(runs, MERGED, isDescendant).state).toBe("pending");
   });
 
+  it("a fast second pipeline cannot pass the wait while the publishing pipeline still runs", () => {
+    const runs = [
+      { status: "completed", conclusion: "success", headSha: MERGED, workflowName: "lint" },
+      { status: "in_progress", headSha: MERGED, workflowName: "publish" },
+    ];
+    expect(mergedRunState(runs, MERGED, isDescendant).state).toBe("pending");
+  });
+
+  it("every pipeline that built the commit must succeed", () => {
+    const green = [
+      { status: "completed", conclusion: "success", headSha: MERGED, workflowName: "lint" },
+      { status: "completed", conclusion: "success", headSha: MERGED, workflowName: "publish" },
+    ];
+    expect(mergedRunState(green, MERGED, isDescendant).state).toBe("success");
+    const oneRed = [
+      { status: "completed", conclusion: "success", headSha: MERGED, workflowName: "lint" },
+      { status: "completed", conclusion: "failure", headSha: MERGED, workflowName: "publish" },
+    ];
+    expect(mergedRunState(oneRed, MERGED, isDescendant)).toEqual({ state: "failure", headSha: MERGED, conclusion: "failure" });
+  });
+
+  it("per pipeline only the newest matching run counts", () => {
+    const runs = [
+      { status: "completed", conclusion: "success", headSha: LATER, workflowName: "publish" },
+      { status: "completed", conclusion: "failure", headSha: MERGED, workflowName: "publish" },
+    ];
+    expect(mergedRunState(runs, MERGED, isDescendant).state).toBe("success");
+  });
+
   it("rows without a commit are skipped", () => {
     const runs = [{ status: "completed", conclusion: "success" }, { status: "completed", conclusion: "success", headSha: MERGED }];
     expect(mergedRunState(runs, MERGED, isDescendant).state).toBe("success");
