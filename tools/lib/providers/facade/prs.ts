@@ -215,7 +215,8 @@ export async function prsCreate(spec: string | undefined, opts: PrsCreateOptions
       ...(opts.assignee?.[0] !== undefined ? { assignee: opts.assignee[0] } : {}),
     };
     const id = await az.prsCreate(spec ?? "", azOpts);
-    return ghResult(String(id));
+    // Same stdout contract as github: the new pull request's URL.
+    return ghResult(az.prUrlFor(spec ?? "", id));
   }
   return m.gh!.prsCreate(spec, opts);
 }

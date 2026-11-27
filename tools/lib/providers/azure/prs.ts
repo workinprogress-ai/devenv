@@ -15,7 +15,7 @@
 
 import { ProviderError, unknownOption, needValue } from "../provider-core.ts";
 import { azureHttp } from "./http.ts";
-import { azureBranchRef, azureRepoParts, azureUri } from "./urls.ts";
+import { azureBranchRef, azureRepoParts, azureUri, prWebUrl } from "./urls.ts";
 
 /** The PR list API's server-side page cap. */
 const AZURE_PR_PAGE_SIZE = 100;
@@ -89,12 +89,12 @@ interface AzurePr {
   completionOptions?: { mergeStrategy?: string };
   createdBy?: { displayName?: string };
   labels?: Array<{ name: string; active?: boolean }>;
-  repository?: { webUrl?: string };
+  repository?: { webUrl?: string; name?: string };
   /** Present when the source branch lives in a fork. */
   forkSource?: unknown;
 }
 
-function mapListPr(p: AzurePr): Record<string, unknown> {
+function mapListPr(p: AzurePr, repo: string): Record<string, unknown> {
   return {
     number: p.pullRequestId,
     title: p.title ?? "",
@@ -108,14 +108,14 @@ function mapListPr(p: AzurePr): Record<string, unknown> {
     labels: (p.labels ?? [])
       .filter((l) => l.active !== false)
       .map((l) => ({ name: l.name })),
-    url: `${p.repository?.webUrl ?? ""}/pullrequest/${String(p.pullRequestId ?? "")}`,
+    url: mappedPrUrl(p, repo),
   };
 }
 
 /** View's projection contract: every field in pr-get's DEFAULT_FIELDS present
  * and non-null — absent Azure data maps to typed empties, never null.
  * mergeable/mergeStateStatus map from Azure's mergeStatus (per pr-get docs). */
-function mapViewPr(p: AzurePr): Record<string, unknown> {
+function mapViewPr(p: AzurePr, repo: string): Record<string, unknown> {
   const mergeStatus = p.mergeStatus ?? "";
   return {
     number: p.pullRequestId,
@@ -150,7 +150,7 @@ function mapViewPr(p: AzurePr): Record<string, unknown> {
           : mergeStatus === "succeeded"
             ? "CLEAN"
             : "UNKNOWN",
-    url: `${p.repository?.webUrl ?? ""}/pullrequest/${String(p.pullRequestId ?? "")}`,
+    url: mappedPrUrl(p, repo),
     createdAt: p.creationDate ?? "",
     updatedAt: p.closedDate ?? p.creationDate ?? "",
     closedAt: p.closedDate ?? "",
@@ -253,6 +253,19 @@ function searchPredicate(search: string | undefined): ((r: Record<string, unknow
   return (r) => String(r.title ?? "").toLowerCase().includes(t);
 }
 
+/** Web page of a pull request. Azure omits repository.webUrl from some
+ * responses (list pages, the create response), so the URL is built from the
+ * repo spec, or from the PR's own repository name on project-wide queries. */
+export function prUrlFor(repo: string, number: number, webUrl = ""): string {
+  if (webUrl !== "") return `${webUrl}/pullrequest/${String(number)}`;
+  const { org, project, repo: r } = azureRepoParts(repo);
+  return prWebUrl(`${org}/${project}/${r}`, number);
+}
+
+function mappedPrUrl(p: AzurePr, repo: string): string {
+  return prUrlFor(repo !== "" ? repo : (p.repository?.name ?? ""), p.pullRequestId ?? Number.NaN, p.repository?.webUrl ?? "");
+}
+
 /** List PRs. Pages $top/$skip until a short page; state=closed is fetched as
  * all with still-active PRs dropped per page. */
 export async function prsList(
@@ -288,12 +301,12 @@ export async function prsList(
     let items = page.value ?? [];
     const got = items.length;
     if (state === "closed") items = items.filter((p) => p.status !== "active");
-    if (matches !== undefined) items = items.filter((p) => matches(mapListPr(p)));
+    if (matches !== undefined) items = items.filter((p) => matches(mapListPr(p, repo)));
     collected.push(...items);
     skip += got;
     if (got < top) break;
   }
-  const mapped = (opts.limit !== undefined ? collected.slice(0, opts.limit) : collected).map(mapListPr);
+  const mapped = (opts.limit !== undefined ? collected.slice(0, opts.limit) : collected).map((p) => mapListPr(p, repo));
   if (opts.json !== undefined || opts.jq !== undefined) {
     return renderListFlags(mapped, opts);
   }
@@ -316,7 +329,7 @@ export async function prsView(
     throw new ProviderError("prs_view requires a PR number");
   }
   const raw = await azureHttp<AzurePr>("GET", `${prBase(repo)}/pullrequests/${number}`);
-  const mapped = mapViewPr(raw);
+  const mapped = mapViewPr(raw, repo);
   if (opts.json !== undefined || opts.jq !== undefined) {
     return renderRecord(mapped, opts);
   }

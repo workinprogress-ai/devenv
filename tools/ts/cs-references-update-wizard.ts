@@ -601,12 +601,14 @@ function main(): void {
     );
     // pr-create refuses to act on a repository other than the one it runs in.
     const r = spawnSync(createInv.command, createInv.args, { cwd: repoDir, encoding: "utf8" });
-    const m = /https:\/\/[^\s]+/.exec(`${r.stdout ?? ""}${r.stderr ?? ""}`);
-    if (m !== null && m[0] !== undefined) {
-      prUrl = m[0];
+    // The exit status is pr-create's outcome; its last stdout line is the PR URL.
+    if (r.status === 0) {
+      prUrl = (r.stdout ?? "").trim().split("\n").pop() ?? "";
+      if (prUrl === "") prUrl = "(pr-create printed no URL)";
       break;
     }
-    logWarn(`PR creation attempt ${attempt} failed — retrying in 10s...`);
+    const reason = (r.stderr ?? "").trim().split("\n").pop() ?? "";
+    logWarn(`PR creation attempt ${attempt} failed${reason !== "" ? ` (${reason})` : ""} — retrying in 10s...`);
     console.log(`pr-create --no-issue --repo-dir "${repoDir}" --branch "${updateBranch}" --label "automated" "${prTitle}"`);
     spawnSync("sleep", ["10"]);
   }

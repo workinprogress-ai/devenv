@@ -655,6 +655,18 @@ describe("scripts/cs-references-update-wizard", () => {
     expect(readFileSync(captured, "utf8").trim()).toBe(REPO_DIR);
     removeShadowGit();
   });
+
+  it("takes pr-create's exit status as the outcome, whatever URL form it prints", () => {
+    frameworkChangeSetup();
+    const calls = join(TMP, "pr-create.calls");
+    writeFake("pr-create", `#!/usr/bin/env bash\necho call >> "${calls}"\necho "/pullrequest/13055"\n`);
+    shadowGitPush();
+    const r = wizard()([REPO_DIR]);
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("PR created: /pullrequest/13055");
+    expect(readFileSync(calls, "utf8").trim().split("\n")).toHaveLength(1);
+    removeShadowGit();
+  });
 });
 
 function datamodel(args: string[]): string[] {

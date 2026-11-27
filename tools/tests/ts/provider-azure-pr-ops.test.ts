@@ -4,6 +4,9 @@
 // --search filters before --limit and ignores case, and a renamed file keeps
 // its original path.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { azureFixture, azureJson, stubAzureFetch, useAzureEnv } from "./harness/azure-stub.ts";
 import { prsCreate, prsDiff, prsList, prsView } from "../../lib/providers/azure/prs.ts";
 
@@ -158,5 +161,48 @@ describe("PR branch refs", () => {
     const stub = stubAzureFetch([{ method: "POST", url: PRS_URL, respond: azureJson({ pullRequestId: 5 }) }]);
     await prsCreate("widgets", { title: "t", head: "refs/heads/topic", base: "main" });
     expect(stub.requests[0]?.body).toMatchObject({ sourceRefName: "refs/heads/topic", targetRefName: "refs/heads/main" });
+  });
+});
+
+describe("pull request URLs", () => {
+  const pr = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+    pullRequestId: 13055, title: "t", status: "active", sourceRefName: "refs/heads/b", targetRefName: "refs/heads/main", ...extra,
+  });
+  const WEB = "https://dev.azure.com/test-org/test-project/_git/widgets/pullrequest/13055";
+
+  it("list builds an absolute URL when the response carries no repository.webUrl", async () => {
+    stubAzureFetch([{ method: "GET", url: /pullrequests\?status=active/, respond: azureJson({ value: [pr()] }) }]);
+    const out = (await prsList("widgets", {})) as Array<{ url: string }>;
+    expect(out[0]?.url).toBe(WEB);
+  });
+
+  it("a project-wide list takes the repository from each pull request", async () => {
+    stubAzureFetch([{ method: "GET", url: /pullrequests\?status=active/, respond: azureJson({ value: [pr({ repository: { name: "widgets" } })] }) }]);
+    const out = (await prsList("", {})) as Array<{ url: string }>;
+    expect(out[0]?.url).toBe(WEB);
+  });
+
+  it("view keeps the repository.webUrl Azure sends", async () => {
+    stubAzureFetch([{ method: "GET", url: /pullrequests\/13055/, respond: azureJson(pr({ repository: { webUrl: "https://example.visualstudio.com/p/_git/widgets" } })) }]);
+    const out = (await prsView("widgets", 13055)) as { url: string };
+    expect(out.url).toBe("https://example.visualstudio.com/p/_git/widgets/pullrequest/13055");
+  });
+
+  it("the facade's create prints the new pull request's URL, as on github", async () => {
+    const root = mkdtempSync(join(tmpdir(), "azure-facade-"));
+    writeFileSync(join(root, "devenv.config"), "[provider]\nname=azure\n");
+    const savedRoot = process.env.DEVENV_ROOT;
+    process.env.DEVENV_ROOT = root;
+    try {
+      vi.resetModules();
+      const facade = await import("../../lib/providers/facade/prs.ts");
+      stubAzureFetch([{ method: "POST", url: PRS_URL, respond: azureJson({ pullRequestId: 13055 }) }]);
+      const r = await facade.prsCreate("test-project/widgets", { title: "t", head: "b", base: "main" });
+      expect(r.stdout.trim()).toBe(WEB);
+    } finally {
+      if (savedRoot === undefined) delete process.env.DEVENV_ROOT;
+      else process.env.DEVENV_ROOT = savedRoot;
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
