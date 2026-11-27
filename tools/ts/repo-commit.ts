@@ -20,6 +20,7 @@ import { accessSync, constants as fsConstants, existsSync, mkdtempSync, readdirS
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { assertNodeFloor } from "../lib/core/node-floor.ts";
+import { attributionRejection, findAttribution } from "../lib/core/attribution-patterns.ts";
 import {
   claimCommitApprovalRequest,
   commitApprovalDigest,
@@ -1235,6 +1236,18 @@ function validateWithCommitlint(message: string): void {
   }
 }
 
+// AI attribution in the suggested message is rejected before git or the editor
+// runs: every change is attributed to the human who owns it. The check applies
+// to every repository (no commitlint setup needed) and only to the suggested
+// message of this lane; amend, reword and fix lanes edit an existing message in
+// the editor, where removing attribution is the fix. Nothing is modified on a
+// rejection, so the caller's message (argv or --file) stays as it was.
+function validateAttribution(message: string): void {
+  const hits = findAttribution(message);
+  if (hits.length === 0) return;
+  die(...attributionRejection(hits, "commit message").split("\n"), "nothing was committed and the index is untouched; fix the message and run repo-commit again.");
+}
+
 // A suggested message identical to HEAD's is almost never intended for a NEW
 // commit — it is the signature of a stale suggestion (the previous commit's
 // message reused verbatim). The editor save is the permission gate — a
@@ -1260,6 +1273,7 @@ const msgfile = join(tmpDir, "message");
 // over-length — a 160-char bullet is legal once folded to 72 columns
 // (body-max-line-length fired before the wrap could run).
 const finalMessage = wrapEligible ? wrapBodyAt72(suggested) : suggested;
+validateAttribution(finalMessage);
 validateWithCommitlint(finalMessage);
 if (noTtyBrokerRequested()) {
   requestCommitApproval("commit", finalMessage, git(["rev-parse", "HEAD"]).out.trim());
@@ -1327,7 +1341,16 @@ if (commit.status !== 0) {
   if (savedMessageIsEmpty(cc)) {
     die("commit did not complete (editor session aborted or git failed) — index left untouched");
   }
-  die("commit rejected or failed after the editor closed (a commit-msg hook or git) — no commit exists, index untouched (the failure's output is above)");
+  // The temp message file is gone, but git leaves the edited message in its
+  // COMMIT_EDITMSG file when a commit-msg hook rejects it, so what the human
+  // typed is not lost: name it. The failure may also be one git raised before it
+  // wrote that file, so the wording claims only what git guarantees for a hook
+  // rejection and never that the file holds this particular edit.
+  const kept = resolve(git(["rev-parse", "--git-path", "COMMIT_EDITMSG"]).out.trim());
+  die(
+    "commit rejected or failed after the editor closed (a commit-msg hook or git) — no commit exists, index untouched (the failure's output is above)",
+    ...(existsSync(kept) ? [`if a commit-msg hook rejected it, git kept the text you saved at ${kept}`] : []),
+  );
 }
 
 // --- Confirm outcome honestly.
