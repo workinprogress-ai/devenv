@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // command-tier — the universal tier oracle: resolve a command's risk tier
-// wherever it is declared — devenv's own commands first
-// (tools/config/builtin-command-descriptors.yaml), then the curated layer
-// (tools/config/curated-command-descriptors.yaml), then the cloned repos'
-// .devenv/manifest.yaml layer (subcommand-aware for multi-verb tools such
-// as srs). Precedence mirrors the devenvrc PATH rule: a repo tool never
-// shadows a devenv tool of the same name. Prints the tier (read-only |
+// wherever it is declared — the org layer first (deployment authority),
+// then devenv's own commands (builtin descriptors), then the curated
+// layer, then the cloned repos' .devenv/manifest.yaml layer
+// (subcommand-aware for multi-verb tools such as srs). Precedence mirrors
+// the devenvrc PATH rule: a repo tool never shadows a devenv tool of the
+// same name. Prints the tier (read-only |
 // mutating | destructive) and its provenance; trailing ARGS (after --)
 // resolve the effective tier for a concrete invocation (declared ceiling,
 // demoted on provider-declared read-only forms, subcommands resolved).
@@ -29,8 +29,10 @@ function usage(): void {
 
 Resolve a command's tier wherever it is declared (vocabulary:
 read-only | mutating | destructive | restricted | prohibited — one
-vocabulary across both layers). Lookup order: devenv's own commands
-first (tools/config/builtin-command-descriptors.yaml), then the curated
+vocabulary across all layers). Lookup order: the org layer first
+(tools/config/org-command-descriptors.yaml — the deployment authority;
+full-replacement entries), then devenv's own commands
+(tools/config/builtin-command-descriptors.yaml), then the curated
 layer (tools/config/curated-command-descriptors.yaml), then the cloned repos'
 manifests (repos/*/.devenv/manifest.yaml; a repo tool never shadows a
 devenv tool). The declared tier is the ceiling; ARGS after -- resolve

@@ -188,6 +188,18 @@ Pre-loads working context for the current repo (or a directed area of it) into t
 
 ---
 
+### `/devenv-operate`
+
+> **The senior operator for live environments — diagnosis, class-aware mutation, and the ops toolbox.**
+
+Owns live-environment state: what is running where, why it is misbehaving, and what class-appropriate change fixes it. Diagnosis runs the read-only surface first (the `kube-*` family: inventory, events, logs, describe, top, rollout history), states its hypothesis before drilling, and keeps the evidence chain reproducible. Mutations go through the registry-driven mutation matrix and escalation ladder — environment classes resolve from the memory repo's `envs/` registry (never eyeballed; unregistered environments trigger the guided scan → classify → save flow), and class × risk determines direct / confirm / ladder (upper-class risky work lands on the ladder: inline copyable blocks, reviewable scripts, recorded user bypass). Every command resolves through the caution-vocabulary tier oracle (`command-tier`; unknown is a stop, never a default), restricted licenses are checked against the session, prohibited routes are read from the answer. Tool discovery runs `ops-orient` (the accelerator) or the manual floor (`config-read` + manifest reads). Memory accumulates tool knowledge and environment facts in the memory repo's `agent/memory/` — writes free, commits on ask, durable facts offered into canonical docs.
+
+**Use for:** "operate", "what is running where", "what's on the cluster", diagnosing environment failures ("why is X not responding", "diagnose this environment failure"), "restart the service", "check the cluster", "env registry", "ops toolbox", "scan this environment", environment-state work handed off (clusters, deployments, infra); class-aware service restarts and mutations; environment registry maintenance (guided scan → classify → save); ops-toolbox orientation and census-gap handling  
+**Don't use for:** code bug fixes (→ `/devenv-hunt`); major terraform/infra design (→ `/devenv-plan`); pure codebase Q&A (→ `/devenv-chat`)  
+**Tool deps:** `kube-*` read family, `command-tier`, `config-read`, `ops-orient` (or the manual floor), `editor` (ladder scripts)
+
+---
+
 ### `/devenv-review`
 
 > **Close the loop after implementation.**

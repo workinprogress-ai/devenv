@@ -83,6 +83,18 @@ Skills for implementing work from a plan.
 
 ---
 
+## Category: Operate
+
+Skills for live-environment state: diagnosis, class-aware mutation, and the ops toolbox.
+
+| Skill | One-line purpose | USE WHEN triggers | NOT FOR |
+| --- | --- | --- | --- |
+| `/devenv-operate` | DevOps engineering for live environments — the senior operator: diagnosis ("what is running where", "why is X not responding" — read-only inventory, stated hypothesis, reproducible evidence chain), class-aware mutation through the registry-driven mutation matrix and escalation ladder (local direct; upper-class risky work via the ladder: inline blocks, reviewable scripts, recorded user bypass), ops-toolbox discovery (ops-orient or the manual floor; every command resolves through the caution-vocabulary tier oracle — unknown is a stop), and environment-registry maintenance (guided scan → classify → save for unregistered environments) | "operate", "ops toolbox", "env registry", "what is running where", "what's on the cluster", "diagnose this environment failure", "why is X not responding", "restart the service", "check the cluster", "scan this environment", environment-state work handed off (clusters, deployments, infra state) | code bug fixes → `/devenv-hunt`; major terraform/infra design → `/devenv-plan`; pure codebase Q&A → `/devenv-chat` |
+
+---
+
+---
+
 ## Category: Review
 
 Skills for reviewing code and addressing feedback.
