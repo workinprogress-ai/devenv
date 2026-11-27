@@ -26,6 +26,9 @@ classes:
     - description: Behavior policy (policy values) — config keys and YAML files the TypeScript tools read
       paths:
         - tools/config/*.yml
+    - description: Org command descriptors — this org's standards for the command surface (org overrides and org-specific CLIs); fork-owned by design, blank upstream
+      paths:
+        - tools/config/org-command-descriptors.yaml
     - description: Provider modules — per-provider domain modules
       paths:
         - tools/lib/providers/*

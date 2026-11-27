@@ -8,6 +8,11 @@
 //   - builtin read-only commands auto-allow (provider self-description).
 //   - curated read-only commands auto-allow UNLESS egress-marked (the
 //     curl problem: read-only state-wise, network egress — judgment lane).
+//   - org read-only commands auto-allow UNLESS egress-marked, and org
+//     entries are full replacements — an org override of a lower-layer
+//     declaration wins the set membership in both directions (org relaxing
+//     a tier into read-only adds the entry; org tightening it removes one
+//     the lower layer would have allowed — "different standards").
 //   - everything else (mutating/destructive/restricted/prohibited/unknown)
 //     never auto-allows — prompt or route.
 //   - the git read-grammar regex, the coreutils list, and dotnet/pnpm/node
@@ -22,6 +27,7 @@
 import {
   allCommandDescriptors,
   curatedDescriptors,
+  orgDescriptors,
 } from "./command-descriptors.ts";
 
 /**
@@ -50,13 +56,33 @@ export const CURATED_AT_CARRIER: readonly string[] = [
   "docker images", "docker ps", "docker version",
 ];
 
-/** The auto-allow set derived from the descriptor layers. */
+/** The auto-allow set derived from the descriptor layers. Org entries are
+ * full replacements: an org entry that shadows a builtin/curated
+ * declaration WINS the generated set membership (org relaxing a tier into
+ * read-only land changes the auto-allow list — that is exactly what
+ * "different standards" means), and an org-declared name resolves read-only
+ * at the org layer, not below it. */
 export function generatedAutoApprove(): string[] {
   const entries: string[] = [];
+  const org = new Map(orgDescriptors().map((c) => [c.name, c]));
   for (const c of allCommandDescriptors()) {
+    // The org layer outranks builtin: an org-shadowed builtin name takes
+    // the org's ruling (handled below), not the builtin's.
+    if (org.has(c.name)) continue;
     if (c.tier === "read-only") entries.push(c.name);
   }
+  // k9s: read-only tier, interactive TUI — the org has NOT ruled TUI
+  // entries into the carrier (pending ruling, census-gap record
+  // 2026-11-27). The generation rules would auto-allow it; this carrier
+  // exclusion keeps it prompt-gated until ruled. Removing this line when
+  // the org rules k9s in (or making the ruling durable here) is the
+  // ruling's follow-up.
+  const CARRIER_EXCLUDED = new Set(["k9s"]);
   for (const c of curatedDescriptors()) {
+    if (org.has(c.name)) continue;
+    if (c.tier === "read-only" && c.egress !== true && !CARRIER_EXCLUDED.has(c.name)) entries.push(c.name);
+  }
+  for (const c of orgDescriptors()) {
     if (c.tier === "read-only" && c.egress !== true) entries.push(c.name);
   }
   return [...new Set(entries)].sort();

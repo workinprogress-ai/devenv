@@ -85,6 +85,15 @@ commands:
   - name: k3d
     tier: mutating
     note: local cluster lifecycle — judgment lane; envctl owns the blessed lifecycle path (its manifest declares the verbs)
+  # --- k9s: viewing dashboard, census-gap loop's first live entry (2026-11-27) ---
+  #     No wrapper per D-117 (native --context; alt-buffer caveat documented in
+  #     Local-Cluster-Usage.md). Read-only state-wise; interactive TUI — the
+  #     auto-allow question for the carrier is deliberately NOT taken here
+  #     (kept off the generated allowlist pending explicit org ruling; a TUI
+  #     in the carrier is a different judgment than a tier vocabulary word).
+  - name: k9s
+    tier: read-only
+    note: terminal Kubernetes dashboard (viewing); interactive TUI — install-extras catalog, first census-gap-loop entry
   # --- toolchains: normal agent work, mutating-class ---
   - name: dotnet
     tier: mutating

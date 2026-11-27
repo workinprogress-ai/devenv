@@ -1,0 +1,39 @@
+# Org command descriptors — THIS organization's standards (the org layer;
+# fork-stable: an org's edits here never reconcile against upstream).
+# Same schema, three layers now — the file names carry the provenance:
+#   builtin-command-descriptors.yaml — the commands this repo ships
+#     (self-description; "builtin" = ships with the repo)
+#   curated-command-descriptors.yaml — the machine's generic command surface
+#     (upstream-maintained judgment; "curated" = judged, not authored)
+#   org-command-descriptors.yaml — this org's machine surface and standards
+#     (org judgment; org-specific CLIs like az, and org overrides)
+#
+# The org layer is the deployment authority: it resolves FIRST. An org
+# entry is a FULL REPLACEMENT for the shadowed declaration (never a field
+# merge — no inherited route/license/forms) and wins over builtin
+# self-description and curated judgment alike ("different standards": the
+# org licenses differently, prohibits differently, routes differently).
+# A cloned repo's manifest never overrides anything in this file — the
+# org outranks a repo's self-declaration just as it outranks upstream's.
+#
+# source: org marks every entry as the ORG's ruling. Every override is
+# visible at lookup (the resolution's source column says "org" — a default
+# was shadowed) and auditable here (this file IS the delta). Stale-shadow
+# risk: when upstream re-tiers a tool, an org override still shadows it —
+# review this file's entries in your org's PRs; upstream changes don't
+# propagate into shadows.
+#
+# Blank by default upstream: an org that adopts different standards fills
+# this in (org-specific CLIs: az, gcloud, org-internal tools; overrides of
+# builtin/curated rulings). The blank file changes no behavior — every
+# resolution passes through to the lower layers byte-for-byte.
+#
+# Scope is census-bounded like the curated layer: commands this org's
+# machines actually install and its agents actually invoke.
+#
+# Vocabulary: the command-vs-caller caution vocabulary (see
+# builtin-command-descriptors.yaml's header). route: names the sanctioned
+# substitute for the job; egress: true marks network data flow (the
+# admission generator never auto-allows egress-bearing entries).
+
+commands: []

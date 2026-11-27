@@ -1,12 +1,15 @@
 // Tests for the command-descriptors sidecar: reader vocabulary, the
 // ceiling rule and read-only-forms demotion, unknown-name contract, full
-// coverage of every depth-1 tools/ executable (merge-blocking on gaps), and
-// the CLI surface (lookup, effective tier with ARGS, --list, unknown exit).
-import { describe, expect, it } from "vitest";
+// coverage of every depth-1 tools/ executable (merge-blocking on gaps),
+// the CLI surface (lookup, effective tier with ARGS, --list, unknown exit),
+// and the org layer (cascade order, full-replacement semantics, validation
+// isolation, empty-layer equivalence).
+import { describe, expect, it, afterAll } from "vitest";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import {
   COMMAND_TIERS,
   allCommandDescriptors,
@@ -14,6 +17,8 @@ import {
   commandTier,
   effectiveTier,
   resolveTier,
+  orgDescriptors,
+  manifestCollisions,
 } from "../../lib/domain/command-descriptors.ts";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
@@ -205,4 +210,214 @@ describe("command-tier CLI", () => {
     expect(r.status).toBe(2);
     expect(r.out).toContain("missing NAME");
   });
+});
+
+// ── the org layer (Phase 5.6) ──────────
+// The org file is a tracked workspace file; these tests swap its content
+// for fixtures and restore the pristine copy afterward. The pristine file
+// is BLANK upstream (commands: []) — the empty-layer equivalence test
+// asserts exactly that state.
+
+const ORG_PATH = join(TOOLS, "config", "org-command-descriptors.yaml");
+const ORG_PRISTINE = readFileSync(ORG_PATH, "utf8");
+
+function withOrg(yaml: string, fn: () => void): void {
+  writeFileSync(ORG_PATH, yaml);
+  try {
+    fn();
+  } finally {
+    writeFileSync(ORG_PATH, ORG_PRISTINE);
+  }
+}
+
+describe("org layer (cascade + replacement semantics)", () => {
+  it("the pristine upstream org file is blank — the layer is empty by default", () => {
+    expect(ORG_PRISTINE.trim().endsWith("commands: []")).toBe(true);
+    expect(orgDescriptors()).toEqual([]);
+  });
+
+  it("an empty org layer changes nothing: every resolution passes through to the lower layers", () => {
+    // The 5.5 behavior, byte-for-byte: builtin answers for its own, curated
+    // for the machine surface, and the source column never says "org".
+    expect(resolveTier("repo-commit")).toEqual({
+      tier: "restricted",
+      source: "builtin",
+      matched: "repo-commit",
+      license: ["devenv-commit"],
+    });
+    expect(resolveTier("curl")?.source).toBe("curated");
+    expect(resolveTier("docker-restart")?.source).toBe("builtin");
+  });
+
+  it("org outranks builtin: an override is a full replacement, no field merge", () => {
+    withOrg(
+      `
+commands:
+  - name: docker-restart
+    tier: prohibited
+    route: "the org's own restart runbook"
+  - name: repo-stage
+    tier: mutating
+`,
+      () => {
+        // prohibited+route replaces the builtin mutating entry wholesale.
+        const d = resolveTier("docker-restart");
+        expect(d?.tier).toBe("prohibited");
+        expect(d?.source).toBe("org");
+        expect(d?.route).toBe("the org's own restart runbook");
+        // A restricted entry replaced by mutating carries NO license —
+        // the org entry is the complete statement, never a patch.
+        const s = resolveTier("repo-stage");
+        expect(s).toEqual({ tier: "mutating", source: "org", matched: "repo-stage" });
+        // The sibling restricted entry is untouched (no spillover).
+        expect(resolveTier("repo-commit")?.source).toBe("builtin");
+      },
+    );
+  });
+
+  it("org outranks curated and declares org-only commands (the az class)", () => {
+    withOrg(
+      `
+commands:
+  - name: docker
+    tier: prohibited
+    route: "org container policy"
+  - name: az
+    tier: mutating
+    egress: true
+    note: org-specific CLI (fixture)
+`,
+      () => {
+        const d = resolveTier("docker");
+        expect(d?.tier).toBe("prohibited");
+        expect(d?.source).toBe("org");
+        // The git read grammar still works — the curated entry is shadowed
+        // for `docker` only, not for anything else.
+        expect(resolveTier("git", ["log"])?.tier).toBe("read-only");
+        // An org-only command resolves from the org layer with egress.
+        const a = resolveTier("az");
+        expect(a).toEqual({ tier: "mutating", source: "org", matched: "az", egress: true });
+      },
+    );
+  });
+
+  it("org entries demote on both grammars: flags on a mutating ceiling, subcommands on a prohibited ceiling", () => {
+    withOrg(
+      `
+commands:
+  - name: orgtool
+    tier: mutating
+    read-only-forms: ["--report"]
+  - name: orgclosed
+    tier: prohibited
+    route: "orgtool"
+    read-only-forms: ["read"]
+`,
+      () => {
+        expect(resolveTier("orgtool", ["--report"])?.tier).toBe("read-only");
+        expect(resolveTier("orgtool", ["--mutate"])?.tier).toBe("mutating");
+        // The read grammar demotes the prohibited ceiling; a non-read
+        // subcommand keeps the ceiling and the route.
+        expect(resolveTier("orgclosed", ["read"])?.tier).toBe("read-only");
+        expect(resolveTier("orgclosed", ["read"])?.route).toBeUndefined();
+        const closed = resolveTier("orgclosed", ["write"]);
+        expect(closed?.tier).toBe("prohibited");
+        expect(closed?.route).toBe("orgtool");
+      },
+    );
+  });
+
+  it("org entries carry licenses like any restricted declaration", () => {
+    withOrg(
+      `
+commands:
+  - name: orgtool
+    tier: restricted
+    restricted-to: [devenv-operate]
+`,
+      () => {
+        const r = resolveTier("orgtool");
+        expect(r?.tier).toBe("restricted");
+        expect(r?.source).toBe("org");
+        expect(r?.license).toEqual(["devenv-operate"]);
+      },
+    );
+  });
+
+  it("invalid org entries are warned and treated as absent — the isolation contract holds", () => {
+    withOrg(
+      `
+commands:
+  - name: unlicensed
+    tier: restricted
+  - name: misrouted
+    tier: read-only
+    route: "x"
+  - name: overlicensed
+    tier: prohibited
+    restricted-to: [skill]
+`,
+      () => {
+        expect(orgDescriptors().find((d) => d.name === "unlicensed")).toBeUndefined();
+        expect(resolveTier("unlicensed")).toBeNull();
+        expect(resolveTier("misrouted")).toBeNull();
+        expect(resolveTier("overlicensed")).toBeNull();
+      },
+    );
+  });
+
+  it("a malformed org file never bricks the layer — its commands resolve unknown", () => {
+    withOrg("commands: [ this is not yaml content", () => {
+      expect(orgDescriptors()).toEqual([]);
+      expect(resolveTier("anything-at-all")).toBeNull();
+    });
+  });
+
+  it("manifest collisions are inert inventory, never shadowed answers", () => {
+    // Fixture: a temp repos root whose manifest declares a name the
+    // builtin layer already declares. The workspace layer wins every
+    // lookup (the PATH-rule analogy); the inventory surface reports the
+    // inert entry instead of letting it silently masquerade.
+    const root = mkdtempSync(join(tmpdir(), "org-collision-"));
+    const dir = join(root, "tool.dupe", ".devenv");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "manifest.yaml"),
+      [
+        "name: tool.dupe",
+        "purpose: fixture",
+        "executables:",
+        "  - name: repo-commit",
+        "    tier: read-only",
+        "  - name: dupe-only",
+        "    tier: mutating",
+      ].join("\n"),
+    );
+    // Lookups: the builtin layer answers for repo-commit (the license
+    // survives), the manifest answers for the non-colliding name.
+    expect(resolveTier("repo-commit", [], root)?.source).toBe("builtin");
+    expect(resolveTier("dupe-only", [], root)).toEqual({
+      tier: "mutating",
+      source: "tool.dupe",
+      matched: "dupe-only",
+    });
+    // Inventory: the collision is reported, shadowed by the builtin layer.
+    const collisions = manifestCollisions(root);
+    expect(collisions).toEqual([
+      {
+        name: "repo-commit",
+        source: "tool.dupe",
+        tier: "read-only",
+        shadowSource: "builtin",
+        shadowTier: "restricted",
+      },
+    ]);
+  });
+});
+
+afterAll(() => {
+  // Belt and braces: the withOrg restore runs per test, but any failure
+  // path that skipped the finally still must not leak fixtures into the
+  // tree (the pristine file is blank upstream).
+  writeFileSync(ORG_PATH, ORG_PRISTINE);
 });

@@ -54,7 +54,7 @@ export interface RepoManifest {
 /** A tier answer with its provenance — the oracle never guesses where a tier came from. */
 export interface TierResolution {
   tier: CommandTier;
-  /** Where the declaration lives: "builtin", "curated", or the repo directory name. */
+  /** Where the declaration lives: "builtin", "curated", "org", or the repo directory name. */
   source: string;
   /** The matched declaration (whole executable, or the subcommand entry). */
   matched: string;
@@ -217,6 +217,14 @@ export function allRepoManifests(reposRootDir?: string): RepoManifest[] {
  * Resolve an executable's tier across the manifest layer, including
  * subcommand resolution for multi-verb executables (srs deploy vs verify).
  * Returns null when no cloned manifest declares the executable.
+ *
+ * Collision contract: when a higher layer (org, builtin, curated) has
+ * already answered for this name, the caller never reaches this function —
+ * the manifest layer is the last resort. The REVERSE case (a repo
+ * manifest naming something this workspace wall already declares) is
+ * surfaced where it is knowable: manifestTierResolution itself warns when
+ * the name resolves in the workspace layers too, so a repo that declares
+ * a shadowed name learns its declaration is inert, not silently ignored.
  */
 export function manifestTierResolution(
   executable: string,

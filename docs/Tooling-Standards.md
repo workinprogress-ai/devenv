@@ -276,9 +276,15 @@ on `PATH`, are excluded from the `tools/*` gitignore whitelist via
 
 Each tool provider declares the nature and caution of the commands it
 provides, where the knowledge lives — the people who wrote a command know
-whether it deletes things. Same schema, two fork-shared layer files plus
-the per-repo manifest layer — the file names carry the provenance:
+whether it deletes things. Same schema, three YAML layer files plus the
+per-repo manifest layer — the file names carry the provenance:
 
+- [`tools/config/org-command-descriptors.yaml`](../tools/config/org-command-descriptors.yaml)
+  (org layer) — **this organization's standards**: org-specific commands
+  (the `az` class upstream has never seen) and full-replacement overrides
+  of builtin/curated rulings ("different standards" — the org is the
+  deployment authority). Fork-stable, blank by default upstream; resolves
+  first.
 - [`tools/config/builtin-command-descriptors.yaml`](../tools/config/builtin-command-descriptors.yaml)
   (builtin layer) — **exactly the depth-1 executables this repo's `tools/`
   tree ships**, self-description ("builtin" = ships with the repo). Org
@@ -291,10 +297,22 @@ the per-repo manifest layer — the file names carry the provenance:
   author ("curated" = judged, not authored). Census-bounded to what the
   bootstrap actually installs; the census-gap loop is the growth mechanism.
 
+Resolution order **org → builtin → curated → repo manifests**, first-match
+wins. The org layer outranks provider self-description (org policy over
+upstream's — the deployment authority sets different standards), and a
+repo manifest can never shadow any workspace layer (the PATH-rule
+analogy: a repo tool never shadows a devenv tool; colliding manifest
+entries are inert and surfaced by `command-tier --list`). Org entries are
+full replacements — no field merge with the shadowed declaration: the org
+file reads as the complete statement of the org's standard for that
+command, and every override is visible at lookup (`source: org` — a
+default was shadowed).
+
 The provenance difference is deliberate and marked by the file itself:
-builtin entries are self-description, curated entries are judgment —
-consumers weight them differently (the review bar for curated read-only
-auto-allow lives in the curated file's PRs).
+builtin entries are self-description, curated and org entries are
+judgment — consumers weight them differently (the review bar for curated
+read-only auto-allow lives in the curated file's PRs; the org layer's
+review bar is the fork's own PRs on the fork-stable file).
 
 Vocabulary — the **command-vs-caller caution vocabulary**, one across both
 layers; each word answers exactly one question. The three base tiers

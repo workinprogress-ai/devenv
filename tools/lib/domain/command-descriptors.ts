@@ -1,7 +1,9 @@
-// command-descriptors.ts — reader for tools/config/builtin-command-descriptors.yaml
-// and tools/config/curated-command-descriptors.yaml (the two fork-shared
-// descriptor layers; the file names carry the provenance — builtin ships with
-// the repo, curated is org judgment over external commands).
+// command-descriptors.ts — reader for tools/config/builtin-command-descriptors.yaml,
+// tools/config/curated-command-descriptors.yaml, and
+// tools/config/org-command-descriptors.yaml (the three YAML descriptor
+// layers; the file names carry the provenance — builtin ships with the
+// repo, curated is upstream-maintained judgment over the generic machine
+// surface, org is this organization's standards and org-specific commands).
 // (the provider-declares caution surface for the commands this repo ships).
 // Command-vs-caller vocabulary, one with tool-repo manifests:
 // read-only | mutating | destructive (what the call does) · restricted (who
@@ -12,7 +14,7 @@ import { load, JSON_SCHEMA } from "js-yaml";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { manifestTierResolution, type TierResolution } from "./repo-manifests.ts";
+import { manifestTierResolution, allRepoManifests, type TierResolution } from "./repo-manifests.ts";
 
 export type CommandTier = "read-only" | "mutating" | "destructive" | "restricted" | "prohibited";
 
@@ -52,8 +54,9 @@ export interface CommandDescriptor {
   /** Curated only: marks network data flow orthogonal to state mutation —
    * the admission generator never auto-allows egress-bearing entries. */
   egress?: boolean;
-  /** Provenance: provider (self-description) or curated (org judgment). */
-  source?: "provider" | "curated";
+  /** Provenance: provider (self-description), curated (upstream judgment),
+   *  or org (this org's ruling — the deployment authority). */
+  source?: "provider" | "curated" | "org";
 }
 
 function descriptorsPath(): string {
@@ -68,7 +71,23 @@ function curatedPath(): string {
   return join(here, "..", "..", "config", "curated-command-descriptors.yaml");
 }
 
-function readYamlCommands(path: string, source: "provider" | "curated"): CommandDescriptor[] {
+function orgPath(): string {
+  // tools/lib/domain/command-descriptors.ts → tools/config/org-command-descriptors.yaml
+  // DEVENV_ORG_DESCRIPTORS overrides the location (the DEVENV_ROOT
+  // precedent): a deployment redirect, and the test seam that keeps org
+  // fixtures process-local — vitest workers run files in separate
+  // processes, so a fixture file under this override never races the
+  // shared tracked file another worker reads.
+  const override = process.env["DEVENV_ORG_DESCRIPTORS"];
+  if (override !== undefined && override !== "") return override;
+  const here = dirname(fileURLToPath(import.meta.url));
+  return join(here, "..", "..", "config", "org-command-descriptors.yaml");
+}
+
+function readYamlCommands(
+  path: string,
+  source: "provider" | "curated" | "org",
+): CommandDescriptor[] {
   let raw: string;
   try {
     raw = readFileSync(path, "utf8");
@@ -101,6 +120,15 @@ function readDescriptors(): CommandDescriptor[] {
  * surface — commands devenv did not author but agents invoke. */
 export function curatedDescriptors(): CommandDescriptor[] {
   return readYamlCommands(curatedPath(), "curated");
+}
+
+/** The org layer: THIS organization's ruling over its own machines — org
+ *  standards (full-replacement overrides) and org-specific commands
+ * (az-class CLIs upstream has never seen). Fork-stable file, blank by
+ *  default upstream; resolves FIRST (the deployment authority). */
+export function orgDescriptors(): CommandDescriptor[] {
+
+  return readYamlCommands(orgPath(), "org");
 }
 
 /**
@@ -138,8 +166,11 @@ function isValidDescriptor(d: CommandDescriptor): boolean {
   if (Array.isArray(forms) && forms.length > 0) {
     if (d.tier === "mutating") {
       // Flag-shaped forms (e.g. --dry-run) demote a mutating ceiling.
-    } else if (d.tier === "prohibited" && d.source === "curated") {
-      // Curated-only grammar: subcommand-shaped read forms (git log,
+    } else if (
+      (d.tier === "prohibited" && d.source === "curated") ||
+      (d.tier === "prohibited" && d.source === "org")
+    ) {
+      // Curated/org-only grammar: subcommand-shaped read forms (git log,
       // kubectl get) demote a prohibited ceiling — the read grammar is
       // open while the command itself is closed. Flag-shaped entries are
       // still a modeling mistake here.
@@ -165,12 +196,15 @@ export function commandDescriptor(name: string): CommandDescriptor | null {
 }
 
 /** Resolve a descriptor across ALL declared layers in precedence order:
- *  devenv's own (provider) → the curated layer (org judgment) → the cloned
- *  repos' manifests. Returns the descriptor plus which layer answered. */
+ *  the org layer (deployment authority) → devenv's own (provider) → the
+ *  curated layer (upstream judgment) → the cloned repos' manifests.
+ *  Returns the descriptor plus which layer answered. */
 export function descriptorWithLayer(
   name: string,
   reposRootDir?: string,
-): { descriptor: CommandDescriptor; layer: "builtin" | "curated" | "manifest" } | null {
+): { descriptor: CommandDescriptor; layer: "org" | "builtin" | "curated" | "manifest" } | null {
+  const o = orgDescriptors().find((x) => x.name === name);
+  if (o !== undefined) return { descriptor: o, layer: "org" };
   const d = commandDescriptor(name);
   if (d !== null) return { descriptor: { ...d, source: "provider" }, layer: "builtin" };
   const c = curatedDescriptors().find((x) => x.name === name);
@@ -214,19 +248,53 @@ export function effectiveTier(name: string, invocationArgs: readonly string[]): 
 
 /**
  * The universal tier oracle: resolve a command's tier wherever it is
- * declared — devenv's own descriptors first, then the cloned repos'
+ * declared — the org layer first (the deployment authority: org policy
+ * outranks provider self-description — "different standards"), then
+ * devenv's own descriptors, then the curated layer, then the cloned repos'
  * .devenv/manifest.yaml layer. Precedence mirrors the PATH rule in the
  * generated devenvrc: devenv tools come first, so a repo tool can never
- * shadow a devenv tool of the same name. Unknown commands return null —
- * the judgment lane, never a silent default. The resolution carries the
- * license (restricted) or route (prohibited) when declared — the caller
- * reads the substitution, never invents it.
+ * shadow a devenv tool of the same name — and by the same principle a
+ * repo manifest can never shadow the org/builtin/curated walls. Unknown
+ * commands return null — the judgment lane, never a silent default. The
+ * resolution carries the license (restricted) or route (prohibited) when
+ * declared — the caller reads the substitution, never invents it.
  */
 export function resolveTier(
   name: string,
   args: readonly string[] = [],
   reposRootDir?: string,
 ): TierResolution | null {
+  // 0. The org layer (deployment authority; org entries are full
+  //    replacements — no field merge with the shadowed declaration).
+  const o = orgDescriptors().find((x) => x.name === name);
+  if (o !== undefined) {
+    const forms = o["read-only-forms"] ?? [];
+    const flagForms = forms.filter((f) => f.startsWith("--"));
+    const subcommand = args.find((a) => !a.startsWith("-"));
+    // Org entries get both demotion grammars: flags demote a mutating
+    // ceiling (the builtin rule), subcommands demote a prohibited ceiling
+    // (the curated read-grammar rule) — the org writes complete
+    // declarations, so both shapes are available to it.
+    const flagDemoted =
+      o.tier === "mutating" &&
+      flagForms.length > 0 &&
+      args.some((a) => flagForms.includes(a));
+    const subDemoted =
+      o.tier === "prohibited" &&
+      subcommand !== undefined &&
+      forms.includes(subcommand);
+    const license = o.tier === "restricted" ? o["restricted-to"] : undefined;
+    const route = o.tier === "prohibited" && !subDemoted ? o.route : undefined;
+    const demoted = flagDemoted || subDemoted;
+    return {
+      tier: demoted ? "read-only" : o.tier,
+      source: "org",
+      matched: o.name,
+      ...(license !== undefined ? { license } : {}),
+      ...(route !== undefined ? { route } : {}),
+      ...(o.egress === true ? { egress: true } : {}),
+    };
+  }
   // 1. devenv's own descriptors (layer precedence: ours first).
   const d = commandDescriptor(name);
   if (d !== null) {
@@ -269,8 +337,64 @@ export function resolveTier(
       ...(c.egress === true ? { egress: true } : {}),
     };
   }
-  // 3. The manifest layer (cloned repos; subcommand-aware).
+  // 3. The manifest layer (cloned repos; subcommand-aware). A repo
+  //    manifest can never shadow the org/builtin/curated layers — the
+  //    PATH-rule analogy: the higher layer answers first, so a manifest
+  //    entry naming a workspace-declared command is INERT. Those inert
+  //    entries are surfaced by manifestCollisions() (the inventory
+  //    surface: --list skips them and warns) — a resolution that reaches
+  //    this step has, by construction, no collision.
   return manifestTierResolution(name, args, reposRootDir);
+}
+
+/**
+ * Manifest-declared executables whose names a workspace layer
+ * (org/builtin/curated) already declares — INERT manifest entries: the
+ * workspace layer wins every lookup, so the repo's declaration never
+ * answers. The inventory surface (--list, ops-orient) skips these and
+ * warns; the repo author renames the tool or drops the entry. A repo
+ * tool can never shadow a workspace declaration, same as the PATH rule.
+ */
+export function manifestCollisions(
+  reposRootDir?: string,
+): {
+  name: string;
+  source: string;
+  tier: CommandTier;
+  shadowSource: string;
+  shadowTier: CommandTier;
+}[] {
+  const layerOf = (name: string): { source: string; tier: CommandTier } | undefined => {
+    const o = orgDescriptors().find((x) => x.name === name);
+    if (o !== undefined) return { source: "org", tier: o.tier };
+    const b = commandDescriptor(name);
+    if (b !== null) return { source: "builtin", tier: b.tier };
+    const c = curatedDescriptors().find((x) => x.name === name);
+    if (c !== undefined) return { source: "curated", tier: c.tier };
+    return undefined;
+  };
+  const collisions: {
+    name: string;
+    source: string;
+    tier: CommandTier;
+    shadowSource: string;
+    shadowTier: CommandTier;
+  }[] = [];
+  for (const m of allRepoManifests(reposRootDir)) {
+    for (const e of m.executables) {
+      const shadow = layerOf(e.name);
+      if (shadow !== undefined) {
+        collisions.push({
+          name: e.name,
+          source: m.name,
+          tier: e.tier,
+          shadowSource: shadow.source,
+          shadowTier: shadow.tier,
+        });
+      }
+    }
+  }
+  return collisions;
 }
 
 /** All declared descriptors (for inventory/listing surfaces). */

@@ -18,6 +18,7 @@ import {
   allCommandDescriptors,
   curatedDescriptors,
   resolveTier,
+  manifestCollisions,
 } from "../lib/domain/command-descriptors.ts";
 import { allRepoManifests } from "../lib/domain/repo-manifests.ts";
 
@@ -110,13 +111,28 @@ try {
     for (const c of curatedDescriptors()) {
       console.log(`${c.tier}\t${c.name}\tcurated\t${c.note ?? ""}`);
     }
+    const collisions = new Map(
+      manifestCollisions().map((c) => [`${c.source}:${c.name}`, c]),
+    );
     for (const m of allRepoManifests()) {
       for (const e of m.executables) {
+        if (collisions.has(`${m.name}:${e.name}`)) {
+          // INERT: a workspace layer (org/builtin/curated) declares this
+          // name — the manifest entry never answers a lookup. Skipped
+          // here so the listing tells the truth; the repo author renames
+          // or drops the entry.
+          continue;
+        }
         console.log(`${e.tier}\t${e.name}\t${m.name}\t${e.purpose ?? ""}`);
         for (const sc of e.subcommands ?? []) {
           console.log(`${sc.tier}\t${e.name} ${sc.name}\t${m.name}\t(subcommand)`);
         }
       }
+    }
+    for (const c of collisions.values()) {
+      process.stderr.write(
+        `repo-manifests: '${c.name}' is declared in ${c.source}'s manifest but shadowed by the ${c.shadowSource} layer (${c.shadowTier}) — inert, never answers a lookup. Rename the tool or drop the manifest entry.\n`,
+      );
     }
     process.exit(0);
   }

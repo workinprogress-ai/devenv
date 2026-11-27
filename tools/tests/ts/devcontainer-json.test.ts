@@ -1,13 +1,15 @@
 // Tests for .devcontainer/devcontainer.json: structure, settings and the approved-command allowlist.
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   generatedAutoApprove,
   expectedCarrierKeys,
 } from "../../lib/domain/autoapprove.ts";
+import { resolveTier } from "../../lib/domain/command-descriptors.ts";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 
@@ -101,17 +103,60 @@ describe("devcontainer.json", () => {
 
   it("the generated auto-approve set holds only read-only tiers and never egress", () => {
     // The generation rules asserted at the source: every generated entry
-    // must be read-only in its descriptor layer, and no curated
-    // egress-bearing command (the curl problem) is present.
+    // must resolve read-only through the tier oracle (in-process — the
+    // same resolveTier the CLI calls; 65 CLI spawns ran near the test
+    // timeout under full-suite parallel load and flaked once), and no
+    // curated egress-bearing command (the curl problem) is present.
     for (const name of generatedAutoApprove()) {
-      const r = spawnSync("node", [
-        join(ROOT, "tools", "ts", "command-tier.ts"),
-        name,
-      ], { encoding: "utf8" });
-      expect(r.stdout.trim(), `${name} must resolve read-only`).toMatch(/^read-only\t/);
+      expect(resolveTier(name)?.tier, `${name} must resolve read-only`).toBe("read-only");
     }
     expect(generatedAutoApprove()).not.toContain("curl");
     expect(generatedAutoApprove()).not.toContain("wget");
+  });
+
+  it("the generated auto-approve set follows org overrides in both directions", () => {
+    // The org layer feeds the generator as full replacements: an org-only
+    // read-only entry joins the set, and an org override that tightens a
+    // lower-layer read-only entry removes it. The fixture runs through
+    // the DEVENV_ORG_DESCRIPTORS override — process-local, so it never
+    // races the shared tracked org file another test worker reads.
+    const scratch = mkdtempSync(join(tmpdir(), "org-autoapprove-"));
+    const fixture = join(scratch, "org.yaml");
+    writeFileSync(
+      fixture,
+      [
+        "commands:",
+        "  - name: helm",
+        "    tier: read-only",
+        "    note: org fixture — org-only read-only joins",
+        "  - name: jq",
+        "    tier: mutating",
+        "    note: org fixture — tightening a curated read-only",
+      ].join("\n"),
+    );
+    const before = generatedAutoApprove();
+    expect(before).not.toContain("helm");
+    expect(before).toContain("jq");
+    process.env["DEVENV_ORG_DESCRIPTORS"] = fixture;
+    try {
+      const after = generatedAutoApprove();
+      // The org ruling wins the set membership in BOTH directions.
+      expect(after).toContain("helm");
+      expect(after).not.toContain("jq");
+      expect(after.length).toBe(before.length); // +helm, -jq
+    } finally {
+      delete process.env["DEVENV_ORG_DESCRIPTORS"];
+    }
+  });
+
+  it("the k9s carrier exclusion is the pending org ruling, not a default", () => {
+    // k9s is curated read-only (the census-gap loop's first live entry) —
+    // the generation rules WOULD auto-allow it, but the org has not ruled
+    // on interactive TUI entries in the carrier. The exclusion keeps it
+    // prompt-gated; this test pins the deferral so a future regeneration
+    // cannot silently flip it. Ruling k9s in = remove the exclusion AND
+    // this test together.
+    expect(generatedAutoApprove()).not.toContain("k9s");
   });
 
   it("terminal auto-approve does not include test runners, repo cloning or environment dumps", () => {
