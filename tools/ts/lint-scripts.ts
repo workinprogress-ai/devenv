@@ -111,6 +111,7 @@ const EXCLUDES = [
   ".devcontainer/git-completion.bash",
   "playground/",
   "tools/cache/",
+  "tmp/",
 ];
 
 function excluded(rel: string): boolean {

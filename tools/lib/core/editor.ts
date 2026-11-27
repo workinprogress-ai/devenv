@@ -4,7 +4,9 @@
 // tools need the file's final state after the call returns.
 
 import { spawnSync } from "node:child_process";
-import { accessSync, constants as fsConstants } from "node:fs";
+import { accessSync, constants as fsConstants, readdirSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 export interface EditorResult {
   ok: boolean;
@@ -13,11 +15,22 @@ export interface EditorResult {
 }
 
 export function openInEditor(file: string): EditorResult {
-  const fallback = process.env["PREF_EDITOR"] ?? process.env["FALLBACK_EDITOR"] ?? "nano";
+  // An env var that is set but empty is unset for resolution purposes:
+  // an empty fallback name would make which() match directories.
+  const pref = process.env["PREF_EDITOR"] ?? "";
+  const alt = process.env["FALLBACK_EDITOR"] ?? "";
+  const fallback = pref !== "" ? pref : alt !== "" ? alt : "nano";
 
-  const vscode = which("code");
+  // `code` can exist on PATH yet be unusable: the devcontainer shim exits 127
+  // ("code or code-insiders is not installed") when no VS Code remote-cli
+  // follows it on PATH, as in shells not spawned by a VS Code terminal.
+  // Existence is not launchability, so a VS Code CLI candidate must answer
+  // --version before it is chosen, and the remote-cli is resolved by absolute
+  // path under ~/.vscode-server (never through PATH, where a planted `code`
+  // could impersonate the real CLI).
+  const vscode = vscodeLaunchableCli();
   if (vscode !== null) {
-    const r = spawnSync("code", ["--wait", file], { stdio: "inherit" });
+    const r = spawnSync(vscode, ["--wait", file], { stdio: "inherit" });
     if (r.status === 0) return { ok: true, editor: "code" };
     process.stderr.write(`⚠️  Could not open with VS Code. Falling back to ${fallback}...\n`);
   }
@@ -28,8 +41,71 @@ export function openInEditor(file: string): EditorResult {
   return { ok: r.status === 0, editor: fallback };
 }
 
+/** The VS Code CLI to launch: the remote-cli of the session's own server when
+ * resolvable (absolute path under ~/.vscode-server/bin — the hash VSCODE_CWD
+ * names when it has one, else the newest usable one), otherwise a PATH `code`
+ * that proves launchability with --version. Null when neither launches. */
+function vscodeLaunchableCli(): string | null {
+  const remote = vscodeRemoteCli();
+  if (remote !== null && launchable(remote)) return remote;
+  const pathCli = which("code");
+  if (pathCli !== null && launchable(pathCli)) return pathCli;
+  return null;
+}
+
+/** True when the command answers --version with exit 0 within a short
+ * timeout — the existence-vs-launchability probe (a devcontainer shim found
+ * by which(1) fails here even though the file is executable). */
+function launchable(cmd: string): boolean {
+  return (
+    spawnSync(cmd, ["--version"], { stdio: "ignore", timeout: 10_000 }).status === 0
+  );
+}
+
+/** The remote-cli of the VS Code server that owns this session: the server
+ * hash VSCODE_CWD names when it has one, else the newest installed server
+ * that has one. Only directories under ~/.vscode-server/bin are considered. */
+function vscodeRemoteCli(): string | null {
+  const root = join(homedir(), ".vscode-server", "bin");
+  const cliFor = (hash: string): string => join(root, hash, "bin", "remote-cli", "code");
+  const usable = (path: string): boolean => {
+    try {
+      accessSync(path, fsConstants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const named = /\/([0-9a-f]{40})(?:\/|$)/.exec(process.env.VSCODE_CWD ?? "")?.[1];
+  if (named !== undefined && usable(cliFor(named))) return cliFor(named);
+  let hashes: string[];
+  try {
+    hashes = readdirSync(root);
+  } catch {
+    return null;
+  }
+  let best: string | null = null;
+  let bestTime = -1;
+  for (const hash of hashes) {
+    const path = cliFor(hash);
+    if (!usable(path)) continue;
+    let mtime: number;
+    try {
+      mtime = statSync(path).mtimeMs;
+    } catch {
+      continue; // removed between readdir and stat — race, skip it
+    }
+    if (mtime > bestTime) {
+      best = path;
+      bestTime = mtime;
+    }
+  }
+  return best;
+}
+
 /** Minimal which(1): first PATH dir holding an executable with that name. */
 function which(cmd: string): string | null {
+  if (cmd === "") return null;
   for (const dir of (process.env["PATH"] ?? "").split(":")) {
     if (dir === "") continue;
     const candidate = `${dir}/${cmd}`;

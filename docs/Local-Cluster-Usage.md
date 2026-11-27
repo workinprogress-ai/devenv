@@ -66,6 +66,14 @@ standard reset.
 - Traffic interception (route cluster traffic to a local listener) is
   `kube-intercept` — see the Kubernetes Tools section of
   [Additional-Tooling.md](Additional-Tooling.md).
+- Read surface for diagnosis: `kube-events` (event stream — all namespace
+  events, or one resource's via a name fragment: `kube-events myapp -n prod`),
+  `kube-describe` (detailed object state; `-k pod|deployment|statefulset`),
+  `kube-top pods|nodes` (resource usage), and `kube-rollout
+  status|history <deployment>` — all single-match by name fragment, all
+  forwarding trailing kubectl flags verbatim. `kube-rollout` is read-only by
+  design: restart/undo are mutations and are refused (use the mutation
+  wrappers, which carry confirm-guards).
 
 ## Troubleshooting
 

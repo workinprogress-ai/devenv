@@ -2989,6 +2989,12 @@ githook backing scripts, CI-only checkers, lifecycle event entry points.
 
 - **`prepare-commit-msg`** — hook shim (TS body `prepare-commit-msg.ts`) backing the `.husky/prepare-commit-msg`
   githook; generates `Change-Id` trailers used by fork export/sync twin detection.
+- **`devenv-generate-autoapprove`** — regenerates the `chat.tools.terminal.autoApprove` entries
+  in `.devcontainer/devcontainer.json` from the caution-vocabulary descriptor layers
+  (`node tools/internal/devenv-generate-autoapprove.ts --check` compares, `--write` regenerates; the
+  `devcontainer-json.test.ts` sync test asserts generator ≡ carrier). Invoked by a maintainer at
+  descriptor-PR time when the sync test reports drift — contract enforcement for the whole repo,
+  not a fork-replaceable preference, which is exactly why it sits outside the override chain.
 - **`commit-action-check`** — commit-message trailer linter (TS body) run by the
   `commit-messages` CI job (`.github/workflows/test.yml`) and the
   `.husky/commit-msg` hook.

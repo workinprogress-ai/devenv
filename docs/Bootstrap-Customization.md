@@ -311,6 +311,29 @@ Users can then add personal customizations using:
 - `devenv-add-custom-bootstrap` - Adds commands to `user-custom-bootstrap.sh`
 - `devenv-add-custom-startup` - Adds commands to `user-custom-startup.sh`
 
+### devenv.config fork-customization keys
+
+The `[copilot]` section (knowledge/engineering repo URLs) and the `[ops]` section
+(operate-skill anchors) are the two fork-facing config surfaces beyond the
+provider keys. `[ops]` is read at runtime via `config-read ops <key>`:
+
+```ini
+[ops]
+# Repository holding the operate skill's /agent/memory/ scratch and the
+# environment registry (owner/repo) — the org's gitops repo.
+memory_repo=gitops.reqord
+# Tool repositories in the operate toolbox (owner/repo, comma-separated);
+# tool.ops is the hub that knows the rest (hub-and-spoke).
+tool_repos=tool.ops,tool.srs
+```
+
+A fork points these at its own repos; the fork-shared skill never hardcodes
+them. Command risk declarations follow the provider-declares principle —
+each provider describes what it ships: devenv's own commands in
+`tools/config/builtin-command-descriptors.yaml`, org tool repos in their
+`.devenv/manifest.yaml` (see
+[Tooling-Standards — Command descriptors](./Tooling-Standards.md#command-descriptors-caution-tiers)).
+
 ## Examples from Forks
 
 ### Minimal Bootstrap (Development Workstation)

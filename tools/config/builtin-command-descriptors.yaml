@@ -1,0 +1,490 @@
+# Builtin command descriptors — the commands this repository ships
+# (self-description; the builtin layer of the caution vocabulary).
+#
+# Provider-declares principle: each tool provider declares the nature and
+# caution of the commands it provides, where the knowledge lives. This file
+# describes EXACTLY the depth-1 executables of devenv's own tools/ tree —
+# org tool repos never appear here (they declare their own
+# .devenv/manifest.yaml with the same vocabulary; the consumer merges the
+# layers). A fork's file describes whatever that fork's tools/ tree ships.
+# The sibling layer is curated-command-descriptors.yaml (the machine's
+# command surface — org judgment, provenance "curated").
+#
+# Vocabulary — the command-vs-caller caution vocabulary (one vocabulary
+# across this file and tool-repo manifests); each word answers exactly one
+# question:
+#   read-only    — what: no side effects outside the caller's environment
+#   mutating     — what: changes world state (repo content, tracker, …)
+#   destructive  — what: deletes or overwrites state; confirmation required
+#   restricted   — WHO: only named skills' sessions may invoke (requires a
+#                  non-empty restricted-to license — a fine command, a
+#                  gated caller; a license-less restricted is a prohibited
+#                  command and is schema-invalid here)
+#   prohibited   — WHETHER AT ALL: closed to raw agent judgment. Optional
+#                  route: names the sanctioned substitute for the JOB —
+#                  "X is closed, the job is doable via Y"; the routed
+#                  command may itself be restricted (the substitution
+#                  chain). No route = no agent path; hand to a human.
+# This is a CAUTION vocabulary carrying coarse policy, not a permission
+# system: the data informs the agent (and the generated harness surfaces);
+# judgment — env-class escalation, unknown-command handling — stays in the
+# skill. A human terminal is unrestricted: the tiers route agents, they do
+# not grade danger for humans.
+#
+# Ceiling rule: the declared tier is the WORST state the command reaches
+# without a built-in guard (safe-by-default). `read-only-forms` lists flag
+# shapes where a provider-declared invocation provably demotes to read-only
+# (e.g. --dry-run). Consumers resolve: effective tier = declared ceiling,
+# demoted only on a provider-declared safe form — never the reverse.
+# Sub-command-split executables declare per-subcommand in tool-repo
+# manifests; devenv ships one verb per executable by idiom, so entries here
+# are whole-command.
+#
+# Coverage is enforced: every depth-1 executable in tools/ must be declared
+# here (see tools/tests/ts/command-descriptors.test.ts) — an undeclared
+# shipped command is a merge-blocking gap, and an unknown name at lookup
+# time is an explicit "unknown" (never a silent default tier).
+# Manual upkeep: adding a tool? Add its descriptor in the same change.
+#
+# Consumers: command-tier NAME (CLI) · tools/lib/domain/command-descriptors.ts
+
+commands:
+  # --- operate surface: kubernetes (kube-* family; mutating verbs carry built-in confirm-guards) ---
+  - name: kube-list-pods
+    tier: read-only
+    note: pod inventory per namespace/context
+  - name: kube-logs
+    tier: read-only
+    note: pod log tail/follow
+  - name: kube-pod-select
+    tier: read-only
+    note: resolve a single pod from a name fragment
+  - name: kube-deployment-select
+    tier: read-only
+    note: resolve a deployment from a name fragment
+  - name: kube-set-context
+    tier: read-only
+    note: list/switch kubeconfig context (client-side kubeconfig state only)
+  - name: kube-events
+    tier: read-only
+    note: event stream for namespace/resource (kubectl get events pass-through)
+  - name: kube-describe
+    tier: read-only
+    note: detailed object state (pod/deployment/statefulset via single-match)
+  - name: kube-top
+    tier: read-only
+    note: resource usage per pod/node (kubectl top pass-through)
+  - name: kube-rollout
+    tier: read-only
+    note: rollout status/history only — restart/undo are refused (mutations stay out)
+  - name: kube-forward-ports
+    tier: mutating
+    note: port-forward session to a pod (client-side; ends with the process)
+  - name: kube-pod-console
+    tier: mutating
+    note: interactive shell into a pod
+  - name: kube-pod-exec
+    tier: mutating
+    note: exec a command in a pod
+  - name: kube-intercept
+    tier: mutating
+    note: telepresence intercept (traffic rerouting; own OSS guards)
+  - name: kube-pod-restart
+    tier: mutating
+    note: delete-to-restart a pod (confirm-guard built in)
+  - name: kube-pod-scale
+    tier: mutating
+    note: replica count change (confirm-guard built in)
+  - name: kube-pod-delete
+    tier: destructive
+    note: pod deletion (confirm-guard built in; YES=1 bypass)
+  # --- operate surface: terraform / mongo / docker / editor ---
+  - name: terraform-plan
+    tier: read-only
+    note: init-if-needed + plan; never applies
+  - name: mongo-backup-server
+    tier: read-only
+    note: dump to local archive (source cluster untouched)
+  - name: mongo-restore-server
+    tier: destructive
+    note: mongorestore --drop into a target (own --confirm-target gate)
+  - name: docker-restart
+    tier: mutating
+    note: restarts the devcontainer Docker daemon
+  - name: editor
+    tier: mutating
+    note: opens a file in the user's editor
+  # --- prohibited: machinery / human-decided surfaces (agent-routing wall) ---
+  - name: setup
+    tier: prohibited
+    note: environment provisioning (installs SDKs, writes shell files, loads credentials) — a human decides when the machine is re-provisioned; no confirm-guard makes an unattended run acceptable
+  - name: git-wip
+    tier: prohibited
+    note: commits and pushes sweep snapshots — the exact strike class the workspace forbids for agent-initiated runs
+  # --- git history / working tree ---
+  - name: git-graph
+    tier: read-only
+    note: commit history graph
+  - name: git-graph-all
+    tier: read-only
+    note: all-branches graph
+  - name: git-repo
+    tier: mutating
+    note: alias for repo-get — exec's it verbatim, so it reaches every clone/update path of its target
+  - name: git-update
+    tier: mutating
+    note: fetch tags and pull the current branch
+  - name: git-prune-branches
+    tier: destructive
+    note: delete local branches whose upstream is gone
+  - name: git-unwip
+    tier: destructive
+    note: soft-reset the branch to its last non-WIP commit and drop WIP state
+  - name: git-wip-recover
+    tier: mutating
+    note: inspect or restore a saved WIP commit from refs/wip/last
+  # --- commit / staging / scratchpad (the sanctioned git mutation lanes) ---
+  - name: repo-commit
+    tier: restricted
+    restricted-to: [devenv-commit]
+    note: the single sanctioned commit wrapper; editor save is the permission gate — licensed to the commit skill's sessions
+  - name: repo-stage
+    tier: restricted
+    restricted-to: [devenv-commit]
+    note: the sanitized staging surface (content selection) — same owner, same license
+  - name: repo-batch-draft
+    tier: read-only
+    note: plan claims × live changed set → draft commit-batch manifest
+  - name: repo-scratchpad
+    tier: restricted
+    restricted-to: [devenv-research, devenv-hunt]
+    note: governed experiment sandbox (branch cuts, hook-bypassing commits) — licensed to the empowered-investigation skills
+  - name: repo-bisect
+    tier: mutating
+    note: git bisect walk with probe command (detached-HEAD during run)
+  # --- repository management (org repos: clone/create/config) ---
+  - name: repo-get
+    tier: mutating
+    note: clone or update a repository from the organization
+  - name: repo-get-web-url
+    tier: read-only
+    note: web URL for a repository
+  - name: repo-create
+    tier: mutating
+    note: create a new repository with standardized settings
+  - name: repo-update-all
+    tier: mutating
+    note: update all repositories in the repos directory
+  - name: repo-update-config
+    tier: mutating
+    note: apply or update repository rulesets/configuration
+  - name: repo-bump-version
+    tier: mutating
+    note: bump version in one or more repositories
+  - name: repo-calc-version
+    tier: read-only
+    note: calculate the next version for the repository
+  - name: repo-version-list
+    tier: read-only
+    note: version tags with change type
+  - name: repo-reset-merge-config
+    tier: mutating
+    note: one-time org-wide reset of merge configuration
+  - name: repo-cache-deepen
+    tier: mutating
+    note: fetch-only deepening of a cached repository (never checks out)
+  - name: repo-cache-update
+    tier: mutating
+    note: refresh the C# repository cache and dependency index
+  # --- issue tracker ---
+  - name: issue-get
+    tier: read-only
+    note: fetch one issue
+  - name: issue-list
+    tier: read-only
+    note: list issues
+  - name: issue-search
+    tier: read-only
+    note: search issues
+  - name: issue-select
+    tier: read-only
+    note: interactive issue selection
+  - name: issue-types
+    tier: read-only
+    note: list the organization's issue types
+  - name: issue-label-list
+    tier: read-only
+    note: list issue labels
+  - name: issue-comment-list
+    tier: read-only
+    note: list comments on an issue
+  - name: issue-artifact-list
+    tier: read-only
+    note: list issue-comment artifacts with header metadata
+  - name: issue-artifact-doc-id
+    tier: read-only
+    note: generate deterministic artifact doc_id values
+  - name: issue-artifact-select
+    tier: read-only
+    note: resolve a single issue artifact from comments
+  - name: issue-artifact-get
+    tier: read-only
+    note: retrieve an artifact by doc_id (local --write-body output only)
+  - name: issue-update
+    tier: mutating
+    note: update issue fields (title, body, type, labels, …)
+  - name: issue-close
+    tier: mutating
+    note: close or reopen issues
+  - name: issue-comment
+    tier: mutating
+    note: add a comment to an issue
+  - name: issue-comment-update
+    tier: mutating
+    note: replace the body of an existing issue comment
+  - name: issue-create
+    tier: mutating
+    note: create a new issue with labels/assignees/parent links
+  - name: issue-create-batch
+    tier: mutating
+    note: create multiple issues in one command
+    read-only-forms: ["--dry-run"]
+  - name: issue-graph-link
+    tier: mutating
+    note: link a child issue as sub-issue of a parent
+  - name: issue-triage
+    tier: mutating
+    note: scripted metadata-bundle apply
+  - name: issue-label-create
+    tier: mutating
+    note: create an issue label (idempotent)
+  - name: issue-artifact-upsert
+    tier: mutating
+    note: create or update an issue comment by doc_id
+  # --- pull requests ---
+  - name: pr-get
+    tier: read-only
+    note: fetch one PR
+  - name: pr-list
+    tier: read-only
+    note: list PRs
+  - name: pr-diff
+    tier: read-only
+    note: PR diff
+  - name: pr-get-review-link
+    tier: read-only
+    note: review link for a PR
+  - name: pr-get-merge-link
+    tier: read-only
+    note: merge link for a PR
+  - name: pr-threads-get
+    tier: read-only
+    note: list PR review threads
+  - name: pr-create
+    tier: mutating
+    note: create a pull request from the current branch
+  - name: pr-create-for-review
+    tier: mutating
+    note: "create a draft REVIEW: pull request"
+  - name: pr-merge
+    tier: mutating
+    note: merge an open PR from the current branch
+  - name: pr-comment
+    tier: mutating
+    note: add a top-level conversation comment
+  - name: pr-review-comment
+    tier: mutating
+    note: post an inline PR review comment
+  - name: pr-thread-reply
+    tier: mutating
+    note: reply to an inline review thread
+  - name: pr-thread-resolve
+    tier: mutating
+    note: mark a review thread resolved
+  - name: pr-cleanup-review-branches
+    tier: destructive
+    note: delete remote review branches
+  # --- project boards / pipelines ---
+  - name: project-list-for-issue
+    tier: read-only
+    note: projects containing an issue
+  - name: project-add-issue
+    tier: mutating
+    note: add issues to a project
+  - name: project-update-issue
+    tier: mutating
+    note: update a project card's fields
+  - name: pipelines-status
+    tier: read-only
+    note: pipeline status
+  - name: pipelines-list
+    tier: read-only
+    note: list pipeline runs
+  - name: pipelines-watch
+    tier: read-only
+    note: watch a pipeline run
+  - name: pipelines-artifacts
+    tier: read-only
+    note: list (and download to local disk) run artifacts
+  - name: pipelines-run
+    tier: mutating
+    note: trigger a provider pipeline run
+  - name: pipelines-rerun
+    tier: mutating
+    note: re-run a pipeline run
+  # --- artifacts / plans / skills / docs meta ---
+  - name: artifact-header
+    tier: mutating
+    note: parse/verify DEVENV headers; --stamp writes them
+  - name: artifact-clean
+    tier: destructive
+    note: delete .local-artifacts files by family (interactive confirm by default)
+  - name: artifacts-list
+    tier: read-only
+    note: list organization packages and their versions
+  - name: plan-parse
+    tier: read-only
+    note: deterministic plan structure parsing
+  - name: roadmap-parse
+    tier: read-only
+    note: parse a roadmap artifact into per-step truth JSON
+  - name: next-id
+    tier: read-only
+    note: resolve the next free numeric identifier (no file creation)
+  - name: markdown-plan-complete-ac
+    tier: mutating
+    note: mark AC checkboxes in a plan file
+  - name: markdown-plan-complete-task
+    tier: mutating
+    note: mark task checkboxes in a plan file
+  - name: skill-orient
+    tier: read-only
+    note: shared orientation stanza (read-only JSON)
+  - name: devenv-marker-check
+    tier: read-only
+    note: deterministic DEVENV-marker and AC-comment scanning
+  - name: devenv-memory-watch
+    tier: read-only
+    note: cgroup memory sampling and culprit analysis
+  - name: lint-documentation
+    tier: read-only
+    note: markdownlint over workspace docs
+  - name: lint-scripts
+    tier: read-only
+    note: shellcheck over shell scripts
+  - name: lint-skills
+    tier: read-only
+    note: contract checker for the skills tree
+  - name: run-devenv-tests
+    tier: read-only
+    note: run the workspace test suite (verifies; may build caches)
+  - name: metrics-count-code-lines
+    tier: read-only
+    note: count lines of code across the repository
+  - name: spec-dependency-check
+    tier: read-only
+    note: validate Specifications dependency graph
+  - name: workflow-signal
+    tier: mutating
+    note: fire workflow event signals (project state writes)
+  # --- config / provider / policy / releases ---
+  - name: config-read
+    tier: read-only
+    note: read one value from devenv.config
+  - name: command-tier
+    tier: read-only
+    note: resolve a command's tier from this file
+  - name: provider-explain
+    tier: read-only
+    note: explain the active provider's wrapper-calling contract
+  - name: policy-export
+    tier: read-only
+    note: export a repository ruleset as JSON
+  - name: release-list
+    tier: read-only
+    note: list releases for the target repository
+  # --- C# / NuGet toolchain ---
+  - name: cs-dependencies-trace
+    tier: read-only
+    note: trace reverse dependencies of a repo's packages
+  - name: cs-extract-snupkgs
+    tier: read-only
+    note: extract a .snupkg zip
+  - name: cs-open-coverage
+    tier: read-only
+    note: open coverage reports in a browser
+  - name: cs-references-update
+    tier: mutating
+    note: update NuGet package references across a tree
+  - name: cs-references-update-wizard
+    tier: mutating
+    note: single-repo dependency-update wizard
+  - name: cs-dependencies-update-wizard
+    tier: mutating
+    note: interactive multi-repo NuGet dependency updates
+  - name: cs-nuget-clear-local
+    tier: destructive
+    note: clear the local NuGet feed and package caches
+  - name: cs-nuget-publish-local
+    tier: mutating
+    note: restore/build/pack csproj and push to the local feed
+  # --- container / dev environment ---
+  - name: dependencies-up
+    tier: mutating
+    note: start development dependency containers (docker compose pass-through)
+  - name: dependencies-down
+    tier: destructive
+    note: stop AND remove development dependency containers
+  - name: server-run-smb
+    tier: mutating
+    note: run or start the local Samba container
+  - name: server-run-sql
+    tier: mutating
+    note: run or start the local SQL Server container
+  - name: ci-build-local
+    tier: read-only
+    note: build the repo container image into the local Docker cache (no push)
+  - name: container-enable-dotnet-debugger
+    tier: mutating
+    note: install vsdbg into a container's /remote_debugger
+  - name: install-extras
+    tier: mutating
+    note: run an extras installer (installs binaries/packages)
+  - name: tunnel-ports
+    tier: mutating
+    note: open SSH local port-forwards, hold until keypress
+  - name: get-public-ip
+    tier: read-only
+    note: retrieve the public IP with fallbacks
+  - name: get-services-config
+    tier: mutating
+    note: clone a config repository and extract it
+  # --- environment / desktop / fork customization ---
+  - name: tooling-create-script
+    tier: mutating
+    note: generate a new tool script from the standard template (--force overwrites an existing file with no confirm)
+  - name: devenv-add-custom-bootstrap
+    tier: mutating
+    note: add custom bootstrap commands (writes user script)
+  - name: devenv-add-custom-startup
+    tier: mutating
+    note: add custom startup commands (writes user script)
+  - name: devenv-add-env-vars
+    tier: mutating
+    note: add or update environment variables (writes env files)
+  - name: devenv-desktop-menu-add-folder
+    tier: mutating
+    note: add a Fluxbox submenu
+  - name: devenv-desktop-menu-add-shortcut
+    tier: mutating
+    note: add a Fluxbox [exec] launcher
+  - name: fork-setup
+    tier: mutating
+    note: one-time upstream relationship setup (fetch-only remote)
+    read-only-forms: ["--dry-run"]
+  - name: fork-export
+    tier: read-only
+    note: export a commit range for transfer (bundle to disk)
+  - name: fork-sync
+    tier: mutating
+    note: report or apply upstream's new commits (apply mode writes)

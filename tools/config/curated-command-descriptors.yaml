@@ -1,0 +1,110 @@
+# Curated command descriptors — devenv's declared judgment over the
+# machine's command surface (the curated layer; fork-shared, beside the
+# builtin layer's builtin-command-descriptors.yaml). Same schema, two
+# layers — the file names carry the provenance:
+#   builtin-command-descriptors.yaml — the commands this repo ships
+#     (self-description; "builtin" = ships with the repo)
+#   curated-command-descriptors.yaml — the machine's commands
+#     (org judgment; "curated" = judged, not authored)
+#
+# source: curated marks every entry here as ORG JUDGMENT, not provider
+# self-description — the epistemic difference is deliberate and marked:
+# devenv knows its own tools from the inside; for curl/kubectl/git it has
+# curated judgment. Consumers weight and review these differently (the
+# review bar for curated read-only auto-allow lives in this file's PRs).
+#
+# Scope is census-bounded: commands this container/bootstrap actually
+# installs and agents actually invoke (the census-gap loop is the growth
+# mechanism — never an attempt to declare the whole system). Commands from
+# the extras catalog that are NOT installed here (k9s, telepresence, doctl,
+# helm, mongosh) are absent on purpose.
+#
+# Vocabulary: the command-vs-caller caution vocabulary (see
+# command-descriptors.yaml's header). route: names the sanctioned
+# substitute for the job; egress: true marks network data flow (the
+# generator never auto-allows egress-bearing entries — judgment lane).
+
+commands:
+  # --- raw git: the read grammar auto-allows; mutations route to the sanctioned lanes ---
+  - name: git
+    tier: prohibited
+    route: "repo-commit (commit-class jobs); the no-mutating-git rule governs the rest"
+    note: raw git mutations are the workspace's strike class for agents
+    read-only-forms: ["log", "diff", "status", "show", "blame", "ls-files", "rev-parse", "merge-base"]
+    # the read grammar above is matched by the first non-flag arg (subcommand
+    # shape); the mutating grammar is the prohibited ceiling with the route
+  # --- raw provider CLI: routes to the wrapper surface ---
+  - name: gh
+    tier: prohibited
+    route: "issue-* / pr-* wrappers"
+    note: the provider CLI's surface is covered by the wrapper family
+    read-only-forms: ["api", "issue", "pr", "repo", "release"]
+  # --- raw kubectl: read verbs stay open; mutating verbs route to the guarded family ---
+  - name: kubectl
+    tier: prohibited
+    route: "kube-pod-restart / kube-pod-scale / kube-pod-delete (confirm-guarded family)"
+    note: the kube-* family exists so mutating verbs carry confirm-guards
+    read-only-forms: ["get", "describe", "logs", "top", "events", "config"]
+  # --- network fetch pair: read-only state-wise, egress-marked, judgment lane ---
+  - name: curl
+    tier: read-only
+    egress: true
+    note: network data flow orthogonal to state mutation — never auto-allowed
+  - name: wget
+    tier: read-only
+    egress: true
+    note: network data flow orthogonal to state mutation — never auto-allowed
+  # --- terraform: plan/validate read grammar; apply-class routes to the guarded wrapper ---
+  - name: terraform
+    tier: prohibited
+    route: "terraform-plan (read); tf-apply wrapper (mutating, Phase 6)"
+    note: apply/destroy reach cloud state — the guarded wrappers carry the confirm-gates
+    read-only-forms: ["plan", "validate"]
+  # --- pure text transformation: auto-allow ---
+  - name: jq
+    tier: read-only
+    note: pure text transformation
+  - name: yq
+    tier: read-only
+    note: pure text transformation
+  # --- remote access: mutating + egress, judgment lane ---
+  - name: ssh
+    tier: mutating
+    egress: true
+    note: remote execution — judgment lane
+  - name: scp
+    tier: mutating
+    egress: true
+    note: remote file transfer — judgment lane
+  # --- container platform (raw): judgment lane per user ruling — the wrappers exist
+  #     (docker-restart, ci-build-local, dependencies-*) but raw docker is NOT prohibited ---
+  - name: docker
+    tier: mutating
+    note: container platform — judgment lane; the wrapper family covers the common guarded operations
+  # --- local cluster lifecycle (raw): judgment lane; envctl (devops.reqord.infra) owns the blessed path ---
+  - name: k3d
+    tier: mutating
+    note: local cluster lifecycle — judgment lane; envctl owns the blessed lifecycle path (its manifest declares the verbs)
+  # --- toolchains: normal agent work, mutating-class ---
+  - name: dotnet
+    tier: mutating
+    note: build/test side effects
+  - name: python3
+    tier: mutating
+    note: arbitrary execution
+  - name: node
+    tier: mutating
+    note: arbitrary execution
+  - name: uv
+    tier: mutating
+    note: package operations (install/sync)
+  - name: npm
+    tier: mutating
+    note: package operations
+  - name: pnpm
+    tier: mutating
+    note: package operations
+  # --- backing-service tooling present in the container ---
+  - name: redis-cli
+    tier: mutating
+    note: backing-service mutations — judgment lane

@@ -265,11 +265,75 @@ A fourth folder, `tools/internal/`, is **not** part of that override chain:
 it holds machinery scripts that the devenv or githook machinery invokes —
 scripts a user would generally never run by hand (lifecycle event entry
 points `_on_*.sh`, the `prepare-commit-msg` githook backing script, the
-CI commit-message checker, each a thin shim over a TypeScript body). Internal scripts get no depth-1 stub, are not
+CI commit-message checker, the devcontainer autoApprove carrier
+generator, each a thin shim over a TypeScript body). Internal scripts get no depth-1 stub, are not
 on `PATH`, are excluded from the `tools/*` gitignore whitelist via
 `!tools/internal/`, and are not overridden by `tools/fork/` or
 `tools/custom/`. See
 [Additional Tooling — Internal machinery scripts](./Additional-Tooling.md#internal-machinery-scripts-toolsinternal).
+
+## Command descriptors (caution tiers)
+
+Each tool provider declares the nature and caution of the commands it
+provides, where the knowledge lives — the people who wrote a command know
+whether it deletes things. Same schema, two fork-shared layer files plus
+the per-repo manifest layer — the file names carry the provenance:
+
+- [`tools/config/builtin-command-descriptors.yaml`](../tools/config/builtin-command-descriptors.yaml)
+  (builtin layer) — **exactly the depth-1 executables this repo's `tools/`
+  tree ships**, self-description ("builtin" = ships with the repo). Org
+  tool repos never appear here — they declare their own executables in
+  their `.devenv/manifest.yaml`; a fork's file describes whatever that
+  fork ships.
+- [`tools/config/curated-command-descriptors.yaml`](../tools/config/curated-command-descriptors.yaml)
+  (curated layer) — the machine's command surface (`git`, `gh`, `kubectl`,
+  `curl`, toolchains, …): org judgment over commands devenv did not
+  author ("curated" = judged, not authored). Census-bounded to what the
+  bootstrap actually installs; the census-gap loop is the growth mechanism.
+
+The provenance difference is deliberate and marked by the file itself:
+builtin entries are self-description, curated entries are judgment —
+consumers weight them differently (the review bar for curated read-only
+auto-allow lives in the curated file's PRs).
+
+Vocabulary — the **command-vs-caller caution vocabulary**, one across both
+layers; each word answers exactly one question. The three base tiers
+answer *what the call does*: `read-only` (no side effects outside the
+caller's environment), `mutating` (changes world state), `destructive`
+(deletes or overwrites state; explicit confirmation required).
+`restricted` answers *who may call*: only sessions of the named skills
+(the required `restricted-to:` license — a fine command, a gated caller;
+a license-less restricted is schema-invalid, that command belongs at
+prohibited). `prohibited` answers *whether the command is available at
+all*, and its optional `route:` names the sanctioned substitute for the
+job — "X is closed, the job is doable via Y"; the routed command may
+itself be restricted (the substitution chain: raw `git` commit forms →
+`route: repo-commit` → `restricted-to: [devenv-commit]`). No route means
+no agent path exists: hand the job to a human.
+
+This is a **caution vocabulary carrying coarse policy, not a permission
+system** — the data informs the agent (and the generated harness
+surfaces); judgment — environment-class escalation, unknown-command
+pattern-judging — stays in the skill's prose rules. A human terminal is
+unrestricted: the tiers route agents, they do not grade danger for humans.
+
+**The declared tier is the ceiling** — the worst state the command reaches
+without a built-in guard, safe-by-default. Where a flag provably demotes a
+specific invocation (`--dry-run`), the descriptor lists it under
+`read-only-forms`; consumers demote only on a provider-declared form, never
+the reverse. Multi-verb executables are avoided by idiom (one verb per
+executable — `kube-pod-restart` and `kube-pod-delete` are separate tools);
+where a tool genuinely carries subcommands (the `srs` CLI), the tool repo's
+manifest declares per-subcommand.
+
+Coverage is **enforced** by
+`tools/tests/ts/command-descriptors.test.ts`: every depth-1 executable in
+`tools/` must have a declaration, and every declaration must match a shipped
+executable — an undeclared command is a merge-blocking gap, and an unknown
+name at lookup time is an explicit "unknown", never a silent default tier.
+**Adding a tool? Add its descriptor in the same change.**
+
+Consumers: `command-tier NAME` (the universal tier oracle — resolves a command's tier wherever it is declared: devenv's own commands first, then the cloned repos' `.devenv/manifest.yaml` layer, subcommand-aware for multi-verb executables such as `srs`; `command-tier NAME -- ARGS` resolves the effective tier for a concrete invocation; `--list` prints both layers) and `lib/domain/command-descriptors.ts` (`resolveTier`, `commandTier`, `effectiveTier`, `allCommandDescriptors`) with `lib/domain/repo-manifests.ts` (the manifest reader). Precedence mirrors the devenvrc PATH rule: a repo tool never shadows a devenv tool of the same name. A tier answer changes with what is cloned — correct by construction, since only cloned tools can run. An unmanifested extension command is an explicit unknown (the pattern-judgment lane) and a census-gap signal. The operate skill consumes the oracle through `ops-orient`, which reads both layers and the `[ops]` config to emit the toolbox map.
 
 ## Library catalog
 

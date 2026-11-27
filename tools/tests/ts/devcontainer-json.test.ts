@@ -4,6 +4,10 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  generatedAutoApprove,
+  expectedCarrierKeys,
+} from "../../lib/domain/autoapprove.ts";
 
 const ROOT = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 
@@ -22,26 +26,6 @@ function devcontainer(expr: (d: any) => unknown): string {
 type DC = any;
 
 // ── devcontainer.json ──────────
-
-// Commands approved to run without a prompt. This is an allowlist on purpose:
-// a new entry fails the test until it is reviewed against the bar (reads
-// only; never executes arbitrary code, writes state, or prints the env).
-const APPROVED_TERMINAL_COMMANDS = [
-  "/^git (diff|show|log|diff-tree|diff-index)( (--|--stat|--name-only|--name-status|--oneline|--graph|--no-color|--patch|-p|--shortstat|--numstat|--summary|--cached|--staged|-r|--no-commit-id|--root|--decorate|--abbrev-commit|-[0-9]+|-U[0-9]+|-n|--max-count=[0-9]+|--unified=[0-9]+|(?!(?:[^ /]*/)*\\.\\.(?:/| |$))[A-Za-z0-9_./^~@{}:][A-Za-z0-9_./^~@{}:-]*))*$/",
-  "artifacts-list", "cat", "command -v", "cs-dependencies-trace", "cut", "date",
-  "diff", "docker images", "docker ps", "docker version", "dotnet --info",
-  "dotnet --version", "dotnet list package", "file", "get-services-config",
-  "git cat-file", "git describe", "git for-each-ref", "git ls-files",
-  "git merge-base", "git name-rev", "git rev-list", "git rev-parse",
-  "git shortlog", "git status", "git-graph", "git-graph-all", "grep", "head",
-  "id", "issue-comment-list", "issue-get", "issue-list", "jq", "kube-list-pods",
-  "kube-logs", "lint-documentation", "lint-tools-scripts", "ls", "lsof",
-  "markdown-plan-complete-ac", "markdown-plan-complete-task",
-  "metrics-count-code-lines", "node --version", "pnpm list", "pnpm outdated",
-  "pr-diff", "pr-get", "pr-list", "pr-threads-get", "repo-calc-version",
-  "repo-get-web-url", "repo-version-list", "rg", "ss", "stat", "tail", "tree",
-  "uname", "uniq", "wc", "which", "whoami",
-];
 
 describe("devcontainer.json", () => {
   it("devcontainer.json parses as JSON once comments are dropped", () => {
@@ -97,13 +81,37 @@ describe("devcontainer.json", () => {
     expect(r.status).toBe(1);
   });
 
-  it("terminal auto-approve holds only reviewed, read-only commands", () => {
+  it("terminal auto-approve holds only reviewed, read-only commands (generator ≡ carrier sync)", () => {
+    // The allowlist is derived from the descriptor layers + the
+    // curated-at-carrier set (shapes the descriptor schema cannot
+    // express: the git read grammar regex, coreutils, toolchain info
+    // forms). The sync test: the carrier's entries must
+    // equal exactly what the generator derives — no drift in either
+    // direction. A new tool enters via its descriptor's read-only tier
+    // (descriptor PR review is the bar); a new curated-at-carrier entry
+    // fails here until CURATED_AT_CARRIER is extended (with the
+    // banned-list test still guarding the shapes).
     const actual = devcontainer((d: DC) => {
       const approve = d["customizations"]["vscode"]["settings"]["chat.tools.terminal.autoApprove"];
       return Object.keys(approve).filter((k) => approve[k]).sort().join("\n");
     });
-    const extra = actual.split("\n").filter((key) => key !== "" && !APPROVED_TERMINAL_COMMANDS.includes(key));
-    expect(extra).toEqual([]);
+    const expected = expectedCarrierKeys().sort().join("\n");
+    expect(actual).toBe(expected);
+  });
+
+  it("the generated auto-approve set holds only read-only tiers and never egress", () => {
+    // The generation rules asserted at the source: every generated entry
+    // must be read-only in its descriptor layer, and no curated
+    // egress-bearing command (the curl problem) is present.
+    for (const name of generatedAutoApprove()) {
+      const r = spawnSync("node", [
+        join(ROOT, "tools", "ts", "command-tier.ts"),
+        name,
+      ], { encoding: "utf8" });
+      expect(r.stdout.trim(), `${name} must resolve read-only`).toMatch(/^read-only\t/);
+    }
+    expect(generatedAutoApprove()).not.toContain("curl");
+    expect(generatedAutoApprove()).not.toContain("wget");
   });
 
   it("terminal auto-approve does not include test runners, repo cloning or environment dumps", () => {
