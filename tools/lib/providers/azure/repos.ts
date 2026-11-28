@@ -189,6 +189,12 @@ export async function reposView(
         ? { name: raw.defaultBranch.replace(/^refs\/heads\//, "") }
         : null,
   };
+  // A field list alone projects the one record into one object, as GitHub's
+  // repo view does; a jq program keeps its list-dialect semantics.
+  if (opts.json !== undefined && opts.jq === undefined) {
+    const [projected = {}] = JSON.parse(applyListFlags([enriched], opts)) as Record<string, unknown>[];
+    return JSON.stringify(projected);
+  }
   if (opts.json !== undefined || opts.jq !== undefined) {
     return applyListFlags([enriched], opts);
   }

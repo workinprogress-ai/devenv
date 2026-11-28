@@ -29,6 +29,22 @@ afterEach(() => {
   restoreEnv();
 });
 
+describe("reposView field projection", () => {
+  const repo = { id: "r1", name: "widgets", defaultBranch: "refs/heads/master", project: { name: "test-project" } };
+
+  it("a --json field list projects the one record into one object, like GitHub's repo view", async () => {
+    stubAzureFetch([{ method: "GET", url: REPO_URL, respond: azureJson(repo) }]);
+    const out = JSON.parse(await reposView("widgets", { json: "name,defaultBranchRef" })) as unknown;
+    expect(Array.isArray(out)).toBe(false);
+    expect(out).toEqual({ name: "widgets", defaultBranchRef: { name: "master" } });
+  });
+
+  it("a jq program on a field keeps answering the plain value", async () => {
+    stubAzureFetch([{ method: "GET", url: REPO_URL, respond: azureJson(repo) }]);
+    expect(await reposView("widgets", { json: "name", jq: ".name" })).toBe("widgets");
+  });
+});
+
 describe("azureBranchRef", () => {
   it.each([
     ["main", "refs/heads/main"],

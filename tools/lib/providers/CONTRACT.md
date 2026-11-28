@@ -435,7 +435,7 @@ raw flag-array verbs); anything not listed is not accepted.
 
 | Verb | TS export | Arguments and options | Result and rules |
 |---|---|---|---|
-| `provider_repos_view` | `reposView` | `[repo]`; `json`, `jq` | Repository record (fields above), as JSON text. A field the host has no value for (an empty repository's default branch) is an error, not `null`. |
+| `provider_repos_view` | `reposView` | `[repo]`; `json`, `jq` | Repository record (fields above), as JSON text: one object, also when `json` names a field list. A field the host has no value for (an empty repository's default branch) is an error, not `null`. |
 | `provider_repos_exists` | `reposExists` | `repo` | `boolean`. `false` when the repository cannot be read (absent or inaccessible). |
 | `provider_repos_squash_merge_allowed` | `reposSquashMergeAllowed` | `repo` | `boolean`: whether the repository allows squash merges (`false` when GitHub cannot say). GitHub only; the facade throws a named error on Azure. |
 | `provider_repos_name_with_owner` | `reposNameWithOwner` | `CWD` | The `owner/name` of the repository the directory belongs to, or `null`. GitHub only; on Azure the facade answers `null` and the caller falls back to the git remote URL. |
