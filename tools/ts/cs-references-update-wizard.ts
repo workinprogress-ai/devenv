@@ -540,13 +540,14 @@ function main(): void {
   const commitMessage = breakingNote === "" ? ["-m", prTitle] : ["-m", prTitle, "-m", breakingNote];
 
   // ── Tests ──
-  if (existsSync(join(repoDir, "run-tests"))) {
+  const testRunner = [join(repoDir, "run-tests"), join(repoDir, "test", "run-tests.sh")].find((p) => existsSync(p));
+  if (testRunner !== undefined) {
     console.log("Running tests...");
-    let r = spawnSync(join(repoDir, "run-tests"), [], { stdio: "inherit" });
+    let r = spawnSync(testRunner, [], { stdio: "inherit" });
     if (r.status !== 0) {
       logWarn(`Tests failed for ${repoName}`);
       promptUser(`Please fix the issue in ${repoDir} so that TESTS PASS, then press Enter to retry.`);
-      r = spawnSync(join(repoDir, "run-tests"), [], { stdio: "inherit" });
+      r = spawnSync(testRunner, [], { stdio: "inherit" });
       if (r.status !== 0) {
         logError(`Tests failed for ${repoName}`);
         process.exit(EXIT_TESTS_FAILED);
@@ -554,7 +555,7 @@ function main(): void {
     }
     console.log("Tests passed!");
   } else {
-    console.log(`No test runner found at ${repoDir}/run-tests; skipping tests.`);
+    console.log(`No test runner found at ${repoDir}/run-tests or ${repoDir}/test/run-tests.sh; skipping tests.`);
   }
 
   // ── Commit and push (git hook will run tests) ──

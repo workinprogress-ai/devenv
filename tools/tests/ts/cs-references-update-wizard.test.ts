@@ -569,6 +569,43 @@ describe("scripts/cs-references-update-wizard", () => {
     removeShadowGit();
   });
 
+  describe("test runner discovery", () => {
+    // Runs the wizard with a runner script at each given repo-relative path;
+    // every runner appends its own path to a marker file when executed.
+    function runWithRunners(paths: string[]): { status: number; out: string; ran: string } {
+      const marker = join(TMP, "runner.log");
+      for (const rel of paths) {
+        mkdirSync(dirname(join(REPO_DIR, rel)), { recursive: true });
+        writeFileSync(join(REPO_DIR, rel), `#!/usr/bin/env bash\necho "${rel}" >> "${marker}"\nexit 0\n`);
+        chmodSync(join(REPO_DIR, rel), 0o755);
+      }
+      spawnSync("git", ["add", "-A"], { cwd: REPO_DIR, env: GIT_ENV() });
+      spawnSync("git", ["commit", "-q", "-m", "add runners", "--allow-empty"], { cwd: REPO_DIR, env: GIT_ENV() });
+      spawnSync("git", ["update-ref", "refs/remotes/origin/master", "HEAD"], { cwd: REPO_DIR, env: GIT_ENV() });
+      writeFake(
+        "cs-references-update",
+        '#!/usr/bin/env bash\nrepo_dir="${1:-$PWD}"\nsed -i \'s/Version="1\\.0\\.0"/Version="1.1.0"/\' "$repo_dir/src/MyLib.csproj"\nexit 0\n',
+      );
+      writeFake("pr-create", '#!/usr/bin/env bash\necho "https://github.com/test-org/test-repo/pull/1"\n');
+      shadowGitPush();
+      const r = wizard()([REPO_DIR]);
+      removeShadowGit();
+      return { ...r, ran: existsSync(marker) ? readFileSync(marker, "utf8").trim() : "" };
+    }
+
+    it("falls back to test/run-tests.sh when the repo root has no run-tests", () => {
+      const r = runWithRunners(["test/run-tests.sh"]);
+      expect(r.status).toBe(0);
+      expect(r.ran).toBe("test/run-tests.sh");
+    });
+
+    it("prefers the root run-tests over test/run-tests.sh", () => {
+      const r = runWithRunners(["run-tests", "test/run-tests.sh"]);
+      expect(r.status).toBe(0);
+      expect(r.ran).toBe("run-tests");
+    });
+  });
+
   it("wizard keeps src rules when src and test csprojs both change", () => {
     mkdirSync(join(REPO_DIR, "tests"), { recursive: true });
     writeFileSync(join(REPO_DIR, "tests", "MyLib.Tests.csproj"), CSPROJ + "\n");
