@@ -41,6 +41,7 @@ beforeEach(() => {
       "#!/usr/bin/env bash",
       "# Mock dotnet: record invocations; `restore` fails when MOCK_RESTORE_FAILS=1.",
       'echo "$*" >> "$MOCK_LOG"',
+      'echo "${1:-} NuGetAudit=${NuGetAudit:-unset}" >> "$MOCK_LOG.env"',
       'if [ "${1:-}" = "restore" ] && [ "${MOCK_RESTORE_FAILS:-0}" = "1" ]; then',
       '    echo "error NETSDK1045: mock restore failure" >&2',
       "    exit 101",
@@ -297,6 +298,14 @@ describe("scripts/cs-references-update", () => {
     const r = runUpdate([REPO_DIR, "--lang-version", "14.0"]);
     expect(r.status).toBe(0);
     expect(mockLogHas("^restore")).toBe(true);
+  });
+
+  it("restores and updates with the NuGet vulnerability audit off, so a vulnerable package can be replaced", () => {
+    const r = runUpdate([REPO_DIR, "--framework", "net11.0"]);
+    expect(r.status).toBe(0);
+    const env = readFileSync(`${MOCK_LOG}.env`, "utf8");
+    expect(env).toContain("restore NuGetAudit=false");
+    expect(env).toContain("outdated NuGetAudit=false");
   });
 
   it("--lang-default removes existing tags and never adds them", () => {

@@ -373,9 +373,15 @@ if (preRestoreScript !== "") {
 
 // ── Restore gate ─────────────────────────────────────────────────────────
 
+// The gate and the package updates restore with the NuGet vulnerability audit
+// off: a vulnerable (often transitive) package is what the update replaces, and
+// an audit error under warnings-as-errors would stop the run before it could.
+// The repository's own restore, build and commit hook audit the updated tree.
+const updateEnv = { ...process.env, NuGetAudit: "false" };
+
 if (rewroteAnything || preRestoreScript !== "") {
   console.log("Running 'dotnet restore' gate after rewrite...");
-  const r = spawnSync("dotnet", ["restore"], { stdio: "inherit", cwd: targetDir });
+  const r = spawnSync("dotnet", ["restore"], { stdio: "inherit", cwd: targetDir, env: updateEnv });
   if (r.status !== 0) {
     console.error(
       "ERROR: 'dotnet restore' failed after the TFM/LangVersion rewrite and pre-restore script — the new target is invalid, some packages have no assets for it, or the restore reports errors (such as pruned package references). No package updates were attempted.",
@@ -388,7 +394,7 @@ if (rewroteAnything || preRestoreScript !== "") {
 
 const failedProjects: string[] = [];
 for (const csproj of csprojs) {
-  const r = spawnSync("dotnet", ["outdated", csproj, "--upgrade"], { stdio: "inherit", cwd: targetDir });
+  const r = spawnSync("dotnet", ["outdated", csproj, "--upgrade"], { stdio: "inherit", cwd: targetDir, env: updateEnv });
   if (r.status !== 0) {
     console.error(`ERROR: 'dotnet outdated' failed for ${csproj}`);
     failedProjects.push(csproj);
