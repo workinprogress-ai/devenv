@@ -22,6 +22,19 @@ export function mergedTip(dir: string, branch: string): string {
  * by hand: PR creation failed (40), PR merge failed (41). */
 const MERGE_HANDED_TO_USER = new Set([40, 41]);
 
+/** Single-repo wizard exit that leaves the update branch and its uncommitted
+ * working tree in place: the tests (or the commit hooks) still fail after the
+ * wizard's one in-prompt retry (30). */
+const LEFT_BRANCH_TO_RESUME = 30;
+
+/** Whether the last attempt left a half-done update a retry must resume with
+ * `--continue`. A fresh run would stop at the uncommitted-changes guard (or
+ * discard the user's fixes); the other failures delete the update branch, so
+ * a fresh run is the right retry for them. */
+export function resumesPausedRepo(exitCodes: number[]): boolean {
+  return exitCodes[exitCodes.length - 1] === LEFT_BRANCH_TO_RESUME;
+}
+
 /** Whether the last attempt handed the merge to the user (who may have
  * finished it by hand since). */
 export function mergeHandedToUser(exitCodes: number[]): boolean {

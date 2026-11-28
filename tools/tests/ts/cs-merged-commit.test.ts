@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { attemptsMerged, levelWaitPurpose, mergeHandedToUser, mergedTip } from "../../lib/domain/cs/merged-commit.ts";
+import { attemptsMerged, levelWaitPurpose, mergeHandedToUser, mergedTip, resumesPausedRepo } from "../../lib/domain/cs/merged-commit.ts";
 import { rmrf, tmpDir } from "./harness/index.ts";
 
 function git(dir: string, ...args: string[]): string {
@@ -94,6 +94,20 @@ describe("mergeHandedToUser", () => {
     expect(mergeHandedToUser([21])).toBe(false);
     expect(mergeHandedToUser([41, 21])).toBe(false);
     expect(mergeHandedToUser([])).toBe(false);
+  });
+});
+
+describe("resumesPausedRepo", () => {
+  it("a retry after failing tests (30) resumes the update branch it left behind", () => {
+    expect(resumesPausedRepo([30])).toBe(true);
+    expect(resumesPausedRepo([21, 30])).toBe(true);
+    expect(resumesPausedRepo([30, 30])).toBe(true);
+  });
+
+  it("failures that delete the update branch are retried from scratch", () => {
+    for (const code of [20, 21, 40, 41]) expect(resumesPausedRepo([code])).toBe(false);
+    expect(resumesPausedRepo([30, 21])).toBe(false);
+    expect(resumesPausedRepo([])).toBe(false);
   });
 });
 

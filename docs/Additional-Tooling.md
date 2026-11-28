@@ -2553,6 +2553,8 @@ For each generation:
 
 Repos whose update changed nothing (exit 10) are not waited on — except after the single-repo wizard handed the merge to the user (PR creation or merge failed, exit `40`/`41`): the failure prompt then also offers **[m]erged by hand**, which awaits the merged commit without re-running the update, and a retry that finds nothing left to change is awaited the same way.
 
+**Retrying a repo whose tests failed:** when the single-repo wizard stops with exit `30` (the tests or commit hooks still fail after its one in-prompt retry) it leaves the update branch and the uncommitted working tree, fixes included, in place. The failure prompt's **[r]etry** then resumes that repo with `--continue` instead of starting over, so the repo's own fixes are kept and it stays in the generation's pipeline wait once it merges. A failure that deletes the update branch (exits `20`, `21`, `40`, `41`) is retried from scratch as before.
+
 **Resuming an interrupted global run:**
 
 The generation number is printed in the output header. To resume from where you left off:

@@ -6,7 +6,7 @@ import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, writeFil
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readdirSync, readFileSync } from "node:fs";
-import { stubGh, pathWithStubs, toolScript } from "./harness/index.ts";
+import { stubGh, pathWithStubs, toolScript, TOOLS } from "./harness/index.ts";
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 60_000 });
 
@@ -71,7 +71,66 @@ function runWizard(args: string[], extraEnv: Record<string, string> = {}): { sta
   return { status: r.status ?? 1, out: (r.stdout ?? "") + (r.stderr ?? "") };
 }
 
+// Runs the wizard on a pseudo-terminal (its retry prompt reads /dev/tty) and answers every
+// "[r]etry / [s]kip" prompt with `answer`. Returns the exit status and everything it printed.
+function runOnPty(command: string[], env: Record<string, string>, answer: string): { status: number; out: string } {
+  const script = [
+    "import os, pty, select, sys, time, json",
+    "cmd = json.loads(sys.argv[1]); answer = sys.argv[2]",
+    "pid, fd = pty.fork()",
+    "if pid == 0: os.execvp(cmd[0], cmd)",
+    "out = b''; answered = 0; end = time.time() + 90",
+    "while time.time() < end:",
+    "    r, _, _ = select.select([fd], [], [], 0.5)",
+    "    if r:",
+    "        try: d = os.read(fd, 4096)",
+    "        except OSError: break",
+    "        if not d: break",
+    "        out += d",
+    "    if out.count(b'[s]kip') > answered:",
+    "        answered += 1; os.write(fd, (answer + chr(10)).encode())",
+    "if time.time() >= end:",
+    "    try: os.kill(pid, 9)",
+    "    except OSError: pass",
+    "_, st = os.waitpid(pid, 0)",
+    "sys.stdout.write(out.decode(errors='replace')); sys.exit(os.waitstatus_to_exitcode(st))",
+  ].join("\n");
+  const r = spawnSync("python3", ["-I", "-c", script, JSON.stringify(command), answer], { encoding: "utf8", env: { ...procEnv, ...env } });
+  return { status: r.status ?? 1, out: r.stdout ?? "" };
+}
+
 describe("scripts/cs-dependencies-update-wizard", () => {
+  it("a retry after the single-repo wizard left a half-done update resumes it with --continue", () => {
+    setupMinimalCache();
+    // A fixture tools root: this checkout's lib, the wizard under test, and a fake single-repo wizard
+    // that pauses (exit 30) on its first run and finishes (exit 10) only when it is told to --continue.
+    const root = join(TMP, "fake", "tools");
+    mkdirSync(join(root, "ts"), { recursive: true });
+    spawnSync("cp", ["-r", join(TOOLS, "lib"), join(root, "lib")]);
+    spawnSync("cp", [join(TOOLS, "ts", "cs-dependencies-update-wizard.ts"), join(root, "ts", "wizard.ts")]);
+    const devRoot = join(TMP, "devroot");
+    mkdirSync(devRoot, { recursive: true });
+    writeFileSync(join(devRoot, "devenv.config"), "[provider]\nname=github\n");
+    const calls = join(TMP, "single-repo.calls");
+    writeFileSync(
+      join(root, "cs-references-update-wizard"),
+      `#!/bin/bash\necho "$*" >> "${calls}"\nif [ "$(wc -l < "${calls}")" -eq 1 ]; then exit 30; fi\nfor a in "$@"; do [ "$a" = "--continue" ] && exit 10; done\nexit 99\n`,
+    );
+    chmodSync(join(root, "cs-references-update-wizard"), 0o755);
+    const r = runOnPty(
+      ["node", join(root, "ts", "wizard.ts"), "--global", "--auto", "--no-refresh", "--include", "repo-alpha"],
+      { PATH: pathWithStubs(join(TMP, "bin")), REPO_CACHE_DIR, DEVENV_ROOT: devRoot },
+      "r",
+    );
+    expect(existsSync(calls), r.out).toBe(true);
+    const lines = readFileSync(calls, "utf8").trim().split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).not.toContain("--continue");
+    expect(lines[1]).toContain("--continue");
+    expect(r.out).toContain("Resuming repo-alpha from its update branch");
+    expect(r.status).toBe(0);
+  });
+
   it("cs-dependencies-update-wizard stub dispatches (entry-point contract)", () => {
     expect(existsSync(WIZARD)).toBe(true);
     expect(spawnSync("node", [WIZARD, "--version"]).status).toBe(0);

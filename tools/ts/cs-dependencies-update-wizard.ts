@@ -29,7 +29,7 @@ import { pipelinesRunList } from "../lib/providers/facade/pipelines.ts";
 import { repoSpecFor } from "../lib/providers/facade/urls.ts";
 import { mergedRunState, type MergedRunState, type RunRow } from "../lib/domain/cs/merged-run.ts";
 import { repoFilter } from "../lib/domain/cs/repo-filter.ts";
-import { attemptsMerged, levelWaitPurpose, mergeHandedToUser, mergedTip } from "../lib/domain/cs/merged-commit.ts";
+import { attemptsMerged, levelWaitPurpose, mergeHandedToUser, mergedTip, resumesPausedRepo } from "../lib/domain/cs/merged-commit.ts";
 import { csprojPackageReferences } from "../lib/domain/cs/csproj.ts";
 import { repoDefaultBranch } from "../lib/domain/cs/default-branch.ts";
 import { resolvePostUpdateScript } from "../lib/domain/cs/post-update.ts";
@@ -403,8 +403,9 @@ function countNonTestCsproj(dir: string): number {
   return count;
 }
 
-function runSingleRepoWizard(args: WizardArgs, repoDir: string): number {
+function runSingleRepoWizard(args: WizardArgs, repoDir: string, resume = false): number {
   const wizardArgs = ["--branch", UPDATE_BRANCH];
+  if (resume) wizardArgs.push("--continue");
   if (args.framework !== "") wizardArgs.push("--framework", args.framework);
   if (args.langVersion !== "") wizardArgs.push("--lang-version", args.langVersion);
   if (args.langDefault) wizardArgs.push("--lang-default");
@@ -658,7 +659,9 @@ async function main(): Promise<void> {
             skipRepo = true;
             break;
           }
-          wizardRc = runSingleRepoWizard(args, repoDir);
+          const resume = resumesPausedRepo(exitCodes);
+          if (resume) logInfo(`Resuming ${repo} from its update branch (--continue); your fixes are kept.`);
+          wizardRc = runSingleRepoWizard(args, repoDir, resume);
           exitCodes.push(wizardRc);
           if (wizardRc === 0 || wizardRc === 10) break;
           logError(`Retry failed for ${repo} (exit ${wizardRc})`);
