@@ -12,6 +12,7 @@ import {
   pipelinesRunArtifacts,
   pipelinesRunCancel,
   pipelinesRunDownload,
+  pipelinesRunLogs,
   pipelinesRunList,
   pipelinesRunRerun,
   pipelinesRunWatch,
@@ -244,8 +245,16 @@ describe("pipelinesWorkflowList", () => {
       },
     ]);
     const out = await pipelinesWorkflowList("widgets");
-    expect(out.split("\n")).toHaveLength(2);
+    expect(JSON.parse(out)).toHaveLength(2);
     expect(urls[0]).toContain("repositoryId=g1");
+  });
+
+  it("returns an empty JSON array when the repository has no definitions", async () => {
+    stubAzureFetch([
+      { method: "GET", url: REPO, respond: azureJson({ id: "g1" }) },
+      { method: "GET", url: /\/build\/definitions\?/, respond: azureJson({ value: [] }) },
+    ]);
+    expect(await pipelinesWorkflowList("widgets")).toBe("[]");
   });
 
   it("refuses a jq program it cannot run instead of ignoring it", async () => {
@@ -258,11 +267,13 @@ describe("pipelinesWorkflowList", () => {
 });
 
 describe("pipelinesRunArtifacts", () => {
-  it("reads the size from properties.artifactsize", async () => {
+  const ARTIFACTS_URL = `${BUILD}/builds/5/artifacts?api-version=7.1`;
+
+  it("reads the size from properties.artifactsize and returns one JSON array", async () => {
     stubAzureFetch([
       {
         method: "GET",
-        url: `${BUILD}/builds/5/artifacts?api-version=7.1`,
+        url: ARTIFACTS_URL,
         respond: azureJson({
           count: 2,
           value: [
@@ -272,8 +283,21 @@ describe("pipelinesRunArtifacts", () => {
         }),
       },
     ]);
-    const rows = (await pipelinesRunArtifacts("widgets", 5)).split("\n").map((l) => JSON.parse(l) as { size_in_bytes: number });
+    const rows = JSON.parse(await pipelinesRunArtifacts("widgets", 5)) as Array<{ size_in_bytes: number }>;
     expect(rows.map((r) => r.size_in_bytes)).toEqual([5023, 5023]);
+  });
+
+  it("returns a one-element array for a single artifact", async () => {
+    stubAzureFetch([
+      { method: "GET", url: ARTIFACTS_URL, respond: azureJson({ count: 1, value: [{ id: 1, name: "drop", resource: { downloadUrl: "u" } }] }) },
+    ]);
+    const rows = JSON.parse(await pipelinesRunArtifacts("widgets", 5)) as Array<{ name: string }>;
+    expect(rows.map((r) => r.name)).toEqual(["drop"]);
+  });
+
+  it("returns an empty JSON array for a run with no artifacts", async () => {
+    stubAzureFetch([{ method: "GET", url: ARTIFACTS_URL, respond: azureJson({ count: 0, value: [] }) }]);
+    expect(await pipelinesRunArtifacts("widgets", 5)).toBe("[]");
   });
 });
 
@@ -328,5 +352,52 @@ describe("pipelinesRunCancel", () => {
     const stub = stubAzureFetch([{ method: "PATCH", url: `${BUILD}/builds/5?api-version=7.1`, respond: azureJson({ id: 5 }) }]);
     await pipelinesRunCancel("widgets", 5);
     expect(stub.requests[0]?.body).toEqual({ status: "cancelling" });
+  });
+});
+
+describe("pipelinesRunLogs", () => {
+  const TIMELINE = `${BUILD}/builds/5/timeline?api-version=7.1`;
+  const log = (id: number) => `${BUILD}/builds/5/logs/${id}?api-version=7.1`;
+  const timeline = azureJson({
+    records: [
+      { id: "s2", name: "Build", type: "Task", order: 3, log: { id: 12 } },
+      { id: "s1", name: "Install .NET SDK", type: "Task", order: 2, log: { id: 11 } },
+      { id: "st", name: "Stage", type: "Stage", order: 1, log: null },
+    ],
+  });
+  const text = (body: string) => new Response(body, { status: 200, headers: { "content-type": "text/plain" } });
+
+  it("returns every step's log in order, each headed by its step name", async () => {
+    stubAzureFetch([
+      { method: "GET", url: TIMELINE, respond: timeline },
+      { method: "GET", url: log(11), respond: text("Installing SDK 11.0.100\n") },
+      { method: "GET", url: log(12), respond: text("Build succeeded\n") },
+    ]);
+    expect(await pipelinesRunLogs("widgets", 5)).toBe(
+      "===== Install .NET SDK =====\nInstalling SDK 11.0.100\n\n===== Build =====\nBuild succeeded\n",
+    );
+  });
+
+  it("returns only the named step, matched case-insensitively", async () => {
+    const stub = stubAzureFetch([
+      { method: "GET", url: TIMELINE, respond: timeline },
+      { method: "GET", url: log(11), respond: text("Installing SDK 11.0.100\n") },
+    ]);
+    const out = await pipelinesRunLogs("widgets", 5, { step: "install .net sdk" });
+    expect(out).toContain("Installing SDK 11.0.100");
+    expect(out).not.toContain("Build succeeded");
+    expect(stub.unmatched()).toEqual([]);
+  });
+
+  it("names the steps that have logs when the step is unknown", async () => {
+    stubAzureFetch([{ method: "GET", url: TIMELINE, respond: timeline }]);
+    await expect(pipelinesRunLogs("widgets", 5, { step: "Deploy" })).rejects.toThrow(
+      /step 'Deploy' not found on run 5 \(steps with logs: Install \.NET SDK, Build\)/,
+    );
+  });
+
+  it("refuses a run whose timeline has no logs", async () => {
+    stubAzureFetch([{ method: "GET", url: TIMELINE, respond: azureJson({ records: [] }) }]);
+    await expect(pipelinesRunLogs("widgets", 5)).rejects.toThrow(/run 5 has no logs/);
   });
 });

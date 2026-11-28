@@ -73,6 +73,13 @@ What skills and wrappers must know when the active provider is azure:
   items, not a repo's. Per-repo scoping via area paths is a provisioning
   convention (the setup script creates the paths) that the verbs do not
   yet apply.
+- **Package queries search Artifacts feeds.** `artifacts-list` covers every
+  feed of the configured project and organization, or only the one named by
+  the optional `[provider] azure_artifacts_feed`; it serves `nuget`, `npm`
+  and `maven` and rejects other package types by name. The package name is
+  also sent to the feed as a name query (an optimization the other provider
+  does not use). A feed call refused with 401/403 means the stored PAT lacks
+  the Packaging (Read) scope.
 - **Labels are `System.Tags`** (semicolon-separated flat strings); read
   projections emit gh-shaped `[{name}]` objects.
 - **PR merge is one completion PATCH after a GET** (status=completed

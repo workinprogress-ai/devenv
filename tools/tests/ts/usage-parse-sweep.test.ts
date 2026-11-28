@@ -93,6 +93,7 @@ const TOOLS = [
   "kube-intercept",
   // cluster E — pipelines / project
   "pipelines-artifacts",
+  "pipelines-logs",
   "pipelines-list",
   "pipelines-status",
   "project-add-issue",

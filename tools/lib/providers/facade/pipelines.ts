@@ -222,3 +222,16 @@ export async function pipelinesRunDownload(
   }
   return m.gh!.pipelinesRunDownload(spec, runId, flags);
 }
+
+/** Read a run's logs as plain text, optionally only one step's. */
+export async function pipelinesRunLogs(
+  repo: string,
+  runId: string,
+  opts: { step?: string } = {},
+): Promise<string> {
+  const m = await load();
+  if (m.provider === "azure") {
+    return m.az!.pipelinesRunLogs(repo, Number.parseInt(runId, 10), opts);
+  }
+  return m.gh!.pipelinesRunLogs(repo, runId, opts);
+}

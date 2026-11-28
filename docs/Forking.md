@@ -116,6 +116,9 @@ The Azure provider now ships in-tree — no copying GitHub modules required:
     API-wise and is the fallback when the name contains spaces/special
     characters. The value must agree with your git remotes (`_git` URLs) and
     drives web links.
+  - `azure_artifacts_feed` (optional) — the Artifacts feed that package
+    queries (`artifacts-list`) search, by name or id. Unset, every feed of
+    the project and the organization is searched.
 
 Issue templates use `[issues] template_dir` (default
 `.github/ISSUE_TEMPLATE`). Relative values resolve from the target repository

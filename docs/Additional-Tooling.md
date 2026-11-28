@@ -789,7 +789,7 @@ Tools for listing, filtering, and managing artifacts in GitHub Packages.
 
 ### `artifacts-list`
 
-Lists and filters artifacts (packages) from the provider package registry (GitHub Packages today) with support for multiple package types and filtering by name.
+Lists and filters artifacts (packages) from the provider package registry (GitHub Packages, or the Azure Artifacts feeds of the configured project and organization) with support for multiple package types and filtering by name.
 
 **Usage:**
 
@@ -812,7 +812,7 @@ artifacts-list --owner <org> [--type <type>] [--name <pattern>] [--format <forma
   - `gradle` (Gradle packages)
   - `cargo` (Rust packages)
 - `--name <pattern>`: Filter packages by name pattern (partial match, case-insensitive)
-- `--repo <repo>`: Query a specific repository (optional)
+- `--repo <repo>`: Query a specific repository (optional; refused by name on providers that cannot scope by repository)
 
 **Output Options:**
 
@@ -840,6 +840,9 @@ artifacts-list --owner myorg --format json | jq '.[] | .name'
 
 # List docker images sorted by creation date
 artifacts-list --owner myorg --type docker --sort created_at
+
+# Confirm a published NuGet package and its versions (any provider)
+artifacts-list --type nuget --name OMSNIC.Lib.Util --versions
 ```
 
 **Features:**
@@ -848,6 +851,8 @@ artifacts-list --owner myorg --type docker --sort created_at
 - Flexible filtering by type and name patterns
 - Outputs formatted table with package information (name, type, URL)
 - Can list versions for a specific package with publish dates
+- Package types use the GitHub vocabulary on every provider; a provider that does not serve a type reports that by name. Azure Artifacts serves `nuget`, `npm` and `maven`, searches every feed of the configured project and organization (or only the feed named by the optional `azure_artifacts_feed` key under `[provider]`), and reports a feed call refused with 401/403 as a missing Packaging (Read) scope
+- Name filtering happens in the tool; some providers also receive the name as an optional server-side hint and may ignore it
 - JSON output for scripting and automation
 - Case-insensitive name filtering for ease of use
 
@@ -1160,6 +1165,42 @@ pipelines-artifacts 12345678 --repo <org>/my-service \
 
 - List mode uses the provider REST API (`/actions/runs/{id}/artifacts` on GitHub) to show metadata without downloading.
 - When downloading all artifacts (no `--name`), warns if total size exceeds 100 MiB.
+
+---
+
+### `pipelines-logs`
+
+Prints the step logs of a pipeline run, finished or in progress, as plain text. Each step's log is headed by the step's name.
+
+**Usage:**
+
+```bash
+pipelines-logs RUN_ID --repo OWNER/REPO [OPTIONS]
+```
+
+**Arguments:**
+
+- `RUN_ID`: Run ID
+
+**Options:**
+
+- `--repo OWNER/REPO`: Repository containing the run (required)
+- `--step NAME`: Print only the log of the step with this name (case-insensitive exact match). A name that matches nothing is an error that lists the steps that have logs.
+
+**Examples:**
+
+```bash
+# All step logs of a finished run
+pipelines-logs 12345678 --repo <org>/my-service
+
+# Confirm which SDK a setup step installed
+pipelines-logs 12345678 --repo <org>/my-service --step "Install .NET SDK"
+```
+
+**Notes:**
+
+- The output format depends on the provider: Azure prints each step's log under a `===== STEP =====` header (including the job-level logs), and GitHub prints `gh run view --log` lines (`job`, `step`, text, tab-separated). Read it as text; do not parse it across providers.
+- Use `pipelines-watch` to wait for a run to finish; `pipelines-logs` reads what the run has already written.
 
 ---
 

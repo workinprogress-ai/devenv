@@ -34,7 +34,7 @@ Options:
     --owner OWNER               Package owner (default: configured org)
     --type TYPE                 Package type: npm, nuget, docker, maven, ...
     --name NAME                 Filter by package name (case-insensitive contains)
-    --repo REPO                 Filter to one repository (name or path)
+    --repo REPO                 Filter to one repository (name or path; not supported on every provider)
     --sort FIELD                Sort field: name, type, package_type, created_at, updated_at
     --versions                  List versions of --type/--name package
     --format FORMAT             table (default) or json

@@ -361,7 +361,7 @@ export async function pipelinesWorkflowList(
   if (opts.jq !== undefined) {
     return renderRowsJq(rows, opts.jq);
   }
-  return rows.map((r2) => JSON.stringify(r2)).join("\n");
+  return JSON.stringify(rows);
 }
 
 function renderRowsJq(rows: Array<Record<string, unknown>>, program: string): string {
@@ -428,7 +428,8 @@ function renderRowsGeneric(
     });
   }
   if (opts.jq !== undefined) return renderRowsJq(out, opts.jq);
-  return out.map((r) => JSON.stringify(r)).join("\n");
+  // The seam's list shape is one JSON array as text; an empty list is "[]".
+  return JSON.stringify(out);
 }
 
 export interface PipelinesWorkflowRunOptions {
@@ -558,4 +559,48 @@ export async function pipelinesRunDownload(
   for (const { name, url } of picked) {
     await azureHttpDownload(url, join(destDir, `${name}.zip`));
   }
+}
+
+export interface PipelinesRunLogsOptions {
+  /** Only the step with this name (case-insensitive exact match). */
+  step?: string;
+}
+
+interface TimelineRecord {
+  id?: string;
+  name?: string;
+  type?: string;
+  order?: number;
+  log?: { id?: number } | null;
+}
+
+/** Read the logs of a run (finished or not) as plain text. Step names come
+ * from the build timeline, so each log is headed by the name of the step that
+ * wrote it; with `step` only that step's log is returned, and a name that
+ * matches nothing is an error listing the steps that have logs. */
+export async function pipelinesRunLogs(
+  repo: string,
+  runId: number,
+  opts: PipelinesRunLogsOptions = {},
+): Promise<string> {
+  const root = buildRoot(repo);
+  const timeline = await azureHttp<{ records?: TimelineRecord[] }>("GET", `${root}/builds/${runId}/timeline`);
+  const withLogs = (timeline.records ?? [])
+    .filter((rec) => rec.log?.id !== undefined && (rec.name ?? "") !== "")
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  if (withLogs.length === 0) {
+    throw new ProviderError(`run ${runId} has no logs`);
+  }
+  const wanted = opts.step !== undefined && opts.step !== "" ? opts.step.toLowerCase() : undefined;
+  const picked = wanted === undefined ? withLogs : withLogs.filter((rec) => (rec.name ?? "").toLowerCase() === wanted);
+  if (picked.length === 0) {
+    const names = [...new Set(withLogs.map((rec) => rec.name ?? ""))].join(", ");
+    throw new ProviderError(`step '${opts.step ?? ""}' not found on run ${runId} (steps with logs: ${names})`);
+  }
+  const parts: string[] = [];
+  for (const rec of picked) {
+    const text = await azureHttp<string>("GET", `${root}/builds/${runId}/logs/${String(rec.log?.id)}`, { text: true });
+    parts.push(`===== ${rec.name ?? ""} =====\n${text.replace(/\s+$/, "")}\n`);
+  }
+  return parts.join("\n");
 }

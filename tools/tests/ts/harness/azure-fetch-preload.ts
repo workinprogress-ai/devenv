@@ -37,6 +37,10 @@ globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     (r) => (r.method === undefined || r.method === method) && new RegExp(r.url).test(String(url)),
   );
   if (route !== undefined) {
+    // A string body is served as plain text (build logs); anything else as JSON.
+    if (typeof route.body === "string") {
+      return new Response(route.body, { status: route.status ?? 200, headers: { "content-type": "text/plain" } });
+    }
     return new Response(route.body === undefined ? null : JSON.stringify(route.body), {
       status: route.status ?? 200,
       headers: { "content-type": "application/json" },

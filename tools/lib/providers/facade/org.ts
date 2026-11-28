@@ -158,21 +158,26 @@ export async function orgReleasesList(repo: string, flags: string[] = []): Promi
   return m.gh!.orgReleasesList(repo, flags);
 }
 
-/** Query GitHub Packages for an owner (or one of its repositories); the
- * result is gh's own, failure included. GitHub-native: Azure Artifacts feeds
- * are a different surface. */
+/** Query packages for an owner (or one of its repositories). GitHub: gh's own
+ * result for GitHub Packages, failure included. Azure: the packages of the
+ * configured Artifacts feeds, as the same `{stdout, stderr, status}` envelope.
+ * `name` is an optional hint some providers pass to the server as a name
+ * query; the caller still filters, so a provider may ignore it. */
 export async function orgPackagesQuery(
   owner: string,
-  opts: { type?: string; repo?: string; paginate?: boolean } = {},
+  opts: { type?: string; repo?: string; paginate?: boolean; name?: string } = {},
 ): Promise<GhResult> {
   const m = await load();
   if (m.provider === "azure") {
-    return azureUnsupported("org_packages_query");
+    return m.az!.orgPackagesQuery({
+      ...(opts.type !== undefined ? { type: opts.type } : {}),
+      ...(opts.name !== undefined ? { name: opts.name } : {}),
+    });
   }
   return m.gh!.orgPackagesQuery(owner, opts);
 }
 
-/** Query the versions of one GitHub package (GitHub-native, as above). */
+/** Query the versions of one package (newest first). */
 export async function orgPackageVersionsQuery(
   owner: string,
   type: string,
@@ -181,7 +186,7 @@ export async function orgPackageVersionsQuery(
 ): Promise<GhResult> {
   const m = await load();
   if (m.provider === "azure") {
-    return azureUnsupported("org_package_versions_query");
+    return m.az!.orgPackageVersionsQuery(type, name);
   }
   return m.gh!.orgPackageVersionsQuery(owner, type, name, opts);
 }

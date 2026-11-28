@@ -438,6 +438,7 @@ export async function queryPackages(opts: QueryPackagesOptions = {}): Promise<st
     paginate: true,
     ...(type !== undefined ? { type } : {}),
     ...(repo !== undefined ? { repo } : {}),
+    ...(opts.name !== undefined && opts.name !== "" ? { name: opts.name } : {}),
   });
   let items = packageItems(r, "packages");
   if (opts.name !== undefined && opts.name !== "") {

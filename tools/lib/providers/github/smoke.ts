@@ -900,6 +900,7 @@ async function pipelinesDispatch(): Promise<void> {
   await check("pipelines_run_view reads the run", "provider_pipelines_run_view", () => fPipelines.pipelinesRunView(spec, runId, { json: "status,conclusion" }), (t) => (typeof parse<{ status?: string }>(t).status === "string" ? true : t.slice(0, 120)));
   await check("pipelines_run_watch follows the run to success", "provider_pipelines_run_watch", () => fPipelines.pipelinesRunWatch(spec, runId, ["--exit-status"]), (r) => (r.status === 0 ? true : `exit ${r.status}: ${r.stderr.trim().split("\n")[0] ?? ""}`));
   await check("pipelines_run_artifacts lists the artifact", "provider_pipelines_run_artifacts", () => fPipelines.pipelinesRunArtifacts(spec, runId), (t) => (t.includes("smoke-artifact") ? true : t.slice(0, 120)));
+  await check("pipelines_run_logs reads the run's log", "provider_pipelines_run_logs", () => fPipelines.pipelinesRunLogs(spec, runId), (t) => (t.trim() !== "" ? true : "the run's log was empty"));
   const dest = join(state.tmp, "artifact");
   await check("pipelines_run_download fetches the artifact", "provider_pipelines_run_download", () => fPipelines.pipelinesRunDownload(spec, runId, ["--name", "smoke-artifact", "--dir", dest]), (r) => {
     if (r.status !== 0) return r.stderr.slice(0, 160);
@@ -1007,7 +1008,7 @@ const SCENARIOS: Scenario[] = [
   { id: "open a pull request", family: "prs", run: prsOpen, verbs: ["provider_prs_create", "provider_prs_list", "provider_prs_view", "provider_prs_diff"] },
   { id: "review threads", family: "prs", run: prsThreads, verbs: ["provider_prs_comment", "provider_prs_thread_create", "provider_prs_threads_page", "provider_prs_thread_reply", "provider_prs_thread_resolve"] },
   { id: "merge and state filters", family: "prs", run: prsMergeAndStates, verbs: ["provider_prs_merge"] },
-  { id: "dispatch and observe a run", family: "pipelines", run: pipelinesDispatch, verbs: ["provider_pipelines_workflow_list", "provider_pipelines_workflow_run", "provider_pipelines_run_list", "provider_pipelines_run_view", "provider_pipelines_run_watch", "provider_pipelines_run_artifacts", "provider_pipelines_run_download"] },
+  { id: "dispatch and observe a run", family: "pipelines", run: pipelinesDispatch, verbs: ["provider_pipelines_workflow_list", "provider_pipelines_workflow_run", "provider_pipelines_run_list", "provider_pipelines_run_view", "provider_pipelines_run_watch", "provider_pipelines_run_artifacts", "provider_pipelines_run_logs", "provider_pipelines_run_download"] },
   { id: "rerun and cancel", family: "pipelines", run: pipelinesRerunCancel, verbs: ["provider_pipelines_run_rerun", "provider_pipelines_run_cancel"] },
   { id: "rulesets", family: "org", run: orgRulesets, verbs: ["provider_org_ruleset_create", "provider_org_rulesets_list", "provider_org_ruleset_get", "provider_org_ruleset_update"] },
   { id: "releases and packages", family: "org", run: orgReleasesAndPackages, verbs: ["provider_org_releases_list", "provider_org_packages_query", "provider_org_package_versions_query"] },

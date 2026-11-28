@@ -5,7 +5,7 @@
 
 import { ProviderError, providerDeclareCapability } from "../provider-core.ts";
 import { azureHttp, azureHttpPaginate } from "./http.ts";
-import { azureOrgProject, azureUri } from "./urls.ts";
+import { azureArtifactsFeedGet, azureOrgProject, azureUri } from "./urls.ts";
 import { applyListFlags } from "./repos.ts";
 
 providerDeclareCapability("rulesets");
@@ -186,6 +186,156 @@ export async function orgFeedsList(): Promise<string> {
     feeds.push(f);
   }
   return JSON.stringify(feeds.map((f) => ({ name: f.name ?? "", id: f.id ?? "", url: f.url ?? "" })));
+}
+
+/** Result shape the facade hands the domain layer: a status, and the records
+ * as one JSON array on stdout (the same envelope the GitHub verbs return). */
+export interface PackagesQueryResult {
+  stdout: string;
+  stderr: string;
+  status: number;
+}
+
+/** Artifacts protocol names by the package-type ids of the provider-neutral
+ * vocabulary (the GitHub ids the domain normalizes to); a type Azure Artifacts
+ * does not serve is absent. */
+const FEED_PROTOCOLS: Record<string, string> = {
+  nuget: "NuGet",
+  npm: "Npm",
+  maven: "Maven",
+};
+
+const FEEDS_PREVIEW_VERSION = "api-version=7.1-preview.1";
+
+interface FeedRecord {
+  name: string;
+  id: string;
+  url: string;
+}
+
+interface FeedPackage {
+  id?: string;
+  name?: string;
+  normalizedName?: string;
+  protocolType?: string;
+  url?: string;
+  versions?: Array<{ version?: string; normalizedVersion?: string; publishDate?: string; isLatest?: boolean }>;
+}
+
+/** The feeds a query covers: the project's and the organization's own (each
+ * once), narrowed to the configured default feed (`azure_artifacts_feed`, a
+ * name or id, case-insensitive) when one is set. */
+async function queryFeeds(): Promise<FeedRecord[]> {
+  const feeds = JSON.parse(await orgFeedsList()) as FeedRecord[];
+  const feed = azureArtifactsFeedGet();
+  if (feed === "") return feeds;
+  const wanted = feed.toLowerCase();
+  const picked = feeds.filter((f) => f.name.toLowerCase() === wanted || f.id.toLowerCase() === wanted);
+  if (picked.length === 0) {
+    throw new ProviderError(
+      `configured azure_artifacts_feed '${feed}' not found (feeds available: ${feeds.map((f) => f.name).join(", ") || "none"})`,
+    );
+  }
+  return picked;
+}
+
+/** The protocol filter for a package type id; an unknown one is an error. */
+function feedProtocol(type: string | undefined): string | undefined {
+  if (type === undefined || type === "") return undefined;
+  const protocol = FEED_PROTOCOLS[type.toLowerCase()];
+  if (protocol === undefined) {
+    throw new ProviderError(
+      `package type '${type}' is not served by Azure Artifacts (served: ${Object.keys(FEED_PROTOCOLS).join(", ")})`,
+    );
+  }
+  return protocol;
+}
+
+/** One feed's packages (every page), with every version of each. A refused
+ * call is a permission error naming the scope, never an empty list. */
+async function feedPackages(feed: FeedRecord, protocol: string | undefined, nameQuery: string | undefined): Promise<FeedPackage[]> {
+  const { org } = azureOrgProject();
+  const base = feed.url !== "" ? feed.url : `https://feeds.dev.azure.com/${azureUri(org)}/_apis/packaging/Feeds/${azureUri(feed.id)}`;
+  const pageSize = 100;
+  const all: FeedPackage[] = [];
+  for (let skip = 0; ; skip += pageSize) {
+    let query = `${base}/packages?${FEEDS_PREVIEW_VERSION}&includeAllVersions=true&$top=${pageSize}&$skip=${skip}`;
+    if (protocol !== undefined) query += `&protocolType=${azureUri(protocol)}`;
+    if (nameQuery !== undefined && nameQuery !== "") query += `&packageNameQuery=${azureUri(nameQuery)}`;
+    let page: { value?: FeedPackage[] };
+    try {
+      page = await azureHttp<{ value?: FeedPackage[] }>("GET", query);
+    } catch (err) {
+      if (err instanceof ProviderError && (err.status === 401 || err.status === 403)) {
+        throw new ProviderError(
+          `access to feed '${feed.name}' was refused (HTTP ${err.status}): the stored credential needs the Packaging (Read) scope`,
+          err.status,
+        );
+      }
+      throw err;
+    }
+    const rows = page.value ?? [];
+    all.push(...rows);
+    if (rows.length < pageSize) return all;
+  }
+}
+
+/** Query the packages of the project's and the organization's Artifacts feeds
+ * (or only the configured default feed), mapped onto the GitHub package
+ * record: `name`, `package_type`, `url`, the latest `version` and
+ * `updated_at`. `opts.name` is passed to the feed as a name query; the caller
+ * narrows it further. */
+export async function orgPackagesQuery(
+  opts: { type?: string; name?: string } = {},
+): Promise<PackagesQueryResult> {
+  const protocol = feedProtocol(opts.type);
+  const records: Array<Record<string, unknown>> = [];
+  for (const feed of await queryFeeds()) {
+    for (const p of await feedPackages(feed, protocol, opts.name)) {
+      const latest = (p.versions ?? []).find((v) => v.isLatest === true) ?? (p.versions ?? [])[0];
+      records.push({
+        name: p.name ?? p.normalizedName ?? "",
+        package_type: (p.protocolType ?? "").toLowerCase(),
+        url: p.url ?? "",
+        version: latest?.version ?? "",
+        updated_at: latest?.publishDate ?? "",
+      });
+    }
+  }
+  return { stdout: JSON.stringify(records), stderr: "", status: 0 };
+}
+
+/** Query the versions of one package (matched by exact name, case-insensitive)
+ * across the searched feeds, newest first, mapped onto the GitHub version
+ * record (`version`, `created_at`, `updated_at`). A package no feed holds is
+ * an error. */
+export async function orgPackageVersionsQuery(
+  type: string,
+  name: string,
+): Promise<PackagesQueryResult> {
+  const protocol = feedProtocol(type);
+  const wanted = name.toLowerCase();
+  const records: Array<Record<string, unknown>> = [];
+  const searched: string[] = [];
+  for (const feed of await queryFeeds()) {
+    searched.push(feed.name);
+    for (const p of await feedPackages(feed, protocol, name)) {
+      if ((p.name ?? "").toLowerCase() !== wanted && (p.normalizedName ?? "").toLowerCase() !== wanted) continue;
+      for (const v of p.versions ?? []) {
+        records.push({
+          version: v.version ?? v.normalizedVersion ?? "",
+          created_at: v.publishDate ?? "",
+          updated_at: v.publishDate ?? "",
+        });
+      }
+    }
+  }
+  if (records.length === 0) {
+    throw new ProviderError(`package '${name}' (${type}) not found (feeds searched: ${searched.join(", ") || "none"})`);
+  }
+  // Newest first, as the GitHub versions answer is.
+  records.sort((a, b) => String(b["created_at"]).localeCompare(String(a["created_at"])));
+  return { stdout: JSON.stringify(records), stderr: "", status: 0 };
 }
 
 /** List org packages: azure Artifacts is feed-centric — org packages surface

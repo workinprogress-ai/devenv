@@ -44,6 +44,13 @@ export function azureProjectGet(): string {
   return process.env.AZURE_DEVOPS_PROJECT || configValue("azure_project");
 }
 
+/** The optional default Artifacts feed: [provider] azure_artifacts_feed (a feed
+ * name or id). Empty when unset, meaning every feed of the project and the
+ * organization. */
+export function azureArtifactsFeedGet(): string {
+  return configValue("azure_artifacts_feed");
+}
+
 /** Resolve org/project for API paths. Order: explicit env overrides
  * (session-scoped) → devenv.config [provider] azure_org/azure_project.
  * Throws when either is unresolved (repos.bash azure_org_project parity). */

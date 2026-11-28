@@ -531,11 +531,113 @@ describe("facade org package verbs", () => {
     expect(calls()[1]).toBe("gh api /repos/acme/lib/packages/npm/left-pad/versions");
   });
 
-  it("azure: both are named unsupported errors", async () => {
-    useConfig("azure");
-    const facade = await import("../../lib/providers/facade/org.ts");
-    await expect(facade.orgPackagesQuery("acme", {})).rejects.toThrow(/not supported on provider 'azure'/);
-    await expect(facade.orgPackageVersionsQuery("acme", "npm", "x", {})).rejects.toThrow(/not supported on provider 'azure'/);
+  describe("azure", () => {
+    const FEEDS = "https://feeds.dev.azure.com/test-org/_apis/packaging/feeds?api-version=7.1-preview.1";
+    const PROJECT_FEEDS = "https://feeds.dev.azure.com/test-org/test-project/_apis/packaging/feeds?api-version=7.1-preview.1";
+    const ORG_FEED_URL = "https://feeds.dev.azure.com/test-org/_apis/packaging/Feeds/f-org";
+    const PROJECT_FEED_URL = "https://feeds.dev.azure.com/test-org/test-project/_apis/packaging/Feeds/f-proj";
+    const util = {
+      id: "p1",
+      name: "OMSNIC.Lib.Util",
+      normalizedName: "omsnic.lib.util",
+      protocolType: "NuGet",
+      url: "https://feeds.dev.azure.com/test-org/_apis/Packaging/Feeds/f-org/Packages/p1",
+      versions: [
+        { version: "1.9.0", publishDate: "2026-10-01T00:00:00Z", isLatest: false },
+        { version: "2.0.0", publishDate: "2026-11-27T18:14:20Z", isLatest: true },
+      ],
+    };
+
+    /** Org feed f-org (holds the package) and project feed f-proj (empty). */
+    function stubFeeds(handler: (req: Req) => Response | undefined = () => undefined): Req[] {
+      return stubFetch((req) => {
+        const custom = handler(req);
+        if (custom !== undefined) return custom;
+        if (req.url === FEEDS) return json({ value: [{ name: "org-feed", id: "f-org", url: ORG_FEED_URL }] });
+        if (req.url === PROJECT_FEEDS) return json({ value: [{ name: "proj-feed", id: "f-proj", url: PROJECT_FEED_URL }] });
+        if (req.url.startsWith(`${ORG_FEED_URL}/packages?`)) return json({ value: [util] });
+        if (req.url.startsWith(`${PROJECT_FEED_URL}/packages?`)) return json({ value: [] });
+        return undefined;
+      });
+    }
+
+    it("lists the packages of the project's and the organization's feeds as GitHub-shaped records", async () => {
+      useConfig("azure");
+      const calls = stubFeeds();
+      const facade = await import("../../lib/providers/facade/org.ts");
+      const r = await facade.orgPackagesQuery("ignored-owner", { type: "nuget", name: "OMSNIC.Lib.Util" });
+      expect(r.status).toBe(0);
+      expect(JSON.parse(r.stdout)).toEqual([
+        {
+          name: "OMSNIC.Lib.Util",
+          package_type: "nuget",
+          url: util.url,
+          version: "2.0.0",
+          updated_at: "2026-11-27T18:14:20Z",
+        },
+      ]);
+      const packageCalls = calls.filter((c) => c.url.includes("/packages?"));
+      expect(packageCalls).toHaveLength(2);
+      expect(packageCalls[0]?.url).toContain("protocolType=NuGet");
+      expect(packageCalls[0]?.url).toContain("packageNameQuery=OMSNIC.Lib.Util");
+    });
+
+    /** Set the optional default feed in the fixture's devenv.config. */
+    function configureFeed(root: string, feed: string): void {
+      const file = join(root, "devenv.config");
+      writeFileSync(file, readFileSync(file, "utf8").replace("azure_project=proj\n", `azure_project=proj\nazure_artifacts_feed=${feed}\n`));
+    }
+
+    it("a configured azure_artifacts_feed searches only that feed", async () => {
+      const root = useConfig("azure");
+      configureFeed(root, "PROJ-FEED");
+      const calls = stubFeeds();
+      const facade = await import("../../lib/providers/facade/org.ts");
+      const r = await facade.orgPackagesQuery("o", {});
+      expect(JSON.parse(r.stdout)).toEqual([]);
+      expect(calls.filter((c) => c.url.includes("/packages?")).map((c) => c.url.split("/packages?")[0])).toEqual([PROJECT_FEED_URL]);
+    });
+
+    it("a configured feed that does not exist names the feeds available", async () => {
+      const root = useConfig("azure");
+      configureFeed(root, "nope");
+      stubFeeds();
+      const facade = await import("../../lib/providers/facade/org.ts");
+      await expect(facade.orgPackagesQuery("o", {})).rejects.toThrow(
+        /configured azure_artifacts_feed 'nope' not found \(feeds available: org-feed, proj-feed\)/,
+      );
+    });
+
+    it("a package type Azure Artifacts does not serve is a named error", async () => {
+      useConfig("azure");
+      stubFeeds();
+      const facade = await import("../../lib/providers/facade/org.ts");
+      await expect(facade.orgPackagesQuery("o", { type: "docker" })).rejects.toThrow(/'docker' is not served by Azure Artifacts \(served: nuget, npm, maven\)/);
+    });
+
+    it("versions come newest first, matched on the exact package name", async () => {
+      useConfig("azure");
+      stubFeeds();
+      const facade = await import("../../lib/providers/facade/org.ts");
+      const r = await facade.orgPackageVersionsQuery("o", "nuget", "omsnic.lib.util");
+      expect((JSON.parse(r.stdout) as Array<{ version: string }>).map((v) => v.version)).toEqual(["2.0.0", "1.9.0"]);
+    });
+
+    it("versions of a package no feed holds are an error naming the feeds searched", async () => {
+      useConfig("azure");
+      stubFeeds();
+      const facade = await import("../../lib/providers/facade/org.ts");
+      await expect(facade.orgPackageVersionsQuery("o", "nuget", "Missing.Pkg")).rejects.toThrow(
+        /package 'Missing\.Pkg' \(nuget\) not found \(feeds searched: org-feed, proj-feed\)/,
+      );
+    });
+
+    it("a refused feed call is a permission error naming the Packaging scope, never an empty list", async () => {
+      useConfig("azure");
+      stubFeeds((req) => (req.url.startsWith(`${ORG_FEED_URL}/packages?`) ? json({ message: "no" }, 403) : undefined));
+      const facade = await import("../../lib/providers/facade/org.ts");
+      await expect(facade.orgPackagesQuery("o", {})).rejects.toThrow(/feed 'org-feed' was refused \(HTTP 403\).*Packaging \(Read\) scope/);
+    });
   });
 });
 

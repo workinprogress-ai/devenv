@@ -193,3 +193,26 @@ function renameJsonKeys(raw: string, inverse: Record<string, string>): string {
   };
   return JSON.stringify(ren(parsed));
 }
+
+/** Read the logs of a run as plain text (`gh run view --log`). Each line gh
+ * prints is `job<TAB>step<TAB>text`; with `step` only the lines of the step
+ * with that name (case-insensitive) are returned, and a name that matches
+ * nothing is an error listing the steps seen. */
+export async function pipelinesRunLogs(
+  repo: string,
+  runId: string,
+  opts: { step?: string } = {},
+): Promise<string> {
+  const r = await ghApi(["run", "view", runId, "--log", ...repoArgs(repo)], { tolerateFailure: true });
+  if (r.status !== 0) throw new Error(`pipelinesRunLogs failed for '${repo}' ${runId}: ${r.stderr.trim()}`);
+  if (opts.step === undefined || opts.step === "") return r.stdout;
+  const wanted = opts.step.toLowerCase();
+  const lines = r.stdout.split("\n");
+  const stepOf = (line: string): string => line.split("\t")[1] ?? "";
+  const kept = lines.filter((line) => stepOf(line).toLowerCase() === wanted);
+  if (kept.length === 0) {
+    const names = [...new Set(lines.map(stepOf).filter((n) => n !== ""))].join(", ");
+    throw new Error(`step '${opts.step}' not found on run ${runId} (steps with logs: ${names})`);
+  }
+  return kept.join("\n") + "\n";
+}

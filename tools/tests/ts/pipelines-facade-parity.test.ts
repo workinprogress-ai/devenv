@@ -190,3 +190,49 @@ describe("pipelinesWorkflowList on azure", () => {
     await expect(facade.pipelinesWorkflowList("org/proj/repo", ["--all"])).rejects.toThrow(/--all/);
   });
 });
+
+describe("pipelinesRunLogs", () => {
+  it("azure: reads the timeline and each step's log through the build API", async () => {
+    const facade = await useProvider("azure");
+    const urls: string[] = [];
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      urls.push(url);
+      if (url.includes("/timeline")) {
+        return new Response(JSON.stringify({ records: [{ name: "Build", order: 1, log: { id: 4 } }] }), { status: 200 });
+      }
+      return new Response("compiled\n", { status: 200 });
+    }) as typeof fetch;
+    const out = await facade.pipelinesRunLogs("proj/repo", "7");
+    expect(out).toBe("===== Build =====\ncompiled\n");
+    expect(urls.some((u) => u.includes("/builds/7/logs/4"))).toBe(true);
+  });
+
+  const GH_LOG = [
+    "#!/usr/bin/env bash",
+    'if [ "$1" = "auth" ] && [ "$2" = "status" ]; then exit 0; fi',
+    `printf 'build\\tSet up job\\t2026-01-01T00:00:00Z start\\nbuild\\tUse dotnet\\t2026-01-01T00:00:01Z SDK 11.0.100\\n'`,
+    "",
+  ].join("\n");
+
+  it("github: --step keeps only that step's lines", async () => {
+    const facade = await useProvider("github");
+    const bin = tmpDir("pipefacade-bin");
+    dirs.push(bin);
+    stubGh(bin, GH_LOG);
+    process.env.PATH = pathWithStubs(bin);
+    const out = await facade.pipelinesRunLogs("o/r", "987", { step: "use dotnet" });
+    expect(out).toBe("build\tUse dotnet\t2026-01-01T00:00:01Z SDK 11.0.100\n");
+  });
+
+  it("github: an unknown step names the steps seen", async () => {
+    const facade = await useProvider("github");
+    const bin = tmpDir("pipefacade-bin");
+    dirs.push(bin);
+    stubGh(bin, GH_LOG);
+    process.env.PATH = pathWithStubs(bin);
+    await expect(facade.pipelinesRunLogs("o/r", "987", { step: "Deploy" })).rejects.toThrow(
+      /step 'Deploy' not found on run 987 \(steps with logs: Set up job, Use dotnet\)/,
+    );
+  });
+});

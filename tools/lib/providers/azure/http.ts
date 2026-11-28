@@ -124,6 +124,9 @@ export interface AzureHttpOptions {
    * "idempotent" flag. A POST/PATCH that may have taken effect is never
    * re-sent without this. */
   idempotent?: boolean;
+  /** Return a 2xx body as the raw text instead of parsing it as JSON (build
+   * logs are plain text). The result type is then string. */
+  text?: boolean;
 }
 
 /** The `{body, headers}` envelope `azureHttp` returns when callers need the
@@ -185,6 +188,13 @@ export async function azureHttp<T = unknown>(
     }
     if (r.status === 203 || r.status === 401) authError(r.status);
     if (r.status >= 200 && r.status < 300) {
+      if (opts.text === true && !wantHeaders) {
+        // A sign-in page served as a 200 is an auth failure, not log text.
+        if (/^\s*</.test(r.body) && /sign in|_signin|login\.microsoftonline/i.test(r.body)) {
+          authError(r.status);
+        }
+        return r.body as T;
+      }
       if (r.body.trim() !== "") {
         let parsedBody: unknown;
         try {

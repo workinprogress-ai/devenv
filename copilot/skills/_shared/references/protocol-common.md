@@ -1183,6 +1183,16 @@ pipelines-artifacts RUN_ID --repo OWNER/REPO [--download [--name NAME] [--dir DI
 
 Key flags: `--repo OWNER/REPO` (required), `--download` (download instead of list; `--name`/`--dir` qualify it).
 
+### pipelines-logs
+
+Read the step logs of a run (finished or in progress) as plain text.
+
+```
+pipelines-logs RUN_ID --repo OWNER/REPO [--step NAME]
+```
+
+Key flags: `--repo OWNER/REPO` (required), `--step NAME` (only that step's log; an unknown name lists the steps that have logs). The output format depends on the provider (Azure: `===== STEP =====` headers; GitHub: tab-separated `gh` log lines) — treat it as text.
+
 ---
 
 ## Repository inspection tools
